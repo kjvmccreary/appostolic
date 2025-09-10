@@ -4,7 +4,8 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "dev": "expo start",
+    "dev": "expo start --port 8082",
+    "dev:ios": "expo start --port 8082 --ios",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
@@ -12,20 +13,20 @@
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
-    "expo": "^51.0.0",
-    "expo-status-bar": "~1.12.1",
-    "react": "18.2.0",
-    "react-native": "0.74.5",
-    "react-native-web": "^0.19.12",
-    "@babel/runtime": "^7.25.0",
+    "@appostolic/models": "workspace:*",
     "@appostolic/ui": "workspace:*",
-    "@appostolic/models": "workspace:*"
+    "@babel/runtime": "^7.25.0",
+    "expo": "^54.0.0",
+    "expo-status-bar": "~3.0.7",
+    "react": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-web": "^0.21.1"
   },
   "devDependencies": {
-    "@types/react": "~18.2.79",
+    "@types/react": "~19.1.12",
     "@types/react-native": "^0.73.0",
-    "typescript": "~5.3.3",
+    "babel-preset-expo": "^54.0.0",
     "eslint": "^9.9.0",
-    "babel-preset-expo": "^11.0.6"
+    "typescript": "~5.9.2"
   }
 }

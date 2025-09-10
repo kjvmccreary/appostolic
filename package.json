@@ -3,7 +3,8 @@
   "private": true,
   "packageManager": "pnpm@9.9.0",
   "scripts": {
-    "dev": "concurrently -k -n web,api,mobile -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"pnpm --filter @appostolic/mobile dev\"",
+    "dev": "concurrently --kill-others-on-fail -n web,api -c green,cyan \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\"",
+    "dev:all": "concurrently --kill-others-on-fail -n web,api,info -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"node -e \"console.log('\\n============================================================\\n Mobile is interactive.\\n Open new terminal:\\n   cd apps/mobile && pnpm dev\\n============================================================\\n')\"\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck"
@@ -20,11 +21,5 @@
     "turbo": "^2.1.1",
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.43.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "react": "18.2.0",
-      "react-dom": "18.2.0"
-    }
   }
 }

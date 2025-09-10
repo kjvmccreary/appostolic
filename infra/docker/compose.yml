@@ -1,0 +1,67 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: appostolic-postgres
+    ports:
+      - '55432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: appostolic-redis
+    ports:
+      - '6380:6379'
+
+  minio:
+    image: minio/minio
+    container_name: appostolic-minio
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - '9002:9000'
+      - '9003:9001'
+    volumes:
+      - ./data/minio:/data
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: appostolic-mailhog
+    ports:
+      - '8025:8025'
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: appostolic-qdrant
+    ports:
+      - '6334:6333'
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: appostolic-pgadmin
+    restart: unless-stopped
+    ports:
+      - '8081:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  pgadmin_data:
