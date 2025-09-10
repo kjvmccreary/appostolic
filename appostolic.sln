@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{1787FE1D-075E-9E68-7218-25F1BD1BBEAB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api", "apps\api\Appostolic.Api.csproj", "{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DFFAB466-9588-4392-8EB0-D9FE5D2952B0}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,57 @@
+# Node / JS
+node_modules/
+.pnp.cjs
+.pnp.loader.mjs
+.pnpm-store/
+.next/
+.vercel/
+.turbo/
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env
+.env*
+!.env.example
+
+# Expo / React Native
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# iOS
+ios/Pods/
+**/DerivedData/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# VS Code
+.vscode/
+
+# .NET
+**/bin/
+**/obj/
+.vs/
+
+# Next.js
+.next/
+out/
+
+# Docker
+/infra/docker/data/
+/infra/docker/volumes/
+*.log
+
+# Mac
+.DS_Store

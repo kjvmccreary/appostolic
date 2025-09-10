@@ -1,0 +1,12 @@
+{
+  "name": "@appostolic/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotnet watch run --project ./Appostolic.Api.csproj",
+    "build": "dotnet build ./Appostolic.Api.csproj",
+    "start": "dotnet run --project ./Appostolic.Api.csproj",
+    "lint": "echo 'No lint configured for .NET'",
+    "typecheck": "echo 'No typecheck for .NET'"
+  }
+}

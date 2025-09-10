@@ -1,0 +1,30 @@
+{
+  "name": "appostolic",
+  "private": true,
+  "packageManager": "pnpm@9.9.0",
+  "scripts": {
+    "dev": "concurrently -k -n web,api,mobile -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"pnpm --filter @appostolic/mobile dev\"",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.9.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.0",
+    "turbo": "^2.1.1",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.43.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "18.2.0",
+      "react-dom": "18.2.0"
+    }
+  }
+}

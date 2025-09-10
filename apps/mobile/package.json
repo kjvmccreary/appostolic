@@ -1,0 +1,31 @@
+{
+  "name": "@appostolic/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "expo": "^51.0.0",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-web": "^0.19.12",
+    "@babel/runtime": "^7.25.0",
+    "@appostolic/ui": "workspace:*",
+    "@appostolic/models": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.79",
+    "@types/react-native": "^0.73.0",
+    "typescript": "~5.3.3",
+    "eslint": "^9.9.0",
+    "babel-preset-expo": "^11.0.6"
+  }
+}

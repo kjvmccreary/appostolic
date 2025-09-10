@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@appostolic/ui": ["packages/ui/src"],
+      "@appostolic/ui/*": ["packages/ui/src/*"],
+      "@appostolic/models": ["packages/models/src"],
+      "@appostolic/models/*": ["packages/models/src/*"],
+      "@appostolic/prompts": ["packages/prompts"],
+      "@appostolic/docgen": ["packages/docgen"],
+      "@appostolic/video-scenes": ["packages/video-scenes"]
+    }
+  }
+}
