@@ -12,25 +12,21 @@ Prereqs:
 
 - Docker Desktop
 - .NET 8 SDK
-- Node 20 + PNPM
+- Node 20 + PNPM (recommend nvm; .nvmrc is v20)
 
 Steps:
 
-```
-cp .env.example .env
-make bootstrap
-
-# In separate terminals
-make api    # http://localhost:5198
-make web    # http://localhost:3000
-make mobile # Expo Dev Tools; press 'i' for iOS or scan QR
-```
+1. `cp .env.example .env`
+2. `make bootstrap` # starts Docker, waits for DB, applies migrations, seeds demo data
+3. `make api` # http://localhost:5198
+4. `make web` # http://localhost:3000
+5. `make mobile` # Expo Dev Tools; press 'i' for iOS or scan QR
 
 Troubleshooting:
 
-- Postgres issues: `make nuke && make bootstrap`
-- EF package skew: see `Directory.Packages.props`, then `make clean-dotnet`
-- Expo SDK mismatch: stop Expo and run `cd apps/mobile && pnpm exec expo start -c`
+- DB stuck/unhealthy: `make nuke && make bootstrap`
+- EF version skew: ensure `Directory.Packages.props` exists, run `make clean-dotnet`, then `dotnet restore && dotnet build`
+- Expo Go SDK mismatch: upgrade project to Expo SDK 54 or use iOS simulator
 
 ---
 
