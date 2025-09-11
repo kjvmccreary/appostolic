@@ -35,3 +35,5 @@
 - A09-03.7 — Manual 0.8h vs Actual 0.019h → Saved 0.781h ($56.23)
 
 - A09-03.8 — Manual 1.5h vs Actual 0.030h → Saved 1.470h ($105.84)
+
+- T01 — Manual 0.8h vs Actual 0.02h → Saved 0.78h ($56.16)

@@ -161,14 +161,17 @@ app.MapPost("/lessons", async (HttpContext ctx, AppDbContext db, LessonCreate dt
     return Results.Created($"/lessons/{lesson.Id}", lesson);
 });
 
-// Auto-migrate for Development/Test
+// Auto-migrate for Development/Test (only for relational providers)
 using (var scope = app.Services.CreateScope())
 {
     var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
     if (env.IsDevelopment() || env.IsEnvironment("Test"))
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.Migrate();
+        if (db.Database.IsRelational())
+        {
+            db.Database.Migrate();
+        }
     }
 }
 
@@ -304,3 +307,6 @@ public record Lesson
     public DateTime UpdatedAt { get; init; }
     public DateTime CreatedAt { get; init; }
 }
+
+// Expose Program for WebApplicationFactory in tests
+public partial class Program { }

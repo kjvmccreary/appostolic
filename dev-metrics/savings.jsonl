@@ -1,3 +1,5 @@
+{"task":"T01","phase":"start","ts":"2025-09-11T21:57:31Z"}
+{"task":"T01","manual_hours":0.8,"actual_hours":0.02,"saved_hours":0.78,"rate":72,"savings_usd":56.16,"ts":"2025-09-11T21:57:37Z"}
 {"task":"A09-05.7","phase":"start","ts":"2025-09-11T18:37:48Z"}
 {"task":"A09-05.7","manual_hours":0.6,"actual_hours":0.17,"saved_hours":0.43,"rate":72,"savings_usd":31,"ts":"2025-09-11T18:40:12Z"}
 {"task":"A09-06.0","phase":"start","ts":"2025-09-11T20:15:00Z"}
