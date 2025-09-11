@@ -10,6 +10,7 @@ using Appostolic.Api.Application.Agents.Tools;
 using Appostolic.Api.App.Options;
 using Appostolic.Api.Application.Agents.Runtime;
 using Appostolic.Api.Application.Agents.Model;
+using Appostolic.Api.Application.Agents.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,6 +73,7 @@ builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();
 builder.Services.AddScoped<IAgentOrchestrator, Appostolic.Api.Application.Agents.Runtime.AgentOrchestrator>();
 builder.Services.AddSingleton<IModelAdapter, MockModelAdapter>();
+builder.Services.AddSingleton<IAgentTaskQueue, NullAgentTaskQueue>();
 
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
 // builder.Services.AddScoped<TenantScopeMiddleware>();

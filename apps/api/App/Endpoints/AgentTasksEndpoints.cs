@@ -13,10 +13,13 @@ public static class AgentTasksEndpoints
 {
     public static IEndpointRouteBuilder MapAgentTasksEndpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api").RequireAuthorization();
+        var group = app
+            .MapGroup("/api/agent-tasks")
+            .RequireAuthorization()
+            .WithTags("AgentTasks");
 
-    // POST /api/agent-tasks
-        api.MapPost("/agent-tasks", async (
+        // POST /api/agent-tasks
+        group.MapPost("", async (
             CreateAgentTaskRequest req,
             AppDbContext db,
             IAgentTaskQueue queue,
@@ -69,7 +72,7 @@ public static class AgentTasksEndpoints
         .WithDescription("Validates the agent, persists the task (status=Pending), and enqueues it via IAgentTaskQueue. Requires dev headers in Development.");
 
         // GET /api/agent-tasks/{id}
-        api.MapGet("/agent-tasks/{id:guid}", async (
+        group.MapGet("{id:guid}", async (
             Guid id,
             bool? includeTraces,
             AppDbContext db,
@@ -138,7 +141,7 @@ public static class AgentTasksEndpoints
         .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
         // GET /api/agent-tasks (list, optional filters)
-        api.MapGet("/agent-tasks", async (
+    group.MapGet("", async (
             string? status,
             Guid? agentId,
             int? take,
@@ -184,6 +187,6 @@ public static class AgentTasksEndpoints
         .WithSummary("List agent tasks (paged)")
         .WithDescription("Returns AgentTaskSummary[] ordered by CreatedAt DESC. Optional filters: status, agentId. Supports take/skip paging.");
 
-        return app;
+    return app;
     }
 }
