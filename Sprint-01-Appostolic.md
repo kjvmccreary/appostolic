@@ -43,3 +43,5 @@
 - T05 — Manual 1.4h vs Actual 0.08h → Saved 1.32h ($95.04)
 - T06 — Manual 0.9h vs Actual 0.02h → Saved 0.88h ($63.36)
 - T09 — Manual 0.7h vs Actual 0.10h → Saved 0.60h ($43.20)
+
+- A09-07.1 — Manual 0.9h vs Actual 0.15h → Saved 0.75h ($54)
