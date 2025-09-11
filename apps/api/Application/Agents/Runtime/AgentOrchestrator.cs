@@ -62,7 +62,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             ct.ThrowIfCancellationRequested();
             using var stepScope = _logger.BeginScope(new Dictionary<string, object?>
             {
-                ["step"] = state.StepNumber
+                ["taskId"] = task.Id,
+                ["agentId"] = agent.Id,
+                ["step"] = state.StepNumber,
+                ["tenant"] = tenant,
+                ["user"] = user,
+                ["traceId"] = System.Diagnostics.Activity.Current?.TraceId.ToString()
             });
 
             // Build model prompt context

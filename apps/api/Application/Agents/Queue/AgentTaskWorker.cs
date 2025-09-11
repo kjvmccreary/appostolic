@@ -122,6 +122,14 @@ public sealed class AgentTaskWorker : BackgroundService
                             // Set baggage for downstream spans if any
                             System.Diagnostics.Activity.Current?.AddBaggage("tenant", tenant);
                             System.Diagnostics.Activity.Current?.AddBaggage("user", user);
+                            using var runScope = log.BeginScope(new Dictionary<string, object?>
+                            {
+                                ["taskId"] = taskId,
+                                ["agentId"] = task.AgentId,
+                                ["tenant"] = tenant,
+                                ["user"] = user,
+                                ["traceId"] = System.Diagnostics.Activity.Current?.TraceId.ToString()
+                            });
                             int attempts = 0;
                             while (!stoppingToken.IsCancellationRequested)
                             {

@@ -34,6 +34,13 @@ public static class ToolTelemetry
             _logger = logger;
             _activity = ActivitySource.StartActivity("tool.invoke", ActivityKind.Internal);
             _sw = Stopwatch.StartNew();
+            _scope = _logger.BeginScope(new Dictionary<string, object?>
+            {
+                ["tool"] = _toolName,
+                ["tenant"] = _tenant,
+                ["user"] = _user,
+                ["traceId"] = Activity.Current?.TraceId.ToString()
+            });
         }
 
         public int Complete(bool success)
@@ -57,6 +64,9 @@ public static class ToolTelemetry
             {
                 _activity.Stop();
             }
+            _scope?.Dispose();
         }
+
+        private readonly IDisposable? _scope;
     }
 }
