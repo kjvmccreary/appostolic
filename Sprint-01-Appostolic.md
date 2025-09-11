@@ -12,6 +12,7 @@
 - A09-05.4 — Manual 2.5h vs Actual 0.6h → Saved 1.9h ($137)
 - A09-05.5 — Manual 0.7h vs Actual 0.08h → Saved 0.62h ($45)
 - A09-05.6 — Manual 0.9h vs Actual 0.33h → Saved 0.57h ($41)
+- A09-05.7 — Manual 0.6h vs Actual 0.17h → Saved 0.43h ($31)
 
 ## S1-09 — Agent Runtime v1 / Tools & Orchestration
 
