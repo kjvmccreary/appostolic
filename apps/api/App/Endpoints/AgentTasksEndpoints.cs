@@ -20,6 +20,7 @@ public static class AgentTasksEndpoints
 
         // POST /api/agent-tasks
         group.MapPost("", async (
+            HttpContext ctx,
             CreateAgentTaskRequest req,
             AppDbContext db,
             IAgentTaskQueue queue,
@@ -45,10 +46,16 @@ public static class AgentTasksEndpoints
             }
 
             // Create task
+            // Capture request context (tenant slug + user email) from dev headers for later processing
+            var requestTenant = ctx.Request.Headers["x-tenant"].FirstOrDefault();
+            var requestUser = ctx.Request.Headers["x-dev-user"].FirstOrDefault();
+
             var task = new AgentTask(Guid.NewGuid(), agent.Id, req.Input.RootElement.GetRawText())
             {
                 Status = AgentStatus.Pending,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                RequestTenant = string.IsNullOrWhiteSpace(requestTenant) ? null : requestTenant.Trim(),
+                RequestUser = string.IsNullOrWhiteSpace(requestUser) ? null : requestUser.Trim()
             };
 
             db.Add(task);

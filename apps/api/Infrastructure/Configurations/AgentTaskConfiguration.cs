@@ -20,6 +20,8 @@ public class AgentTaskConfiguration : IEntityTypeConfiguration<AgentTask>
         b.Property(x => x.FinishedAt).HasColumnName("finished_at");
         b.Property(x => x.ResultJson).HasColumnName("result_json").HasColumnType("text");
         b.Property(x => x.ErrorMessage).HasColumnName("error_message").HasColumnType("text");
+  b.Property(x => x.RequestTenant).HasColumnName("request_tenant").HasColumnType("varchar(64)");
+  b.Property(x => x.RequestUser).HasColumnName("request_user").HasColumnType("varchar(200)");
 
         b.HasIndex(x => new { x.AgentId, x.CreatedAt })
           .IsDescending(false, true)
@@ -28,5 +30,9 @@ public class AgentTaskConfiguration : IEntityTypeConfiguration<AgentTask>
         b.HasIndex(x => new { x.Status, x.CreatedAt })
           .IsDescending(false, true)
           .HasDatabaseName("ix_agent_tasks_status_created");
+
+        b.HasIndex(x => new { x.RequestTenant, x.CreatedAt })
+          .IsDescending(false, true)
+          .HasDatabaseName("ix_agent_tasks_tenant_created");
     }
 }

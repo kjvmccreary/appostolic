@@ -25,6 +25,10 @@ public record class AgentTask
     public string? ResultJson { get; set; }
     public string? ErrorMessage { get; set; }
 
+    // Request context (tenant/user) to run the task under the same principal as the request
+    public string? RequestTenant { get; init; }
+    public string? RequestUser { get; init; }
+
     // Minimal navs (optional): can be added later if needed
 
     public AgentTask() { }

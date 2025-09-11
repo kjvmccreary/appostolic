@@ -112,6 +112,14 @@ namespace Appostolic.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("input_json");
 
+                    b.Property<string>("RequestTenant")
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("request_tenant");
+
+                    b.Property<string>("RequestUser")
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("request_user");
+
                     b.Property<string>("ResultJson")
                         .HasColumnType("text")
                         .HasColumnName("result_json");
@@ -130,6 +138,10 @@ namespace Appostolic.Api.Migrations
                     b.HasIndex("AgentId", "CreatedAt")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_agent_tasks_agent_created");
+
+                    b.HasIndex("RequestTenant", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_agent_tasks_tenant_created");
 
                     b.HasIndex("Status", "CreatedAt")
                         .IsDescending(false, true)
