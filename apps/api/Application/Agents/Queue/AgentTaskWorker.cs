@@ -107,36 +107,53 @@ public sealed class AgentTaskWorker : BackgroundService
                         var tenant = task.RequestTenant ?? "dev";
                         var user = task.RequestUser ?? "dev";
 
-                        try
                         {
-                            await orchestrator.RunAsync(agent, task, tenant, user, stoppingToken);
-                            await db.SaveChangesAsync(stoppingToken);
-                        }
-                        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                        {
-                            // On shutdown: mark task as Canceled if still Running
-                            if (task.Status == AgentStatus.Running)
+                            int attempts = 0;
+                            while (!stoppingToken.IsCancellationRequested)
                             {
-                                task.Status = AgentStatus.Canceled;
-                                task.ErrorMessage = "Canceled";
-                                task.FinishedAt = DateTime.UtcNow;
-                                try { await db.SaveChangesAsync(stoppingToken); }
-                                catch (OperationCanceledException)
+                                try
                                 {
-                                    // Final attempt without cancellation to persist terminal state
-                                    try { await db.SaveChangesAsync(CancellationToken.None); } catch { /* swallow */ }
+                                    await orchestrator.RunAsync(agent, task, tenant, user, stoppingToken);
+                                    await db.SaveChangesAsync(stoppingToken);
+                                    break; // success
+                                }
+                                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                                {
+                                    // On shutdown: mark task as Canceled if still Running
+                                    if (task.Status == AgentStatus.Running)
+                                    {
+                                        task.Status = AgentStatus.Canceled;
+                                        task.ErrorMessage = "Canceled";
+                                        task.FinishedAt = DateTime.UtcNow;
+                                        try { await db.SaveChangesAsync(stoppingToken); }
+                                        catch (OperationCanceledException)
+                                        {
+                                            // Final attempt without cancellation to persist terminal state
+                                            try { await db.SaveChangesAsync(CancellationToken.None); } catch { /* swallow */ }
+                                        }
+                                    }
+                                    throw;
+                                }
+                                catch (Exception runEx)
+                                {
+                                    var transient = IsTransient(runEx);
+                                    if (attempts == 0 && transient && !stoppingToken.IsCancellationRequested)
+                                    {
+                                        attempts++;
+                                        log.LogWarning(runEx, "Transient error during orchestrator run (attempt {Attempt}/2). Retrying in 250ms.", attempts);
+                                        try { await Task.Delay(250, stoppingToken); } catch (OperationCanceledException) { /* loop will exit */ }
+                                        continue;
+                                    }
+
+                                    // Fail the task on unhandled or persistent errors
+                                    task.Status = AgentStatus.Failed;
+                                    task.ErrorMessage = Truncate(runEx.Message, 500);
+                                    task.FinishedAt = DateTime.UtcNow;
+                                    await db.SaveChangesAsync(stoppingToken);
+                                    log.LogError(runEx, "AgentTask {TaskId} execution error after {Attempts} attempts.", taskId, attempts + 1);
+                                    break;
                                 }
                             }
-                            throw;
-                        }
-                        catch (Exception runEx)
-                        {
-                            // Fail the task on unhandled errors
-                            task.Status = AgentStatus.Failed;
-                            task.ErrorMessage = Truncate(runEx.Message, 500);
-                            task.FinishedAt = DateTime.UtcNow;
-                            await db.SaveChangesAsync(stoppingToken);
-                            log.LogError(runEx, "AgentTask {TaskId} execution error.", taskId);
                         }
                     }
                 }
@@ -161,4 +178,25 @@ public sealed class AgentTaskWorker : BackgroundService
 
     private static string Truncate(string value, int max)
         => string.IsNullOrEmpty(value) ? value : (value.Length <= max ? value : value.Substring(0, max));
+
+    private static bool IsTransient(Exception ex)
+    {
+        // Treat timeouts and common transient DB keywords as transient.
+        if (ex is TimeoutException) return true;
+
+        if (ex is Microsoft.EntityFrameworkCore.DbUpdateException duex)
+        {
+            var im = duex.InnerException?.Message;
+            if (ContainsTransientKeywords(im)) return true;
+        }
+
+        return ContainsTransientKeywords(ex.Message);
+    }
+
+    private static bool ContainsTransientKeywords(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        var m = s.ToLowerInvariant();
+        return m.Contains("timeout") || m.Contains("deadlock") || m.Contains("temporar") || m.Contains("could not serialize access");
+    }
 }
