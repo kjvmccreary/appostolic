@@ -15,7 +15,7 @@ public static class AgentTasksEndpoints
     {
         var api = app.MapGroup("/api").RequireAuthorization();
 
-        // POST /api/agent-tasks
+    // POST /api/agent-tasks
         api.MapPost("/agent-tasks", async (
             CreateAgentTaskRequest req,
             AppDbContext db,
@@ -67,6 +67,75 @@ public static class AgentTasksEndpoints
         })
         .WithSummary("Create an agent task and enqueue it for processing")
         .WithDescription("Validates the agent, persists the task (status=Pending), and enqueues it via IAgentTaskQueue. Requires dev headers in Development.");
+
+        // GET /api/agent-tasks/{id}
+        api.MapGet("/agent-tasks/{id:guid}", async (
+            Guid id,
+            bool? includeTraces,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var task = await db.Set<AgentTask>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+            if (task is null)
+            {
+                return Results.NotFound();
+            }
+
+            JsonDocument? resultDoc = null;
+            if (!string.IsNullOrWhiteSpace(task.ResultJson))
+            {
+                try { resultDoc = JsonDocument.Parse(task.ResultJson!); } catch { /* ignore parse errors */ }
+            }
+
+            var details = new AgentTaskDetails(
+                task.Id,
+                task.AgentId,
+                task.Status.ToString(),
+                task.CreatedAt,
+                task.StartedAt,
+                task.FinishedAt,
+                resultDoc,
+                task.ErrorMessage
+            );
+
+            if (includeTraces == true)
+            {
+                var traceRows = await db.Set<AgentTrace>().AsNoTracking()
+                    .Where(t => t.TaskId == task.Id)
+                    .OrderBy(t => t.StepNumber)
+                    .ToListAsync(ct);
+
+                var traces = new List<AgentTraceDto>(traceRows.Count);
+                foreach (var tr in traceRows)
+                {
+                    JsonDocument inputDoc;
+                    JsonDocument? outputDoc = null;
+                    try { inputDoc = JsonDocument.Parse(tr.InputJson); }
+                    catch { inputDoc = JsonDocument.Parse("{}\n"); }
+                    try { outputDoc = JsonDocument.Parse(tr.OutputJson); } catch { /* keep null */ }
+
+                    traces.Add(new AgentTraceDto(
+                        tr.Id,
+                        tr.StepNumber,
+                        tr.Kind.ToString(),
+                        tr.Name,
+                        tr.DurationMs,
+                        tr.PromptTokens,
+                        tr.CompletionTokens,
+                        null,
+                        inputDoc,
+                        outputDoc,
+                        tr.CreatedAt
+                    ));
+                }
+
+                return Results.Ok(new { task = details, traces });
+            }
+
+            return Results.Ok(details);
+        })
+        .WithSummary("Get an agent task by id")
+        .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
         return app;
     }
