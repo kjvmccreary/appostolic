@@ -102,6 +102,8 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 modelDuration = (int)(DateTime.UtcNow - modelStart).TotalMilliseconds;
                 activity?.SetTag("duration.ms", modelDuration);
             }
+            // Metrics: tokens per model decision
+            try { Metrics.ModelTokens.Add((long)(decision.PromptTokens + decision.CompletionTokens)); } catch { }
 
             // Branch on decision
             if (decision.Action is FinalAnswer fa)
@@ -110,6 +112,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 task.Status = AgentStatus.Succeeded;
                 task.FinishedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync(ct);
+                Metrics.RecordTaskCompleted(task);
                 _logger.LogInformation("Task succeeded at step {Step}", state.StepNumber);
                 return;
             }
@@ -136,10 +139,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                         toolActivity?.SetTag("error", "Tool name is required");
                     }
                     await _trace.WriteToolStepAsync(task, state.StepNumber, "(missing)", ut.Input, null, success: false, durationMs: 0, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool name is required", ct: ct);
+                    try { Metrics.IncrementToolError("(missing)"); } catch { }
                     task.Status = AgentStatus.Failed;
                     task.ErrorMessage = "Tool name is required";
                     task.FinishedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync(ct);
+                    Metrics.RecordTaskCompleted(task);
                     _logger.LogWarning("Empty tool name at step {Step}", state.StepNumber);
                     return;
                 }
@@ -158,10 +163,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                     }
                     var denyDuration = 0;
                     await _trace.WriteToolStepAsync(task, state.StepNumber, ut.Name, ut.Input, null, success: false, durationMs: denyDuration, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool not allowed", ct: ct);
+                    try { Metrics.IncrementToolError(ut.Name); } catch { }
                     task.Status = AgentStatus.Failed;
                     task.ErrorMessage = $"Tool not allowed: {ut.Name}";
                     task.FinishedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync(ct);
+                    Metrics.RecordTaskCompleted(task);
                     _logger.LogWarning("Denied tool {Tool} at step {Step}", ut.Name, state.StepNumber);
                     return;
                 }
@@ -179,10 +186,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                         toolActivity?.SetTag("error", "Tool not found");
                     }
                     await _trace.WriteToolStepAsync(task, state.StepNumber, ut.Name, ut.Input, null, success: false, durationMs: 0, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool not found", ct: ct);
+                    try { Metrics.IncrementToolError(ut.Name); } catch { }
                     task.Status = AgentStatus.Failed;
                     task.ErrorMessage = $"Tool not found: {ut.Name}";
                     task.FinishedAt = DateTime.UtcNow;
                     await _db.SaveChangesAsync(ct);
+                    Metrics.RecordTaskCompleted(task);
                     _logger.LogWarning("Tool not found {Tool} at step {Step}", ut.Name, state.StepNumber);
                     return;
                 }
@@ -207,6 +216,9 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                     toolActivity?.SetTag("duration.ms", toolDuration);
                 }
                 await _trace.WriteToolStepAsync(task, currentStep + 1, tool.Name, ut.Input, result.Output, result.Success, toolDuration, decision.PromptTokens, decision.CompletionTokens, result.Error, ct);
+                // Metrics: tool duration and errors
+                try { Metrics.RecordToolDuration(tool.Name, toolDuration); } catch { }
+                if (!result.Success) { try { Metrics.IncrementToolError(tool.Name); } catch { } }
 
                 lastToolOutput = result.Output;
 
@@ -227,16 +239,18 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 task.ErrorMessage = "Unknown model action";
                 task.FinishedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync(ct);
+                Metrics.RecordTaskCompleted(task);
                 _logger.LogError("Unknown model action at step {Step}", state.StepNumber);
                 return;
             }
         }
 
         // Step cap reached
-        task.Status = AgentStatus.Failed;
-        task.ErrorMessage = "MaxSteps exceeded";
-        task.FinishedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync(ct);
+    task.Status = AgentStatus.Failed;
+    task.ErrorMessage = "MaxSteps exceeded";
+    task.FinishedAt = DateTime.UtcNow;
+    await _db.SaveChangesAsync(ct);
+    Metrics.RecordTaskCompleted(task);
         _logger.LogWarning("MaxSteps exceeded after step {Step}", state.StepNumber);
     }
 }

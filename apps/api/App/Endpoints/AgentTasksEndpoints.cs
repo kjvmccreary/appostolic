@@ -64,6 +64,9 @@ public static class AgentTasksEndpoints
             // Enqueue for processing
             await queue.EnqueueAsync(task.Id, ct);
 
+            // Metrics: task created
+            Appostolic.Api.Application.Agents.Runtime.Metrics.RecordTaskCreated(task.RequestTenant, task.AgentId);
+
             var summary = new AgentTaskSummary(
                 task.Id,
                 task.AgentId,

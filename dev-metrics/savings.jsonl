@@ -88,3 +88,6 @@
 {"task":"A09-07.3","phase":"start","ts":"<UTC>"}
 {"task":"A09-07.3","phase":"end","ts":"<UTC>"}
 {"task":"A09-07.3","manual_hours":0.8,"actual_hours":0.18,"saved_hours":0.62,"rate":72,"savings_usd":44.64,"ts":"<UTC>"}
+{"task":"A09-07.4","phase":"start","ts":"<UTC>"}
+{"task":"A09-07.4","phase":"end","ts":"<UTC>"}
+{"task":"A09-07.4","manual_hours":1.4,"actual_hours":0.28,"saved_hours":1.12,"rate":72,"savings_usd":80.64,"ts":"<UTC>"}
