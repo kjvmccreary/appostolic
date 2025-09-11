@@ -15,6 +15,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -170,6 +171,33 @@ app.UseAuthorization();
 
 // Use conventional middleware to set tenant and manage transaction
 app.UseMiddleware<TenantScopeMiddleware>();
+
+// Development dev-header correlation: propagate tenant/user via Activity baggage and tags
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
+
+    var devTenant = context.Request.Headers["x-tenant"].FirstOrDefault();
+    var devUser = context.Request.Headers["x-dev-user"].FirstOrDefault();
+
+    if (!string.IsNullOrWhiteSpace(devTenant))
+    {
+        Activity.Current?.AddBaggage("tenant", devTenant);
+        Activity.Current?.SetTag("tenant", devTenant);
+    }
+    if (!string.IsNullOrWhiteSpace(devUser))
+    {
+        Activity.Current?.AddBaggage("user", devUser);
+        Activity.Current?.SetTag("user", devUser);
+    }
+
+    await next();
+});
 
 // Middleware to set tenant from X-Tenant-Id header and set PostgreSQL local setting
 app.Use(async (context, next) =>
