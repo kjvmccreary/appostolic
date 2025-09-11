@@ -73,7 +73,10 @@ builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();
 builder.Services.AddScoped<IAgentOrchestrator, Appostolic.Api.Application.Agents.Runtime.AgentOrchestrator>();
 builder.Services.AddSingleton<IModelAdapter, MockModelAdapter>();
-builder.Services.AddSingleton<IAgentTaskQueue, InMemoryAgentTaskQueue>();
+// Queue: ensure single shared instance for both interface and concrete
+builder.Services.AddSingleton<InMemoryAgentTaskQueue>();
+builder.Services.AddSingleton<IAgentTaskQueue>(sp => sp.GetRequiredService<InMemoryAgentTaskQueue>());
+// Worker
 builder.Services.AddHostedService<Appostolic.Api.Application.Agents.Queue.AgentTaskWorker>();
 
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)

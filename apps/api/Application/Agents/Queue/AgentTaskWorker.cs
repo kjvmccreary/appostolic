@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using Appostolic.Api.Application.Agents.Runtime;
 using Appostolic.Api.Domain.Agents;
 using Microsoft.EntityFrameworkCore;
@@ -8,38 +9,30 @@ namespace Appostolic.Api.Application.Agents.Queue;
 
 public sealed class AgentTaskWorker : BackgroundService
 {
-    private readonly IAgentTaskQueue _queue;
+    private readonly ChannelReader<Guid> _reader;
     private readonly IServiceProvider _services;
     private readonly ILogger<AgentTaskWorker> _logger;
     private long _dequeuedCount;
     private Guid? _inFlightTaskId;
 
-    public AgentTaskWorker(IAgentTaskQueue queue, IServiceProvider services, ILogger<AgentTaskWorker> logger)
+    public AgentTaskWorker(InMemoryAgentTaskQueue queue, IServiceProvider services, ILogger<AgentTaskWorker> logger)
     {
-        _queue = queue;
+        _reader = queue.Reader;
         _services = services;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // We only support the in-memory queue in Development for now.
-        if (_queue is not InMemoryAgentTaskQueue inMemory)
-        {
-            _logger.LogWarning("AgentTaskWorker: Queue implementation is not in-memory; worker idle.");
-            return;
-        }
-
         _logger.LogInformation("AgentTaskWorker started.");
 
-    var reader = inMemory.Reader;
         while (!stoppingToken.IsCancellationRequested)
         {
             Guid taskId;
             try
             {
-        taskId = await reader.ReadAsync(stoppingToken);
-        Interlocked.Increment(ref _dequeuedCount);
+                taskId = await _reader.ReadAsync(stoppingToken);
+                Interlocked.Increment(ref _dequeuedCount);
             }
             catch (OperationCanceledException)
             {
@@ -66,10 +59,23 @@ public sealed class AgentTaskWorker : BackgroundService
                 _inFlightTaskId = taskId;
                 try
                 {
-                    var task = await db.Set<AgentTask>().FirstOrDefaultAsync(t => t.Id == taskId, stoppingToken);
+                    // Load the task with a brief retry to tolerate request tx not yet committed
+                    AgentTask? task = null;
+                    const int maxLoadAttempts = 5;
+                    for (var attempt = 0; attempt < maxLoadAttempts && task is null; attempt++)
+                    {
+                        task = await db.Set<AgentTask>().FirstOrDefaultAsync(t => t.Id == taskId, stoppingToken);
+                        if (task is null)
+                        {
+                            if (attempt < maxLoadAttempts - 1)
+                            {
+                                try { await Task.Delay(50, stoppingToken); } catch (OperationCanceledException) { }
+                            }
+                        }
+                    }
                     if (task is null)
                     {
-                        log.LogWarning("AgentTask {TaskId} not found. Skipping.", taskId);
+                        log.LogWarning("AgentTask {TaskId} not found after retries. Skipping.", taskId);
                         _inFlightTaskId = null;
                         continue;
                     }

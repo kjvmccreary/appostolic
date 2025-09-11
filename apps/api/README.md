@@ -65,7 +65,7 @@ Source references:
 
 ```bash
 curl -s http://localhost:5198/api/me \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq .
+  -H "x-dev-user: kevin@example.com" -H "x-tenant: kevin-personal" | jq .
 ```
 
 Swagger UI note: If you see JSON at `/swagger`, open `/swagger/` (trailing slash).

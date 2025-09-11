@@ -1,22 +1,23 @@
-macdaddy:~/appostolic$ dotnet build
-MSBuild version 17.8.3+195e7f5a3 for .NET
-  Determining projects to restore...
-  All projects are up-to-date for restore.
-  Appostolic.Api -> /Users/kevinmccreary/appostolic/apps/api/bin/Debug/net8.0/Appostolic.Api.dll
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(11,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(18,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(28,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(46,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(44,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(69,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-
-Build FAILED.
-
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(11,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(18,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(28,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(46,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/DbQueryToolTests.cs(44,24): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'DbQueryTool.DbQueryTool(ILogger<DbQueryTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-/Users/kevinmccreary/appostolic/apps/api.tests/FsWriteToolTests.cs(69,28): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'FsWriteTool.FsWriteTool(IOptions<ToolsOptions>, ILogger<FsWriteTool>)' [/Users/kevinmccreary/appostolic/apps/api.tests/Appostolic.Api.Tests.csproj]
-    0 Warning(s)
-    6 Error(s)
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5198/api/me - - -
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__email_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT u.id, u.created_at, u.email
+      FROM app.users AS u
+      WHERE u.email = @__email_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__slug_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT t.id, t.created_at, t.name
+      FROM app.tenants AS t
+      WHERE t.name = @__slug_0
+      LIMIT 1
+info: Appostolic.Api.Infrastructure.Auth.DevHeaderAuthHandler[7]
+      Dev was not authenticated. Failure message: Tenant not found
+info: Microsoft.AspNetCore.Authorization.DefaultAuthorizationService[2]
+      Authorization failed. These requirements were not met:
+      DenyAnonymousAuthorizationRequirement: Requires an authenticated user.
+info: Appostolic.Api.Infrastructure.Auth.DevHeaderAuthHandler[12]
+      AuthenticationScheme: Dev was challenged.
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5198/api/me - 401 0 - 26.2222ms
