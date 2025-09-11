@@ -17,7 +17,25 @@ export default defineConfig({
     },
     css: true,
     coverage: {
-      reporter: ['text', 'html'],
+      provider: 'v8',
+      enabled: true,
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}', 'app/dev/agents/**/*.{ts,tsx}'],
+      exclude: [
+        '**/*.d.ts',
+        'next.config.*',
+        'app/**/page.tsx',
+        'app/**/layout.tsx',
+        'app/api-proxy/**/*.ts',
+        'test/**/*',
+      ],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 50,
+        statements: 60,
+      },
     },
   },
 });

@@ -16,6 +16,7 @@
   <PackageReference Include="Microsoft.EntityFrameworkCore" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+  <PackageReference Include="coverlet.collector" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../api/Appostolic.Api.csproj" />

@@ -61,3 +61,12 @@ dev:
 	# run API + Web concurrently; leave mobile manual (needs interactive Expo)
 	( cd apps/api && ASPNETCORE_URLS=http://localhost:5198 dotnet watch ) & \
 	( cd apps/web && pnpm dev )
+
+test:
+	# Run .NET API tests with coverage (Coverlet) and Web Vitest with coverage
+	dotnet test apps/api.tests/Appostolic.Api.Tests.csproj \
+	  -p:CollectCoverage=true \
+	  -p:CoverletOutputFormat=cobertura \
+	  -p:CoverletOutput=./TestResults/coverage.cobertura.xml \
+	  --logger "trx;LogFileName=TestResults.trx"
+	cd apps/web && pnpm test -- --coverage
