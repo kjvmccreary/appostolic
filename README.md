@@ -67,15 +67,16 @@ It inserts:
 - memberships accordingly
 - one empty lesson for `kevin-personal`
 
-Run (uses the same POSTGRES\_\* env vars as Docker compose):
+Run (uses PG\* env vars):
 
 ```
 # From repo root
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=55432
-export POSTGRES_DB=app
-export POSTGRES_USER=app
-export POSTGRES_PASSWORD=app
+export PGHOST=localhost
+export PGPORT=55432
+export PGDATABASE=appdb
+# PGUSER/PGPASSWORD can be provided here, or read from .env if present
+# export PGUSER=app
+# export PGPASSWORD=app
 
 cd apps/api/tools/seed
 dotnet run

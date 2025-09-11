@@ -1,27 +1,34 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using AppDb = AppDbContext;
 
 // Seed script: idempotent inserts for user/tenants/memberships and one lesson.
 
-var cs = SeedHelpers.BuildConnectionString();
+var cs = SeedHelpers.BuildConnectionStringFromPgEnv();
 
-var options = new DbContextOptionsBuilder<AppDbContext>()
+var options = new DbContextOptionsBuilder<AppDb>()
     .UseNpgsql(cs, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "app"))
     .Options;
 
-using var db = new AppDbContext(options);
+using var db = new AppDb(options);
 
 await db.Database.OpenConnectionAsync();
 Console.WriteLine("Connected to database.");
 
-// Ensure schema exists (in case running against fresh DB without migrations applied)
+// Ensure schema exists
 await db.Database.MigrateAsync();
 
 var email = "kevin@example.com";
-var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
-if (user is null)
+User user;
+Tenant personal;
+Tenant org;
+Membership mPersonal;
+Membership mOrg;
+Lesson? personalLesson = null;
+
+user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email) ?? new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+if (await db.Users.AsNoTracking().AnyAsync(u => u.Id == user.Id) == false)
 {
-    user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
     db.Users.Add(user);
     await db.SaveChangesAsync();
     Console.WriteLine($"Created user: {user.Id} {user.Email}");
@@ -31,14 +38,13 @@ else
     Console.WriteLine($"User exists: {user.Id} {user.Email}");
 }
 
-// Create tenants
+// Tenants
 var personalName = "kevin-personal";
 var orgName = "first-baptist-austin";
 
-var personal = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == personalName);
-if (personal is null)
+personal = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == personalName) ?? new Tenant { Id = Guid.NewGuid(), Name = personalName, CreatedAt = DateTime.UtcNow };
+if (await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == personal.Id) == false)
 {
-    personal = new Tenant { Id = Guid.NewGuid(), Name = personalName, CreatedAt = DateTime.UtcNow };
     db.Tenants.Add(personal);
     await db.SaveChangesAsync();
     Console.WriteLine($"Created tenant(personal/free): {personal.Id} {personal.Name}");
@@ -48,10 +54,9 @@ else
     Console.WriteLine($"Tenant exists: {personal.Id} {personal.Name}");
 }
 
-var org = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == orgName);
-if (org is null)
+org = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == orgName) ?? new Tenant { Id = Guid.NewGuid(), Name = orgName, CreatedAt = DateTime.UtcNow };
+if (await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == org.Id) == false)
 {
-    org = new Tenant { Id = Guid.NewGuid(), Name = orgName, CreatedAt = DateTime.UtcNow };
     db.Tenants.Add(org);
     await db.SaveChangesAsync();
     Console.WriteLine($"Created tenant(org/plan=org): {org.Id} {org.Name}");
@@ -61,90 +66,119 @@ else
     Console.WriteLine($"Tenant exists: {org.Id} {org.Name}");
 }
 
-// Create memberships as Owner for both tenants
-await SeedHelpers.EnsureMembershipAsync(db, personal.Id, user.Id, MembershipRole.Owner, MembershipStatus.Active);
-await SeedHelpers.EnsureMembershipAsync(db, org.Id, user.Id, MembershipRole.Owner, MembershipStatus.Active);
+// Memberships (ensure RLS set per-tenant)
+await db.Database.ExecuteSqlRawAsync("SELECT app.set_tenant({0})", personal.Id);
+mPersonal = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == personal.Id && m.UserId == user.Id) ??
+            new Membership { Id = Guid.NewGuid(), TenantId = personal.Id, UserId = user.Id, Role = MembershipRole.Owner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
+if (await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mPersonal.Id) == false)
+{
+    db.Memberships.Add(mPersonal);
+    await db.SaveChangesAsync();
+    Console.WriteLine($"Created membership(personal): {mPersonal.Id}");
+}
+else
+{
+    Console.WriteLine($"Membership exists(personal): {mPersonal.Id}");
+}
 
-// Create one empty lesson for personal tenant
-await SeedHelpers.EnsureLessonAsync(db, personal.Id, title: "");
+await db.Database.ExecuteSqlRawAsync("SELECT app.set_tenant({0})", org.Id);
+mOrg = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == org.Id && m.UserId == user.Id) ??
+        new Membership { Id = Guid.NewGuid(), TenantId = org.Id, UserId = user.Id, Role = MembershipRole.Owner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
+if (await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mOrg.Id) == false)
+{
+    db.Memberships.Add(mOrg);
+    await db.SaveChangesAsync();
+    Console.WriteLine($"Created membership(org): {mOrg.Id}");
+}
+else
+{
+    Console.WriteLine($"Membership exists(org): {mOrg.Id}");
+}
 
-Console.WriteLine("Seed complete.");
+// One empty lesson for personal
+await db.Database.ExecuteSqlRawAsync("SELECT app.set_tenant({0})", personal.Id);
+personalLesson = await db.Lessons.AsNoTracking().FirstOrDefaultAsync(l => l.TenantId == personal.Id && l.Title == "");
+if (personalLesson is null)
+{
+    personalLesson = new Lesson
+    {
+        Id = Guid.NewGuid(),
+        TenantId = personal.Id,
+        Title = string.Empty,
+        Status = LessonStatus.Draft,
+        Audience = LessonAudience.All,
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow
+    };
+    db.Lessons.Add(personalLesson);
+    await db.SaveChangesAsync();
+    Console.WriteLine($"Created lesson(personal): {personalLesson.Id}");
+}
+else
+{
+    Console.WriteLine($"Lesson exists(personal): {personalLesson.Id}");
+}
+
+// Summary
+Console.WriteLine("\n==== Seed Summary ====");
+Console.WriteLine($"User: {user.Id} -> {user.Email}");
+Console.WriteLine($"Tenant A (personal/free): {personal.Id} -> {personal.Name}");
+Console.WriteLine($"Tenant B (org/org): {org.Id} -> {org.Name}");
+Console.WriteLine($"Membership A: {mPersonal.Id} (tenant={personal.Id}, user={user.Id})");
+Console.WriteLine($"Membership B: {mOrg.Id} (tenant={org.Id}, user={user.Id})");
+Console.WriteLine($"Lesson (personal): {personalLesson?.Id}");
+Console.WriteLine("======================\n");
 
 static class SeedHelpers
 {
-    public static async Task EnsureMembershipAsync(AppDbContext db, Guid tenantId, Guid userId, MembershipRole role, MembershipStatus status)
+    public static string BuildConnectionStringFromPgEnv()
     {
-        // Ensure RLS context for membership operations
-        await db.Database.ExecuteSqlRawAsync("SELECT app.set_tenant({0})", tenantId);
+        // Optionally read .env for PG* defaults
+        var dotenv = LoadDotEnv();
 
-        var existing = await db.Memberships.AsNoTracking()
-            .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
-        if (existing is not null)
-        {
-            Console.WriteLine($"Membership exists: tenant={tenantId} user={userId} role={existing.Role} status={existing.Status}");
-            return;
-        }
-
-        var m = new Membership
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            UserId = userId,
-            Role = role,
-            Status = status,
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Memberships.Add(m);
-        await db.SaveChangesAsync();
-        Console.WriteLine($"Created membership: {m.Id} tenant={m.TenantId} user={m.UserId} role={m.Role} status={m.Status}");
-    }
-
-    public static async Task EnsureLessonAsync(AppDbContext db, Guid tenantId, string title)
-    {
-        // Set app.tenant_id so RLS allows insert/select
-        await db.Database.ExecuteSqlRawAsync("SELECT app.set_tenant({0})", tenantId);
-
-        var exists = await db.Lessons.AsNoTracking().AnyAsync(l => l.TenantId == tenantId && l.Title == title);
-        if (exists)
-        {
-            Console.WriteLine($"Lesson exists for tenant={tenantId} title='{title}'");
-            return;
-        }
-
-        var lesson = new Lesson
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Title = title,
-            Status = LessonStatus.Draft,
-            Audience = LessonAudience.All,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        db.Lessons.Add(lesson);
-        await db.SaveChangesAsync();
-        Console.WriteLine($"Created lesson: {lesson.Id} tenant={lesson.TenantId} title='{lesson.Title}'");
-    }
-
-    public static string BuildConnectionString()
-    {
-        string host = EnvOr("POSTGRES_HOST", "localhost");
-        int port = int.Parse(EnvOr("POSTGRES_PORT", "55432"));
-        string database = EnvOr("POSTGRES_DB", "app");
-        string username = EnvOr("POSTGRES_USER", "app");
-        string password = EnvOr("POSTGRES_PASSWORD", "app");
+        string host = EnvOr("PGHOST", "localhost");
+        string port = EnvOr("PGPORT", "55432");
+        string db = EnvOr("PGDATABASE", "appdb");
+        string user = EnvOr("PGUSER", dotenv.TryGetValue("PGUSER", out var u) ? u : "");
+        string pass = EnvOr("PGPASSWORD", dotenv.TryGetValue("PGPASSWORD", out var p) ? p : "");
 
         var builder = new NpgsqlConnectionStringBuilder
         {
             Host = host,
-            Port = port,
-            Database = database,
-            Username = username,
-            Password = password,
+            Port = int.TryParse(port, out var prt) ? prt : 55432,
+            Database = db,
+            Username = user,
+            Password = pass,
             SslMode = SslMode.Disable
         };
         return builder.ConnectionString;
     }
 
     private static string EnvOr(string key, string fallback) => Environment.GetEnvironmentVariable(key) ?? fallback;
+
+    private static Dictionary<string, string> LoadDotEnv()
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in new[] { ".env", "../.env", "../../.env", "../../../.env", "../../../../.env" })
+        {
+            try
+            {
+                if (!File.Exists(path)) continue;
+                foreach (var line in File.ReadAllLines(path))
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
+                    var idx = trimmed.IndexOf('=');
+                    if (idx <= 0) continue;
+                    var key = trimmed.Substring(0, idx).Trim();
+                    var val = trimmed.Substring(idx + 1).Trim();
+                    dict[key] = val;
+                }
+                // stop at first found
+                break;
+            }
+            catch { /* ignore */ }
+        }
+        return dict;
+    }
 }
