@@ -103,6 +103,40 @@ curl -s http://localhost:5198/api/dev/agents/demo \
   -d '{ "topic": "Intro to EF Core" }' | jq '.task.status, .traces | length'
 ```
 
+## Agent Tasks API (S1-09)
+
+Use these endpoints to create tasks for a deterministic agent and optionally fetch traces.
+
+Important:
+
+- Include dev headers on all `/api/*` calls: `x-dev-user` and `x-tenant`.
+- Swagger UI at http://localhost:5198/swagger/ (note trailing slash).
+- For now, tasks will be created with `Pending` status; A09-05 will connect a queue worker to execute tasks.
+
+Concrete IDs:
+
+- ResearchAgent (deterministic): `11111111-1111-1111-1111-111111111111`
+
+Examples:
+
+```bash
+# Create
+curl -s http://localhost:5198/api/agent-tasks \
+  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" \
+  -H "Content-Type: application/json" \
+  -d '{ "agentId":"11111111-1111-1111-1111-111111111111", "input": { "topic": "Beatitudes" } }' | jq .
+
+# Get w/ traces
+curl -s "http://localhost:5198/api/agent-tasks/<TASK_ID>?includeTraces=true" \
+  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" | jq .
+
+# List (may be empty if none Running yet)
+curl -s "http://localhost:5198/api/agent-tasks?status=Running&take=10&skip=0" \
+  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" | jq .
+```
+
+Tip: In VS Code’s Run and Debug panel, use the task "Dev: web+api+mobile" to start the API (and web/mobile) with `pnpm dev`. Or use `make api` to run just the API at http://localhost:5198.
+
 ## Agent Orchestrator & Traces
 
 High-level execution sequence (one iteration):
