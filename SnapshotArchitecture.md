@@ -1,0 +1,288 @@
+# Appostolic — Architecture Snapshot (2025-09-11)
+
+This document captures the current structure, tech stack, and runtime expectations of the Appostolic monorepo so you can paste it into ChatGPT and get precise guidance and prompts for ongoing work.
+
+## Monorepo overview
+
+- Package manager: PNPM workspaces + Turborepo
+- Languages: TypeScript/Node (web/mobile/packages), C# .NET 8 (API)
+- Root files: `appostolic.sln`, `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `Makefile`
+- Top-level folders:
+  - `apps/`
+    - `api/` — .NET 8 Minimal API + EF Core 8
+    - `web/` — Next.js 14
+    - `mobile/` — React Native/Expo
+    - `render-worker/` — Node worker (TS)
+  - `packages/` — shared packages: `sdk/`, `models/`, `ui/`, `docgen/`, `prompts/`, `video-scenes/`
+  - `infra/` — Docker Compose stack, devcontainer, init SQL
+  - `scripts/` — helper scripts (e.g., dev doctor)
+
+### Full folder tree (abridged but comprehensive)
+
+```
+appostolic/
+├─ appostolic.sln
+├─ package.json
+├─ pnpm-workspace.yaml
+├─ turbo.json
+├─ tsconfig.base.json
+├─ Makefile
+├─ README.md
+├─ RUNBOOK.md
+├─ SnapshotArchitecture.md
+├─ apps/
+│  ├─ api/
+│  │  ├─ Appostolic.Api.csproj
+│  │  ├─ Program.cs
+│  │  ├─ App/
+│  │  │  ├─ Endpoints/
+│  │  │  │  └─ V1.cs
+│  │  │  └─ Infrastructure/
+│  │  │     └─ ...
+│  │  ├─ Application/
+│  │  │  ├─ Agents/
+│  │  │  │  └─ AgentRegistry.cs
+│  │  │  └─ Validation/
+│  │  │     └─ Guard.cs
+│  │  ├─ Domain/
+│  │  │  └─ Agents/
+│  │  │     ├─ Agent.cs
+│  │  │     ├─ AgentTask.cs
+│  │  │     ├─ AgentTrace.cs
+│  │  │     ├─ AgentStatus.cs
+│  │  │     └─ TraceKind.cs
+│  │  ├─ Infrastructure/
+│  │  │  ├─ AppDbContext.cs
+│  │  │  └─ Configurations/
+│  │  │     └─ *.cs
+│  │  ├─ Migrations/
+│  │  │  └─ *.cs
+│  │  └─ Properties/launchSettings.json
+│  ├─ web/
+│  │  ├─ next.config.mjs
+│  │  ├─ package.json
+│  │  └─ app/
+│  │     ├─ layout.tsx
+│  │     ├─ page.tsx
+│  │     └─ dev/page.tsx
+│  ├─ mobile/
+│  │  ├─ app.json
+│  │  ├─ package.json
+│  │  └─ src/App.tsx
+│  └─ render-worker/
+│     └─ src/index.ts
+├─ packages/
+│  ├─ sdk/
+│  │  ├─ package.json
+│  │  ├─ tsconfig.json
+│  │  └─ src/index.ts
+│  ├─ models/
+│  │  └─ src/*.ts
+│  ├─ prompts/
+│  ├─ ui/
+│  └─ video-scenes/
+├─ infra/
+│  ├─ devcontainer/
+│  │  └─ devcontainer.json
+│  └─ docker/
+│     ├─ compose.yml
+│     ├─ docker-compose.yml
+│     ├─ Dockerfile.api
+│     ├─ Dockerfile.web
+│     ├─ .env
+│     ├─ initdb/
+│     │  └─ init.sql
+│     └─ data/
+│        ├─ postgres/
+│        ├─ minio/
+│        └─ qdrant/
+└─ scripts/
+  └─ dev-doctor.sh
+```
+
+## Tech stack (high level)
+
+- Backend: .NET 8, Minimal API, EF Core 8 (Npgsql provider, PostgreSQL)
+- Frontend: Next.js 14 (app router), TypeScript, React 18
+- Mobile: Expo/React Native (TypeScript)
+- Infra: Docker Compose for Postgres, Redis, MinIO, Qdrant, pgAdmin, Mailhog (dev)
+- Docs/SDK: Swashbuckle for OpenAPI; custom TypeScript SDK package
+
+## Running locally (dev)
+
+- Monorepo dev: `pnpm dev` (spawns web/api/mobile if configured)
+- API only: `dotnet run --project apps/api/Appostolic.Api.csproj`
+- Swagger UI: http://localhost:5198/swagger/ (trailing slash)
+- Health: `GET /health`, `GET /healthz`
+
+Important URLs:
+
+- API base: http://localhost:5198
+- Swagger UI: http://localhost:5198/swagger/
+- Swagger JSON: http://localhost:5198/swagger/v1/swagger.json
+- Postgres: localhost:55432 (container `postgres`)
+- Redis: localhost:6380
+- MinIO API/Console: http://localhost:9002 / http://localhost:9003
+- Mailhog UI: http://localhost:8025
+- Qdrant UI/API: http://localhost:6334
+- pgAdmin: http://localhost:8081
+
+Makefile highlights:
+
+- `make migrate` — apply EF migrations
+- `make sdk` — regenerate OpenAPI/SDK
+- `make down` — stop local Docker stack
+- `make up` — start infra Docker stack
+- `make bootstrap` — nuke volumes, bring up infra, wait for Postgres, migrate, and seed
+- `make api` — run API with dotnet watch at http://localhost:5198
+- `make web` — run Next.js dev server
+- `make mobile` — run Expo dev server (port 8082)
+- `make sdk` — build API and generate OpenAPI/SDK
+- `make doctor` — run dev-doctor script
+
+## API service (`apps/api`)
+
+### Composition
+
+- Entrypoint: `apps/api/Program.cs`
+- EF Core DbContext: partial `AppDbContext` in `Program.cs` + additional partials under `Infrastructure/`
+- Swagger registration:
+  - Services: `AddEndpointsApiExplorer()`, `AddSwaggerGen(...)`
+  - Middleware: `UseSwagger()`, `UseSwaggerUI(...)` with `RoutePrefix = "swagger"` and `SwaggerEndpoint("/swagger/v1/swagger.json", ...)`
+  - Redirect: `/swagger` → `/swagger/index.html`
+
+### Auth (dev)
+
+- `DevHeaderAuthHandler` reads headers:
+  - `x-dev-user` — user email
+  - `x-tenant` — tenant slug
+- Emits claims: `sub`, `email`, `tenant_id`, `tenant_slug`
+- All `/api/*` endpoints require authorization (dev headers expected)
+
+### Tenant scoping
+
+- `TenantScopeMiddleware` (conventional middleware):
+  - Skips `/health*` and `/swagger*`
+  - If authenticated and `tenant_id` exists, begins a DB transaction and sets PostgreSQL GUC `app.tenant_id` via `set_config(...)` for tenant RLS
+- Additional header-based sample (`X-Tenant-Id`) in `Program.cs` for legacy demo endpoints (`/lessons`)
+
+### Endpoints
+
+- Grouped in `apps/api/App/Endpoints/V1.cs` under `/api`:
+  - `GET /api/me` — returns user/tenant claims
+  - `GET /api/tenants` — current tenant summary
+  - `GET /api/lessons?take=&skip=` — paginated list
+  - `POST /api/lessons` — create lesson (uses current tenant)
+- Non-grouped sample endpoints (dev/testing) in `Program.cs`:
+  - `/` — service info
+  - `/health`, `/healthz`
+  - `/lessons` (GET/POST) — uses `X-Tenant-Id` GUID header
+
+### Swagger/OpenAPI
+
+- Swagger JSON: `GET /swagger/v1/swagger.json`
+- Swagger UI: `GET /swagger/`
+- Security scheme: API key ("DevHeaders") — uses `x-dev-user` (with `x-tenant` also expected by auth handler)
+
+## Database and EF Core
+
+- Provider: Npgsql (PostgreSQL 16 in dev)
+- Default schema: `app`
+- Migrations: `apps/api/Migrations/` (includes `20250911124311_s1_09_agent_runtime` and others)
+- Auto-migration in Development/Test: `Database.Migrate()` at startup
+- RLS strategy: set `app.tenant_id` via middleware; DB-side policies/init in `infra/initdb` and EF migrations
+
+## Agent Runtime (v1)
+
+Domain types (`apps/api/Domain/Agents/`):
+
+- `Agent` — fields: Id, Name (<=120), SystemPrompt (text), ToolAllowlist (string[]/jsonb), Model (<=80), Temperature [0..2], MaxSteps [1..50], CreatedAt/UpdatedAt
+- `AgentTask` — Id, AgentId (required), InputJson (required), Status, timestamps, optional ResultJson/ErrorMessage
+- `AgentTrace` — Id, TaskId (required), StepNumber >= 1, Kind, Name (<=120), InputJson/OutputJson (required), DurationMs/PromptTokens/CompletionTokens (>= 0), CreatedAt
+- Enums: `AgentStatus`, `TraceKind`
+
+Validation utilities (`apps/api/Application/Validation/Guard.cs`):
+
+- `NotNull`, `NotNullOrWhiteSpace`, `InRange`, `MaxLength` — used in constructors to enforce invariants with clear param names
+
+EF Core configuration (`apps/api/Infrastructure/Configurations/*`):
+
+- Tables under schema `app`, PostgreSQL-specific mappings (jsonb, text), check constraints, default timestamps, and indexes
+- `AppDbContext` applies them via `ApplyConfigurationsFromAssembly(...)`
+
+Registry (`apps/api/Application/Agents/AgentRegistry.cs`):
+
+- Read-only in-memory list of two deterministic agents (v1), exposed for quick list/lookup
+
+## Web app (`apps/web`)
+
+- Next.js 14 (App Router)
+- `/dev` page calls API with dev headers and renders `/api/me` and `/api/tenants`
+- Depends on `@appostolic/sdk`; transpiled via Next config
+
+## SDK and OpenAPI (`packages/sdk`)
+
+- TS SDK scaffolding under `packages/sdk`
+- OpenAPI generated from compiled API via Swashbuckle CLI (output at `packages/sdk/openapi.json`)
+- SDK currently provides minimal fetch helpers/types; can be expanded via codegen
+
+## Infra (`infra/`)
+
+- Docker Compose services: Postgres, Redis, MinIO, Qdrant, Mailhog, pgAdmin
+- Init SQL: `infra/initdb/init.sql` sets extensions, schemas, GUC helpers
+- Devcontainer configuration available
+
+### Dev credentials (local only)
+
+From `infra/docker/.env` (for local development):
+
+- Postgres:
+  - Host: `localhost`
+  - Port: `55432`
+  - Database: `appdb`
+  - User: `appuser`
+  - Password: `apppassword`
+- Redis:
+  - Host: `localhost`
+  - Port: `6380`
+- MinIO:
+  - Root User: `minio`
+  - Root Password: `minio123`
+  - API: `http://localhost:9002`
+  - Console: `http://localhost:9003`
+- Mailhog:
+  - UI: `http://localhost:8025`
+  - SMTP: `1025`
+- Qdrant:
+  - Host: `localhost`
+  - Port: `6334`
+- pgAdmin:
+  - UI: `http://localhost:8081`
+  - Email: `admin@example.com`
+  - Password: `admin123`
+
+Dev auth for API testing:
+
+- Send headers on `/api/*` requests:
+  - `x-dev-user: dev@example.com`
+  - `x-tenant: acme`
+
+## Troubleshooting
+
+- Swagger shows JSON instead of UI: use `/swagger/` or rely on `/swagger` redirect; ensure `UseSwaggerUI` configured and only registered once
+- 401 on `/api/*`: send `x-dev-user` and `x-tenant` headers
+- Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
+- Postgres connection errors: ensure Docker is up and port `55432` matches env
+
+## Prompt starters (copy into ChatGPT)
+
+- “Add read-only endpoints under `/api/agents` to list and fetch agents from `Application/Agents/AgentRegistry`. Update `App/Endpoints/V1.cs`, secure with dev auth, document in Swagger, and add a section on the web `/dev` page to render them.”
+- “Extend EF configurations for Agent runtime with additional indexes and constraints [describe]. Create and apply a migration and confirm defaults in PostgreSQL.”
+- “Regenerate OpenAPI and update the TypeScript SDK to include new endpoints. Update `apps/web` to call them via the SDK.”
+- “Implement CRUD for AgentTask: create task, get by id, list by agent with pagination, record traces.”
+- “Harden `TenantScopeMiddleware`: ensure GUC set/reset semantics, add diagnostics, and handle exceptions explicitly.”
+- “Add integration tests for `/api/lessons` using dev auth and a test Postgres; include test harness and migrations in CI.”
+
+---
+
+Paste the above into ChatGPT when asking for changes so it can reference exact file paths, endpoints, and conventions used here.
