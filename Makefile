@@ -8,7 +8,7 @@ up:
 	docker compose -f infra/docker/compose.yml up -d
 	@echo "\n🚀 Infra is up!"
 	@echo "Postgres → host=localhost port=$(POSTGRES_PORT) user=$(POSTGRES_USER) password=$(POSTGRES_PASSWORD) db=$(POSTGRES_DB)"
-	@echo "pgAdmin  → http://localhost:8081 (login: $(PGADMIN_EMAIL) / $(PGADMIN_PASSWORD))"
+	@echo "pgAdmin  → http://localhost:8081 (login: $${PGADMIN_DEFAULT_EMAIL} / $${PGADMIN_DEFAULT_PASSWORD})"
 	@echo "Mailhog  → http://localhost:8025"
 	@echo "MinIO    → http://localhost:9003 (user: $(MINIO_ROOT_USER), pass: $(MINIO_ROOT_PASSWORD))"
 
