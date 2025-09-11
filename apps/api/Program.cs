@@ -122,6 +122,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 app.MapV1Endpoints();
 app.MapDevToolsEndpoints();
 app.MapDevAgentsDemoEndpoints();
+app.MapAgentTasksEndpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
 {
