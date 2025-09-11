@@ -29,6 +29,12 @@ public record class AgentTask
     public string? RequestTenant { get; init; }
     public string? RequestUser { get; init; }
 
+    // Roll-up telemetry
+    public int TotalPromptTokens { get; set; }
+    public int TotalCompletionTokens { get; set; }
+    public int TotalTokens => Math.Max(0, TotalPromptTokens) + Math.Max(0, TotalCompletionTokens);
+    public decimal? EstimatedCostUsd { get; set; }
+
     // Minimal navs (optional): can be added later if needed
 
     public AgentTask() { }

@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Appostolic.Api.Domain.Agents;
 using Appostolic.Api.Application.Agents.Model;
 using Appostolic.Api.Application.Agents.Tools;
+using Microsoft.Extensions.Options;
+using Appostolic.Api.App.Options;
 
 namespace Appostolic.Api.Application.Agents.Runtime;
 
@@ -19,14 +21,16 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     private readonly ToolRegistry _tools;
     private readonly ITraceWriter _trace;
     private readonly ILogger<AgentOrchestrator> _logger;
+    private readonly IOptions<ModelPricingOptions> _pricing;
 
-    public AgentOrchestrator(AppDbContext db, IModelAdapter model, ToolRegistry tools, ITraceWriter trace, ILogger<AgentOrchestrator> logger)
+    public AgentOrchestrator(AppDbContext db, IModelAdapter model, ToolRegistry tools, ITraceWriter trace, ILogger<AgentOrchestrator> logger, IOptions<ModelPricingOptions> pricing)
     {
         _db = db;
         _model = model;
         _tools = tools;
         _trace = trace;
         _logger = logger;
+        _pricing = pricing;
     }
 
     public async Task RunAsync(Agent agent, AgentTask task, string tenant, string user, CancellationToken ct)
@@ -82,7 +86,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             }
             var contextJson = JsonSerializer.SerializeToUtf8Bytes(ctxObj, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             using var contextDoc = JsonDocument.Parse(contextJson);
-            var prompt = new ModelPrompt(agent.SystemPrompt, contextDoc);
+            var prompt = new ModelPrompt(agent.SystemPrompt ?? string.Empty, contextDoc);
 
             // Model decision with span
             int modelDuration;
@@ -102,8 +106,45 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 modelDuration = (int)(DateTime.UtcNow - modelStart).TotalMilliseconds;
                 activity?.SetTag("duration.ms", modelDuration);
             }
+
+            // Maintain per-task token totals with fallback estimation when adapters return 0
+            var addedPrompt = Math.Max(0, decision.PromptTokens);
+            var addedCompletion = Math.Max(0, decision.CompletionTokens);
+            if (addedPrompt == 0)
+            {
+                try
+                {
+                    var inputText = (agent.SystemPrompt ?? string.Empty) + "\n" + (prompt.Context?.RootElement.GetRawText() ?? string.Empty);
+                    addedPrompt = TokenEstimator.EstimateTokens(inputText, agent.Model);
+                }
+                catch { /* best-effort */ }
+            }
+            if (addedCompletion == 0)
+            {
+                try
+                {
+                    var decisionText = decision.Rationale ?? decision.Action.GetType().Name;
+                    addedCompletion = TokenEstimator.EstimateTokens(decisionText, agent.Model);
+                }
+                catch { /* best-effort */ }
+            }
+            task.TotalPromptTokens += addedPrompt;
+            task.TotalCompletionTokens += addedCompletion;
+
+            // Optional cumulative cost if pricing is enabled and model entry exists
+            try
+            {
+                var opts = _pricing?.Value;
+                if (opts != null && opts.Enabled && opts.Models != null && opts.Models.TryGetValue(agent.Model, out var price))
+                {
+                    var inputCost = (addedPrompt / 1000m) * price.InputPer1K;
+                    var outputCost = (addedCompletion / 1000m) * price.OutputPer1K;
+                    task.EstimatedCostUsd = (task.EstimatedCostUsd ?? 0m) + inputCost + outputCost;
+                }
+            }
+            catch { /* ignore pricing errors */ }
             // Metrics: tokens per model decision
-            try { Metrics.ModelTokens.Add((long)(decision.PromptTokens + decision.CompletionTokens)); } catch { }
+            try { Metrics.RecordModelTokens(agent.Id, agent.Model, Math.Max(0, decision.PromptTokens + decision.CompletionTokens)); } catch { }
 
             // Branch on decision
             if (decision.Action is FinalAnswer fa)

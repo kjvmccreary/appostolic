@@ -210,6 +210,43 @@ Notes:
 
 ---
 
+## Telemetry (Dev)
+
+What’s enabled in Development
+
+- OpenTelemetry traces and metrics with the Console exporter.
+
+How to run
+
+- Start the API: `make api` (http://localhost:5198)
+- Trigger an agent run from the Web Run panel or via cURL (see Agent Tasks examples below).
+- Watch the API console for emitted spans and periodic metric summaries.
+
+Enable OTLP export (optional)
+
+- Set an endpoint to send telemetry to an OTLP collector, for example:
+  - `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`
+
+Key spans
+
+- `agent.run`
+- `agent.model`
+- `tool.*`
+
+Key metrics
+
+- `TasksCreated`
+- `TasksCompleted{status}`
+- `TaskDurationMs`
+- `ModelTokens`
+- `ToolDurationMs{tool}`
+- `ToolErrors{tool}`
+
+Correlation notes
+
+- Logs include the `traceId` for request/run correlation.
+- Spans include tenant and user attributes (from dev headers) for multi-tenant observability.
+
 ## Worker Execution (S1-09)
 
 In Development, task processing uses an in-memory queue and a background worker:

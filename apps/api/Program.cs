@@ -73,6 +73,7 @@ builder.Services.AddSingleton<ToolRegistry>();
 
 // Options
 builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools"));
+builder.Services.Configure<ModelPricingOptions>(builder.Configuration.GetSection("ModelPricing"));
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

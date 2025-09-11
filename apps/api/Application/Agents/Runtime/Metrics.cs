@@ -33,6 +33,16 @@ public static class Metrics
         description: "Total tokens used by model decisions (prompt + completion)."
     );
 
+    public static void RecordModelTokens(Guid agentId, string model, int tokens)
+    {
+        var tags = new TagList
+        {
+            { "agentId", agentId },
+            { "model", model }
+        };
+        ModelTokens.Add(tokens, tags);
+    }
+
     // Tool usage
     public static readonly Histogram<long> ToolDurationMs = Meter.CreateHistogram<long>(
         name: "agent.tool.duration",

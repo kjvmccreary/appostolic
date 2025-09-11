@@ -124,6 +124,18 @@ namespace Appostolic.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("result_json");
 
+                    b.Property<decimal?>("EstimatedCostUsd")
+                        .HasColumnType("numeric(12,4)")
+                        .HasColumnName("estimated_cost_usd");
+
+                    b.Property<int>("TotalCompletionTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_completion_tokens");
+
+                    b.Property<int>("TotalPromptTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_prompt_tokens");
+
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");

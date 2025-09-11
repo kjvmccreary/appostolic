@@ -23,6 +23,11 @@ public class AgentTaskConfiguration : IEntityTypeConfiguration<AgentTask>
   b.Property(x => x.RequestTenant).HasColumnName("request_tenant").HasColumnType("varchar(64)");
   b.Property(x => x.RequestUser).HasColumnName("request_user").HasColumnType("varchar(200)");
 
+  // Roll-up telemetry mapping
+  b.Property(x => x.TotalPromptTokens).HasColumnName("total_prompt_tokens").HasColumnType("integer");
+  b.Property(x => x.TotalCompletionTokens).HasColumnName("total_completion_tokens").HasColumnType("integer");
+  b.Property(x => x.EstimatedCostUsd).HasColumnName("estimated_cost_usd").HasColumnType("numeric(12,4)");
+
         b.HasIndex(x => new { x.AgentId, x.CreatedAt })
           .IsDescending(false, true)
           .HasDatabaseName("ix_agent_tasks_agent_created");
