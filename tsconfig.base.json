@@ -18,7 +18,9 @@
       "@appostolic/models/*": ["packages/models/src/*"],
       "@appostolic/prompts": ["packages/prompts"],
       "@appostolic/docgen": ["packages/docgen"],
-      "@appostolic/video-scenes": ["packages/video-scenes"]
+      "@appostolic/video-scenes": ["packages/video-scenes"],
+      "@appostolic/sdk": ["packages/sdk/src"],
+      "@appostolic/sdk/*": ["packages/sdk/src/*"]
     }
   }
 }

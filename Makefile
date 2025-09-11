@@ -49,3 +49,12 @@ mobile-ios:
 clean-dotnet:
 	find . -name bin -o -name obj -type d -prune -exec rm -rf {} +
 	dotnet nuget locals all --clear
+
+sdk:
+	dotnet build apps/api/Appostolic.Api.csproj
+	pnpm run sdk:gen
+
+dev:
+	# run API + Web concurrently; leave mobile manual (needs interactive Expo)
+	( cd apps/api && ASPNETCORE_URLS=http://localhost:5198 dotnet watch ) & \
+	( cd apps/web && pnpm dev )

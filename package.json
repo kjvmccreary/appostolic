@@ -7,7 +7,9 @@
     "dev:all": "concurrently --kill-others-on-fail -n web,api,info -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"node -e \"console.log('\\n============================================================\\n Mobile is interactive.\\n Open new terminal:\\n   cd apps/mobile && pnpm dev\\n============================================================\\n')\"\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "sdk:openapi": "pnpm -C apps/api build && dotnet swagger tofile --output packages/sdk/openapi.json apps/api/bin/Debug/net8.0/Appostolic.Api.dll v1",
+    "sdk:gen": "pnpm --filter @appostolic/sdk run clean && pnpm run sdk:openapi && pnpm --filter @appostolic/sdk run gen && pnpm --filter @appostolic/sdk run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",

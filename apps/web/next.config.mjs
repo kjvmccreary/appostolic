@@ -2,13 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    instrumentationHook: false
+    instrumentationHook: false,
   },
   transpilePackages: [
     '@appostolic/ui',
     '@appostolic/models',
+    '@appostolic/sdk',
     'react-native',
-    'react-native-web'
+    'react-native-web',
   ],
   webpack: (config) => {
     config.resolve.alias = {
@@ -16,7 +17,7 @@ const nextConfig = {
       'react-native$': 'react-native-web',
     };
     return config;
-  }
+  },
 };
 
 export default nextConfig;

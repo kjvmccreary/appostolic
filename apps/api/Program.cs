@@ -1,5 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Appostolic.Api.Infrastructure.Auth;
+using Appostolic.Api.Infrastructure.MultiTenancy;
+using Appostolic.Api.App.Endpoints;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +19,56 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(cs, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema: "app"));
 });
 
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Appostolic API", Version = "v1" });
+
+    // Dev headers as API key security scheme
+    c.AddSecurityDefinition("DevHeaders", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Name = "x-dev-user",
+        Type = SecuritySchemeType.ApiKey,
+        Description = "Provide dev user email in x-dev-user and tenant slug in x-tenant"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "DevHeaders"
+                }
+            },
+            new List<string>()
+        }
+    });
+});
+
+// AuthN/Z
+builder.Services
+    .AddAuthentication(DevHeaderAuthHandler.DevScheme)
+    .AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
+builder.Services.AddAuthorization();
+
+// Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
+// builder.Services.AddScoped<TenantScopeMiddleware>();
+
 var app = builder.Build();
+
+// Swagger middleware
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Use conventional middleware to set tenant and manage transaction
+app.UseMiddleware<TenantScopeMiddleware>();
 
 // Middleware to set tenant from X-Tenant-Id header and set PostgreSQL local setting
 app.Use(async (context, next) =>
@@ -35,6 +90,9 @@ app.Use(async (context, next) =>
 app.MapGet("/", () => Results.Ok(new { name = "appostolic-api", version = "0.0.0" }));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+
+// v1 API
+app.MapV1Endpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
 {
@@ -154,8 +212,8 @@ public class AppDbContext : DbContext
             b.Property(x => x.Title).HasColumnName("title");
             b.Property(x => x.Status).HasColumnName("status");
             b.Property(x => x.Audience).HasColumnName("audience");
-            b.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
-            b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => new { x.TenantId, x.Status });
         });
     }
