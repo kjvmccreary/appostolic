@@ -9,7 +9,7 @@ This document captures the current structure, tech stack, and runtime expectatio
 - Root files: `appostolic.sln`, `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `Makefile`
 - Top-level folders:
   - `apps/`
-    - `api/` — .NET 8 Minimal API + EF Core 8
+  - `api/` — .NET 8 Minimal API + EF Core 8, dev-only endpoints for tools and agent demo
     - `web/` — Next.js 14
     - `mobile/` — React Native/Expo
     - `render-worker/` — Node worker (TS)
@@ -36,12 +36,26 @@ appostolic/
 │  │  ├─ Program.cs
 │  │  ├─ App/
 │  │  │  ├─ Endpoints/
-│  │  │  │  └─ V1.cs
+│  │  │  │  ├─ V1.cs
+│  │  │  │  ├─ DevToolsEndpoints.cs      # POST /api/dev/tool-call (Development only)
+│  │  │  │  └─ DevAgentsDemo.cs         # POST /api/dev/agents/demo (Development only)
 │  │  │  └─ Infrastructure/
-│  │  │     └─ ...
+│  │  │     ├─ Auth/
+│  │  │     │  └─ DevHeaderAuthHandler.cs
+│  │  │     └─ MultiTenancy/
+│  │  │        └─ TenantScopeMiddleware.cs
 │  │  ├─ Application/
 │  │  │  ├─ Agents/
-│  │  │  │  └─ AgentRegistry.cs
+│  │  │  │  ├─ AgentRegistry.cs
+│  │  │  │  ├─ Runtime/                  # Orchestrator + TraceWriter
+│  │  │  │  │  ├─ AgentOrchestrator.cs
+│  │  │  │  │  └─ TraceWriter.cs
+│  │  │  │  ├─ Tools/                    # Deterministic dev tools
+│  │  │  │  │  ├─ WebSearchTool.cs
+│  │  │  │  │  ├─ DbQueryTool.cs
+│  │  │  │  │  └─ FsWriteTool.cs
+│  │  │  │  └─ Model/                    # Mock model adapter
+│  │  │  │     └─ MockModelAdapter.cs
 │  │  │  └─ Validation/
 │  │  │     └─ Guard.cs
 │  │  ├─ Domain/
@@ -57,6 +71,8 @@ appostolic/
 │  │  │     └─ *.cs
 │  │  ├─ Migrations/
 │  │  │  └─ *.cs
+│  │  ├─ tools/
+│  │  │  └─ seed/                        # Idempotent seed for dev user/tenants
 │  │  └─ Properties/launchSettings.json
 │  ├─ web/
 │  │  ├─ next.config.mjs
@@ -115,6 +131,12 @@ appostolic/
 - Swagger UI: http://localhost:5198/swagger/ (trailing slash)
 - Health: `GET /health`, `GET /healthz`
 
+Seeding dev data:
+
+- Use the Makefile to migrate and seed a known user/tenant pair for dev headers:
+  - `make bootstrap` (nukes local volumes, starts infra, migrates, seeds)
+  - Or run `make migrate` then `make seed`
+
 Important URLs:
 
 - API base: http://localhost:5198
@@ -159,6 +181,11 @@ Makefile highlights:
 - Emits claims: `sub`, `email`, `tenant_id`, `tenant_slug`
 - All `/api/*` endpoints require authorization (dev headers expected)
 
+Seeded defaults (via `apps/api/tools/seed`):
+
+- `x-dev-user: kevin@example.com`
+- `x-tenant: kevin-personal`
+
 ### Tenant scoping
 
 - `TenantScopeMiddleware` (conventional middleware):
@@ -178,6 +205,16 @@ Makefile highlights:
   - `/health`, `/healthz`
   - `/lessons` (GET/POST) — uses `X-Tenant-Id` GUID header
 
+Development-only endpoints (mapped only when `ASPNETCORE_ENVIRONMENT=Development`):
+
+- `POST /api/dev/tool-call` (in `DevToolsEndpoints.cs`)
+  - Contract: `{ name: string, input: object }`
+  - Tools available: `web.search`, `db.query`, `fs.write`
+  - Useful for DB inspection and deterministic tool tests without direct SQL access
+- `POST /api/dev/agents/demo` (in `DevAgentsDemo.cs`)
+  - Runs a `ResearchAgent` inline via the orchestrator and returns `{ task, traces }`
+  - Requires dev headers; writes `AgentTask`/`AgentTrace` rows under current tenant
+
 ### Swagger/OpenAPI
 
 - Swagger JSON: `GET /swagger/v1/swagger.json`
@@ -191,6 +228,11 @@ Makefile highlights:
 - Migrations: `apps/api/Migrations/` (includes `20250911124311_s1_09_agent_runtime` and others)
 - Auto-migration in Development/Test: `Database.Migrate()` at startup
 - RLS strategy: set `app.tenant_id` via middleware; DB-side policies/init in `infra/initdb` and EF migrations
+
+Agent runtime tables (key): `agents`, `agent_tasks`, `agent_traces` with:
+
+- Unique index on `agent_traces(task_id, step_number)`
+- Check constraints: `step_number >= 1`, `duration_ms >= 0`
 
 ## Agent Runtime (v1)
 
@@ -213,6 +255,15 @@ EF Core configuration (`apps/api/Infrastructure/Configurations/*`):
 Registry (`apps/api/Application/Agents/AgentRegistry.cs`):
 
 - Read-only in-memory list of two deterministic agents (v1), exposed for quick list/lookup
+
+Runtime orchestration (`Application/Agents/Runtime`):
+
+- `AgentOrchestrator` drives a loop of model decisions and optional tool calls.
+  - Uses `IModelAdapter` (`MockModelAdapter`) for deterministic decisions in dev.
+  - Enforces allowlist on tools and guardrails (empty tool name, max steps).
+  - Step numbering: reserves two step numbers per iteration (model at N, tool at N+1), then advances to N+2 to satisfy the unique index on traces.
+- `TraceWriter` persists traces with clamped non-negative durations/token counts and one-time retry on unique key conflicts.
+- `ToolRegistry` wires deterministic tools: `web.search`, `db.query`, `fs.write`.
 
 ## Web app (`apps/web`)
 
@@ -264,15 +315,19 @@ From `infra/docker/.env` (for local development):
 Dev auth for API testing:
 
 - Send headers on `/api/*` requests:
-  - `x-dev-user: dev@example.com`
-  - `x-tenant: acme`
+  - Default seed: `x-dev-user: kevin@example.com`, `x-tenant: kevin-personal`
+  - If you use different seed data, adjust these accordingly. Some older docs may still reference `dev@example.com` / `acme`.
 
 ## Troubleshooting
 
 - Swagger shows JSON instead of UI: use `/swagger/` or rely on `/swagger` redirect; ensure `UseSwaggerUI` configured and only registered once
-- 401 on `/api/*`: send `x-dev-user` and `x-tenant` headers
+- 401 on `/api/*`: send `x-dev-user` and `x-tenant` headers; if you haven’t seeded, run `make seed` (or `make bootstrap`)
 - Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
 - Postgres connection errors: ensure Docker is up and port `55432` matches env
+
+Development-only tools:
+
+- Use `POST /api/dev/tool-call` with `db.query` to inspect tables under schema `app` and to count `agent_tasks`/`agent_traces` without psql.
 
 ## Prompt starters (copy into ChatGPT)
 
