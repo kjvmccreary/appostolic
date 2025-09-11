@@ -66,6 +66,17 @@ app.MapPost("/lessons", async (HttpContext ctx, AppDbContext db, LessonCreate dt
     return Results.Created($"/lessons/{lesson.Id}", lesson);
 });
 
+// Auto-migrate for Development/Test
+using (var scope = app.Services.CreateScope())
+{
+    var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+    if (env.IsDevelopment() || env.IsEnvironment("Test"))
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+    }
+}
+
 app.Run();
 
 static string GetConnectionString(ConfigurationManager configuration)

@@ -1,25 +1,38 @@
 # Load environment variables from .env if present
 -include .env
-export $(shell sed 's/=.*//' .env 2>/dev/null)
+export $(shell sed 's/=.*//' .env)
 
-.PHONY: up down logs psql api web mobile mobile-ios
+DC := docker compose --env-file .env -f infra/docker/compose.yml
+PGPORT ?= 55432
 
-up:
-	docker compose -f infra/docker/compose.yml up -d
-	@echo "\n🚀 Infra is up!"
-	@echo "Postgres → host=localhost port=$(POSTGRES_PORT) user=$(POSTGRES_USER) password=$(POSTGRES_PASSWORD) db=$(POSTGRES_DB)"
-	@echo "pgAdmin  → http://localhost:8081 (login: $${PGADMIN_DEFAULT_EMAIL} / $${PGADMIN_DEFAULT_PASSWORD})"
-	@echo "Mailhog  → http://localhost:8025"
-	@echo "MinIO    → http://localhost:9003 (user: $(MINIO_ROOT_USER), pass: $(MINIO_ROOT_PASSWORD))"
+nuke:
+	$(DC) down -v --remove-orphans || true
+	rm -rf infra/docker/data/postgres
+	mkdir -p infra/docker/data/postgres
 
-down:
-	docker compose -f infra/docker/compose.yml down -v
+up: ; $(DC) up -d
 
-logs:
-	docker compose -f infra/docker/compose.yml logs -f
+wait-postgres:
+	@echo "Waiting for Postgres to become healthy..."
+	@CID="$$( $(DC) ps -q postgres )"; \
+	until [ "$$(docker inspect -f '{{.State.Health.Status}}' $$CID)" = "healthy" ]; do sleep 1; done; \
+	echo "Postgres is healthy."
 
-psql:
-	PGPASSWORD=$$POSTGRES_PASSWORD psql -h localhost -p 55432 -U $$POSTGRES_USER $$POSTGRES_DB
+migrate:
+	dotnet tool restore
+	cd apps/api && dotnet ef database update
+
+seed:
+	@echo "Seeding demo data..."
+	dotnet build apps/api/Appostolic.Api.csproj
+	cd apps/api/tools/seed && \
+	  PGHOST=localhost PGPORT=$(PGPORT) PGDATABASE=$${POSTGRES_DB} PGUSER=$${POSTGRES_USER} PGPASSWORD=$${POSTGRES_PASSWORD} dotnet run
+
+bootstrap: nuke up wait-postgres migrate seed
+	@echo "✅ Bootstrap complete. Next: make api | make web | make mobile"
+
+doctor:
+	./scripts/dev-doctor.sh
 
 api:
 	cd apps/api && ASPNETCORE_URLS=http://localhost:5198 dotnet watch
@@ -32,3 +45,7 @@ mobile:
 
 mobile-ios:
 	cd apps/mobile && pnpm dev -- --port 8082 --open --ios
+
+clean-dotnet:
+	find . -name bin -o -name obj -type d -prune -exec rm -rf {} +
+	dotnet nuget locals all --clear

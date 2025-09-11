@@ -6,6 +6,34 @@ Monorepo (Turborepo + PNPM) with apps:
 - apps/api (.NET 8)
 - apps/mobile (Expo React Native)
 
+## Getting started (dev)
+
+Prereqs:
+
+- Docker Desktop
+- .NET 8 SDK
+- Node 20 + PNPM
+
+Steps:
+
+```
+cp .env.example .env
+make bootstrap
+
+# In separate terminals
+make api    # http://localhost:5198
+make web    # http://localhost:3000
+make mobile # Expo Dev Tools; press 'i' for iOS or scan QR
+```
+
+Troubleshooting:
+
+- Postgres issues: `make nuke && make bootstrap`
+- EF package skew: see `Directory.Packages.props`, then `make clean-dotnet`
+- Expo SDK mismatch: stop Expo and run `cd apps/mobile && pnpm exec expo start -c`
+
+---
+
 ## Development
 
 Recommended 3-terminal workflow:
@@ -65,32 +93,26 @@ It inserts:
 - tenant A: `kevin-personal` (kind=personal, plan=free)
 - tenant B: `first-baptist-austin` (kind=org, plan=org)
 - memberships accordingly
-- one empty lesson for `kevin-personal`
+- one lesson for `kevin-personal` titled "Welcome draft"
 
-Run (uses PG\* env vars):
-
-```
-# From repo root
-export PGHOST=localhost
-export PGPORT=55432
-export PGDATABASE=appdb
-# PGUSER/PGPASSWORD can be provided here, or read from .env if present
-# export PGUSER=app
-# export PGPASSWORD=app
-
-cd apps/api/tools/seed
-dotnet run
-```
-
-Expected output includes created/existing IDs, for example:
+Seeding steps:
 
 ```
-Connected to database.
-User exists: 6e8c... kevin@example.com
-Tenant exists: 4a3b... kevin-personal
-Tenant exists: 1b2c... first-baptist-austin
-Membership exists: tenant=4a3b... user=6e8c... role=Owner status=Active
-Membership exists: tenant=1b2c... user=6e8c... role=Owner status=Active
-Lesson exists for tenant=4a3b... title=''
-Seed complete.
+make up
+make seed
+make api    # in a terminal
+make web    # in another terminal
+make mobile # in another terminal
 ```
+
+Env vars used by seed:
+
+```
+PGHOST=localhost
+PGPORT=55432
+PGDATABASE=appdb
+PGUSER=<from .env>
+PGPASSWORD=<from .env>
+```
+
+Note: The seed tool reuses the API `AppDbContext` and uses `set_config('app.tenant_id', <tenantId>, true)` during inserts so RLS policies apply per tenant.

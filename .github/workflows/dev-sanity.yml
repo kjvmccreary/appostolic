@@ -1,0 +1,34 @@
+name: dev-sanity
+on: { pull_request: {} }
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - name: Copy .env.example
+        run: cp .env.example .env
+      - name: Start Postgres
+        run: docker compose --env-file .env -f infra/docker/compose.yml up -d postgres
+      - name: Wait for Postgres
+        run: |
+          CID=$(docker compose --env-file .env -f infra/docker/compose.yml ps -q postgres)
+          until [ "$(docker inspect -f '{{.State.Health.Status}}' $CID)" = "healthy" ]; do sleep 1; done
+      - name: Restore & build
+        run: |
+          dotnet tool restore
+          dotnet restore
+          dotnet build
+      - name: Apply migrations
+        run: |
+          cd apps/api
+          dotnet ef database update
+      - name: Seed idempotently
+        run: |
+          cd apps/api/tools/seed
+          PGHOST=localhost PGPORT=55432 PGDATABASE=appdb PGUSER=appuser PGPASSWORD=apppassword dotnet run
+          PGHOST=localhost PGPORT=55432 PGDATABASE=appdb PGUSER=appuser PGPASSWORD=apppassword dotnet run

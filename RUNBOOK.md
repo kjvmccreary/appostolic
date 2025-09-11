@@ -32,3 +32,29 @@ To avoid "Invalid hook call" and duplicated React in a PNPM + Turborepo monorepo
 5. Troubleshooting
    - Clear Expo cache: `pnpm -F @appostolic/mobile exec expo start -c`
    - If mismatch persists, ensure web and mobile use the same React (e.g., 18.2.0 for Expo SDK 51).
+
+---
+
+## Seeding (API)
+
+Use Makefile targets to bring up infra and load demo data:
+
+```
+make up
+make seed
+make api    # terminal 1
+make web    # terminal 2
+make mobile # terminal 3
+```
+
+Env vars used by seed:
+
+```
+PGHOST=localhost
+PGPORT=55432
+PGDATABASE=appdb
+PGUSER=<from .env>
+PGPASSWORD=<from .env>
+```
+
+Note: The seed tool reuses the API `AppDbContext` and issues `SET LOCAL app.tenant_id` before RLS-protected operations so policies apply per tenant.
