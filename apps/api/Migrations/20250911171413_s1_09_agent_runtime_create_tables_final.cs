@@ -5,12 +5,12 @@
 namespace Appostolic.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class s1_09_agent_runtime : Migration
+    public partial class s1_09_agent_runtime_create_tables_final : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // no-op (replaced by later migration)
+            // no-op; tables were created by an earlier applied migration in this chain.
         }
 
         /// <inheritdoc />

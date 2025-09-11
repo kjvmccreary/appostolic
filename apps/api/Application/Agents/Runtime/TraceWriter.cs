@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Appostolic.Api.Domain.Agents;
+using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Appostolic.Api.Application.Agents.Runtime;
 
@@ -12,10 +15,12 @@ public interface ITraceWriter
 public sealed class TraceWriter : ITraceWriter
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<TraceWriter> _logger;
 
-    public TraceWriter(AppDbContext db)
+    public TraceWriter(AppDbContext db, ILogger<TraceWriter> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<Guid> WriteModelStepAsync(AgentTask task, int step, Model.ModelPrompt prompt, Model.ModelDecision decision, int durationMs, CancellationToken ct)
@@ -40,13 +45,13 @@ public sealed class TraceWriter : ITraceWriter
             })
         )
         {
-            DurationMs = durationMs,
-            PromptTokens = decision.PromptTokens,
-            CompletionTokens = decision.CompletionTokens
+            DurationMs = Math.Max(0, durationMs),
+            PromptTokens = Math.Max(0, decision.PromptTokens),
+            CompletionTokens = Math.Max(0, decision.CompletionTokens)
         };
 
         _db.AgentTraces.Add(trace);
-        await _db.SaveChangesAsync(ct);
+        await SaveWithRetryAsync(trace, step, ct);
         return trace.Id;
     }
 
@@ -62,13 +67,13 @@ public sealed class TraceWriter : ITraceWriter
             outputJson: SerializeJson(output) ?? (success ? "{}" : JsonSerializer.Serialize(new { error = error ?? "unknown error" }))
         )
         {
-            DurationMs = durationMs,
-            PromptTokens = promptTokens ?? 0,
-            CompletionTokens = completionTokens ?? 0
+            DurationMs = Math.Max(0, durationMs),
+            PromptTokens = Math.Max(0, promptTokens ?? 0),
+            CompletionTokens = Math.Max(0, completionTokens ?? 0)
         };
 
         _db.AgentTraces.Add(trace);
-        await _db.SaveChangesAsync(ct);
+        await SaveWithRetryAsync(trace, step, ct);
         return trace.Id;
     }
 
@@ -76,5 +81,27 @@ public sealed class TraceWriter : ITraceWriter
     {
         if (doc is null) return null!;
         return doc.RootElement.GetRawText();
+    }
+
+    private async Task SaveWithRetryAsync(AgentTrace trace, int originalStep, CancellationToken ct)
+    {
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Retry once with StepNumber++
+            trace.StepNumber = originalStep + 1;
+            _logger.LogWarning("Unique index conflict on (TaskId, StepNumber) for task {TaskId} step {Step}. Retrying once with step {NewStep}.", trace.TaskId, originalStep, trace.StepNumber);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex)
+    {
+        if (ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation)
+            return true;
+        return false;
     }
 }

@@ -91,3 +91,85 @@ curl -s http://localhost:5198/api/dev/tool-call \
 ```
 
 The endpoint resolves the tool from the registry and executes it with a synthetic context, returning the ToolCallResult (success, output, error, durationMs).
+
+### Dev Agents Demo (Development only)
+
+Run the seeded ResearchAgent inline; returns the created task and its traces:
+
+```bash
+curl -s http://localhost:5198/api/dev/agents/demo \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
+  -H "Content-Type: application/json" \
+  -d '{ "topic": "Intro to EF Core" }' | jq '.task.status, .traces | length'
+```
+
+## Agent Orchestrator & Traces
+
+High-level execution sequence (one iteration):
+
+Model → Tool → FinalAnswer
+
+- The model plans the next action (either UseTool or FinalAnswer).
+- If it plans a tool, we record a Model trace at step N and a Tool trace at step N+1.
+- When the model returns FinalAnswer, the task completes successfully.
+
+### Example AgentTrace rows (redacted)
+
+Model step (step_number: 1):
+
+```json
+{
+  "kind": "Model",
+  "name": "model",
+  "stepNumber": 1,
+  "inputJson": {
+    "system": "...system prompt...",
+    "context": {
+      "input": { "q": "intro" },
+      "scratchpad": {
+        /* ... */
+      }
+      // lastTool omitted on first step
+    }
+  },
+  "outputJson": {
+    "action": "UseTool",
+    "PromptTokens": 105,
+    "CompletionTokens": 20,
+    "Rationale": "planned tool use"
+  },
+  "durationMs": 3
+}
+```
+
+Tool step (step_number: 2):
+
+```json
+{
+  "kind": "Tool",
+  "name": "web.search",
+  "stepNumber": 2,
+  "inputJson": { "q": "intro", "take": 1 },
+  "outputJson": { "results": [{ "title": "Intro to EF Core", "url": "...", "snippet": "..." }] },
+  "durationMs": 1,
+  "PromptTokens": 105,
+  "CompletionTokens": 20
+}
+```
+
+Notes:
+
+- Durations and token counts are clamped to non-negative values.
+- A unique index on `(TaskId, StepNumber)` enforces ordering; on rare collision we retry once with `StepNumber++` and log a warning.
+- Terminal statuses always set `FinishedAt`; we set `StartedAt` at the first step.
+
+### Dev headers and trace context
+
+- Dev-only authentication uses headers:
+  - `x-dev-user: dev@example.com`
+  - `x-tenant: acme`
+- Tenant/user are carried in telemetry (Activity/log tags) during tool execution for observability. AgentTrace rows themselves only persist tool/model inputs/outputs and timing, not PII.
+
+### See also
+
+- Sprint notes for follow-ups and adjacent work: `Sprint-01-Appostolic.md` (items A09-04, A09-05)
