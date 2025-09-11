@@ -11,6 +11,8 @@ public sealed class AgentTaskWorker : BackgroundService
     private readonly IAgentTaskQueue _queue;
     private readonly IServiceProvider _services;
     private readonly ILogger<AgentTaskWorker> _logger;
+    private long _dequeuedCount;
+    private Guid? _inFlightTaskId;
 
     public AgentTaskWorker(IAgentTaskQueue queue, IServiceProvider services, ILogger<AgentTaskWorker> logger)
     {
@@ -30,13 +32,14 @@ public sealed class AgentTaskWorker : BackgroundService
 
         _logger.LogInformation("AgentTaskWorker started.");
 
-        var reader = inMemory.Reader;
+    var reader = inMemory.Reader;
         while (!stoppingToken.IsCancellationRequested)
         {
             Guid taskId;
             try
             {
-                taskId = await reader.ReadAsync(stoppingToken);
+        taskId = await reader.ReadAsync(stoppingToken);
+        Interlocked.Increment(ref _dequeuedCount);
             }
             catch (OperationCanceledException)
             {
@@ -60,12 +63,14 @@ public sealed class AgentTaskWorker : BackgroundService
                 ["taskId"] = taskId
             }))
             {
+                _inFlightTaskId = taskId;
                 try
                 {
                     var task = await db.Set<AgentTask>().FirstOrDefaultAsync(t => t.Id == taskId, stoppingToken);
                     if (task is null)
                     {
                         log.LogWarning("AgentTask {TaskId} not found. Skipping.", taskId);
+                        _inFlightTaskId = null;
                         continue;
                     }
 
@@ -109,7 +114,19 @@ public sealed class AgentTaskWorker : BackgroundService
                         }
                         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                         {
-                            // Respect shutdown without altering task state here
+                            // On shutdown: mark task as Canceled if still Running
+                            if (task.Status == AgentStatus.Running)
+                            {
+                                task.Status = AgentStatus.Canceled;
+                                task.ErrorMessage = "Canceled";
+                                task.FinishedAt = DateTime.UtcNow;
+                                try { await db.SaveChangesAsync(stoppingToken); }
+                                catch (OperationCanceledException)
+                                {
+                                    // Final attempt without cancellation to persist terminal state
+                                    try { await db.SaveChangesAsync(CancellationToken.None); } catch { /* swallow */ }
+                                }
+                            }
                             throw;
                         }
                         catch (Exception runEx)
@@ -131,10 +148,15 @@ public sealed class AgentTaskWorker : BackgroundService
                 {
                     _logger.LogError(ex, "AgentTaskWorker: Fatal error processing task {TaskId}.", taskId);
                 }
+                finally
+                {
+                    _inFlightTaskId = null;
+                }
             }
         }
 
-        _logger.LogInformation("AgentTaskWorker stopping.");
+        var count = Interlocked.Read(ref _dequeuedCount);
+        _logger.LogInformation("AgentTaskWorker stopping. dequeued={Count} inflight={HasInFlight} inflightTaskId={TaskId}", count, _inFlightTaskId.HasValue, _inFlightTaskId);
     }
 
     private static string Truncate(string value, int max)
