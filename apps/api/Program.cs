@@ -6,6 +6,8 @@ using Appostolic.Api.Infrastructure.Auth;
 using Appostolic.Api.Infrastructure.MultiTenancy;
 using Appostolic.Api.App.Endpoints;
 using Microsoft.OpenApi.Models;
+using Appostolic.Api.Application.Agents.Tools;
+using Appostolic.Api.App.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +57,15 @@ builder.Services
     .AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
 builder.Services.AddAuthorization();
 
+// Agent Tools
+builder.Services.AddSingleton<ITool, WebSearchTool>();
+builder.Services.AddSingleton<ITool, DbQueryTool>();
+builder.Services.AddSingleton<ITool, FsWriteTool>();
+builder.Services.AddSingleton<ToolRegistry>();
+
+// Options
+builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools"));
+
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
 // builder.Services.AddScoped<TenantScopeMiddleware>();
 
@@ -102,6 +113,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
 // v1 API
 app.MapV1Endpoints();
+app.MapDevToolsEndpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
 {
