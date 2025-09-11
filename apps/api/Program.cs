@@ -11,6 +11,10 @@ using Appostolic.Api.App.Options;
 using Appostolic.Api.Application.Agents.Runtime;
 using Appostolic.Api.Application.Agents.Model;
 using Appostolic.Api.Application.Agents.Queue;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,6 +82,70 @@ builder.Services.AddSingleton<InMemoryAgentTaskQueue>();
 builder.Services.AddSingleton<IAgentTaskQueue>(sp => sp.GetRequiredService<InMemoryAgentTaskQueue>());
 // Worker
 builder.Services.AddHostedService<Appostolic.Api.Application.Agents.Queue.AgentTaskWorker>();
+
+// OpenTelemetry: resource, traces, metrics
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Appostolic.Api"))
+    .WithTracing(t =>
+    {
+        t.AddAspNetCoreInstrumentation()
+         .AddHttpClientInstrumentation()
+         .AddSource("Appostolic.AgentRuntime", "Appostolic.Tools");
+
+        var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (builder.Environment.IsDevelopment())
+        {
+            t.AddConsoleExporter();
+        }
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+        {
+            t.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(otlpEndpoint);
+            });
+        }
+    })
+    .WithMetrics(m =>
+    {
+        m.AddAspNetCoreInstrumentation()
+         .AddHttpClientInstrumentation()
+         .AddRuntimeInstrumentation()
+         .AddMeter("Appostolic.Metrics");
+
+        var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (builder.Environment.IsDevelopment())
+        {
+            m.AddConsoleExporter();
+        }
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+        {
+            m.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(otlpEndpoint);
+            });
+        }
+    });
+
+// Logging: keep existing console logger, also export logs via OTEL providers
+var logOtlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+builder.Logging.AddOpenTelemetry(logOptions =>
+{
+    logOptions.IncludeFormattedMessage = true;
+    logOptions.ParseStateValues = true;
+    logOptions.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Appostolic.Api"));
+
+    if (builder.Environment.IsDevelopment())
+    {
+        logOptions.AddConsoleExporter();
+    }
+    if (!string.IsNullOrWhiteSpace(logOtlpEndpoint))
+    {
+        logOptions.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(logOtlpEndpoint);
+        });
+    }
+});
 
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
 // builder.Services.AddScoped<TenantScopeMiddleware>();
