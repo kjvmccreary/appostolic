@@ -137,6 +137,53 @@ public static class AgentTasksEndpoints
         .WithSummary("Get an agent task by id")
         .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
+        // GET /api/agent-tasks (list, optional filters)
+        api.MapGet("/agent-tasks", async (
+            string? status,
+            Guid? agentId,
+            int? take,
+            int? skip,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var q = db.Set<AgentTask>().AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (!Enum.TryParse<AgentStatus>(status, ignoreCase: true, out var st))
+                    return Results.BadRequest(new { error = "invalid status" });
+                q = q.Where(t => t.Status == st);
+            }
+
+            if (agentId.HasValue && agentId.Value != Guid.Empty)
+            {
+                q = q.Where(t => t.AgentId == agentId.Value);
+            }
+
+            int takeVal = take.GetValueOrDefault(20);
+            int skipVal = skip.GetValueOrDefault(0);
+            if (takeVal <= 0) takeVal = 20;
+            if (skipVal < 0) skipVal = 0;
+
+            var items = await q
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip(skipVal)
+                .Take(takeVal)
+                .Select(t => new AgentTaskSummary(
+                    t.Id,
+                    t.AgentId,
+                    t.Status.ToString(),
+                    t.CreatedAt,
+                    t.StartedAt,
+                    t.FinishedAt
+                ))
+                .ToListAsync(ct);
+
+            return Results.Ok(items);
+        })
+        .WithSummary("List agent tasks (paged)")
+        .WithDescription("Returns AgentTaskSummary[] ordered by CreatedAt DESC. Optional filters: status, agentId. Supports take/skip paging.");
+
         return app;
     }
 }
