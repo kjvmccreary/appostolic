@@ -74,6 +74,7 @@ builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runti
 builder.Services.AddScoped<IAgentOrchestrator, Appostolic.Api.Application.Agents.Runtime.AgentOrchestrator>();
 builder.Services.AddSingleton<IModelAdapter, MockModelAdapter>();
 builder.Services.AddSingleton<IAgentTaskQueue, InMemoryAgentTaskQueue>();
+builder.Services.AddHostedService<Appostolic.Api.Application.Agents.Queue.AgentTaskWorker>();
 
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
 // builder.Services.AddScoped<TenantScopeMiddleware>();
