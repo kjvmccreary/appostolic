@@ -127,6 +127,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 // v1 API
 app.MapV1Endpoints();
 app.MapDevToolsEndpoints();
+app.MapDevAgentsEndpoints(app.Services.GetRequiredService<IHostEnvironment>());
 app.MapDevAgentsDemoEndpoints();
 app.MapAgentTasksEndpoints();
 
