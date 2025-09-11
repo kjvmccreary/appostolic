@@ -53,3 +53,43 @@ Notes:
 ```
 cd apps/mobile && pnpm exec expo start -c
 ```
+
+---
+
+## Database seed (API)
+
+An idempotent seed tool is available at `apps/api/tools/seed`.
+It inserts:
+
+- user: `kevin@example.com` (Owner in both tenants)
+- tenant A: `kevin-personal` (kind=personal, plan=free)
+- tenant B: `first-baptist-austin` (kind=org, plan=org)
+- memberships accordingly
+- one empty lesson for `kevin-personal`
+
+Run (uses the same POSTGRES\_\* env vars as Docker compose):
+
+```
+# From repo root
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=55432
+export POSTGRES_DB=app
+export POSTGRES_USER=app
+export POSTGRES_PASSWORD=app
+
+cd apps/api/tools/seed
+dotnet run
+```
+
+Expected output includes created/existing IDs, for example:
+
+```
+Connected to database.
+User exists: 6e8c... kevin@example.com
+Tenant exists: 4a3b... kevin-personal
+Tenant exists: 1b2c... first-baptist-austin
+Membership exists: tenant=4a3b... user=6e8c... role=Owner status=Active
+Membership exists: tenant=1b2c... user=6e8c... role=Owner status=Active
+Lesson exists for tenant=4a3b... title=''
+Seed complete.
+```
