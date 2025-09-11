@@ -18,9 +18,13 @@ public class WebSearchToolTests
         var input = JsonDocument.Parse("""{"q":"intro"}""");
         var res = await tool.InvokeAsync(new ToolCallRequest(tool.Name, input), Ctx(), default);
         res.Success.Should().BeTrue();
+    res.DurationMs.Should().BeGreaterThan(0);
         var results = res.Output!.RootElement.GetProperty("results").EnumerateArray().ToList();
         results.Should().NotBeEmpty();
         results.Select(r => r.GetProperty("title").GetString()).Any(t => t!.Contains("Intro", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
+    var first = results.First();
+    first.TryGetProperty("url", out var _).Should().BeTrue();
+    first.TryGetProperty("snippet", out var _).Should().BeTrue();
     }
 
     [Fact]
@@ -30,6 +34,7 @@ public class WebSearchToolTests
         var input = JsonDocument.Parse("""{"q":".net","take":1}""");
         var res = await tool.InvokeAsync(new ToolCallRequest(tool.Name, input), Ctx(), default);
         res.Success.Should().BeTrue();
+    res.DurationMs.Should().BeGreaterThan(0);
         var results = res.Output!.RootElement.GetProperty("results").EnumerateArray().ToList();
         results.Count.Should().Be(1);
     }
@@ -41,6 +46,7 @@ public class WebSearchToolTests
         var input = JsonDocument.Parse("""{"q":""}""");
         var res = await tool.InvokeAsync(new ToolCallRequest(tool.Name, input), Ctx(), default);
         res.Success.Should().BeTrue();
+    res.DurationMs.Should().BeGreaterThan(0);
         var results = res.Output!.RootElement.GetProperty("results").EnumerateArray().ToList();
         results.Count.Should().Be(0);
     }

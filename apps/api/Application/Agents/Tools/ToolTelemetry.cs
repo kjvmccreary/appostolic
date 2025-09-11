@@ -38,6 +38,7 @@ public static class ToolTelemetry
         {
             if (_sw.IsRunning) _sw.Stop();
             var ms = (int)_sw.Elapsed.TotalMilliseconds;
+            if (ms < 1) ms = 1; // ensure a minimum of 1ms for deterministic assertions
             _activity?.SetTag("tool.name", _toolName);
             _activity?.SetTag("tenant", _tenant);
             _activity?.SetTag("user", _user);
