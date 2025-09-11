@@ -162,7 +162,7 @@ static string GetConnectionString(ConfigurationManager configuration)
 public record LessonCreate(string Title);
 
 // EF Core DbContext and Entities
-public class AppDbContext : DbContext
+public partial class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -216,6 +216,9 @@ public class AppDbContext : DbContext
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => new { x.TenantId, x.Status });
         });
+
+        // Apply configurations for domain types (Agent runtime)
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();

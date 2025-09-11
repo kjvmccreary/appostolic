@@ -12,6 +12,9 @@ nuke:
 
 up: ; $(DC) up -d
 
+down:
+	$(DC) down --remove-orphans
+
 wait-postgres:
 	@echo "Waiting for Postgres to become healthy..."
 	@CID="$$( $(DC) ps -q postgres )"; \
