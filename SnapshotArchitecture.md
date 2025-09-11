@@ -9,8 +9,8 @@ This document captures the current structure, tech stack, and runtime expectatio
 - Root files: `appostolic.sln`, `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `Makefile`
 - Top-level folders:
   - `apps/`
-  - `api/` — .NET 8 Minimal API + EF Core 8, dev-only endpoints for tools and agent demo
-    - `web/` — Next.js 14
+    - `api/` — .NET 8 Minimal API + EF Core 8; dev header auth; agent runtime; worker/queue
+    - `web/` — Next.js 14 (App Router) with server-side API proxy routes
     - `mobile/` — React Native/Expo
     - `render-worker/` — Node worker (TS)
   - `packages/` — shared packages: `sdk/`, `models/`, `ui/`, `docgen/`, `prompts/`, `video-scenes/`
@@ -37,8 +37,10 @@ appostolic/
 │  │  ├─ App/
 │  │  │  ├─ Endpoints/
 │  │  │  │  ├─ V1.cs
-│  │  │  │  ├─ DevToolsEndpoints.cs      # POST /api/dev/tool-call (Development only)
-│  │  │  │  └─ DevAgentsDemo.cs         # POST /api/dev/agents/demo (Development only)
+│  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
+│  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
+│  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
+│  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list)
 │  │  │  └─ Infrastructure/
 │  │  │     ├─ Auth/
 │  │  │     │  └─ DevHeaderAuthHandler.cs
@@ -47,14 +49,18 @@ appostolic/
 │  │  ├─ Application/
 │  │  │  ├─ Agents/
 │  │  │  │  ├─ AgentRegistry.cs
-│  │  │  │  ├─ Runtime/                  # Orchestrator + TraceWriter
+│  │  │  │  ├─ Runtime/                   # Orchestrator + TraceWriter
 │  │  │  │  │  ├─ AgentOrchestrator.cs
 │  │  │  │  │  └─ TraceWriter.cs
-│  │  │  │  ├─ Tools/                    # Deterministic dev tools
+│  │  │  │  ├─ Queue/                     # In-memory queue + worker
+│  │  │  │  │  ├─ IAgentTaskQueue.cs
+│  │  │  │  │  ├─ InMemoryAgentTaskQueue.cs
+│  │  │  │  │  └─ AgentTaskWorker.cs
+│  │  │  │  ├─ Tools/                     # Deterministic dev tools
 │  │  │  │  │  ├─ WebSearchTool.cs
 │  │  │  │  │  ├─ DbQueryTool.cs
 │  │  │  │  │  └─ FsWriteTool.cs
-│  │  │  │  └─ Model/                    # Mock model adapter
+│  │  │  │  └─ Model/                     # Mock model adapter
 │  │  │  │     └─ MockModelAdapter.cs
 │  │  │  └─ Validation/
 │  │  │     └─ Guard.cs
@@ -77,10 +83,20 @@ appostolic/
 │  ├─ web/
 │  │  ├─ next.config.mjs
 │  │  ├─ package.json
+│  │  ├─ src/
+│  │  │  └─ lib/serverEnv.ts              # API_BASE/DEV_USER/DEV_TENANT validation
 │  │  └─ app/
 │  │     ├─ layout.tsx
 │  │     ├─ page.tsx
-│  │     └─ dev/page.tsx
+│  │     ├─ dev/page.tsx
+│  │     ├─ dev/agents/page.tsx
+│  │     ├─ dev/agents/components/AgentRunForm.tsx
+│  │     ├─ dev/agents/components/TracesTable.tsx
+│  │     └─ api-proxy/
+│  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
+│  │        └─ agent-tasks/
+│  │           ├─ route.ts                 # GET/POST /api-proxy/agent-tasks → API
+│  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
 │  ├─ mobile/
 │  │  ├─ app.json
 │  │  ├─ package.json
@@ -211,9 +227,26 @@ Development-only endpoints (mapped only when `ASPNETCORE_ENVIRONMENT=Development
   - Contract: `{ name: string, input: object }`
   - Tools available: `web.search`, `db.query`, `fs.write`
   - Useful for DB inspection and deterministic tool tests without direct SQL access
+- `GET /api/dev/agents` (in `DevAgentsEndpoints.cs`)
+  - Lists seeded agents from `AgentRegistry` for UI dropdowns
+  - Requires dev headers
 - `POST /api/dev/agents/demo` (in `DevAgentsDemo.cs`)
   - Runs a `ResearchAgent` inline via the orchestrator and returns `{ task, traces }`
   - Requires dev headers; writes `AgentTask`/`AgentTrace` rows under current tenant
+
+Agent task endpoints (in `AgentTasksEndpoints.cs`):
+
+- `POST /api/agent-tasks`
+  - Validates `agentId` and non-empty `input` JSON
+  - Captures dev headers into `RequestTenant`/`RequestUser`
+  - Persists `AgentTask` with `Pending` status, enqueues its id
+  - Returns `201 Created` with `AgentTaskSummary`
+- `GET /api/agent-tasks/{id}`
+  - Returns `AgentTaskDetails` (status, timestamps, optional result/error)
+  - With `?includeTraces=true`, returns `{ task, traces }` where traces are ordered `AgentTraceDto[]`
+- `GET /api/agent-tasks`
+  - Lists `AgentTaskSummary[]` ordered by `CreatedAt DESC`
+  - Optional filters: `status`, `agentId`; paging via `take`/`skip`
 
 ### Swagger/OpenAPI
 
@@ -265,11 +298,28 @@ Runtime orchestration (`Application/Agents/Runtime`):
 - `TraceWriter` persists traces with clamped non-negative durations/token counts and one-time retry on unique key conflicts.
 - `ToolRegistry` wires deterministic tools: `web.search`, `db.query`, `fs.write`.
 
+Queue and worker (`Application/Agents/Queue`):
+
+- `InMemoryAgentTaskQueue` exposes a process-local `Channel<Guid>` with `SingleReader=true` and backpressure.
+- `AgentTaskWorker` is a hosted service consuming the channel’s `Reader` so endpoints and worker share the same instance (DI singleton mapping for concrete + interface).
+- Processing semantics:
+  - Idempotent: only `Pending` tasks are transitioned to `Running`.
+  - Graceful cancellation: on shutdown, any in-flight `Running` task is marked `Canceled`.
+  - Transient resilience: retry orchestrator once on timeouts/deadlocks before failing.
+  - Dequeue/load race mitigation: brief retry loop to read the task after enqueue (handles read-before-commit).
+  - Logs dequeued count and last in-flight task id on stop.
+
 ## Web app (`apps/web`)
 
-- Next.js 14 (App Router)
-- `/dev` page calls API with dev headers and renders `/api/me` and `/api/tenants`
-- Depends on `@appostolic/sdk`; transpiled via Next config
+- Next.js 14 (App Router); Node runtime for server routes.
+- Server-only API proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS:
+  - `GET /api-proxy/dev/agents` → API `/api/dev/agents`
+  - `POST /api-proxy/agent-tasks` → API `/api/agent-tasks`
+  - `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → API `/api/agent-tasks/{id}`
+- Env validation in `src/lib/serverEnv.ts` for `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`.
+- Dev UI: `/dev/agents` (SSR) lists agents and renders a client `AgentRunForm` to create a task and live-poll details+traces via `useTaskPolling` (750ms until terminal).
+- Result panel shows parsed JSON on success; error message shown on failure/cancel; recent run ids tracked client-side.
+- Depends on `@appostolic/sdk` for general types/helpers; current panel uses direct fetch via server proxies.
 
 ## SDK and OpenAPI (`packages/sdk`)
 
@@ -325,16 +375,21 @@ Dev auth for API testing:
 - Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
 - Postgres connection errors: ensure Docker is up and port `55432` matches env
 
+Node/pnpm engines:
+
+- The repo requires `node >=20 <21` (see root `package.json`). Using Node 19 may error with `TypeError: URL.canParse is not a function` via Corepack.
+- Fix locally by switching to Node 20.x (e.g., `nvm use 20`) and ensuring Corepack/pnpm use that runtime.
+
 Development-only tools:
 
 - Use `POST /api/dev/tool-call` with `db.query` to inspect tables under schema `app` and to count `agent_tasks`/`agent_traces` without psql.
 
 ## Prompt starters (copy into ChatGPT)
 
-- “Add read-only endpoints under `/api/agents` to list and fetch agents from `Application/Agents/AgentRegistry`. Update `App/Endpoints/V1.cs`, secure with dev auth, document in Swagger, and add a section on the web `/dev` page to render them.”
+- “Expose read-only endpoints for dev agents (already available at `/api/dev/agents`) and consider promoting to `/api/agents` for non-dev contexts. Update Swagger and web to consume the stable path.”
 - “Extend EF configurations for Agent runtime with additional indexes and constraints [describe]. Create and apply a migration and confirm defaults in PostgreSQL.”
-- “Regenerate OpenAPI and update the TypeScript SDK to include new endpoints. Update `apps/web` to call them via the SDK.”
-- “Implement CRUD for AgentTask: create task, get by id, list by agent with pagination, record traces.”
+- “Regenerate OpenAPI and update the TypeScript SDK to include new endpoints (AgentTasks, DevAgents). Update `apps/web` to call through the SDK or keep using server proxies.”
+- “Implement AgentTask flows (done: create, get by id with traces, list with filters). Add delete/cancel if needed and write integration tests.”
 - “Harden `TenantScopeMiddleware`: ensure GUC set/reset semantics, add diagnostics, and handle exceptions explicitly.”
 - “Add integration tests for `/api/lessons` using dev auth and a test Postgres; include test harness and migrations in CI.”
 
