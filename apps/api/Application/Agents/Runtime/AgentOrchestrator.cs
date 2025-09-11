@@ -57,7 +57,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
 
         JsonDocument? lastToolOutput = null;
 
-        while (state.StepNumber <= state.MaxSteps)
+    while (state.StepNumber <= state.MaxSteps)
         {
             ct.ThrowIfCancellationRequested();
             using var stepScope = _logger.BeginScope(new Dictionary<string, object?>
@@ -79,10 +79,24 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             using var contextDoc = JsonDocument.Parse(contextJson);
             var prompt = new ModelPrompt(agent.SystemPrompt, contextDoc);
 
-            // Model decision
-            var modelStart = DateTime.UtcNow;
-            var decision = await _model.DecideAsync(prompt, ct);
-            var modelDuration = (int)(DateTime.UtcNow - modelStart).TotalMilliseconds;
+            // Model decision with span
+            int modelDuration;
+            Model.ModelDecision decision;
+            using (var activity = Telemetry.AgentSource.StartActivity("agent.model", System.Diagnostics.ActivityKind.Internal))
+            {
+                activity?.SetTag("agent.id", agent.Id);
+                activity?.SetTag("task.id", task.Id);
+                activity?.SetTag("tenant", tenant);
+                activity?.SetTag("user", user);
+                activity?.SetTag("step", state.StepNumber);
+                activity?.SetTag("model.name", agent.Model);
+                activity?.SetTag("maxSteps", state.MaxSteps);
+
+                var modelStart = DateTime.UtcNow;
+                decision = await _model.DecideAsync(prompt, ct);
+                modelDuration = (int)(DateTime.UtcNow - modelStart).TotalMilliseconds;
+                activity?.SetTag("duration.ms", modelDuration);
+            }
 
             // Branch on decision
             if (decision.Action is FinalAnswer fa)
@@ -107,6 +121,15 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 // Reject empty tool name
                 if (string.IsNullOrWhiteSpace(ut.Name))
                 {
+                    using (var toolActivity = Telemetry.ToolSource.StartActivity($"tool.(missing)", System.Diagnostics.ActivityKind.Internal))
+                    {
+                        toolActivity?.SetTag("tool.name", "(missing)");
+                        toolActivity?.SetTag("tenant", tenant);
+                        toolActivity?.SetTag("user", user);
+                        toolActivity?.SetTag("success", false);
+                        toolActivity?.SetTag("duration.ms", 0);
+                        toolActivity?.SetTag("error", "Tool name is required");
+                    }
                     await _trace.WriteToolStepAsync(task, state.StepNumber, "(missing)", ut.Input, null, success: false, durationMs: 0, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool name is required", ct: ct);
                     task.Status = AgentStatus.Failed;
                     task.ErrorMessage = "Tool name is required";
@@ -119,6 +142,15 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 var allowed = agent.ToolAllowlist?.Any(n => string.Equals(n, ut.Name, StringComparison.OrdinalIgnoreCase)) == true;
                 if (!allowed)
                 {
+                    using (var toolActivity = Telemetry.ToolSource.StartActivity($"tool.{ut.Name}", System.Diagnostics.ActivityKind.Internal))
+                    {
+                        toolActivity?.SetTag("tool.name", ut.Name);
+                        toolActivity?.SetTag("tenant", tenant);
+                        toolActivity?.SetTag("user", user);
+                        toolActivity?.SetTag("success", false);
+                        toolActivity?.SetTag("duration.ms", 0);
+                        toolActivity?.SetTag("error", "Tool not allowed");
+                    }
                     var denyDuration = 0;
                     await _trace.WriteToolStepAsync(task, state.StepNumber, ut.Name, ut.Input, null, success: false, durationMs: denyDuration, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool not allowed", ct: ct);
                     task.Status = AgentStatus.Failed;
@@ -132,6 +164,15 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 // Resolve tool
                 if (!_tools.TryGet(ut.Name, out var tool) || tool is null)
                 {
+                    using (var toolActivity = Telemetry.ToolSource.StartActivity($"tool.{ut.Name}", System.Diagnostics.ActivityKind.Internal))
+                    {
+                        toolActivity?.SetTag("tool.name", ut.Name);
+                        toolActivity?.SetTag("tenant", tenant);
+                        toolActivity?.SetTag("user", user);
+                        toolActivity?.SetTag("success", false);
+                        toolActivity?.SetTag("duration.ms", 0);
+                        toolActivity?.SetTag("error", "Tool not found");
+                    }
                     await _trace.WriteToolStepAsync(task, state.StepNumber, ut.Name, ut.Input, null, success: false, durationMs: 0, promptTokens: decision.PromptTokens, completionTokens: decision.CompletionTokens, error: "Tool not found", ct: ct);
                     task.Status = AgentStatus.Failed;
                     task.ErrorMessage = $"Tool not found: {ut.Name}";
@@ -143,9 +184,23 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
 
                 // Execute tool
                 var execCtx = new Tools.ToolExecutionContext(task.Id, currentStep, tenant, user, _logger);
-                var toolStart = DateTime.UtcNow;
-                var result = await tool.InvokeAsync(new Tools.ToolCallRequest(tool.Name, ut.Input), execCtx, ct);
-                var toolDuration = (int)(DateTime.UtcNow - toolStart).TotalMilliseconds;
+                int toolDuration;
+                Tools.ToolCallResult result;
+                using (var toolActivity = Telemetry.ToolSource.StartActivity($"tool.{tool.Name}", System.Diagnostics.ActivityKind.Internal))
+                {
+                    toolActivity?.SetTag("tool.name", tool.Name);
+                    toolActivity?.SetTag("tenant", tenant);
+                    toolActivity?.SetTag("user", user);
+                    var toolStart = DateTime.UtcNow;
+                    result = await tool.InvokeAsync(new Tools.ToolCallRequest(tool.Name, ut.Input), execCtx, ct);
+                    toolDuration = (int)(DateTime.UtcNow - toolStart).TotalMilliseconds;
+                    toolActivity?.SetTag("success", result.Success);
+                    if (!result.Success && result.Error is not null)
+                    {
+                        toolActivity?.SetTag("error", result.Error);
+                    }
+                    toolActivity?.SetTag("duration.ms", toolDuration);
+                }
                 await _trace.WriteToolStepAsync(task, currentStep + 1, tool.Name, ut.Input, result.Output, result.Success, toolDuration, decision.PromptTokens, decision.CompletionTokens, result.Error, ct);
 
                 lastToolOutput = result.Output;

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Appostolic.Api.Application.Agents.Runtime;
 
 namespace Appostolic.Api.Application.Agents.Tools;
 
@@ -10,7 +11,8 @@ namespace Appostolic.Api.Application.Agents.Tools;
 /// </summary>
 public static class ToolTelemetry
 {
-    private static readonly ActivitySource ActivitySource = new("Appostolic.Tools");
+    // Use the shared ToolSource to unify ActivitySource configuration
+    private static ActivitySource ActivitySource => Telemetry.ToolSource;
 
     public static Scope Start(ToolExecutionContext ctx, string toolName, ILogger logger)
         => new Scope(toolName, ctx.Tenant, ctx.User, logger);

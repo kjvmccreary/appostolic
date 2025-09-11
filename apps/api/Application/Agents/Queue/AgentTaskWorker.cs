@@ -113,7 +113,15 @@ public sealed class AgentTaskWorker : BackgroundService
                         var tenant = task.RequestTenant ?? "dev";
                         var user = task.RequestUser ?? "dev";
 
+                        using (var activity = Runtime.Telemetry.AgentSource.StartActivity("agent.run", System.Diagnostics.ActivityKind.Internal))
                         {
+                            activity?.SetTag("task.id", taskId);
+                            activity?.SetTag("agent.id", task.AgentId);
+                            activity?.SetTag("tenant", tenant);
+                            activity?.SetTag("user", user);
+                            // Set baggage for downstream spans if any
+                            System.Diagnostics.Activity.Current?.AddBaggage("tenant", tenant);
+                            System.Diagnostics.Activity.Current?.AddBaggage("user", user);
                             int attempts = 0;
                             while (!stoppingToken.IsCancellationRequested)
                             {
