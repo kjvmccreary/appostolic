@@ -62,7 +62,16 @@ var app = builder.Build();
 
 // Swagger middleware
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    // Ensure the UI is hosted at /swagger and points to the v1 JSON
+    c.RoutePrefix = "swagger";
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appostolic API v1");
+});
+
+// Ensure navigating to /swagger (no trailing slash) shows the UI
+app.MapGet("/swagger", () => Results.Redirect("/swagger/index.html"))
+   .ExcludeFromDescription();
 
 app.UseAuthentication();
 app.UseAuthorization();
