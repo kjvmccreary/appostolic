@@ -31,6 +31,13 @@ public class TenantScopeMiddleware
             return;
         }
 
+        // If provider isn't relational (e.g., InMemory for tests), skip transaction/GUC and continue
+        if (!db.Database.IsRelational())
+        {
+            await _next(context);
+            return;
+        }
+
         await using var tx = await db.Database.BeginTransactionAsync();
         try
         {
