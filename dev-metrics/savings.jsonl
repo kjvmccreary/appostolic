@@ -83,3 +83,5 @@
 {"task":"A09-07.1","manual_hours":0.9,"actual_hours":0.15,"saved_hours":0.75,"rate":72,"savings_usd":54,"ts":"<UTC>"}
 
 {"task":"A09-07.2","phase":"start","ts":"<UTC>"}
+{"task":"A09-07.2","phase":"end","ts":"<UTC>"}
+{"task":"A09-07.2","manual_hours":1.6,"actual_hours":0.25,"saved_hours":1.35,"rate":72,"savings_usd":97.2,"ts":"<UTC>"}
