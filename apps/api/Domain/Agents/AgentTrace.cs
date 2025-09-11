@@ -94,11 +94,12 @@ public record class AgentTrace
         if (taskId == Guid.Empty) throw new ArgumentException("TaskId is required", nameof(taskId));
         Id = id == Guid.Empty ? Guid.NewGuid() : id;
         TaskId = taskId;
-        StepNumber = stepNumber;
+        StepNumber = Application.Validation.Guard.InRange(stepNumber, 1, int.MaxValue, nameof(stepNumber));
         Kind = kind;
-        Name = name;
-        InputJson = inputJson;
-        OutputJson = outputJson;
+        Name = Application.Validation.Guard.MaxLength(
+            Application.Validation.Guard.NotNullOrWhiteSpace(name, nameof(name)), 120, nameof(name));
+        InputJson = Application.Validation.Guard.NotNullOrWhiteSpace(inputJson, nameof(inputJson));
+        OutputJson = Application.Validation.Guard.NotNullOrWhiteSpace(outputJson, nameof(outputJson));
         CreatedAt = DateTime.UtcNow;
     }
 }

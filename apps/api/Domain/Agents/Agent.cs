@@ -66,12 +66,15 @@ public record class Agent
     public Agent(Guid id, string name, string systemPrompt, string[] toolAllowlist, string model, double temperature = 0.2, int maxSteps = 8)
     {
         Id = id == Guid.Empty ? Guid.NewGuid() : id;
-        Name = name;
+        // Invariants via Guard helpers
+        Name = Application.Validation.Guard.MaxLength(
+            Application.Validation.Guard.NotNullOrWhiteSpace(name, nameof(name)), 120, nameof(name));
         SystemPrompt = systemPrompt ?? string.Empty;
         ToolAllowlist = toolAllowlist ?? Array.Empty<string>();
-        Model = model;
-        Temperature = temperature;
-        MaxSteps = maxSteps;
+        Model = Application.Validation.Guard.MaxLength(
+            Application.Validation.Guard.NotNullOrWhiteSpace(model, nameof(model)), 80, nameof(model));
+        Temperature = Application.Validation.Guard.InRange(temperature, 0.0, 2.0, nameof(temperature));
+        MaxSteps = Application.Validation.Guard.InRange(maxSteps, 1, 50, nameof(maxSteps));
         CreatedAt = DateTime.UtcNow;
     }
 }

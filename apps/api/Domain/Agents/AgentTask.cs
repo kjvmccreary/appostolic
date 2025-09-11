@@ -34,7 +34,7 @@ public record class AgentTask
         if (agentId == Guid.Empty) throw new ArgumentException("AgentId is required", nameof(agentId));
         Id = id == Guid.Empty ? Guid.NewGuid() : id;
         AgentId = agentId;
-        InputJson = inputJson;
+        InputJson = Application.Validation.Guard.NotNullOrWhiteSpace(inputJson, nameof(inputJson));
         CreatedAt = DateTime.UtcNow;
     }
 }
