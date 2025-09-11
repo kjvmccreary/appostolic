@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { createClient, MeResponse, TenantSummary } from '@appostolic/sdk';
 
 export default function DevPage() {
@@ -36,9 +35,12 @@ export default function DevPage() {
   return (
     <main className="p-24">
       <h1>Dev tools</h1>
-      <p>
-        <Link href="/">Home</Link>
-      </p>
+      <nav className="space-x-4">
+        <a href="/">Home</a>
+        <a className="underline" href="/dev/agents">
+          Run Agent (S1-09)
+        </a>
+      </nav>
 
       {error && <div className="text-red">Error: {error}</div>}
 

@@ -8,6 +8,8 @@
 {"task":"A09-06.2","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54,"ts":"2025-09-11T20:35:00Z"}
 {"task":"A09-06.4","phase":"start","ts":"<UTC>"}
 {"task":"A09-06.4","manual_hours":1.2,"actual_hours":0.25,"saved_hours":0.95,"rate":72,"savings_usd":68.4,"ts":"<UTC>"}
+{"task":"A09-06.5","phase":"start","ts":"<UTC>"}
+{"task":"A09-06.5","manual_hours":0.2,"actual_hours":0.03,"saved_hours":0.17,"rate":72,"savings_usd":12.24,"ts":"<UTC>"}
 {"task":"A09-05.6","phase":"start","ts":"2025-09-11T18:35:46Z"}
 {"task":"A09-05.6","manual_hours":0.9,"actual_hours":0.33,"saved_hours":0.57,"rate":72,"savings_usd":41,"ts":"2025-09-11T18:36:06Z"}
 {"task":"A09-05.5","phase":"start","ts":"2025-09-11T18:34:17Z"}
