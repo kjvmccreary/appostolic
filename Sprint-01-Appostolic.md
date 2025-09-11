@@ -1,5 +1,7 @@
 # Sprint 01 — Appostolic
 
+- A09-04.1 — Manual 0.7h vs Actual 0.1h → Saved 0.6h ($43)
+
 ## S1-09 — Agent Runtime v1 / Tools & Orchestration
 
 - Dev Time Saved: Manual 1.5h vs With Copilot 0.5h → Saved 1.0h (~$72)
