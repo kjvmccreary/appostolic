@@ -22,6 +22,31 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuration
 var configuration = builder.Configuration;
 
+// SendGrid API key compatibility shim and production guard
+// 1) Compatibility: allow legacy env var SENDGRID_API_KEY to populate SendGrid:ApiKey
+// 2) Guard: in Production, if Email:Provider=sendgrid then require SendGrid:ApiKey
+{
+    var compatKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+    var configuredKey = builder.Configuration["SendGrid:ApiKey"];
+    if (!string.IsNullOrWhiteSpace(compatKey) && string.IsNullOrWhiteSpace(configuredKey))
+    {
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["SendGrid:ApiKey"] = compatKey
+        });
+    }
+
+    var provider = builder.Configuration["Email:Provider"]; // expected values: smtp | sendgrid
+    if (builder.Environment.IsProduction() && string.Equals(provider, "sendgrid", StringComparison.OrdinalIgnoreCase))
+    {
+        var apiKey = builder.Configuration["SendGrid:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Email:Provider=sendgrid but SendGrid:ApiKey is not configured. Set environment variable SendGrid__ApiKey or configure SendGrid:ApiKey.");
+        }
+    }
+}
+
 // Add DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
