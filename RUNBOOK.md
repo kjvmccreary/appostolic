@@ -113,3 +113,48 @@ Long-running servers (API, web, mobile) should be started via VS Code background
 - In automation, I will always start servers via background tasks and run one-off commands in separate terminals.
 
 If you get a port-in-use error (e.g., 5198), stop the background task from the Tasks panel first, then restart it.
+
+---
+
+## Web authentication & route protection
+
+The web app uses a lightweight route-protection middleware to guard developer and studio areas:
+
+- Protected routes: `/studio/*`, `/dev/*`
+- Behavior when `WEB_AUTH_ENABLED=true` (default in Development):
+  - Unauthenticated access redirects to `/login?next={originalPath}`
+  - Visiting `/login` while authenticated redirects to `/studio/agents`
+
+Configure via `apps/web/.env.local`:
+
+```
+WEB_AUTH_ENABLED=true
+AUTH_SECRET=your_auth_secret
+NEXTAUTH_URL=http://localhost:3000
+# Seed credentials for Credentials provider are also defined here
+```
+
+Changing `WEB_AUTH_ENABLED` requires restarting the web dev server.
+
+Quick verification (use a separate terminal; do not run these in server log terminals):
+
+```
+# Replace 3000 with the actual dev port if Next started on 3001
+curl -sS -D - -o /dev/null http://localhost:3000/studio/agents   # expect 307 → /login?next=...
+curl -sS -D - -o /dev/null http://localhost:3000/dev             # expect 307 → /login?next=...
+curl -sS -D - -o /dev/null http://localhost:3000/login           # expect 200
+```
+
+Tip: Next.js may choose 3001 if 3000 is occupied. You can discover the port with:
+
+```
+lsof -nP -iTCP -sTCP:LISTEN | grep -E ':300[0-9]'
+```
+
+### Node version note
+
+The monorepo targets Node 20.x. If VS Code tasks or new shells pick up a different default, set the default with nvm so background tasks use Node 20:
+
+```
+nvm alias default 20
+```
