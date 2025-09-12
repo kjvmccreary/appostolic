@@ -142,3 +142,6 @@
 
 {"task":"A09-09.6","phase":"start","ts":"<UTC>"}
 {"task":"A09-09.6","manual_hours":0.8,"actual_hours":0.25,"saved_hours":0.55,"rate":72,"savings_usd":39.6,"ts":"<UTC>"}
+
+{"task":"A09-09.7","phase":"start","ts":"<UTC>"}
+{"task":"A09-09.7","manual_hours":0.5,"actual_hours":0.12,"saved_hours":0.38,"rate":72,"savings_usd":27.36,"ts":"<UTC>"}
