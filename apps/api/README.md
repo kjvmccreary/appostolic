@@ -197,6 +197,43 @@ Notes:
 - A unique index on `(TaskId, StepNumber)` enforces ordering; on rare collision we retry once with `StepNumber++` and log a warning.
 - Terminal statuses always set `FinishedAt`; we set `StartedAt` at the first step.
 
+### Token accounting and optional estimated cost
+
+How tokens are counted
+
+- For each Model step, the orchestrator records `PromptTokens` and `CompletionTokens` on the trace. If a model adapter does not supply explicit counts, a deterministic heuristic is used via `TokenEstimator` (roughly 4 ASCII-ish characters per token; ceil(length/4)).
+- Tool steps do not contribute tokens.
+
+Roll-up on AgentTask
+
+- `AgentTask.TotalPromptTokens` and `AgentTask.TotalCompletionTokens` are incremented after each Model decision.
+- `AgentTask.TotalTokens` is computed as `TotalPromptTokens + TotalCompletionTokens`.
+
+Optional estimated cost
+
+- If pricing is enabled and a model’s price is configured, the orchestrator accumulates an `EstimatedCostUsd` on the task:
+  - Input cost = (promptTokens / 1000) × `ModelPricing.Models[model].InputPer1K`
+  - Output cost = (completionTokens / 1000) × `ModelPricing.Models[model].OutputPer1K`
+- Configure in `appsettings.Development.json` under `ModelPricing`:
+
+```json
+"ModelPricing": {
+  "Models": {
+    "gpt-4o-mini": { "inputPer1K": 0.15, "outputPer1K": 0.6 },
+    "gpt-4.1-mini": { "inputPer1K": 0.25, "outputPer1K": 1.0 }
+  },
+  "enabled": true
+}
+```
+
+Heuristic nature of estimates
+
+- When the model adapter does not provide exact token counts, estimates come from `TokenEstimator` and may differ from vendor-specific tokenization. Costs are best-effort approximations for development.
+
+API responses
+
+- `GET /api/agent-tasks/{id}` returns totals and `estimatedCostUsd` (when pricing is enabled). The list endpoint includes `totalTokens` on each summary row.
+
 ### Dev headers and trace context
 
 - Dev-only authentication uses headers:

@@ -56,6 +56,14 @@ Notes:
 - Status: `Pending → Running → Succeeded|Failed|Canceled`.
 - Traces accumulate while running. On success, the result JSON is shown; on failure/cancel, the error message is displayed.
 
+### Tokens and estimated cost in the UI
+
+- Above the Traces table, the Run panel shows summary badges when available:
+  - Total tokens: overall `prompt + completion` for the task
+  - Prompt / Completion: per-type totals
+  - Est. cost: shown only when the API includes a non-null `estimatedCostUsd` (i.e., backend pricing is enabled and a model price is configured)
+- In the Traces table, Model rows display `promptTokens / completionTokens`. Tool rows leave the tokens column blank.
+
 4. Recent runs section
 
 - The page lists the most recent task IDs for quick reference.
