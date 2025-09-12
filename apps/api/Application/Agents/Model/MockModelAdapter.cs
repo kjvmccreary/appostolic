@@ -24,6 +24,19 @@ public sealed class MockModelAdapter : IModelAdapter
                 var finalDoc = Clone(finalElem);
                 action = new FinalAnswer(finalDoc);
             }
+            // If we've executed a tool, finish with its output as the final answer
+            else if (ctx.TryGetProperty("lastTool", out var lastTool) && lastTool.ValueKind == JsonValueKind.Object)
+            {
+                if (lastTool.TryGetProperty("output", out var outElem) && outElem.ValueKind != JsonValueKind.Undefined && outElem.ValueKind != JsonValueKind.Null)
+                {
+                    var finalDoc = Clone(outElem);
+                    action = new FinalAnswer(finalDoc);
+                }
+                else
+                {
+                    action = new FinalAnswer(JsonDocument.Parse("{}"));
+                }
+            }
             // If explicit tool call
             else if (ctx.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String && next.GetString()?.Equals("tool", StringComparison.OrdinalIgnoreCase) == true)
             {

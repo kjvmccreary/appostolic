@@ -71,15 +71,22 @@ public class TelemetrySmokeTests
         Metrics.RecordTaskCreated(tenant: "t1", agentId: agent.Id);
         await orchestrator.RunAsync(agent, task, tenant: "t1", user: "u1", ct: default);
 
+        // Snapshot results under lock to avoid concurrent modification during enumeration
+        List<string> spanSnapshot;
+        lock (spanNames) spanSnapshot = spanNames.ToList();
+
+        List<(string name, double value, IReadOnlyList<KeyValuePair<string, object?>> tags)> measurementsSnapshot;
+        lock (measurements) measurementsSnapshot = measurements.ToList();
+
         // Assert spans: at least one model and one tool span observed
-        spanNames.Should().Contain("agent.model");
-        spanNames.Any(n => n.StartsWith("tool.")).Should().BeTrue();
+        spanSnapshot.Should().Contain("agent.model");
+        spanSnapshot.Any(n => n.StartsWith("tool.")).Should().BeTrue();
 
         // Assert metrics: created and completed (Succeeded) observed
-        var created = measurements.Any(m => m.name == "agent.tasks.created");
+        var created = measurementsSnapshot.Any(m => m.name == "agent.tasks.created");
         created.Should().BeTrue();
 
-        var completedSucceeded = measurements.Any(m =>
+        var completedSucceeded = measurementsSnapshot.Any(m =>
             m.name == "agent.tasks.completed" && m.tags.Any(t => t.Key == "status" && t.Value?.ToString() == AgentStatus.Succeeded.ToString()));
         completedSucceeded.Should().BeTrue();
     }
