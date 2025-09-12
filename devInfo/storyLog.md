@@ -399,6 +399,41 @@ How to try it
 
 ## Spike - refactor for MUI
 
+## Notif-07 — Signup verification hook
+
+I added a small helper to enqueue verification emails, wired it into DI, and wrote unit tests to verify the enqueued message shape.
+
+Plan
+
+- Provide `INotificationEnqueuer.QueueVerificationAsync(email, name, token)`.
+- Build the verification link using `EmailOptions.WebBaseUrl` + `/auth/verify?token=...` (URL-encoded token). Use relative path if base is empty.
+- Enqueue `EmailMessage(Verification)` carrying the computed link in Data.
+
+Actions taken
+
+- Implemented `NotificationEnqueuer` with `QueueVerificationAsync` under `apps/api/App/Notifications/NotificationEnqueuer.cs`.
+- Registered in DI as a singleton in `Program.cs`.
+- Added tests `apps/api.tests/NotificationEnqueuerTests.cs` covering absolute and relative link cases and field mapping.
+
+Results
+
+- Build and tests: PASS (full suite green).
+- Consumers can inject `INotificationEnqueuer` to queue verification emails; dispatcher will render and send via configured provider.
+
+Files changed
+
+- apps/api/App/Notifications/NotificationEnqueuer.cs — new helper + interface.
+- apps/api/Program.cs — DI registration.
+- apps/api.tests/NotificationEnqueuerTests.cs — unit tests.
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS
+
+Time/savings
+{"task":"Notif-07","manual_hours":1.1,"actual_hours":0.25,"saved_hours":0.85,"rate":72,"savings_usd":61.2}
+
 ## Notif-06 — DI selection and safety checks
 
 I implemented provider selection for notifications based on configuration, added a SendGrid key shim, and guarded production startup when misconfigured. Logged work and savings.

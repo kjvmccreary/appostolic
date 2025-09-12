@@ -110,7 +110,7 @@ Status
 
 - Completed: Provider switch implemented with environment-driven defaults (smtp in Development, sendgrid otherwise), SENDGRID_API_KEY shim, and production guard for missing key. Unit tests added for DI selection; full test suite green.
 
-## Notif-07 — Signup verification hook
+## ~~Notif-07 — Signup verification hook~~
 
 Summary
 
@@ -125,6 +125,10 @@ Key Tasks
 
 - Add helper method `QueueVerificationAsync(user, token)`
 - Write test around the helper
+
+Status
+
+- Completed: Implemented `NotificationEnqueuer.QueueVerificationAsync` building the verification link from `EmailOptions.WebBaseUrl`; registered in DI; added unit tests covering absolute/relative link and fields. Full test suite green.
 
 ## Notif-08 — Invite creation hook
 
