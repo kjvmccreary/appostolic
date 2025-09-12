@@ -24,3 +24,19 @@ export async function GET(req: NextRequest) {
     headers: new Headers({ 'content-type': res.headers.get('content-type') ?? 'application/json' }),
   });
 }
+
+export async function POST(req: NextRequest) {
+  const target = `${API_BASE}/api/agents`;
+  const body = await req.text();
+  const res = await fetch(target, {
+    method: 'POST',
+    headers: proxyHeaders(),
+    body,
+  });
+  const headers = new Headers({
+    'content-type': res.headers.get('content-type') ?? 'application/json',
+  });
+  const location = res.headers.get('location');
+  if (location) headers.set('location', location);
+  return new NextResponse(res.body, { status: res.status, headers });
+}
