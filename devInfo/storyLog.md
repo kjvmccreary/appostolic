@@ -399,6 +399,41 @@ How to try it
 
 ## Spike - refactor for MUI
 
+## Notif-02 — Template renderer (Scriban)
+
+Summary
+
+- Implement an `ITemplateRenderer` using Scriban with embedded templates and register it in DI.
+
+Actions taken
+
+- Added `ScribanTemplateRenderer` that loads embedded templates and renders with a shared base model including `webBaseUrl` from `EmailOptions`.
+- Registered `ITemplateRenderer` to use `ScribanTemplateRenderer` in `apps/api/Program.cs`.
+- Added package reference `Scriban` via central `Directory.Packages.props` (v5.9.1) and project reference in `apps/api/Appostolic.Api.csproj`.
+- Wrote a minimal unit test `apps/api.tests/TemplateRendererTests.cs` that verifies the "verification" template renders expected content.
+
+Results
+
+- Build + tests: PASS (59 tests).
+- Renderer ready for providers (SendGrid/SMTP) and dispatcher to consume.
+
+Files changed
+
+- apps/api/App/Notifications/ScribanTemplateRenderer.cs
+- apps/api/App/Notifications/ITemplateRenderer.cs (interface already existed)
+- apps/api/Appostolic.Api.csproj
+- Directory.Packages.props
+- apps/api/Program.cs
+- apps/api.tests/TemplateRendererTests.cs
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS (dotnet test)
+
+Time/savings
+{"task":"Notif-02","manual_hours":1.3,"actual_hours":0.4,"saved_hours":0.9,"rate":72,"savings_usd":64.8}
+
 I’m adopting MUI (Material UI) Premium across the web app, adding SSR-safe theming and refactoring the Tasks Inbox to use DataGridPremium and MUI inputs.
 
 Plan

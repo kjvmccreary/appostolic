@@ -104,8 +104,9 @@ builder.Services.Configure<Appostolic.Api.App.Options.EmailOptions>(builder.Conf
 builder.Services.Configure<Appostolic.Api.App.Options.SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 
-// Notifications scaffolding registration (queue only for Notif-01; providers added in later stories)
+// Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

@@ -12,6 +12,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <!-- Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
+    <!-- Templating -->
+    <PackageReference Include="Scriban" />
   <!-- OpenTelemetry -->
   <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
   <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />

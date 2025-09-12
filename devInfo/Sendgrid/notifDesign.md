@@ -40,7 +40,7 @@ This document captures the plan to integrate SendGrid for transactional email in
 
 API
 
-- SENDGRID_API_KEY
+- SendGrid API Key — keep in environment only (SendGrid\_\_ApiKey preferred; optional shim from SENDGRID_API_KEY). Do not commit secrets.
 - Email:FromAddress (e.g., no-reply@appostolic.io)
 - Email:FromName (e.g., Appostolic)
 - Email:Provider = sendgrid | smtp

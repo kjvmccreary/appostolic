@@ -163,11 +163,11 @@ Acceptance Criteria
 
 - README/RUNBOOK/SnapshotArchitecture updated with Email section
 - Document config schema and exact key names:
-	- Email: { Provider: 'smtp' | 'sendgrid', WebBaseUrl: '...' }
-	- SendGrid: { ApiKey: '...' }
+  - Email: { Provider: 'smtp' | 'sendgrid', WebBaseUrl: '...' }
+  - SendGrid: { ApiKey: '...' }
 - Persistence guidance by environment:
-	- Local Development: default to `Email:Provider=smtp` (Mailhog). For testing SendGrid locally, developers export `SendGrid__ApiKey` in their shell or use a non-committed `.env.local` file. Do not commit real keys.
-	- CI/CD & Staging/Prod: store the secret in the platform’s secret manager (e.g., GitHub Actions, cloud provider) and inject as environment variable `SendGrid__ApiKey` for the API service.
+  - Local Development: default to `Email:Provider=smtp` (Mailhog). For testing SendGrid locally, developers export `SendGrid__ApiKey` in their shell or use a non-committed `.env.local` file. Do not commit real keys.
+  - CI/CD & Staging/Prod: store the secret in the platform’s secret manager (e.g., GitHub Actions, cloud provider) and inject as environment variable `SendGrid__ApiKey` for the API service.
 - `infra/docker/.env` gains non-secret defaults (no API key) and comments indicating to set `SendGrid__ApiKey` out-of-band when needed.
 
 Key Tasks
