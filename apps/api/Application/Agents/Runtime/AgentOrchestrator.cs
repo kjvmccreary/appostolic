@@ -22,8 +22,9 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     private readonly ITraceWriter _trace;
     private readonly ILogger<AgentOrchestrator> _logger;
     private readonly IOptions<ModelPricingOptions> _pricing;
+    private readonly Application.Agents.Queue.AgentTaskCancelRegistry _cancelRegistry;
 
-    public AgentOrchestrator(AppDbContext db, IModelAdapter model, ToolRegistry tools, ITraceWriter trace, ILogger<AgentOrchestrator> logger, IOptions<ModelPricingOptions> pricing)
+    public AgentOrchestrator(AppDbContext db, IModelAdapter model, ToolRegistry tools, ITraceWriter trace, ILogger<AgentOrchestrator> logger, IOptions<ModelPricingOptions> pricing, Application.Agents.Queue.AgentTaskCancelRegistry cancelRegistry)
     {
         _db = db;
         _model = model;
@@ -31,6 +32,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         _trace = trace;
         _logger = logger;
         _pricing = pricing;
+        _cancelRegistry = cancelRegistry;
     }
 
     public async Task RunAsync(Agent agent, AgentTask task, string tenant, string user, CancellationToken ct)
@@ -64,6 +66,17 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     while (state.StepNumber <= state.MaxSteps)
         {
             ct.ThrowIfCancellationRequested();
+            // Cooperative cancel: check registry between steps
+            if (_cancelRegistry.IsCancelRequested(task.Id))
+            {
+                task.Status = AgentStatus.Canceled;
+                task.ErrorMessage = "Canceled";
+                task.FinishedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                _cancelRegistry.TryClear(task.Id);
+                _logger.LogInformation("Task {TaskId} canceled cooperatively before step {Step}.", task.Id, state.StepNumber);
+                return;
+            }
             using var stepScope = _logger.BeginScope(new Dictionary<string, object?>
             {
                 ["taskId"] = task.Id,

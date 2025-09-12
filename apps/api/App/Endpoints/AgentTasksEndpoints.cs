@@ -155,6 +155,47 @@ public static class AgentTasksEndpoints
         .WithSummary("Get an agent task by id")
         .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
+        // POST /api/agent-tasks/{id}/cancel
+        group.MapPost("{id:guid}/cancel", async (
+            Guid id,
+            AppDbContext db,
+            Application.Agents.Queue.AgentTaskCancelRegistry cancelRegistry,
+            CancellationToken ct) =>
+        {
+            var task = await db.Set<AgentTask>().FirstOrDefaultAsync(t => t.Id == id, ct);
+            if (task is null)
+            {
+                return Results.NotFound();
+            }
+
+            // If already terminal, reject
+            if (task.Status is AgentStatus.Succeeded or AgentStatus.Failed or AgentStatus.Canceled)
+            {
+                return Results.Conflict(new { message = "Already terminal" });
+            }
+
+            if (task.Status == AgentStatus.Pending)
+            {
+                task.Status = AgentStatus.Canceled;
+                task.ErrorMessage = "Canceled";
+                task.FinishedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+                return Results.Accepted($"/api/agent-tasks/{task.Id}", new { id = task.Id, status = task.Status.ToString() });
+            }
+
+            if (task.Status == AgentStatus.Running)
+            {
+                cancelRegistry.RequestCancel(task.Id);
+                // Orchestrator will observe and mark terminal shortly
+                return Results.Accepted($"/api/agent-tasks/{task.Id}", new { id = task.Id, status = task.Status.ToString() });
+            }
+
+            // Fallback (shouldn't be reached)
+            return Results.Accepted($"/api/agent-tasks/{task.Id}", new { id = task.Id, status = task.Status.ToString() });
+        })
+        .WithSummary("Request cancellation of an agent task")
+        .WithDescription("If Pending, cancels immediately. If Running, records a cooperative cancel request; the worker will transition to Canceled shortly. Terminal tasks return 409.");
+
         // GET /api/agent-tasks (list, optional filters)
         group.MapGet("", async (
                 HttpContext http,

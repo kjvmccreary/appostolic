@@ -85,6 +85,7 @@ builder.Services.AddSingleton<InMemoryAgentTaskQueue>();
 builder.Services.AddSingleton<IAgentTaskQueue>(sp => sp.GetRequiredService<InMemoryAgentTaskQueue>());
 // Worker
 builder.Services.AddHostedService<Appostolic.Api.Application.Agents.Queue.AgentTaskWorker>();
+builder.Services.AddSingleton<Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry>();
 
 // OpenTelemetry: resource, traces, metrics
 builder.Services.AddOpenTelemetry()

@@ -94,3 +94,7 @@
 ## S1-11 — AgentTasks Filters & Paging
 
 - Dev Time Saved (A11-01): Manual 1.1h vs Actual <calc>h → Saved <calc>h (~$<calc>) — Extend GET /api/agent-tasks with status/agentId/date/q filters, paging, and X-Total-Count
+
+## S1-11 — Cancel Endpoint
+
+- Dev Time Saved (A11-02): Manual 1.0h vs Actual 0.25h → Saved 0.75h ($54.00) — Added POST /api/agent-tasks/{id}/cancel; pending cancels immediately, running cancels cooperatively via registry

@@ -170,3 +170,6 @@
 
 {"task":"A11-01","phase":"start","ts":"<UTC ISO>"}
 
+{"task":"A11-02","phase":"start","ts":"<UTC>"}
+{"task":"A11-02","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54.00,"ts":"<UTC>"}
+
