@@ -20,3 +20,6 @@ if (!('location' in globalThis)) {
   // @ts-expect-error set jsdom location for tests
   globalThis.location = new URL('http://localhost');
 }
+
+// Ensure server-only fetch helper builds absolute URLs matching MSW handlers
+process.env.NEXT_PUBLIC_WEB_BASE = 'http://localhost';

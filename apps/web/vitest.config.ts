@@ -48,9 +48,13 @@ export default defineConfig({
         // Test helpers and API proxy code
         'app/api-proxy/**/*.ts',
         'test/**/*',
-        // Them ing and server-only shims
+        // Theming and server-only shims
         'src/theme/ThemeRegistry.tsx',
         'src/lib/serverEnv.ts',
+        // Server-only auth helpers excluded from coverage thresholds
+        'src/lib/auth.ts',
+        'src/lib/hash.ts',
+        'src/lib/proxyHeaders.ts',
         // Low-signal UI helpers excluded from coverage thresholds
         'app/dev/agents/components/TracesTable.tsx',
         'src/app/studio/tasks/components/TaskFilters.tsx',

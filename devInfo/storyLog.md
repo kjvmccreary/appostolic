@@ -467,6 +467,10 @@ How to try it
 - Start the dev server and navigate to `/studio/tasks`.
 - Use the chips/selects/date pickers/search to filter; use the grid’s footer to page; observe the URL reflecting state.
 
+Tests
+
+- Added login page tests covering CSRF token presence, inline error on invalid credentials (no redirect), and redirect on successful sign-in.
+
 ## Spike - refactor for MUI - Part 2
 
 I’ll continue the MUI migration by centralizing theme options and converting the Agents and Traces tables to DataGridPremium, keeping SSR theming consistent.
