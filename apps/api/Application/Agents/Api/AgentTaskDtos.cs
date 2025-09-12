@@ -13,7 +13,8 @@ public record AgentTaskSummary(
     string Status,
     DateTime CreatedAt,
     DateTime? StartedAt,
-    DateTime? FinishedAt
+    DateTime? FinishedAt,
+    int TotalTokens
 );
 
 public record AgentTaskDetails(
@@ -23,6 +24,10 @@ public record AgentTaskDetails(
     DateTime CreatedAt,
     DateTime? StartedAt,
     DateTime? FinishedAt,
+    int TotalPromptTokens,
+    int TotalCompletionTokens,
+    int TotalTokens,
+    decimal? EstimatedCostUsd,
     JsonDocument? Result,
     string? ErrorMessage
 );

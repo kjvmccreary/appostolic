@@ -73,7 +73,8 @@ public static class AgentTasksEndpoints
                 task.Status.ToString(),
                 task.CreatedAt,
                 task.StartedAt,
-                task.FinishedAt
+                task.FinishedAt,
+                task.TotalTokens
             );
 
             return Results.Created($"/api/agent-tasks/{task.Id}", summary);
@@ -107,6 +108,10 @@ public static class AgentTasksEndpoints
                 task.CreatedAt,
                 task.StartedAt,
                 task.FinishedAt,
+                task.TotalPromptTokens,
+                task.TotalCompletionTokens,
+                task.TotalTokens,
+                task.EstimatedCostUsd,
                 resultDoc,
                 task.ErrorMessage
             );
@@ -188,7 +193,8 @@ public static class AgentTasksEndpoints
                     t.Status.ToString(),
                     t.CreatedAt,
                     t.StartedAt,
-                    t.FinishedAt
+                    t.FinishedAt,
+                    t.TotalTokens
                 ))
                 .ToListAsync(ct);
 
