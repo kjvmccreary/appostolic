@@ -1,5 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
+// Using plain <a> to avoid a transient @types/react mismatch with next/link in monorepo
 import { View, Text } from '@appostolic/ui';
 
 export default function Page() {
@@ -10,7 +10,7 @@ export default function Page() {
         <Text bold>Shared UI works on web</Text>
       </View>
       <p>
-        <Link href="/dev">Dev page</Link>
+        <a href="/dev">Dev page</a>
       </p>
     </main>
   );

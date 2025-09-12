@@ -78,3 +78,5 @@
 - A10-02 — Manual 0.5h vs Actual 0.20h → Saved 0.30h ($21.60) — Added GET /api/agents/tools endpoint returning web.search, db.query, fs.write with category and description for UI
 
 - A10-03 — Manual 0.7h vs Actual 0.22h → Saved 0.48h ($34.56) — Added AgentStore (DB-first, fallback to AgentRegistry); wired Worker to resolve agents via AgentStore; tests green
+
+- A10-04 — Manual 0.8h vs Actual 0.25h → Saved 0.55h ($39.60) — Next.js /studio/agents page with server fetch via /api-proxy/agents and client table; empty state and New Agent action
