@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export type AgentListItem = {
   id: string;
@@ -28,7 +29,26 @@ function timeAgo(iso?: string | null) {
 }
 
 export function AgentsTable({ items }: { items: AgentListItem[] }) {
+  const router = useRouter();
   const rows = useMemo(() => items, [items]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string, name: string) {
+    const ok = window.confirm(`Delete agent "${name}"? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api-proxy/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const txt = await res.text();
+        alert(`Delete failed: ${res.status} ${txt}`);
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (!rows.length) {
     return (
@@ -69,17 +89,25 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
               <td className="px-3 py-2">{timeAgo(a.updatedAt ?? a.createdAt)}</td>
               <td className="px-3 py-2 text-right space-x-2">
                 <Link
+                  href={`/dev/agents?agentId=${encodeURIComponent(a.id)}`}
+                  className="px-2 py-1 border rounded hover:bg-gray-50"
+                >
+                  Run
+                </Link>
+                <Link
                   href={`/studio/agents/${a.id}`}
                   className="px-2 py-1 border rounded hover:bg-gray-50"
                 >
                   Edit
                 </Link>
-                <Link
-                  href={`/studio/agents/${a.id}/delete`}
-                  className="px-2 py-1 border rounded hover:bg-gray-50 text-red-700"
+                <button
+                  onClick={() => handleDelete(a.id, a.name)}
+                  disabled={deletingId === a.id}
+                  className="px-2 py-1 border rounded hover:bg-gray-50 text-red-700 disabled:opacity-60"
+                  type="button"
                 >
-                  Delete
-                </Link>
+                  {deletingId === a.id ? 'Deleting…' : 'Delete'}
+                </button>
               </td>
             </tr>
           ))}
