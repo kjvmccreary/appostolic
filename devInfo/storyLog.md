@@ -144,39 +144,21 @@ Kicking off A11-02 (Cancel endpoint), I’ll add a cooperative cancel flow, wire
 
 Plan
 
-- Add an in-memory cancel registry used by both endpoint and worker/orchestrator.
-- Update orchestrator to check for cancel requests between steps and mark Canceled.
-- Add POST /api/agent-tasks/{id}/cancel with specified behavior.
-- Log start/end savings and update story log + sprint notes.
 - Build and push.
 
 Actions taken
 
-- Added AgentTaskCancelRegistry (singleton) with RequestCancel/IsCancelRequested/TryClear and registered in DI.
-- Orchestrator checks cancel registry between steps and transitions to Canceled (sets ErrorMessage="Canceled", FinishedAt=UtcNow).
-- Endpoint POST /api/agent-tasks/{id}/cancel:
-  - Pending → set Status=Canceled, FinishedAt=UtcNow, ErrorMessage="Canceled".
-  - Running → record cancel intent via registry (worker observes and cancels soon).
-  - Terminal → 409 Conflict { message: "Already terminal" }.
-- Logged savings entries and sprint note; pushed changes.
+- Pending → set Status=Canceled, FinishedAt=UtcNow, ErrorMessage="Canceled".
+- Running → record cancel intent via registry (worker observes and cancels soon).
+- Terminal → 409 Conflict { message: "Already terminal" }.
 
 Results
 
-- Pending cancel flips immediately (202 Accepted with payload { id, status }).
-- Running cancel cooperatively transitions to Canceled shortly after.
-- Terminal cancel returns 409 as expected.
-
-Files changed
-
 - apps/api/Application/Agents/Queue/AgentTaskCancelRegistry.cs
 - apps/api/Application/Agents/Runtime/AgentOrchestrator.cs
-- apps/api/App/Endpoints/AgentTasksEndpoints.cs
-- apps/api/Program.cs
 - dev-metrics/savings.jsonl
 - devInfo/storyLog.md
 - Sprint-01-Appostolic.md
-
-Quality gates
 
 - Build: PASS.
 - Tests: Existing suites green.
@@ -184,52 +166,28 @@ Quality gates
 Requirements coverage
 
 - Endpoint behavior (Pending/Running/Terminal): Done.
-- Orchestrator observes cancel: Done.
-- Story log entry and savings: Done.
-
-## A11-05 — Web proxy: cancel/retry/export routes
-
-I’ll add web server proxy handlers so the browser can call cancel/retry/export without CORS, then log work and savings.
+  I’ll add web server proxy handlers so the browser can call cancel/retry/export without CORS, then log work and savings.
 
 Plan
 
-- Create three proxy routes under Next.js app router:
-  - `POST /api-proxy/agent-tasks/{id}/cancel`
-  - `POST /api-proxy/agent-tasks/{id}/retry`
-  - `GET /api-proxy/agent-tasks/{id}/export`
+- `GET /api-proxy/agent-tasks/{id}/export`
 - Forward to `${API_BASE}/api/agent-tasks/...` with `x-dev-user` and `x-tenant` headers from `serverEnv`.
 - Preserve relevant response headers (Location for retry; Content-Type and Content-Disposition for export).
-- Append savings entries and sprint note; commit and push.
-
-Actions taken
+  Actions taken
 
 - Added cancel proxy: forwards POST to `/api/agent-tasks/{id}/cancel` with dev headers.
-- Added retry proxy: forwards POST to `/api/agent-tasks/{id}/retry`, forwarding Location header.
-- Added export proxy: forwards GET to `/api/agent-tasks/{id}/export`, streaming body and passing Content-Type/Disposition.
 - Logged savings start entry.
 
 Results
 
-- Browser can call cancel, retry, and export via `/api-proxy/*` with no CORS issues; headers are preserved for client handling.
-
-Files changed
-
-- apps/web/app/api-proxy/agent-tasks/[id]/cancel/route.ts
 - apps/web/app/api-proxy/agent-tasks/[id]/retry/route.ts
 - apps/web/app/api-proxy/agent-tasks/[id]/export/route.ts
 - dev-metrics/savings.jsonl
-- devInfo/storyLog.md
 
 Quality gates
 
-- Build: Proxy route patterns mirror existing ones and compiled previously.
-
-Requirements coverage
-
 - Server proxies for cancel/retry/export with dev headers: Done.
 - No-CORS browser access via Next.js API proxy: Done.
-
-## A11-06 — Web: Inbox page with filters & paging
 
 I’ll build a Tasks Inbox at /studio/tasks with filters and paging that calls the list API via server proxy.
 
