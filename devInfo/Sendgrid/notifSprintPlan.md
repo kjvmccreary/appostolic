@@ -150,7 +150,7 @@ Status
 
 - Completed: Implemented `NotificationEnqueuer.QueueInviteAsync` to build the invite accept link from `EmailOptions.WebBaseUrl` and include `tenant`, `role`, and `inviter` in the message data. Added unit tests covering absolute and relative link generation and field assertions. Full test suite green.
 
-## Notif-09 — Observability (metrics + logs)
+## ~~Notif-09 — Observability (metrics + logs)~~
 
 Summary
 
@@ -164,6 +164,10 @@ Acceptance Criteria
 Key Tasks
 
 - Add metric instruments and log scopes
+
+Status
+
+- Completed: Added counters `email.sent.total` and `email.failed.total` (tagged by `kind`) in `EmailMetrics` and wired increments from `EmailDispatcherHostedService`. Enriched dispatcher logs with correlation fields when present on `EmailMessage.Data` (userId, tenantId, inviteId; plus tenant, inviter fallbacks). Added a unit test to capture logger scopes and verify correlation keys are included. Full suite green.
 
 ## Notif-10 — Docs and environment wiring
 

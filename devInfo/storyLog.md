@@ -470,6 +470,41 @@ Quality gates
 Time/savings
 {"task":"Notif-08","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54}
 
+## Notif-09 — Observability (metrics + logs)
+
+I added metrics and log enrichment to the email dispatcher so we can observe send outcomes and correlate events.
+
+Plan
+
+- Counters: `email.sent.total`, `email.failed.total` tagged by `kind`.
+- Logging: include correlation fields in log scope when present: `userId`, `tenantId`, `inviteId` (and human-friendly `tenant`, `inviter`).
+
+Actions taken
+
+- Implemented counters in `apps/api/App/Notifications/EmailMetrics.cs` (using Meter: `Appostolic.Metrics`).
+- Wired increments from `apps/api/App/Notifications/EmailDispatcherHostedService.cs` on success/final failure.
+- Enriched dispatcher log scopes with correlation keys from `EmailMessage.Data`.
+- Added test `apps/api.tests/EmailDispatcherTests.cs` that captures logger scopes and asserts the presence of correlation fields after processing an invite message.
+
+Results
+
+- Build and tests: PASS (full suite green).
+- Telemetry now includes per-kind email outcome counts; logs carry correlation, improving traceability.
+
+Files changed
+
+- apps/api/App/Notifications/EmailDispatcherHostedService.cs — scope enrichment + metric calls already present
+- apps/api/App/Notifications/EmailMetrics.cs — counters for sent/failed
+- apps/api.tests/EmailDispatcherTests.cs — new correlation scope test
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS
+
+Time/savings
+{"task":"Notif-09","manual_hours":0.9,"actual_hours":0.25,"saved_hours":0.65,"rate":72,"savings_usd":46.8}
+
 ## Notif-06 — DI selection and safety checks
 
 I implemented provider selection for notifications based on configuration, added a SendGrid key shim, and guarded production startup when misconfigured. Logged work and savings.

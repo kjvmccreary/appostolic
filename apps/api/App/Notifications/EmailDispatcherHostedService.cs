@@ -45,11 +45,33 @@ public sealed class EmailDispatcherHostedService : BackgroundService
             var attempt = 0;
             Exception? last = null;
 
-            using var scope = _logger.BeginScope(new Dictionary<string, object?>
+            var scopeState = new Dictionary<string, object?>
             {
                 ["email.kind"] = msg.Kind.ToString(),
                 ["email.to"] = msg.ToEmail
-            });
+            };
+
+            // Optional correlation fields if provided by the producer
+            if (msg.Data is { } data && data.Count > 0)
+            {
+                void AddIfPresent(string dataKey, string scopeKey)
+                {
+                    if (data.TryGetValue(dataKey, out var v) && v is not null)
+                    {
+                        scopeState[scopeKey] = v;
+                    }
+                }
+
+                AddIfPresent("userId", "email.userId");
+                AddIfPresent("tenantId", "email.tenantId");
+                AddIfPresent("inviteId", "email.inviteId");
+
+                // Fallback human-friendly fields
+                AddIfPresent("tenant", "email.tenant");
+                AddIfPresent("inviter", "email.inviter");
+            }
+
+            using var scope = _logger.BeginScope(scopeState);
 
             for (; attempt < delays.Length; attempt++)
             {
