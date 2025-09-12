@@ -1,0 +1,309 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="e9f60f91-5ed1-431b-993b-3996a6c125a1" name="@mac 2025-09-11 19:51:57" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-09-11T19:51:57.2228620-05:00" queuing="2025-09-11T19:51:57.2228630-05:00" start="2025-09-11T19:51:56.8892850-05:00" finish="2025-09-11T19:51:57.7776470-05:00" />
+  <TestSettings name="default" id="19bfbd06-c86b-4ae4-98de-0f095f2efc96">
+    <Deployment runDeploymentRoot="_mac_2025-09-11_19_51_57" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="12707180-60b9-4909-acdd-771668adaa7b" testId="cc013720-f8b7-b972-40e8-34c7328bfdae" testName="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.ToolNotAllowed_FailsAndTracesFailure" computerName="mac" duration="00:00:00.0013483" startTime="2025-09-11T19:51:57.6016940-05:00" endTime="2025-09-11T19:51:57.6016940-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="12707180-60b9-4909-acdd-771668adaa7b" />
+    <UnitTestResult executionId="74dd3dab-ee43-4b26-a52f-d92c6b3ee6fc" testId="0f0c7731-d28a-bcbe-054f-641f024437ac" testName="Appostolic.Api.Tests.ModelMappingTests.AgentTask_Status_is_converted_as_string" computerName="mac" duration="00:00:00.0025875" startTime="2025-09-11T19:51:57.6147260-05:00" endTime="2025-09-11T19:51:57.6147260-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="74dd3dab-ee43-4b26-a52f-d92c6b3ee6fc" />
+    <UnitTestResult executionId="ebd307fb-1da2-49b5-a6d1-57809b839fb1" testId="30aa5bc1-9211-739f-532d-176c6c3c3a30" testName="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.MaxStepsExceeded_FailsAfterCap" computerName="mac" duration="00:00:00.0079587" startTime="2025-09-11T19:51:57.6003260-05:00" endTime="2025-09-11T19:51:57.6003260-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ebd307fb-1da2-49b5-a6d1-57809b839fb1" />
+    <UnitTestResult executionId="49ccf0ea-516a-4ac5-96c2-24a123eef4b1" testId="6af85923-8d05-0c62-0cc5-a5120df2d8e5" testName="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.List_Pending_ReturnsCreatedFirst" computerName="mac" duration="00:00:00.0153905" startTime="2025-09-11T19:51:57.7439870-05:00" endTime="2025-09-11T19:51:57.7439870-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="49ccf0ea-516a-4ac5-96c2-24a123eef4b1" />
+    <UnitTestResult executionId="482b5038-d1f6-4102-9c8c-4bec993c295d" testId="c8cdac31-ad32-9a02-508c-02a988e5e017" testName="DbQueryToolTests.Reject_non_select" computerName="mac" duration="00:00:00.0003293" startTime="2025-09-11T19:51:57.2918940-05:00" endTime="2025-09-11T19:51:57.2918940-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="482b5038-d1f6-4102-9c8c-4bec993c295d" />
+    <UnitTestResult executionId="3e1b4ea6-7c36-4957-b478-fb5c99cec09b" testId="9c020064-9cbb-7975-d5c0-9dc48d581775" testName="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.CreateTask_Returns201AndSummary" computerName="mac" duration="00:00:00.4571349" startTime="2025-09-11T19:51:57.6834640-05:00" endTime="2025-09-11T19:51:57.6834640-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3e1b4ea6-7c36-4957-b478-fb5c99cec09b" />
+    <UnitTestResult executionId="9794f9be-1085-4a92-9b84-2e9c99df95f1" testId="a11d6311-0314-291e-6c87-0745cc1eace8" testName="Appostolic.Api.Tests.Observability.TelemetrySmokeTests.HappyPath_Emits_Spans_And_Metrics" computerName="mac" duration="00:00:00.3842860" startTime="2025-09-11T19:51:57.5792180-05:00" endTime="2025-09-11T19:51:57.5792180-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9794f9be-1085-4a92-9b84-2e9c99df95f1">
+      <Output>
+        <ErrorInfo>
+          <Message>System.InvalidOperationException : Collection was modified; enumeration operation may not execute.</Message>
+          <StackTrace>   at System.Collections.Generic.List`1.Enumerator.MoveNextRare()
+   at System.Collections.Generic.List`1.Enumerator.MoveNext()
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at Appostolic.Api.Tests.Observability.TelemetrySmokeTests.HappyPath_Emits_Spans_And_Metrics() in /Users/kevinmccreary/appostolic/apps/api.tests/Observability/TelemetrySmokeTests.cs:line 82
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5890caaa-df37-4ff8-949e-2ac6fabd61f5" testId="6447b752-ca58-5092-2c5d-d1f5fe58b5dc" testName="WebSearchToolTests.Empty_query_returns_empty" computerName="mac" duration="00:00:00.0006682" startTime="2025-09-11T19:51:57.2841420-05:00" endTime="2025-09-11T19:51:57.2841420-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5890caaa-df37-4ff8-949e-2ac6fabd61f5" />
+    <UnitTestResult executionId="82b44323-0130-4684-b71f-e76c9cf36ab9" testId="94ec43a1-8d1a-e493-b213-b33a5a6877b2" testName="FsWriteToolTests.Rejects_path_traversal" computerName="mac" duration="00:00:00.0015011" startTime="2025-09-11T19:51:57.2860540-05:00" endTime="2025-09-11T19:51:57.2860540-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="82b44323-0130-4684-b71f-e76c9cf36ab9" />
+    <UnitTestResult executionId="0f860f92-00e6-4993-a45b-cd8bb8739b7b" testId="87a5b8a9-e5bd-8c6e-5a6c-5815a0bd8c39" testName="Appostolic.Api.Tests.Worker.AgentTaskWorkerTests.Pending_To_Running_To_Succeeded_With_Traces" computerName="mac" duration="00:00:00.4289945" startTime="2025-09-11T19:51:57.6173050-05:00" endTime="2025-09-11T19:51:57.6173050-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0f860f92-00e6-4993-a45b-cd8bb8739b7b" />
+    <UnitTestResult executionId="6b8ebfdc-7a9c-48c0-8430-f32d52d741bf" testId="79403e37-7823-d8d7-7290-f467456876fa" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;a&quot;, expected: 1)" computerName="mac" duration="00:00:00.0000013" startTime="2025-09-11T19:51:57.2035220-05:00" endTime="2025-09-11T19:51:57.2035220-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6b8ebfdc-7a9c-48c0-8430-f32d52d741bf" />
+    <UnitTestResult executionId="5e94a2cf-9fd5-4151-b263-a14f4007609a" testId="8499e5e2-c09d-d64e-ab91-715c51a15d3b" testName="Appostolic.Api.Tests.ModelMappingTests.Agent_ToolAllowlist_has_column_type_jsonb" computerName="mac" duration="00:00:00.0158161" startTime="2025-09-11T19:51:57.6528360-05:00" endTime="2025-09-11T19:51:57.6528370-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e94a2cf-9fd5-4151-b263-a14f4007609a" />
+    <UnitTestResult executionId="c2848a67-2de7-4bb3-a4a6-0dcaa363c0ab" testId="39114ef2-4a94-0d20-df91-881c10164c3c" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcd&quot;, expected: 1)" computerName="mac" duration="00:00:00.0000017" startTime="2025-09-11T19:51:57.2035060-05:00" endTime="2025-09-11T19:51:57.2035060-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c2848a67-2de7-4bb3-a4a6-0dcaa363c0ab" />
+    <UnitTestResult executionId="8755e562-9f79-46d0-b16f-5ccf4d8db9c5" testId="71d5d180-2d36-ecb9-e4eb-71ca09e46ec4" testName="Appostolic.Api.Tests.AgentConstraintTests.Agent_Temperature_out_of_range_throws_in_domain_constructor" computerName="mac" duration="00:00:00.0185107" startTime="2025-09-11T19:51:57.2067600-05:00" endTime="2025-09-11T19:51:57.2067600-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8755e562-9f79-46d0-b16f-5ccf4d8db9c5" />
+    <UnitTestResult executionId="70f281a8-7010-4114-9f40-7a92347d31e3" testId="3494b3d5-98dd-209c-c4b4-d8d0bff712f0" testName="FsWriteToolTests.Writes_file_under_root_and_returns_sha" computerName="mac" duration="00:00:00.0961270" startTime="2025-09-11T19:51:57.2845330-05:00" endTime="2025-09-11T19:51:57.2845330-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70f281a8-7010-4114-9f40-7a92347d31e3" />
+    <UnitTestResult executionId="28bdc420-cb19-4bdd-9c6a-ccb3dd66e276" testId="fc170f06-7a65-44e3-9780-d428f13f33ad" testName="Appostolic.Api.Tests.SmokeTests.Health_ReturnsOk" computerName="mac" duration="00:00:00.4650327" startTime="2025-09-11T19:51:57.6727630-05:00" endTime="2025-09-11T19:51:57.6727630-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="28bdc420-cb19-4bdd-9c6a-ccb3dd66e276" />
+    <UnitTestResult executionId="d2528390-2fb7-4300-aac0-6d11496af9f4" testId="9b729b7e-a306-20a1-7040-eda547fe8bec" testName="Appostolic.Api.Tests.E2E.AgentTasksE2E_HappyPath.EndToEnd_CreatesTask_RunsToSuccess_TracesAndTokensPresent" computerName="mac" duration="00:00:00.5407919" startTime="2025-09-11T19:51:57.7455840-05:00" endTime="2025-09-11T19:51:57.7455840-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d2528390-2fb7-4300-aac0-6d11496af9f4" />
+    <UnitTestResult executionId="b0042197-cc09-4bbd-aa3b-5dcfe2322d3c" testId="ed8d7d20-a6f1-0500-d78a-14c17a721b87" testName="Appostolic.Api.Tests.AgentOrchestratorTests.MaxStepsExceeded_FailsAfterCap" computerName="mac" duration="00:00:00.0083202" startTime="2025-09-11T19:51:57.6002820-05:00" endTime="2025-09-11T19:51:57.6002820-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b0042197-cc09-4bbd-aa3b-5dcfe2322d3c" />
+    <UnitTestResult executionId="204806f5-a66c-46dd-b8b8-17f9b4d51155" testId="6ac2577f-abec-ce9e-a92b-34035bd744e0" testName="FsWriteToolTests.Rejects_when_content_exceeds_max" computerName="mac" duration="00:00:00.0004662" startTime="2025-09-11T19:51:57.2865000-05:00" endTime="2025-09-11T19:51:57.2865000-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="204806f5-a66c-46dd-b8b8-17f9b4d51155" />
+    <UnitTestResult executionId="a6ea3acd-280d-46ea-aa27-56e3791ad554" testId="33c114dd-901b-348b-cb07-4ff32816218d" testName="Appostolic.Api.Tests.AgentConstraintTests.Agent_MaxSteps_out_of_range_throws_in_domain_constructor" computerName="mac" duration="00:00:00.0005472" startTime="2025-09-11T19:51:57.2117050-05:00" endTime="2025-09-11T19:51:57.2117050-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a6ea3acd-280d-46ea-aa27-56e3791ad554" />
+    <UnitTestResult executionId="2d8b3f4a-f873-472f-a75a-076a2971dd37" testId="40e767b4-314a-d8ef-34b1-5c49d7ef55c4" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;&quot;, expected: 0)" computerName="mac" duration="00:00:00.0117199" startTime="2025-09-11T19:51:57.2014670-05:00" endTime="2025-09-11T19:51:57.2014810-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2d8b3f4a-f873-472f-a75a-076a2971dd37" />
+    <UnitTestResult executionId="df9bce19-f54e-40e0-995c-22ba872a1907" testId="22ad276e-c73f-4ebf-8729-b5903439e2d9" testName="WebSearchToolTests.Query_intro_returns_expected" computerName="mac" duration="00:00:00.0032817" startTime="2025-09-11T19:51:57.2874540-05:00" endTime="2025-09-11T19:51:57.2874540-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="df9bce19-f54e-40e0-995c-22ba872a1907" />
+    <UnitTestResult executionId="6663618e-d448-440e-a2f8-f9d42c56a782" testId="c0347afe-0c6b-b0a7-12e1-3aa76a4722fc" testName="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.GetDetails_WithTracesInitiallyEmpty" computerName="mac" duration="00:00:00.0447188" startTime="2025-09-11T19:51:57.7283830-05:00" endTime="2025-09-11T19:51:57.7283830-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6663618e-d448-440e-a2f8-f9d42c56a782" />
+    <UnitTestResult executionId="5b0138ce-7d3e-4b12-8a69-3115d23bfb1c" testId="7e0d251c-aca1-3165-2651-f2996ab661b8" testName="DbQueryToolTests.Select_users_all_rows" computerName="mac" duration="00:00:00.0048679" startTime="2025-09-11T19:51:57.2854320-05:00" endTime="2025-09-11T19:51:57.2854320-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5b0138ce-7d3e-4b12-8a69-3115d23bfb1c" />
+    <UnitTestResult executionId="ba570a56-8af3-44de-bffe-f8632099a231" testId="8e56ee2d-296c-f180-2ad1-a3abd5b19292" testName="Appostolic.Api.Tests.AgentOrchestratorTests.ToolMissing_FailsWithToolNotFound" computerName="mac" duration="00:00:00.0008732" startTime="2025-09-11T19:51:57.6034560-05:00" endTime="2025-09-11T19:51:57.6034560-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ba570a56-8af3-44de-bffe-f8632099a231" />
+    <UnitTestResult executionId="f4513e96-eda0-4764-aaf9-a8fd9796f418" testId="2c0e3ce9-5829-44ef-fbae-e96e2c0f5de9" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcdefgh&quot;, expected: 2)" computerName="mac" duration="00:00:00.0000984" startTime="2025-09-11T19:51:57.2032630-05:00" endTime="2025-09-11T19:51:57.2032630-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f4513e96-eda0-4764-aaf9-a8fd9796f418" />
+    <UnitTestResult executionId="e13706a8-cee4-4c71-9627-2cdd02eba0e8" testId="eba2e046-3c6c-f48b-f85f-b23828d8319b" testName="Appostolic.Api.Tests.AgentOrchestratorTests.ToolNotAllowed_FailsAndTracesFailure" computerName="mac" duration="00:00:00.4035372" startTime="2025-09-11T19:51:57.5918890-05:00" endTime="2025-09-11T19:51:57.5918890-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e13706a8-cee4-4c71-9627-2cdd02eba0e8" />
+    <UnitTestResult executionId="10a4fedc-2612-4525-96e4-89d5e18f2d8a" testId="811026c2-41ce-4e18-121d-862774cd6272" testName="DbQueryToolTests.Select_lessons_where_id_param_object" computerName="mac" duration="00:00:00.0061601" startTime="2025-09-11T19:51:57.2915520-05:00" endTime="2025-09-11T19:51:57.2915530-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10a4fedc-2612-4525-96e4-89d5e18f2d8a" />
+    <UnitTestResult executionId="783b0f09-cd35-44a8-96ff-9423897555da" testId="2a9f6824-8a17-a193-b18b-3e78fa1bbbd5" testName="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.Cancellation_StopsMidRun" computerName="mac" duration="00:00:00.4040572" startTime="2025-09-11T19:51:57.5923020-05:00" endTime="2025-09-11T19:51:57.5923020-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="783b0f09-cd35-44a8-96ff-9423897555da" />
+    <UnitTestResult executionId="cdbdc3c5-c198-49c9-be2c-b3182b095c98" testId="1aa96e1c-162f-87b8-360d-29c19b3b2c73" testName="DbQueryToolTests.Unknown_table_fails" computerName="mac" duration="00:00:00.0921240" startTime="2025-09-11T19:51:57.2804620-05:00" endTime="2025-09-11T19:51:57.2804620-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cdbdc3c5-c198-49c9-be2c-b3182b095c98" />
+    <UnitTestResult executionId="effc9e63-63bd-4198-aef3-825c862c9886" testId="2f6106d4-2d27-0ec0-388a-a0a0d64b80ea" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcde&quot;, expected: 2)" computerName="mac" duration="00:00:00.0000009" startTime="2025-09-11T19:51:57.2035400-05:00" endTime="2025-09-11T19:51:57.2035400-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="effc9e63-63bd-4198-aef3-825c862c9886" />
+    <UnitTestResult executionId="bd00f3a8-0dfa-49bc-9a84-4d5f10ce61da" testId="cb3a79b8-8a20-d72b-fe66-3be39a479486" testName="Appostolic.Api.Tests.AgentOrchestratorTests.Cancellation_StopsMidRun" computerName="mac" duration="00:00:00.0229211" startTime="2025-09-11T19:51:57.6276580-05:00" endTime="2025-09-11T19:51:57.6276580-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bd00f3a8-0dfa-49bc-9a84-4d5f10ce61da" />
+    <UnitTestResult executionId="abe60fc1-25b0-4759-9f8d-4094722a4443" testId="e654c6ff-e79b-0f0d-7ecf-a4648dc0cf91" testName="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" computerName="mac" duration="00:00:00.0019542" startTime="2025-09-11T19:51:57.6047230-05:00" endTime="2025-09-11T19:51:57.6047230-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="abe60fc1-25b0-4759-9f8d-4094722a4443" />
+    <UnitTestResult executionId="2df1439b-4d54-4cd1-a721-7e4fce25305f" testId="f36e146c-5e84-0e67-2982-f20e16e0dd68" testName="Appostolic.Api.Tests.ModelMappingTests.Agent_check_constraints_are_configured_in_model" computerName="mac" duration="00:00:00.0221967" startTime="2025-09-11T19:51:57.6369800-05:00" endTime="2025-09-11T19:51:57.6369800-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2df1439b-4d54-4cd1-a721-7e4fce25305f" />
+    <UnitTestResult executionId="1c31db1b-6a6f-48ee-98db-efd811cb9f2b" testId="3b3a68c1-1138-770e-4b05-0d7fb6b68738" testName="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests.CostIsNull_WhenPricingDisabled" computerName="mac" duration="00:00:00.3828465" startTime="2025-09-11T19:51:57.5714100-05:00" endTime="2025-09-11T19:51:57.5714100-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1c31db1b-6a6f-48ee-98db-efd811cb9f2b" />
+    <UnitTestResult executionId="3b0570e3-9599-4dc8-839c-3820f156df90" testId="d9d051a9-d261-1011-dbde-e42b30d539a9" testName="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.ToolMissing_FailsWithToolNotFound" computerName="mac" duration="00:00:00.0010367" startTime="2025-09-11T19:51:57.6028090-05:00" endTime="2025-09-11T19:51:57.6028090-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3b0570e3-9599-4dc8-839c-3820f156df90" />
+    <UnitTestResult executionId="8484fba7-a425-46b8-8283-fcc1efccde62" testId="691bf80d-9ec7-7de8-ad81-702e4cdb8bfd" testName="WebSearchToolTests.Take_limits_results" computerName="mac" duration="00:00:00.0951025" startTime="2025-09-11T19:51:57.2834540-05:00" endTime="2025-09-11T19:51:57.2834550-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8484fba7-a425-46b8-8283-fcc1efccde62" />
+    <UnitTestResult executionId="a8a6ffcd-296a-4f2a-86ea-7488def3a1bd" testId="37b7f024-73bb-98ae-d17f-d1c0ce9f17e8" testName="Appostolic.Api.Tests.ModelMappingTests.AgentTrace_Kind_is_mapped_as_int" computerName="mac" duration="00:00:00.3282957" startTime="2025-09-11T19:51:57.5165650-05:00" endTime="2025-09-11T19:51:57.5165650-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a8a6ffcd-296a-4f2a-86ea-7488def3a1bd" />
+    <UnitTestResult executionId="2af95744-cb85-410b-9f69-2ce57ecb600d" testId="c2441ddc-565a-93d7-0c28-f73ca97b9486" testName="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests.AggregatesTokens_And_ComputesCost_WhenPricingEnabled" computerName="mac" duration="00:00:00.0032403" startTime="2025-09-11T19:51:57.5744480-05:00" endTime="2025-09-11T19:51:57.5744480-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2af95744-cb85-410b-9f69-2ce57ecb600d" />
+    <UnitTestResult executionId="c1c21102-c98c-4559-86ec-18d2e04f2756" testId="1c8df7f1-aa05-88d6-f922-5ecb50d1b5d9" testName="Appostolic.Api.Tests.ModelMappingTests.Agent_ToolAllowlist_is_jsonb_and_roundtrips_like_array" computerName="mac" duration="00:00:00.0955052" startTime="2025-09-11T19:51:57.6121550-05:00" endTime="2025-09-11T19:51:57.6121550-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c1c21102-c98c-4559-86ec-18d2e04f2756" />
+    <UnitTestResult executionId="f33151de-6c43-40de-9e95-c6ac0e16622b" testId="dfdd94d6-4157-31a9-a81a-18fee28467d5" testName="Appostolic.Api.Tests.AgentOrchestratorTests.HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" computerName="mac" duration="00:00:00.0022404" startTime="2025-09-11T19:51:57.6025450-05:00" endTime="2025-09-11T19:51:57.6025450-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f33151de-6c43-40de-9e95-c6ac0e16622b" />
+    <UnitTestResult executionId="36e86665-86b4-46e2-a832-b498a1ebd094" testId="df92ad96-32d4-9c44-0398-97a52600538f" testName="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcdefghi&quot;, expected: 3)" computerName="mac" duration="00:00:00.0000025" startTime="2025-09-11T19:51:57.2034850-05:00" endTime="2025-09-11T19:51:57.2034850-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="36e86665-86b4-46e2-a832-b498a1ebd094" />
+    <UnitTestResult executionId="98834090-9baa-4b81-af5d-263b697e78de" testId="f53587d7-cc90-0182-8a77-44034bb01e5e" testName="Appostolic.Api.Tests.ModelMappingTests.Agent_indexes_are_configured_in_model" computerName="mac" duration="00:00:00.0004195" startTime="2025-09-11T19:51:57.6532760-05:00" endTime="2025-09-11T19:51:57.6532760-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="98834090-9baa-4b81-af5d-263b697e78de" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.Agent_indexes_are_configured_in_model" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="f53587d7-cc90-0182-8a77-44034bb01e5e">
+      <Execution id="98834090-9baa-4b81-af5d-263b697e78de" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="Agent_indexes_are_configured_in_model" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.MaxStepsExceeded_FailsAfterCap" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="30aa5bc1-9211-739f-532d-176c6c3c3a30">
+      <Execution id="ebd307fb-1da2-49b5-a6d1-57809b839fb1" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests" name="MaxStepsExceeded_FailsAfterCap" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.ToolMissing_FailsWithToolNotFound" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="d9d051a9-d261-1011-dbde-e42b30d539a9">
+      <Execution id="3b0570e3-9599-4dc8-839c-3820f156df90" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests" name="ToolMissing_FailsWithToolNotFound" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.Agent_check_constraints_are_configured_in_model" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="f36e146c-5e84-0e67-2982-f20e16e0dd68">
+      <Execution id="2df1439b-4d54-4cd1-a721-7e4fce25305f" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="Agent_check_constraints_are_configured_in_model" />
+    </UnitTest>
+    <UnitTest name="FsWriteToolTests.Rejects_when_content_exceeds_max" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="6ac2577f-abec-ce9e-a92b-34035bd744e0">
+      <Execution id="204806f5-a66c-46dd-b8b8-17f9b4d51155" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="FsWriteToolTests" name="Rejects_when_content_exceeds_max" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentOrchestratorTests.ToolNotAllowed_FailsAndTracesFailure" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="eba2e046-3c6c-f48b-f85f-b23828d8319b">
+      <Execution id="e13706a8-cee4-4c71-9627-2cdd02eba0e8" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentOrchestratorTests" name="ToolNotAllowed_FailsAndTracesFailure" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Observability.TelemetrySmokeTests.HappyPath_Emits_Spans_And_Metrics" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="a11d6311-0314-291e-6c87-0745cc1eace8">
+      <Execution id="9794f9be-1085-4a92-9b84-2e9c99df95f1" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Observability.TelemetrySmokeTests" name="HappyPath_Emits_Spans_And_Metrics" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;a&quot;, expected: 1)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="79403e37-7823-d8d7-7290-f467456876fa">
+      <Execution id="6b8ebfdc-7a9c-48c0-8430-f32d52d741bf" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcdefgh&quot;, expected: 2)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="2c0e3ce9-5829-44ef-fbae-e96e2c0f5de9">
+      <Execution id="f4513e96-eda0-4764-aaf9-a8fd9796f418" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.Cancellation_StopsMidRun" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="2a9f6824-8a17-a193-b18b-3e78fa1bbbd5">
+      <Execution id="783b0f09-cd35-44a8-96ff-9423897555da" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests" name="Cancellation_StopsMidRun" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="e654c6ff-e79b-0f0d-7ecf-a4648dc0cf91">
+      <Execution id="abe60fc1-25b0-4759-9f8d-4094722a4443" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests" name="HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Worker.AgentTaskWorkerTests.Pending_To_Running_To_Succeeded_With_Traces" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="87a5b8a9-e5bd-8c6e-5a6c-5815a0bd8c39">
+      <Execution id="0f860f92-00e6-4993-a45b-cd8bb8739b7b" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Worker.AgentTaskWorkerTests" name="Pending_To_Running_To_Succeeded_With_Traces" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.E2E.AgentTasksE2E_HappyPath.EndToEnd_CreatesTask_RunsToSuccess_TracesAndTokensPresent" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="9b729b7e-a306-20a1-7040-eda547fe8bec">
+      <Execution id="d2528390-2fb7-4300-aac0-6d11496af9f4" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.E2E.AgentTasksE2E_HappyPath" name="EndToEnd_CreatesTask_RunsToSuccess_TracesAndTokensPresent" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests.AggregatesTokens_And_ComputesCost_WhenPricingEnabled" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="c2441ddc-565a-93d7-0c28-f73ca97b9486">
+      <Execution id="2af95744-cb85-410b-9f69-2ce57ecb600d" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests" name="AggregatesTokens_And_ComputesCost_WhenPricingEnabled" />
+    </UnitTest>
+    <UnitTest name="DbQueryToolTests.Select_users_all_rows" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="7e0d251c-aca1-3165-2651-f2996ab661b8">
+      <Execution id="5b0138ce-7d3e-4b12-8a69-3115d23bfb1c" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DbQueryToolTests" name="Select_users_all_rows" />
+    </UnitTest>
+    <UnitTest name="WebSearchToolTests.Query_intro_returns_expected" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="22ad276e-c73f-4ebf-8729-b5903439e2d9">
+      <Execution id="df9bce19-f54e-40e0-995c-22ba872a1907" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="WebSearchToolTests" name="Query_intro_returns_expected" />
+    </UnitTest>
+    <UnitTest name="DbQueryToolTests.Select_lessons_where_id_param_object" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="811026c2-41ce-4e18-121d-862774cd6272">
+      <Execution id="10a4fedc-2612-4525-96e4-89d5e18f2d8a" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DbQueryToolTests" name="Select_lessons_where_id_param_object" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentConstraintTests.Agent_MaxSteps_out_of_range_throws_in_domain_constructor" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="33c114dd-901b-348b-cb07-4ff32816218d">
+      <Execution id="a6ea3acd-280d-46ea-aa27-56e3791ad554" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentConstraintTests" name="Agent_MaxSteps_out_of_range_throws_in_domain_constructor" />
+    </UnitTest>
+    <UnitTest name="DbQueryToolTests.Reject_non_select" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="c8cdac31-ad32-9a02-508c-02a988e5e017">
+      <Execution id="482b5038-d1f6-4102-9c8c-4bec993c295d" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DbQueryToolTests" name="Reject_non_select" />
+    </UnitTest>
+    <UnitTest name="DbQueryToolTests.Unknown_table_fails" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="1aa96e1c-162f-87b8-360d-29c19b3b2c73">
+      <Execution id="cdbdc3c5-c198-49c9-be2c-b3182b095c98" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="DbQueryToolTests" name="Unknown_table_fails" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests.ToolNotAllowed_FailsAndTracesFailure" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="cc013720-f8b7-b972-40e8-34c7328bfdae">
+      <Execution id="12707180-60b9-4909-acdd-771668adaa7b" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.AgentOrchestratorTests" name="ToolNotAllowed_FailsAndTracesFailure" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.AgentTrace_Kind_is_mapped_as_int" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="37b7f024-73bb-98ae-d17f-d1c0ce9f17e8">
+      <Execution id="a8a6ffcd-296a-4f2a-86ea-7488def3a1bd" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="AgentTrace_Kind_is_mapped_as_int" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcdefghi&quot;, expected: 3)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="df92ad96-32d4-9c44-0398-97a52600538f">
+      <Execution id="36e86665-86b4-46e2-a832-b498a1ebd094" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.AgentTask_Status_is_converted_as_string" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="0f0c7731-d28a-bcbe-054f-641f024437ac">
+      <Execution id="74dd3dab-ee43-4b26-a52f-d92c6b3ee6fc" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="AgentTask_Status_is_converted_as_string" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.Agent_ToolAllowlist_has_column_type_jsonb" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="8499e5e2-c09d-d64e-ab91-715c51a15d3b">
+      <Execution id="5e94a2cf-9fd5-4151-b263-a14f4007609a" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="Agent_ToolAllowlist_has_column_type_jsonb" />
+    </UnitTest>
+    <UnitTest name="FsWriteToolTests.Writes_file_under_root_and_returns_sha" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="3494b3d5-98dd-209c-c4b4-d8d0bff712f0">
+      <Execution id="70f281a8-7010-4114-9f40-7a92347d31e3" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="FsWriteToolTests" name="Writes_file_under_root_and_returns_sha" />
+    </UnitTest>
+    <UnitTest name="WebSearchToolTests.Empty_query_returns_empty" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="6447b752-ca58-5092-2c5d-d1f5fe58b5dc">
+      <Execution id="5890caaa-df37-4ff8-949e-2ac6fabd61f5" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="WebSearchToolTests" name="Empty_query_returns_empty" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcde&quot;, expected: 2)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="2f6106d4-2d27-0ec0-388a-a0a0d64b80ea">
+      <Execution id="effc9e63-63bd-4198-aef3-825c862c9886" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentOrchestratorTests.Cancellation_StopsMidRun" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="cb3a79b8-8a20-d72b-fe66-3be39a479486">
+      <Execution id="bd00f3a8-0dfa-49bc-9a84-4d5f10ce61da" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentOrchestratorTests" name="Cancellation_StopsMidRun" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentOrchestratorTests.MaxStepsExceeded_FailsAfterCap" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="ed8d7d20-a6f1-0500-d78a-14c17a721b87">
+      <Execution id="b0042197-cc09-4bbd-aa3b-5dcfe2322d3c" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentOrchestratorTests" name="MaxStepsExceeded_FailsAfterCap" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;&quot;, expected: 0)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="40e767b4-314a-d8ef-34b1-5c49d7ef55c4">
+      <Execution id="2d8b3f4a-f873-472f-a75a-076a2971dd37" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.SmokeTests.Health_ReturnsOk" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="fc170f06-7a65-44e3-9780-d428f13f33ad">
+      <Execution id="28bdc420-cb19-4bdd-9c6a-ccb3dd66e276" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.SmokeTests" name="Health_ReturnsOk" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentOrchestratorTests.ToolMissing_FailsWithToolNotFound" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="8e56ee2d-296c-f180-2ad1-a3abd5b19292">
+      <Execution id="ba570a56-8af3-44de-bffe-f8632099a231" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentOrchestratorTests" name="ToolMissing_FailsWithToolNotFound" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Model.TokenEstimatorTests.EstimateTokens_Heuristic_CeilPer4Chars(text: &quot;abcd&quot;, expected: 1)" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="39114ef2-4a94-0d20-df91-881c10164c3c">
+      <Execution id="c2848a67-2de7-4bb3-a4a6-0dcaa363c0ab" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Model.TokenEstimatorTests" name="EstimateTokens_Heuristic_CeilPer4Chars" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.CreateTask_Returns201AndSummary" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="9c020064-9cbb-7975-d5c0-9dc48d581775">
+      <Execution id="3e1b4ea6-7c36-4957-b478-fb5c99cec09b" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests" name="CreateTask_Returns201AndSummary" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentOrchestratorTests.HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="dfdd94d6-4157-31a9-a81a-18fee28467d5">
+      <Execution id="f33151de-6c43-40de-9e95-c6ac0e16622b" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentOrchestratorTests" name="HappyPath_ModelPlansToolThenFinal_SucceedsWithTwoTraces" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.ModelMappingTests.Agent_ToolAllowlist_is_jsonb_and_roundtrips_like_array" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="1c8df7f1-aa05-88d6-f922-5ecb50d1b5d9">
+      <Execution id="c1c21102-c98c-4559-86ec-18d2e04f2756" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.ModelMappingTests" name="Agent_ToolAllowlist_is_jsonb_and_roundtrips_like_array" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.GetDetails_WithTracesInitiallyEmpty" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="c0347afe-0c6b-b0a7-12e1-3aa76a4722fc">
+      <Execution id="6663618e-d448-440e-a2f8-f9d42c56a782" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests" name="GetDetails_WithTracesInitiallyEmpty" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests.CostIsNull_WhenPricingDisabled" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="3b3a68c1-1138-770e-4b05-0d7fb6b68738">
+      <Execution id="1c31db1b-6a6f-48ee-98db-efd811cb9f2b" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Orchestrator.TokenAggregationTests" name="CostIsNull_WhenPricingDisabled" />
+    </UnitTest>
+    <UnitTest name="WebSearchToolTests.Take_limits_results" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="691bf80d-9ec7-7de8-ad81-702e4cdb8bfd">
+      <Execution id="8484fba7-a425-46b8-8283-fcc1efccde62" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="WebSearchToolTests" name="Take_limits_results" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.AgentConstraintTests.Agent_Temperature_out_of_range_throws_in_domain_constructor" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="71d5d180-2d36-ecb9-e4eb-71ca09e46ec4">
+      <Execution id="8755e562-9f79-46d0-b16f-5ccf4d8db9c5" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.AgentConstraintTests" name="Agent_Temperature_out_of_range_throws_in_domain_constructor" />
+    </UnitTest>
+    <UnitTest name="FsWriteToolTests.Rejects_path_traversal" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="94ec43a1-8d1a-e493-b213-b33a5a6877b2">
+      <Execution id="82b44323-0130-4684-b71f-e76c9cf36ab9" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="FsWriteToolTests" name="Rejects_path_traversal" />
+    </UnitTest>
+    <UnitTest name="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests.List_Pending_ReturnsCreatedFirst" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="6af85923-8d05-0c62-0cc5-a5120df2d8e5">
+      <Execution id="49ccf0ea-516a-4ac5-96c2-24a123eef4b1" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.Api.AgentTasksEndpointsTests" name="List_Pending_ReturnsCreatedFirst" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="cc013720-f8b7-b972-40e8-34c7328bfdae" executionId="12707180-60b9-4909-acdd-771668adaa7b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0f0c7731-d28a-bcbe-054f-641f024437ac" executionId="74dd3dab-ee43-4b26-a52f-d92c6b3ee6fc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="30aa5bc1-9211-739f-532d-176c6c3c3a30" executionId="ebd307fb-1da2-49b5-a6d1-57809b839fb1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6af85923-8d05-0c62-0cc5-a5120df2d8e5" executionId="49ccf0ea-516a-4ac5-96c2-24a123eef4b1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c8cdac31-ad32-9a02-508c-02a988e5e017" executionId="482b5038-d1f6-4102-9c8c-4bec993c295d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c020064-9cbb-7975-d5c0-9dc48d581775" executionId="3e1b4ea6-7c36-4957-b478-fb5c99cec09b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a11d6311-0314-291e-6c87-0745cc1eace8" executionId="9794f9be-1085-4a92-9b84-2e9c99df95f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6447b752-ca58-5092-2c5d-d1f5fe58b5dc" executionId="5890caaa-df37-4ff8-949e-2ac6fabd61f5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="94ec43a1-8d1a-e493-b213-b33a5a6877b2" executionId="82b44323-0130-4684-b71f-e76c9cf36ab9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87a5b8a9-e5bd-8c6e-5a6c-5815a0bd8c39" executionId="0f860f92-00e6-4993-a45b-cd8bb8739b7b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="79403e37-7823-d8d7-7290-f467456876fa" executionId="6b8ebfdc-7a9c-48c0-8430-f32d52d741bf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8499e5e2-c09d-d64e-ab91-715c51a15d3b" executionId="5e94a2cf-9fd5-4151-b263-a14f4007609a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="39114ef2-4a94-0d20-df91-881c10164c3c" executionId="c2848a67-2de7-4bb3-a4a6-0dcaa363c0ab" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="71d5d180-2d36-ecb9-e4eb-71ca09e46ec4" executionId="8755e562-9f79-46d0-b16f-5ccf4d8db9c5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3494b3d5-98dd-209c-c4b4-d8d0bff712f0" executionId="70f281a8-7010-4114-9f40-7a92347d31e3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fc170f06-7a65-44e3-9780-d428f13f33ad" executionId="28bdc420-cb19-4bdd-9c6a-ccb3dd66e276" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9b729b7e-a306-20a1-7040-eda547fe8bec" executionId="d2528390-2fb7-4300-aac0-6d11496af9f4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ed8d7d20-a6f1-0500-d78a-14c17a721b87" executionId="b0042197-cc09-4bbd-aa3b-5dcfe2322d3c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6ac2577f-abec-ce9e-a92b-34035bd744e0" executionId="204806f5-a66c-46dd-b8b8-17f9b4d51155" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="33c114dd-901b-348b-cb07-4ff32816218d" executionId="a6ea3acd-280d-46ea-aa27-56e3791ad554" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40e767b4-314a-d8ef-34b1-5c49d7ef55c4" executionId="2d8b3f4a-f873-472f-a75a-076a2971dd37" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="22ad276e-c73f-4ebf-8729-b5903439e2d9" executionId="df9bce19-f54e-40e0-995c-22ba872a1907" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c0347afe-0c6b-b0a7-12e1-3aa76a4722fc" executionId="6663618e-d448-440e-a2f8-f9d42c56a782" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e0d251c-aca1-3165-2651-f2996ab661b8" executionId="5b0138ce-7d3e-4b12-8a69-3115d23bfb1c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8e56ee2d-296c-f180-2ad1-a3abd5b19292" executionId="ba570a56-8af3-44de-bffe-f8632099a231" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c0e3ce9-5829-44ef-fbae-e96e2c0f5de9" executionId="f4513e96-eda0-4764-aaf9-a8fd9796f418" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eba2e046-3c6c-f48b-f85f-b23828d8319b" executionId="e13706a8-cee4-4c71-9627-2cdd02eba0e8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="811026c2-41ce-4e18-121d-862774cd6272" executionId="10a4fedc-2612-4525-96e4-89d5e18f2d8a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2a9f6824-8a17-a193-b18b-3e78fa1bbbd5" executionId="783b0f09-cd35-44a8-96ff-9423897555da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1aa96e1c-162f-87b8-360d-29c19b3b2c73" executionId="cdbdc3c5-c198-49c9-be2c-b3182b095c98" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2f6106d4-2d27-0ec0-388a-a0a0d64b80ea" executionId="effc9e63-63bd-4198-aef3-825c862c9886" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cb3a79b8-8a20-d72b-fe66-3be39a479486" executionId="bd00f3a8-0dfa-49bc-9a84-4d5f10ce61da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e654c6ff-e79b-0f0d-7ecf-a4648dc0cf91" executionId="abe60fc1-25b0-4759-9f8d-4094722a4443" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f36e146c-5e84-0e67-2982-f20e16e0dd68" executionId="2df1439b-4d54-4cd1-a721-7e4fce25305f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3b3a68c1-1138-770e-4b05-0d7fb6b68738" executionId="1c31db1b-6a6f-48ee-98db-efd811cb9f2b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d9d051a9-d261-1011-dbde-e42b30d539a9" executionId="3b0570e3-9599-4dc8-839c-3820f156df90" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="691bf80d-9ec7-7de8-ad81-702e4cdb8bfd" executionId="8484fba7-a425-46b8-8283-fcc1efccde62" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="37b7f024-73bb-98ae-d17f-d1c0ce9f17e8" executionId="a8a6ffcd-296a-4f2a-86ea-7488def3a1bd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c2441ddc-565a-93d7-0c28-f73ca97b9486" executionId="2af95744-cb85-410b-9f69-2ce57ecb600d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c8df7f1-aa05-88d6-f922-5ecb50d1b5d9" executionId="c1c21102-c98c-4559-86ec-18d2e04f2756" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dfdd94d6-4157-31a9-a81a-18fee28467d5" executionId="f33151de-6c43-40de-9e95-c6ac0e16622b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df92ad96-32d4-9c44-0398-97a52600538f" executionId="36e86665-86b4-46e2-a832-b498a1ebd094" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f53587d7-cc90-0182-8a77-44034bb01e5e" executionId="98834090-9baa-4b81-af5d-263b697e78de" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="43" executed="43" passed="42" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.1+ce9211e970 (64-bit .NET 8.0.1)
+[xUnit.net 00:00:00.04]   Discovering: Appostolic.Api.Tests
+[xUnit.net 00:00:00.07]   Discovered:  Appostolic.Api.Tests
+[xUnit.net 00:00:00.07]   Starting:    Appostolic.Api.Tests
+[xUnit.net 00:00:00.48]       System.InvalidOperationException : Collection was modified; enumeration operation may not execute.
+[xUnit.net 00:00:00.48]       Stack Trace:
+[xUnit.net 00:00:00.48]            at System.Collections.Generic.List`1.Enumerator.MoveNextRare()
+[xUnit.net 00:00:00.48]            at System.Collections.Generic.List`1.Enumerator.MoveNext()
+[xUnit.net 00:00:00.48]            at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+[xUnit.net 00:00:00.48]         /Users/kevinmccreary/appostolic/apps/api.tests/Observability/TelemetrySmokeTests.cs(82,0): at Appostolic.Api.Tests.Observability.TelemetrySmokeTests.HappyPath_Emits_Spans_And_Metrics()
+[xUnit.net 00:00:00.48]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:00.65]   Finished:    Appostolic.Api.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="mac" outcome="Error" timestamp="2025-09-11T19:51:57.5784710-05:00">
+        <Text>[xUnit.net 00:00:00.48]     Appostolic.Api.Tests.Observability.TelemetrySmokeTests.HappyPath_Emits_Spans_And_Metrics [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

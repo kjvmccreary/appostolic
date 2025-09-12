@@ -37,7 +37,7 @@ public sealed class MockModelAdapter : IModelAdapter
                     action = new FinalAnswer(JsonDocument.Parse("{}"));
                 }
             }
-            // If explicit tool call
+            // If explicit tool call under top-level context
             else if (ctx.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String && next.GetString()?.Equals("tool", StringComparison.OrdinalIgnoreCase) == true)
             {
                 if (ctx.TryGetProperty("tool", out var toolNameElem) && toolNameElem.ValueKind == JsonValueKind.String)
@@ -47,6 +47,28 @@ public sealed class MockModelAdapter : IModelAdapter
                     if (ctx.TryGetProperty("input", out var inputElem) && inputElem.ValueKind != JsonValueKind.Undefined && inputElem.ValueKind != JsonValueKind.Null)
                     {
                         toolInput = Clone(inputElem);
+                    }
+                    action = new UseTool(toolName, toolInput);
+                }
+                else
+                {
+                    action = new UseTool("web.search", JsonDocument.Parse("{\"q\":\"intro\",\"take\":3}"));
+                }
+            }
+            // Or if hints are nested under context.input (how orchestrator passes user input)
+            else if (ctx.TryGetProperty("input", out var inputRoot) && inputRoot.ValueKind == JsonValueKind.Object)
+            {
+                if (inputRoot.TryGetProperty("next", out var inNext) && inNext.ValueKind == JsonValueKind.String && inNext.GetString()?.Equals("tool", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    string toolName = "web.search";
+                    if (inputRoot.TryGetProperty("tool", out var inTool) && inTool.ValueKind == JsonValueKind.String)
+                    {
+                        toolName = inTool.GetString() ?? toolName;
+                    }
+                    JsonDocument toolInput = JsonDocument.Parse("{}");
+                    if (inputRoot.TryGetProperty("input", out var inInput) && inInput.ValueKind != JsonValueKind.Undefined && inInput.ValueKind != JsonValueKind.Null)
+                    {
+                        toolInput = Clone(inInput);
                     }
                     action = new UseTool(toolName, toolInput);
                 }

@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="dbdf45ae-dcb1-49db-8de5-fccb57177290" name="@mac 2025-09-11 19:58:58" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2025-09-11T19:58:58.2245530-05:00" queuing="2025-09-11T19:58:58.2245530-05:00" start="2025-09-11T19:58:57.0579990-05:00" finish="2025-09-11T19:58:58.2276070-05:00" />
+  <TestSettings name="default" id="17020727-0c7a-4f10-9784-3e890a156f84">
+    <Deployment runDeploymentRoot="_mac_2025-09-11_19_58_58" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="ae1c7be4-e537-4247-8472-ef43627c83d3" testId="8a436d67-15f2-8a6f-b3c8-3df7d72a7066" testName="Appostolic.Api.Tests.E2E.AgentTasksE2E_Allowlist.Allowlist_Denied_Tool_Produces_Failed_Task_With_Error_Trace" computerName="mac" duration="00:00:00.7629367" startTime="2025-09-11T19:58:58.1678760-05:00" endTime="2025-09-11T19:58:58.1678850-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ae1c7be4-e537-4247-8472-ef43627c83d3" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Appostolic.Api.Tests.E2E.AgentTasksE2E_Allowlist.Allowlist_Denied_Tool_Produces_Failed_Task_With_Error_Trace" storage="/users/kevinmccreary/appostolic/apps/api.tests/bin/debug/net8.0/appostolic.api.tests.dll" id="8a436d67-15f2-8a6f-b3c8-3df7d72a7066">
+      <Execution id="ae1c7be4-e537-4247-8472-ef43627c83d3" />
+      <TestMethod codeBase="/Users/kevinmccreary/appostolic/apps/api.tests/bin/Debug/net8.0/Appostolic.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Appostolic.Api.Tests.E2E.AgentTasksE2E_Allowlist" name="Allowlist_Denied_Tool_Produces_Failed_Task_With_Error_Trace" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="8a436d67-15f2-8a6f-b3c8-3df7d72a7066" executionId="ae1c7be4-e537-4247-8472-ef43627c83d3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.1+ce9211e970 (64-bit .NET 8.0.1)
+[xUnit.net 00:00:00.04]   Discovering: Appostolic.Api.Tests
+[xUnit.net 00:00:00.07]   Discovered:  Appostolic.Api.Tests
+[xUnit.net 00:00:00.07]   Starting:    Appostolic.Api.Tests
+[xUnit.net 00:00:00.86]   Finished:    Appostolic.Api.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
