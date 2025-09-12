@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import { DataGridPremium, GridColDef } from '@mui/x-data-grid-premium';
+import { Box, Button } from '@mui/material';
 
 export type AgentListItem = {
   id: string;
@@ -32,59 +34,81 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
 
   if (!rows.length) {
     return (
-      <div className="p-8 text-center border rounded-md bg-white/50">
-        <p className="text-gray-700 mb-4">No agents yet.</p>
-        <Link
-          href="/studio/agents/new"
-          className="inline-block px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-        >
+      <Box
+        sx={{
+          p: 4,
+          textAlign: 'center',
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Box sx={{ mb: 2 }}>No agents yet.</Box>
+        <Button LinkComponent={Link} href="/studio/agents/new" variant="contained">
           New Agent
-        </Link>
-      </div>
+        </Button>
+      </Box>
     );
   }
 
+  const columns: GridColDef<AgentListItem>[] = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1,
+      minWidth: 180,
+      renderCell: (p) => <Link href={`/studio/agents/${p.row.id}`}>{p.value as string}</Link>,
+    },
+    { field: 'model', headerName: 'Model', minWidth: 160 },
+    {
+      field: 'temperature',
+      headerName: 'Temp',
+      type: 'number',
+      minWidth: 100,
+      valueGetter: (p) => (p.value as number).toFixed(2),
+    },
+    { field: 'maxSteps', headerName: 'MaxSteps', type: 'number', minWidth: 110 },
+    {
+      field: 'updatedAt',
+      headerName: 'Updated',
+      minWidth: 140,
+      valueGetter: (p) => timeAgo((p.value as string) ?? p.row.createdAt),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      minWidth: 180,
+      sortable: false,
+      filterable: false,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button LinkComponent={Link} href={`/studio/agents/${p.row.id}`} size="small">
+            Edit
+          </Button>
+          <Button
+            LinkComponent={Link}
+            href={`/studio/agents/${p.row.id}/delete`}
+            size="small"
+            color="error"
+          >
+            Delete
+          </Button>
+        </Box>
+      ),
+    },
+  ];
+
   return (
-    <div className="overflow-x-auto border rounded-md">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-50 text-gray-700">
-          <tr>
-            <th className="text-left px-3 py-2">Name</th>
-            <th className="text-left px-3 py-2">Model</th>
-            <th className="text-left px-3 py-2">Temp</th>
-            <th className="text-left px-3 py-2">MaxSteps</th>
-            <th className="text-left px-3 py-2">Updated</th>
-            <th className="text-right px-3 py-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((a) => (
-            <tr key={a.id} className="border-t">
-              <td className="px-3 py-2 font-medium text-blue-700">
-                <Link href={`/studio/agents/${a.id}`}>{a.name}</Link>
-              </td>
-              <td className="px-3 py-2">{a.model}</td>
-              <td className="px-3 py-2">{a.temperature.toFixed(2)}</td>
-              <td className="px-3 py-2">{a.maxSteps}</td>
-              <td className="px-3 py-2">{timeAgo(a.updatedAt ?? a.createdAt)}</td>
-              <td className="px-3 py-2 text-right space-x-2">
-                <Link
-                  href={`/studio/agents/${a.id}`}
-                  className="px-2 py-1 border rounded hover:bg-gray-50"
-                >
-                  Edit
-                </Link>
-                <Link
-                  href={`/studio/agents/${a.id}/delete`}
-                  className="px-2 py-1 border rounded hover:bg-gray-50 text-red-700"
-                >
-                  Delete
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Box sx={{ height: 560, width: '100%' }}>
+      <DataGridPremium
+        rows={rows}
+        getRowId={(r) => r.id}
+        columns={columns}
+        disableRowSelectionOnClick
+      />
+    </Box>
   );
 }

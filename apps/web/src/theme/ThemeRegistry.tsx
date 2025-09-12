@@ -22,15 +22,9 @@ function createEmotionCache() {
   return createCache({ key: 'mui', prepend: true });
 }
 
-const theme = createTheme(
-  {
-    palette: {
-      mode: 'light',
-    },
-    shape: { borderRadius: 8 },
-  },
-  enUSCore,
-);
+import { themeOptions } from './themeOptions';
+
+const theme = createTheme(themeOptions, enUSCore);
 
 export default function ThemeRegistry({ children }: PropsWithChildren) {
   const cache = useMemo(() => createEmotionCache(), []);
