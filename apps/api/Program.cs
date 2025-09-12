@@ -116,12 +116,34 @@ if (builder.Environment.IsDevelopment())
 // Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender, Appostolic.Api.App.Notifications.NoopEmailSender>();
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
 builder.Services.AddHttpClient("sendgrid");
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SendGridEmailSender>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ISmtpClientFactory, Appostolic.Api.App.Notifications.DefaultSmtpClientFactory>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SmtpEmailSender>();
+
+// Provider selection: default to smtp in Development, sendgrid otherwise unless overridden by config
+{
+    var provider = builder.Configuration["Email:Provider"];
+    if (string.IsNullOrWhiteSpace(provider))
+    {
+        provider = builder.Environment.IsDevelopment() ? "smtp" : "sendgrid";
+    }
+
+    if (string.Equals(provider, "sendgrid", StringComparison.OrdinalIgnoreCase))
+    {
+        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender>(sp => sp.GetRequiredService<Appostolic.Api.App.Notifications.SendGridEmailSender>());
+    }
+    else if (string.Equals(provider, "smtp", StringComparison.OrdinalIgnoreCase))
+    {
+        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender>(sp => sp.GetRequiredService<Appostolic.Api.App.Notifications.SmtpEmailSender>());
+    }
+    else
+    {
+        // Safe fallback
+        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender, Appostolic.Api.App.Notifications.NoopEmailSender>();
+    }
+}
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

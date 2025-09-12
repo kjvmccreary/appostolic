@@ -87,7 +87,7 @@ Key Tasks
 - Implement SMTP sender (System.Net.Mail or MailKit)
 - Verify end-to-end with local Mailhog
 
-## Notif-06 — DI selection and safety checks
+## ~~Notif-06 — DI selection and safety checks~~
 
 Summary
 
@@ -105,6 +105,10 @@ Key Tasks
 - Add provider switch in Program.cs
 - Pre-bind shim: if `SENDGRID_API_KEY` exists and `SendGrid:ApiKey` is empty, set `SendGrid:ApiKey` in configuration
 - Add guard logic and friendly error message
+
+Status
+
+- Completed: Provider switch implemented with environment-driven defaults (smtp in Development, sendgrid otherwise), SENDGRID_API_KEY shim, and production guard for missing key. Unit tests added for DI selection; full test suite green.
 
 ## Notif-07 — Signup verification hook
 

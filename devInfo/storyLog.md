@@ -399,6 +399,46 @@ How to try it
 
 ## Spike - refactor for MUI
 
+## Notif-06 — DI selection and safety checks
+
+I implemented provider selection for notifications based on configuration, added a SendGrid key shim, and guarded production startup when misconfigured. Logged work and savings.
+
+Plan
+
+- Bind options for Email, SendGrid, and Smtp.
+- Pre-bind shim: if `SENDGRID_API_KEY` exists and `SendGrid:ApiKey` is empty, map it into configuration.
+- Default to SMTP in Development; otherwise prefer SendGrid when `Email:Provider` is "sendgrid" with non-empty key; provide clear error if missing in Production.
+- Add DI selection tests.
+
+Actions taken
+
+- Program composition:
+  - Added configuration shim for `SENDGRID_API_KEY` → `SendGrid:ApiKey` before options binding.
+  - Bound `EmailOptions`, `SendGridOptions`, and `SmtpOptions`.
+  - Registered named HttpClient for SendGrid.
+  - Implemented provider selection: SMTP in Development by default; SendGrid when `Email:Provider=sendgrid` and key present; enforced production guard for missing key.
+  - Kept SMTP dev defaults: 127.0.0.1:1025 (Mailhog).
+- Tests:
+  - Added `EmailProviderSelectionTests` asserting `IEmailSender` resolves to `SmtpEmailSender` for smtp and to `SendGridEmailSender` for sendgrid when key is provided.
+
+Results
+
+- Build and tests: PASS (59/59).
+- Provider selection is now environment-driven and safe for production.
+
+Files changed
+
+- apps/api/Program.cs — provider switch, shim, and guard.
+- apps/api.tests/EmailProviderSelectionTests.cs — new tests for DI selection.
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS (full suite)
+
+Time/savings
+{"task":"Notif-06","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54}
+
 ## Notif-04 — SendGrid provider
 
 I implemented the SendGrid provider and validated behavior with unit tests, then logged and updated the sprint plan.
