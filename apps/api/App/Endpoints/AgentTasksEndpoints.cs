@@ -155,6 +155,53 @@ public static class AgentTasksEndpoints
         .WithSummary("Get an agent task by id")
         .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
+        // POST /api/agent-tasks/{id}/retry
+        group.MapPost("{id:guid}/retry", async (
+            Guid id,
+            AppDbContext db,
+            IAgentTaskQueue queue,
+            CancellationToken ct) =>
+        {
+            var src = await db.Set<AgentTask>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+            if (src is null)
+            {
+                return Results.NotFound();
+            }
+
+            // Reject when source is not terminal
+            if (src.Status is AgentStatus.Pending or AgentStatus.Running)
+            {
+                return Results.Conflict(new { message = "Source task is not terminal" });
+            }
+
+            var newTask = new AgentTask(Guid.NewGuid(), src.AgentId, src.InputJson)
+            {
+                Status = AgentStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                RequestTenant = src.RequestTenant,
+                RequestUser = src.RequestUser
+            };
+
+            db.Add(newTask);
+            await db.SaveChangesAsync(ct);
+
+            await queue.EnqueueAsync(newTask.Id, ct);
+
+            var summary = new AgentTaskSummary(
+                newTask.Id,
+                newTask.AgentId,
+                newTask.Status.ToString(),
+                newTask.CreatedAt,
+                newTask.StartedAt,
+                newTask.FinishedAt,
+                newTask.TotalTokens
+            );
+
+            return Results.Created($"/api/agent-tasks/{newTask.Id}", summary);
+        })
+        .WithSummary("Retry an agent task")
+        .WithDescription("Clones a terminal task (Failed/Canceled/Succeeded) into a new Pending task with same agent and input, enqueues it, and returns 201 with Location.");
+
         // POST /api/agent-tasks/{id}/cancel
         group.MapPost("{id:guid}/cancel", async (
             Guid id,

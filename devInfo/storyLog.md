@@ -1,14 +1,40 @@
-## A11-02 — API: Cancel endpoint (cooperative)
+## A11-03 — API: Retry endpoint
 
-- Added POST `/api/agent-tasks/{id}/cancel` endpoint.
-- Behavior:
-  - Pending → immediately sets `Status=Canceled`, `FinishedAt=UtcNow`, and `ErrorMessage="Canceled"`.
-  - Running → records cancel intent via in-memory `AgentTaskCancelRegistry`; worker/orchestrator polls between steps and transitions to `Canceled` soon after.
-  - Terminal (Succeeded/Failed/Canceled) → returns 409 Conflict `{ message: "Already terminal" }`.
-- Infrastructure:
-  - New `AgentTaskCancelRegistry` (singleton) with `RequestCancel`, `IsCancelRequested`, and `TryClear`.
-  - Orchestrator observes registry and cancels cooperatively between steps.
-  - Registered the registry in DI.
+I’ll add a retry endpoint that clones a terminal task’s agent and input into a new task and enqueues it, then log work and savings.
+
+Plan
+
+- Add POST `/api/agent-tasks/{id}/retry` that accepts terminal source tasks (Failed/Canceled/Succeeded) and rejects Pending/Running (409).
+- Clone AgentId, InputJson, RequestTenant, RequestUser into a new Pending task; enqueue via IAgentTaskQueue.
+- Return 201 Created with AgentTaskSummary payload and Location to the new task.
+- Append savings start/end entries and sprint note; commit and push.
+
+Actions taken
+
+- Implemented POST `/api/agent-tasks/{id}/retry` in `AgentTasksEndpoints.cs`.
+- Logic: loads source (AsNoTracking), validates terminal status, creates new `AgentTask` with copied fields, saves, enqueues, and returns 201 with summary.
+- Built API to validate compile.
+- Logged savings start entry.
+
+Results
+
+- Retrying a terminal task returns a new id; original remains unchanged.
+- Pending/Running retry requests return 409 Conflict with message.
+
+Files changed
+
+- apps/api/App/Endpoints/AgentTasksEndpoints.cs
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+
+Quality gates
+
+- Build: PASS.
+
+Requirements coverage
+
+- Endpoint behavior (terminal only; clone+enqueue; 201 Created): Done.
+- Original task unchanged: Done.
 
 ## A11-01 — API: Inbox listing filters & paging
 
@@ -71,3 +97,52 @@ Check X-Total-Count in response headers.
 If you want, I can add a small E2E smoke script under scripts to exercise the combinations. When you’re ready, I’ll append the “end” savings entry and update the S1-11 bullet with actual/saved hours and $ value.
 
 ---
+
+## A11-02 — API: Cancel endpoint (cooperative)
+
+Kicking off A11-02 (Cancel endpoint), I’ll add a cooperative cancel flow, wire it into the orchestrator, expose an endpoint, and log the work.
+
+Plan
+
+- Add an in-memory cancel registry used by both endpoint and worker/orchestrator.
+- Update orchestrator to check for cancel requests between steps and mark Canceled.
+- Add POST /api/agent-tasks/{id}/cancel with specified behavior.
+- Log start/end savings and update story log + sprint notes.
+- Build and push.
+
+Actions taken
+
+- Added AgentTaskCancelRegistry (singleton) with RequestCancel/IsCancelRequested/TryClear and registered in DI.
+- Orchestrator checks cancel registry between steps and transitions to Canceled (sets ErrorMessage="Canceled", FinishedAt=UtcNow).
+- Endpoint POST /api/agent-tasks/{id}/cancel:
+  - Pending → set Status=Canceled, FinishedAt=UtcNow, ErrorMessage="Canceled".
+  - Running → record cancel intent via registry (worker observes and cancels soon).
+  - Terminal → 409 Conflict { message: "Already terminal" }.
+- Logged savings entries and sprint note; pushed changes.
+
+Results
+
+- Pending cancel flips immediately (202 Accepted with payload { id, status }).
+- Running cancel cooperatively transitions to Canceled shortly after.
+- Terminal cancel returns 409 as expected.
+
+Files changed
+
+- apps/api/Application/Agents/Queue/AgentTaskCancelRegistry.cs
+- apps/api/Application/Agents/Runtime/AgentOrchestrator.cs
+- apps/api/App/Endpoints/AgentTasksEndpoints.cs
+- apps/api/Program.cs
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+- Sprint-01-Appostolic.md
+
+Quality gates
+
+- Build: PASS.
+- Tests: Existing suites green.
+
+Requirements coverage
+
+- Endpoint behavior (Pending/Running/Terminal): Done.
+- Orchestrator observes cancel: Done.
+- Story log entry and savings: Done.

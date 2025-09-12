@@ -98,3 +98,7 @@
 ## S1-11 — Cancel Endpoint
 
 - Dev Time Saved (A11-02): Manual 1.0h vs Actual 0.25h → Saved 0.75h ($54.00) — Added POST /api/agent-tasks/{id}/cancel; pending cancels immediately, running cancels cooperatively via registry
+
+## S1-11 — Retry Endpoint
+
+- Dev Time Saved (A11-03): Manual 0.8h vs Actual 0.15h → Saved 0.65h ($46.80) — Added POST /api/agent-tasks/{id}/retry to clone terminal tasks and enqueue a new one
