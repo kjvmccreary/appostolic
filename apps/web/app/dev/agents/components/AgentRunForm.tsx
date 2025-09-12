@@ -167,7 +167,7 @@ export default function AgentRunForm({ agents }: Props) {
             )}
             {polledTask?.estimatedCostUsd != null && (
               <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800">
-                Est. cost: ${'{'}polledTask.estimatedCostUsd.toFixed(4){'}'}
+                Est. cost: ${polledTask.estimatedCostUsd.toFixed(4)}
               </span>
             )}
           </div>

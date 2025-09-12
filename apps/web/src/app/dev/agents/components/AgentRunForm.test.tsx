@@ -8,7 +8,7 @@ import AgentRunForm from '../../../../../app/dev/agents/components/AgentRunForm'
 const server: import('msw/node').SetupServer = (globalThis as any).__mswServer;
 
 describe('AgentRunForm', () => {
-  it('submits, polls, shows traces and final result', async () => {
+  it('submits, polls, shows traces, badges, and final result', async () => {
     const agentId = 'agent-1';
     const agents = [{ id: agentId, name: 'Research Agent' }];
 
@@ -45,6 +45,10 @@ describe('AgentRunForm', () => {
               startedAt: new Date().toISOString(),
               finishedAt: null,
               errorMessage: null,
+              totalPromptTokens: 10,
+              totalCompletionTokens: 2,
+              totalTokens: 12,
+              estimatedCostUsd: 0.0012,
             },
             traces: [
               {
@@ -73,6 +77,10 @@ describe('AgentRunForm', () => {
             finishedAt: new Date().toISOString(),
             errorMessage: null,
             result: { ok: true, answer: 'Done' },
+            totalPromptTokens: 12,
+            totalCompletionTokens: 3,
+            totalTokens: 15,
+            estimatedCostUsd: 0.0015,
           },
           traces: [
             {
@@ -131,6 +139,11 @@ describe('AgentRunForm', () => {
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row');
     expect(rows.length).toBeGreaterThan(1); // header + 1
+
+    // Badges show totals/cost
+    await screen.findByText(/Total tokens: 12|15/);
+    await screen.findByText(/Prompt \/ Completion: 10 \/ 2|12 \/ 3/);
+    await screen.findByText(/Est\. cost: \$0\.001[25]/);
 
     // Eventually Succeeded and result visible
     const succeeded = await screen.findByText('Succeeded', undefined, { timeout: 5000 });

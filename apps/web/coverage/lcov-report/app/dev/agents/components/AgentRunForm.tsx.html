@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.44% </span>
+                <span class="strong">93.46% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>176/199</span>
+                <span class='fraction'>186/199</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.42% </span>
+                <span class="strong">81.57% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>26/38</span>
+                <span class='fraction'>31/38</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.44% </span>
+                <span class="strong">93.46% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>176/199</span>
+                <span class='fraction'>186/199</span>
             </div>
         
             
@@ -419,20 +419,20 @@
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
@@ -617,21 +617,21 @@ export default function AgentRunForm({ agents }: Props) {
           &lt;h2 className="text-lg font-medium"&gt;Traces&lt;/h2&gt;
           {/* Token summary badges */}
           &lt;div className="flex flex-wrap gap-2 text-xs"&gt;
-            {polledTask?.totalTokens != <span class="branch-0 cbranch-no" title="branch not covered" >null &amp;&amp; polledTask.totalTokens &gt; <span class="branch-0 cbranch-no" title="branch not covered" >0 &amp;&amp; (</span></span>
-<span class="cstat-no" title="statement not covered" >              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                Total tokens: {polledTask.totalTokens}</span>
-<span class="cstat-no" title="statement not covered" >              &lt;/span&gt;</span>
+            {polledTask?.totalTokens != null &amp;&amp; polledTask.totalTokens &gt; 0 &amp;&amp; (
+              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;
+                Total tokens: {polledTask.totalTokens}
+              &lt;/span&gt;
             )}
-            {polledTask?.totalPromptTokens != <span class="branch-0 cbranch-no" title="branch not covered" >null &amp;&amp; polledTask?.totalCompletionTokens != <span class="branch-0 cbranch-no" title="branch not covered" >null &amp;&amp; (</span></span>
-<span class="cstat-no" title="statement not covered" >              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                Prompt / Completion: {polledTask.totalPromptTokens} /{' '}</span>
-<span class="cstat-no" title="statement not covered" >                {polledTask.totalCompletionTokens}</span>
-<span class="cstat-no" title="statement not covered" >              &lt;/span&gt;</span>
+            {polledTask?.totalPromptTokens != null &amp;&amp; polledTask?.totalCompletionTokens != null &amp;&amp; (
+              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;
+                Prompt / Completion: {polledTask.totalPromptTokens} /{' '}
+                {polledTask.totalCompletionTokens}
+              &lt;/span&gt;
             )}
-            {polledTask?.estimatedCostUsd != <span class="branch-0 cbranch-no" title="branch not covered" >null &amp;&amp; (</span>
-<span class="cstat-no" title="statement not covered" >              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;</span>
-<span class="cstat-no" title="statement not covered" >                Est. cost: ${'{'}polledTask.estimatedCostUsd.toFixed(4){'}'}</span>
-<span class="cstat-no" title="statement not covered" >              &lt;/span&gt;</span>
+            {polledTask?.estimatedCostUsd != null &amp;&amp; (
+              &lt;span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800"&gt;
+                Est. cost: ${polledTask.estimatedCostUsd.toFixed(4)}
+              &lt;/span&gt;
             )}
           &lt;/div&gt;
           &lt;TracesTable traces={traces} /&gt;
@@ -667,7 +667,7 @@ export default function AgentRunForm({ agents }: Props) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-09-12T00:28:28.311Z
+                at 2025-09-12T00:32:52.478Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
