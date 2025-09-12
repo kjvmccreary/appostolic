@@ -10,5 +10,6 @@ public sealed record EmailMessage(
     EmailKind Kind,
     string ToEmail,
     string? ToName,
-    IReadOnlyDictionary<string, object?> Data
+    IReadOnlyDictionary<string, object?> Data,
+    string? DedupeKey = null
 );

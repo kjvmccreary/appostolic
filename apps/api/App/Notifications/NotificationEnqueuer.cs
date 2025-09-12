@@ -34,7 +34,8 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
             ["link"] = link
         };
 
-        var msg = new EmailMessage(EmailKind.Verification, toEmail, toName, data);
+        var dedupeKey = $"verification::{toEmail}::{token}";
+        var msg = new EmailMessage(EmailKind.Verification, toEmail, toName, data, dedupeKey);
         return _queue.EnqueueAsync(msg, ct).AsTask();
     }
 
@@ -59,7 +60,8 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
             ["inviter"] = inviter
         };
 
-        var msg = new EmailMessage(EmailKind.Invite, toEmail, toName, data);
+        var dedupeKey = $"invite::{toEmail}::{tenant}::{role}::{token}";
+        var msg = new EmailMessage(EmailKind.Invite, toEmail, toName, data, dedupeKey);
         return _queue.EnqueueAsync(msg, ct).AsTask();
     }
 }

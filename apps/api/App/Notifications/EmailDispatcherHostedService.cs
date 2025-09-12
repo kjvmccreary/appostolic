@@ -10,17 +10,20 @@ public sealed class EmailDispatcherHostedService : BackgroundService
     private readonly IEmailQueue _queue;
     private readonly ITemplateRenderer _renderer;
     private readonly IEmailSender _sender;
+    private readonly IEmailDedupeStore? _dedupe;
 
     public EmailDispatcherHostedService(
         ILogger<EmailDispatcherHostedService> logger,
         IEmailQueue queue,
         ITemplateRenderer renderer,
-        IEmailSender sender)
+        IEmailSender sender,
+        IEmailDedupeStore? dedupe = null)
     {
         _logger = logger;
         _queue = queue;
         _renderer = renderer;
         _sender = sender;
+        _dedupe = dedupe;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -40,8 +43,8 @@ public sealed class EmailDispatcherHostedService : BackgroundService
                 break;
             }
 
-            // Basic retry with backoff: 3 attempts 0.5s, 2s, 8s
-            var delays = new[] { 500, 2000, 8000 };
+            // Basic retry with jittered backoff: 3 attempts ~0.5s, 2s, 8s (+/- 20%)
+            var baseDelaysMs = new[] { 500, 2000, 8000 };
             var attempt = 0;
             Exception? last = null;
 
@@ -73,7 +76,19 @@ public sealed class EmailDispatcherHostedService : BackgroundService
 
             using var scope = _logger.BeginScope(scopeState);
 
-            for (; attempt < delays.Length; attempt++)
+            // Optional dedupe suppression
+            if (!string.IsNullOrWhiteSpace(msg.DedupeKey) && _dedupe is not null)
+            {
+                // 10 minutes TTL by default
+                if (!_dedupe.TryMark(msg.DedupeKey!, TimeSpan.FromMinutes(10)))
+                {
+                    _logger.LogInformation("Email suppressed by dedupe (key={Key})", msg.DedupeKey);
+                    continue;
+                }
+            }
+
+            var rand = Random.Shared;
+            for (; attempt < baseDelaysMs.Length; attempt++)
             {
                 try
                 {
@@ -92,11 +107,15 @@ public sealed class EmailDispatcherHostedService : BackgroundService
                 {
                     last = ex;
                     _logger.LogWarning(ex, "Email send failed on attempt {Attempt}", attempt + 1);
-                    if (attempt < delays.Length - 1)
+                    if (attempt < baseDelaysMs.Length - 1)
                     {
                         try
                         {
-                            await Task.Delay(delays[attempt], stoppingToken);
+                            // apply +/-20% jitter
+                            var ms = baseDelaysMs[attempt];
+                            var jitter = (int)(ms * 0.2);
+                            var wait = ms + rand.Next(-jitter, jitter + 1);
+                            await Task.Delay(wait, stoppingToken);
                         }
                         catch (OperationCanceledException)
                         {
@@ -109,7 +128,14 @@ public sealed class EmailDispatcherHostedService : BackgroundService
             if (last != null)
             {
                 EmailMetrics.RecordFailed(msg.Kind.ToString());
-                _logger.LogError(last, "Email permanently failed after {Attempts} attempts", attempt);
+                if (!string.IsNullOrWhiteSpace(msg.DedupeKey))
+                {
+                    _logger.LogError(last, "Email permanently failed after {Attempts} attempts (dedupeKey={Key})", attempt, msg.DedupeKey);
+                }
+                else
+                {
+                    _logger.LogError(last, "Email permanently failed after {Attempts} attempts", attempt);
+                }
             }
         }
 

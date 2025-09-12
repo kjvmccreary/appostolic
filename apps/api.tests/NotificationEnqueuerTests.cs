@@ -3,6 +3,7 @@ using Appostolic.Api.App.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
+using System.Threading.Channels;
 
 namespace Appostolic.Api.Tests;
 

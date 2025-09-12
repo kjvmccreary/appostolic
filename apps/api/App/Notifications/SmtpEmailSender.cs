@@ -8,7 +8,12 @@ namespace Appostolic.Api.App.Notifications;
 
 public interface ISmtpClientFactory
 {
-    SmtpClient Create();
+    IAsyncSmtpClient Create();
+}
+
+public interface IAsyncSmtpClient : IDisposable
+{
+    Task SendMailAsync(MailMessage message, CancellationToken cancellationToken = default);
 }
 
 internal sealed class DefaultSmtpClientFactory : ISmtpClientFactory
@@ -22,7 +27,7 @@ internal sealed class DefaultSmtpClientFactory : ISmtpClientFactory
         _logger = logger;
     }
 
-    public SmtpClient Create()
+    public IAsyncSmtpClient Create()
     {
         var o = _options.Value;
         var client = new SmtpClient(o.Host, o.Port)
@@ -37,7 +42,7 @@ internal sealed class DefaultSmtpClientFactory : ISmtpClientFactory
         }
 
         _logger.LogDebug("SMTP client created host={Host} port={Port} hasAuth={HasAuth}", o.Host, o.Port, !string.IsNullOrWhiteSpace(o.User));
-        return client;
+        return new SystemSmtpClientAdapter(client);
     }
 }
 
@@ -54,7 +59,7 @@ public sealed class SmtpEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(string to, string subject, string html, string text, CancellationToken ct = default)
+    public async Task SendAsync(string to, string subject, string html, string? text = null, CancellationToken ct = default)
     {
         using var smtp = _factory.Create();
 
@@ -65,14 +70,14 @@ public sealed class SmtpEmailSender : IEmailSender
         {
             From = new MailAddress(fromAddress, fromName),
             Subject = subject,
-            Body = text, // set plain text as body, html added as alternate view
+            Body = text ?? string.Empty, // set plain text as body, html added as alternate view
             IsBodyHtml = false,
         };
 
         message.To.Add(new MailAddress(to));
 
         // Add both text and HTML using alternate views
-        var plainView = AlternateView.CreateAlternateViewFromString(text, null, "text/plain");
+    var plainView = AlternateView.CreateAlternateViewFromString(text ?? string.Empty, null, "text/plain");
         var htmlView = AlternateView.CreateAlternateViewFromString(html, null, "text/html");
         message.AlternateViews.Add(plainView);
         message.AlternateViews.Add(htmlView);
@@ -88,4 +93,13 @@ public sealed class SmtpEmailSender : IEmailSender
             throw;
         }
     }
+}
+
+internal sealed class SystemSmtpClientAdapter : IAsyncSmtpClient
+{
+    private readonly SmtpClient _inner;
+    public SystemSmtpClientAdapter(SmtpClient inner) => _inner = inner;
+    public void Dispose() => _inner.Dispose();
+    public Task SendMailAsync(MailMessage message, CancellationToken cancellationToken = default)
+        => _inner.SendMailAsync(message, cancellationToken);
 }

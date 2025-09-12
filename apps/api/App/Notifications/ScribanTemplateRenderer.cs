@@ -26,8 +26,8 @@ public sealed class ScribanTemplateRenderer : ITemplateRenderer
         {
             EmailKind.Verification => (
                 "Verify your email",
-                "<p>Hello {{ toName or 'there' }},</p><p>Please verify your email by clicking <a href='{{ link }}'>this link</a>.</p><p>If you didn't request this, you can ignore this email.</p>",
-                "Hello {{ toName or 'there' }},\n\nVerify your email: {{ link }}\n\nIf you didn't request this, you can ignore this email."
+                "<p>Hello {{ toName ?? 'there' }},</p><p>Please verify your email by clicking <a href='{{ link }}'>this link</a>.</p><p>If you didn't request this, you can ignore this email.</p>",
+                "Hello {{ toName ?? 'there' }},\n\nVerify your email: {{ link }}\n\nIf you didn't request this, you can ignore this email."
             ),
             EmailKind.Invite => (
                 "You're invited to join {{ tenant }}",

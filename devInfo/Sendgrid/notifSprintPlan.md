@@ -195,7 +195,7 @@ Status
 
 - Completed: Added Email section to README and RUNBOOK with dev Mailhog flow, provider switching, config keys, and troubleshooting. Updated `.env.example` with `Email__*`, `Smtp__*`, and a commented `SendGrid__ApiKey`. Exposed Mailhog SMTP port 1025 in `infra/docker/compose.yml` so the API can send via 127.0.0.1:1025. Note: `infra/docker/.env` is not used by our Makefile/Compose invocation (root `.env` is passed via `--env-file .env`), so we did not add secrets there.
 
-## Notif-11 — E2E dev verification (Mailhog)
+## ~~Notif-11 — E2E dev verification (Mailhog)~~
 
 Summary
 
@@ -209,7 +209,11 @@ Key Tasks
 
 - Add a tiny dev endpoint or test hook to enqueue a sample message and manually verify
 
-## Notif-12 — Hardened error handling and dedupe
+Status
+
+- Completed: Added dev-only API endpoints (`/api/dev/notifications/verification` and `/invite`) and Next.js proxy routes, brought up Docker stack with Mailhog, verified `202 Accepted` and delivery to Mailhog UI. Updated README/RUNBOOK with Try it steps. API build PASS; web typecheck PASS.
+
+## ~~Notif-12 — Hardened error handling and dedupe~~
 
 Summary
 
@@ -223,6 +227,10 @@ Acceptance Criteria
 Key Tasks
 
 - Implement jitter, dead-letter log; design simple dedupe key pattern
+
+Status
+
+- Completed: Implemented jittered backoff (+/-20%), dead-letter logging with message key, and optional dedupe via `DedupeKey` backed by an in-memory TTL store. Updated `NotificationEnqueuer` to set keys for verification/invite. Refactored SMTP sender for testability and ensured template rendering handles nulls safely. Full test suite passing (72/72).
 
 ---
 

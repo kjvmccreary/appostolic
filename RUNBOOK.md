@@ -99,3 +99,17 @@ Quick E2E check (dev):
 - POST `/api-proxy/dev/notifications/verification` with { toEmail, toName, token }
 - POST `/api-proxy/dev/notifications/invite` with { toEmail, toName, tenant, role, inviter, token }
 - Open http://localhost:8025 and verify messages and links.
+
+---
+
+## Terminal safety when running servers
+
+Long-running servers (API, web, mobile) should be started via VS Code background tasks so that subsequent one-off commands (curl, node, scripts) don't reuse and kill the same terminal session:
+
+- Start servers from the Tasks panel:
+  - Dev: web+api+mobile — runs `pnpm dev` in background
+  - Dev: api-only — runs `make api` in background
+- Run one-off commands in a separate terminal. Avoid typing them into the same terminal that shows server logs.
+- In automation, I will always start servers via background tasks and run one-off commands in separate terminals.
+
+If you get a port-in-use error (e.g., 5198), stop the background task from the Tasks panel first, then restart it.
