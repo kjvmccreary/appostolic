@@ -107,6 +107,8 @@ builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Confi
 // Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender, Appostolic.Api.App.Notifications.NoopEmailSender>();
+builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

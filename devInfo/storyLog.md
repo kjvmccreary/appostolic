@@ -434,6 +434,41 @@ Quality gates
 Time/savings
 {"task":"Notif-02","manual_hours":1.3,"actual_hours":0.4,"saved_hours":0.9,"rate":72,"savings_usd":64.8}
 
+## Notif-03 — Email queue dispatcher
+
+Summary
+
+- Add a background hosted service to consume `IEmailQueue`, render via `ITemplateRenderer`, and send via `IEmailSender` with retries and metrics.
+
+Actions taken
+
+- Implemented `EmailDispatcherHostedService` with a single-reader Channel loop and 3-attempt backoff (0.5s, 2s, 8s). Structured logs include kind/to.
+- Added `EmailMetrics` to emit `email.sent.total` and `email.failed.total` via existing `Appostolic.Metrics` meter.
+- Introduced safe default `NoopEmailSender` so Development runs don’t attempt real sends until providers are wired (Notif-04/05).
+- Registered dispatcher + Noop sender in DI in `Program.cs`.
+- Wrote a unit test `EmailDispatcherTests` that enqueues a message and asserts the sender is invoked.
+
+Results
+
+- Build: PASS. Tests: PASS (59 tests).
+- Queue→render→send path is runnable; providers can be swapped in later stories.
+
+Files changed
+
+- apps/api/App/Notifications/EmailDispatcherHostedService.cs
+- apps/api/App/Notifications/NoopEmailSender.cs
+- apps/api/App/Notifications/EmailMetrics.cs
+- apps/api/Program.cs (DI registrations)
+- apps/api.tests/EmailDispatcherTests.cs
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS
+
+Time/savings
+{"task":"Notif-03","manual_hours":1.5,"actual_hours":0.6,"saved_hours":0.9,"rate":72,"savings_usd":64.8}
+
 I’m adopting MUI (Material UI) Premium across the web app, adding SSR-safe theming and refactoring the Tasks Inbox to use DataGridPremium and MUI inputs.
 
 Plan
