@@ -135,9 +135,9 @@ describe('AgentRunForm', () => {
     const runningBadge = await screen.findByText('Running');
     expect(runningBadge).toBeInTheDocument();
 
-    // Table shows at least one trace row
-    const table = await screen.findByRole('table');
-    const rows = within(table).getAllByRole('row');
+    // DataGrid is rendered with role="grid"; ensure it has at least one data row
+    const grid = await screen.findByRole('grid');
+    const rows = within(grid).getAllByRole('row');
     expect(rows.length).toBeGreaterThan(1); // header + 1
 
     // Badges show totals/cost

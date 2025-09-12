@@ -34,7 +34,8 @@ public class TelemetrySmokeTests
 
         var reg = new ToolRegistry(new ITool[] { new WebSearchTool(NullLogger<WebSearchTool>.Instance) });
         var trace = new TraceWriter(db, NullLogger<TraceWriter>.Instance);
-    var orchestrator = new AgentOrchestrator(db, new PlanThenFinalModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, Microsoft.Extensions.Options.Options.Create(new Appostolic.Api.App.Options.ModelPricingOptions()));
+        var cancel = new Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry();
+        var orchestrator = new AgentOrchestrator(db, new PlanThenFinalModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, Microsoft.Extensions.Options.Options.Create(new Appostolic.Api.App.Options.ModelPricingOptions()), cancel);
 
         // Capture spans from our ActivitySources
         var spanNames = new List<string>();

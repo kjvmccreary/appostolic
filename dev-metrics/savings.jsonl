@@ -192,3 +192,8 @@
 {"task":"A11-08","phase":"start","ts":"<UTC>"}
 {"task":"A11-08","manual_hours":1.8,"actual_hours":0.6,"saved_hours":1.2,"rate":72,"savings_usd":86.40,"ts":"<UTC>"}
 
+{"task":"A11-11","phase":"start","ts":"<UTC ISO-8601>"}
+
+{"task":"A11-11","phase":"end","ts":"<UTC ISO-8601>"}
+{"task":"A11-11","manual_hours":0.3,"actual_hours":0.10,"saved_hours":0.20,"rate":72,"savings_usd":14.40,"ts":"<UTC ISO-8601>"}
+

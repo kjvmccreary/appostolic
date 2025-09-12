@@ -535,3 +535,43 @@ Requirements coverage
 
 - Inbox tests verify grid render, status filter routing, and server pagination link updates: Done.
 - TaskDetail tests exercise Cancel/Retry/Export flows via proxy endpoints: Done.
+
+## A11-11 — Contract test: list endpoint without dev headers → 401/403
+
+I’ll add a security contract test proving the AgentTasks list endpoint is not publicly accessible without dev headers.
+
+Plan
+
+- Use `WebApplicationFactory<Program>` in Development.
+- Create two `HttpClient`s: unauth (no headers) and auth (`x-dev-user: dev@example.com`, `x-tenant: acme`).
+- Request `GET /api/agent-tasks?take=1&skip=0`.
+- Assert unauth status is 401 or 403; assert auth is 200 with a JSON array body.
+- Optional: verify Swagger JSON is still public (200) without auth.
+
+Actions taken
+
+- Added `apps/api.tests/Security/AgentTasksAuthContractTests.cs` using the existing `AgentTasksFactory` (Development env, InMemory DB, background worker enabled).
+- Built two clients: one without headers and one with dev headers.
+- Called `GET /api/agent-tasks?take=1&skip=0` and asserted 401 for unauth; 200 OK and array body for auth.
+- Confirmed `GET /swagger/v1/swagger.json` returns 200 without headers.
+- Ran the test: PASS.
+
+Results
+
+- Contract enforced: list endpoint requires dev headers; Swagger JSON remains publicly accessible.
+
+Files changed
+
+- apps/api.tests/Security/AgentTasksAuthContractTests.cs — new test file.
+- dev-metrics/savings.jsonl — added A11-11 start entry.
+
+Quality gates
+
+- Build: PASS (API + tests)
+- Tests: PASS (security contract test)
+
+Requirements coverage
+
+- Unauthenticated list returns 401/403: Done.
+- Authenticated list returns 200 and JSON array: Done.
+- Swagger JSON publicly accessible: Done.

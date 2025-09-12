@@ -36,7 +36,8 @@ public class AgentOrchestratorTests
 
         var reg = new ToolRegistry(tools ?? new ITool[] { new WebSearchTool(NullLogger<WebSearchTool>.Instance) });
         var trace = new TraceWriter(db, NullLogger<TraceWriter>.Instance);
-    var orchestrator = new AgentOrchestrator(db, model ?? new MockModelAdapter(), reg, trace, NullLogger<AgentOrchestrator>.Instance, Microsoft.Extensions.Options.Options.Create(new Appostolic.Api.App.Options.ModelPricingOptions()));
+        var cancel = new Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry();
+        var orchestrator = new AgentOrchestrator(db, model ?? new MockModelAdapter(), reg, trace, NullLogger<AgentOrchestrator>.Instance, Microsoft.Extensions.Options.Options.Create(new Appostolic.Api.App.Options.ModelPricingOptions()), cancel);
         return (orchestrator, db, agent, task);
     }
 

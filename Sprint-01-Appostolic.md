@@ -126,3 +126,7 @@
 ## S1-11 — Backend Tests (AgentTasks)
 
 - Dev Time Saved (A11-08): Manual 1.8h vs Actual 0.6h → Saved 1.2h ($86.40) — .NET integration tests for cancel/retry and list filters with X-Total-Count; deterministic in Development with enqueue control hooks
+
+## S1-11 — Security Contract Test
+
+- Dev Time Saved (A11-11): Manual 0.3h vs Actual 0.1h → Saved 0.2h ($14.40) — Test proving `/api/agent-tasks` requires dev headers (unauth 401/403, auth 200); Swagger remains public

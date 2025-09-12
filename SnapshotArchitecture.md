@@ -224,6 +224,10 @@ Makefile highlights:
 - Emits claims: `sub`, `email`, `tenant_id`, `tenant_slug`
 - All `/api/*` endpoints require authorization (dev headers expected)
 
+Security contract (A11-11):
+
+- A development-mode integration test verifies that unauthenticated requests to `/api/*` (e.g., `GET /api/agent-tasks`) return 401 (or 403), while the same requests succeed with the dev headers (200 OK). Swagger endpoints remain public and accessible without authentication.
+
 Seeded defaults (via `apps/api/tools/seed`):
 
 - `x-dev-user: kevin@example.com`

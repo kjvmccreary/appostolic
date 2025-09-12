@@ -63,7 +63,8 @@ public class TokenAggregationTests
                 ["gpt-4o-mini"] = new ModelPrice { InputPer1K = 0.15m, OutputPer1K = 0.6m }
             }
         });
-        var orchestrator = new AgentOrchestrator(db, new TwoStepScriptedModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, pricing);
+    var cancel = new Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry();
+    var orchestrator = new AgentOrchestrator(db, new TwoStepScriptedModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, pricing, cancel);
 
         await orchestrator.RunAsync(agent, task, tenant: "t1", user: "u1", ct: default);
 
@@ -90,7 +91,8 @@ public class TokenAggregationTests
         var reg = new ToolRegistry(new ITool[] { new WebSearchTool(NullLogger<WebSearchTool>.Instance) });
         var trace = new TraceWriter(db, NullLogger<TraceWriter>.Instance);
         var pricing = Options.Create(new ModelPricingOptions { Enabled = false });
-        var orchestrator = new AgentOrchestrator(db, new TwoStepScriptedModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, pricing);
+    var cancel = new Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry();
+    var orchestrator = new AgentOrchestrator(db, new TwoStepScriptedModel(), reg, trace, NullLogger<AgentOrchestrator>.Instance, pricing, cancel);
 
         await orchestrator.RunAsync(agent, task, tenant: "t1", user: "u1", ct: default);
 
