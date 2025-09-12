@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Options;
+using Appostolic.Api.App.Options;
 
 namespace Appostolic.Api.Tests.Worker;
 
@@ -27,6 +29,10 @@ public class AgentTaskWorkerTests
         services.AddSingleton(new InMemoryDatabaseRoot());
         services.AddDbContext<AppDbContext>((sp, o) => o.UseInMemoryDatabase("workerdb-shared", sp.GetRequiredService<InMemoryDatabaseRoot>()));
 
+                // Options required by AgentOrchestrator (pricing is optional; default disabled)
+                services.AddOptions();
+                services.Configure<ModelPricingOptions>(_ => { /* defaults */ });
+
                 services.AddSingleton<ITool, WebSearchTool>();
                 services.AddSingleton<ToolRegistry>();
                 services.AddScoped<AgentStore>();
@@ -35,6 +41,9 @@ public class AgentTaskWorkerTests
                 services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
                 // Use a scripted model adapter that plans one tool call then finalizes
                 services.AddSingleton<IModelAdapter, PlanThenFinalModelAdapter>();
+
+                // Cooperative cancel registry used by the orchestrator
+                services.AddSingleton<Appostolic.Api.Application.Agents.Queue.AgentTaskCancelRegistry>();
 
                 services.AddSingleton<InMemoryAgentTaskQueue>();
                 services.AddSingleton<IAgentTaskQueue>(sp => sp.GetRequiredService<InMemoryAgentTaskQueue>());
