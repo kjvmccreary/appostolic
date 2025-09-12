@@ -436,3 +436,53 @@ How to try it
 
 - Navigate to `/studio/agents` to see the Agents grid with action buttons.
 - Navigate to the Dev Agents page to see Traces with the View/Hide JSON toggle.
+
+## A11-07 — Web: Task Details (MUI)
+
+I’ll implement Task Details at `/studio/tasks/[id]` using MUI and hook up actions via our server proxy routes.
+
+Plan
+
+- Server page `apps/web/src/app/studio/tasks/[id]/page.tsx` loads `/api-proxy/agent-tasks/{id}?includeTraces=true`.
+- Client component `TaskDetail.tsx` renders header and traces grid with MUI v5 + DataGridPremium v6.
+- Actions:
+  - Cancel (Pending/Running): confirm dialog → POST `/api-proxy/agent-tasks/{id}/cancel` → refetch details.
+  - Retry (terminal): POST `/api-proxy/agent-tasks/{id}/retry` → `router.push(/studio/tasks/{newId})`.
+  - Export: GET `/api-proxy/agent-tasks/{id}/export` → download JSON (honor Content-Disposition).
+- Error handling via Snackbar/Alert; busy state via CircularProgress in buttons.
+
+Actions taken
+
+- Added server page to fetch `{ task, traces }` and render `TaskDetail`.
+- Built `TaskDetail.tsx` with MUI cards for Status/Timestamps/Tokens/Cost and action buttons.
+- Wired Cancel/Retry/Export using proxy routes; implemented refetch and navigation.
+- Implemented Traces grid via `DataGridPremium` with detail panels for Input/Result JSON and copy buttons.
+- Reused existing trace field names and friendly relative time display.
+- Typecheck: PASS.
+
+Results
+
+- Visiting `/studio/tasks/:id` shows a Status header with chips and summary fields plus a Traces grid.
+- Cancel/Retry/Export work via server proxies; status/tokens update on refetch and retry navigates to the new id.
+
+Files changed
+
+- apps/web/src/app/studio/tasks/[id]/page.tsx (new)
+- apps/web/src/app/studio/tasks/components/TaskDetail.tsx (new)
+
+Quality gates
+
+- Typecheck: PASS (@appostolic/web)
+
+Requirements coverage
+
+- Load details+traces from proxy and render header card: Done.
+- Enable Cancel with confirm and refresh state: Done.
+- Enable Retry and navigate to new task: Done.
+- Enable Export with Content-Disposition filename: Done.
+- Traces DataGridPremium with detail panels and copy: Done.
+
+How to try it
+
+- Open `/studio/tasks` and click a row, or navigate to `/studio/tasks/{id}` directly.
+- Try Cancel on Pending/Running, Retry on terminal tasks, and Export anytime; observe UI updates and downloaded filename.

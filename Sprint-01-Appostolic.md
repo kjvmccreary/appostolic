@@ -114,3 +114,7 @@
 ## S1-11 — Inbox page (Web)
 
 - Dev Time Saved (A11-06): Manual 2.1h vs Actual 0.5h → Saved 1.6h ($115.20) — /studio/tasks with filters (status, agent, from/to, q) and paging (take/skip); server fetch via /api-proxy/agent-tasks
+
+## S1-11 — Task Details (Web)
+
+- Dev Time Saved (A11-07): Manual 2.4h vs Actual 0.085h → Saved 2.315h ($166.66) — /studio/tasks/[id] with MUI header/actions (Cancel, Retry, Export) and Traces grid detail panels
