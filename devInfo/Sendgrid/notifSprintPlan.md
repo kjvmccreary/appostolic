@@ -96,11 +96,14 @@ Summary
 Acceptance Criteria
 
 - Development uses smtp by default; Production requires sendgrid with non-empty API key
+- SendGrid API key is provided via environment variable `SendGrid__ApiKey` (preferred for .NET options binding)
+- Optional convenience: if `SENDGRID_API_KEY` is present, map it to configuration key `SendGrid:ApiKey` at startup before binding
 - Clear startup error when required config missing in Production
 
 Key Tasks
 
 - Add provider switch in Program.cs
+- Pre-bind shim: if `SENDGRID_API_KEY` exists and `SendGrid:ApiKey` is empty, set `SendGrid:ApiKey` in configuration
 - Add guard logic and friendly error message
 
 ## Notif-07 — Signup verification hook
@@ -159,11 +162,18 @@ Summary
 Acceptance Criteria
 
 - README/RUNBOOK/SnapshotArchitecture updated with Email section
-- `infra/docker/.env` gains non-secret defaults (no API key)
+- Document config schema and exact key names:
+	- Email: { Provider: 'smtp' | 'sendgrid', WebBaseUrl: '...' }
+	- SendGrid: { ApiKey: '...' }
+- Persistence guidance by environment:
+	- Local Development: default to `Email:Provider=smtp` (Mailhog). For testing SendGrid locally, developers export `SendGrid__ApiKey` in their shell or use a non-committed `.env.local` file. Do not commit real keys.
+	- CI/CD & Staging/Prod: store the secret in the platform’s secret manager (e.g., GitHub Actions, cloud provider) and inject as environment variable `SendGrid__ApiKey` for the API service.
+- `infra/docker/.env` gains non-secret defaults (no API key) and comments indicating to set `SendGrid__ApiKey` out-of-band when needed.
 
 Key Tasks
 
 - Update docs and env sample values
+- Add examples showing `export SendGrid__ApiKey=...` for local testing and secret wiring for deployments (without committing real values)
 
 ## Notif-11 — E2E dev verification (Mailhog)
 
