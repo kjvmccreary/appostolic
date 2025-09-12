@@ -236,6 +236,108 @@ Requirements coverage
 - Browser access without CORS: Done
 - Story log appended and metrics/sprint updated: Done
 
+## A11-05 — Web: Proxies for cancel/retry/export
+
+I’ll add Next.js server proxy routes so the browser can call the API’s cancel/retry/export endpoints with dev headers and without CORS issues, and then log work and savings.
+
+Plan
+
+- Add server routes under `apps/web/app/api-proxy/agent-tasks/[id]/*` for:
+  - `POST /api-proxy/agent-tasks/{id}/cancel`
+  - `POST /api-proxy/agent-tasks/{id}/retry`
+  - `GET /api-proxy/agent-tasks/{id}/export`
+- Forward to `${API_BASE}/api/agent-tasks/...` and inject `x-dev-user`/`x-tenant` headers from `serverEnv`.
+- Preserve relevant response headers (Location for retry; Content-Type and Content-Disposition for export).
+- Append story and savings entries; commit and push.
+
+Actions taken
+
+- Implemented Next.js server routes to proxy Cancel/Retry/Export to the API with dev headers.
+- Ensured Location, Content-Type, and Content-Disposition headers are forwarded when present.
+- Verified shape alignment with the API endpoints and that proxies avoid browser CORS.
+- Logged start-of-work entry in savings and prepared story notes.
+
+Results
+
+- Browser clients can call cancel/retry/export via `/api-proxy/*` without CORS and without duplicating auth logic.
+- Response metadata (download filename, content type, Location) is preserved.
+
+Files changed
+
+- apps/web/app/api-proxy/agent-tasks/[id]/cancel/route.ts
+- apps/web/app/api-proxy/agent-tasks/[id]/retry/route.ts
+- apps/web/app/api-proxy/agent-tasks/[id]/export/route.ts
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+
+Quality gates
+
+- Typecheck: PASS (web)
+
+Requirements coverage
+
+- Server proxies for cancel/retry/export that inject dev headers: Done.
+- Preserve critical response headers (Location, Content-Type, Content-Disposition): Done.
+- No-CORS browser access via Next.js API proxy: Done.
+
+How to try it
+
+- Cancel: POST `/api-proxy/agent-tasks/{id}/cancel`.
+- Retry: POST `/api-proxy/agent-tasks/{id}/retry` and inspect `Location` header.
+- Export: GET `/api-proxy/agent-tasks/{id}/export` and note `Content-Disposition` filename.
+
+---
+
+## A11-06 — Web: Tasks Inbox (filters + paging)
+
+I’ll build a Tasks Inbox at `/studio/tasks` that lists tasks with filters and server-driven paging via the proxy endpoints.
+
+Plan
+
+- Server page `/studio/tasks` reads `searchParams` and fetches `/api-proxy/agent-tasks?...`; parse `X-Total-Count` for total.
+- Client filters: multi-status, agent dropdown, from/to pickers, search text; update querystring to drive server fetch.
+- Table columns: Status, Agent, Created/Started/Finished, Total Tokens, Est. Cost; row click navigates to details.
+- Append story and savings entries; commit and push.
+
+Actions taken
+
+- Implemented server page `apps/web/src/app/studio/tasks/page.tsx` to fetch tasks and agents; surfaces `total`, `take`, `skip`.
+- Built `TaskFilters.tsx` (client) with MUI `Chip`, `Select`, `TextField`, and `DateTimePicker`; updates URL query.
+- Built `TasksTable.tsx` (client) initially with custom table, later migrated to MUI DataGridPremium with server pagination hooks.
+- Hooked row click to navigate to `/studio/tasks/[id]`.
+- Logged savings notes and updated story log.
+
+Results
+
+- Inbox shows tasks with working filters and server pagination; URL reflects state for shareability and refresh persistence.
+- Provides a foundation later reused during MUI refactor to switch to DataGridPremium seamlessly.
+
+Files changed
+
+- apps/web/src/app/studio/tasks/page.tsx
+- apps/web/src/app/studio/tasks/components/TaskFilters.tsx
+- apps/web/src/app/studio/tasks/components/TasksTable.tsx
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+
+Quality gates
+
+- Typecheck: PASS (web)
+- Lint: PASS (web)
+
+Requirements coverage
+
+- Server page using proxy with total count: Done.
+- Filters (status, agent, date range, search) update URL and drive fetch: Done.
+- Table columns per spec and row navigation to details: Done.
+
+How to try it
+
+- Visit `/studio/tasks` and apply filters; observe URL changes and server-refreshed results.
+- Page through results via the grid footer and confirm `X-Total-Count` drives total rows.
+
+---
+
 ## Spike - refactor for MUI
 
 I’m adopting MUI (Material UI) Premium across the web app, adding SSR-safe theming and refactoring the Tasks Inbox to use DataGridPremium and MUI inputs.
