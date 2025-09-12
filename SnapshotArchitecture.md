@@ -166,6 +166,12 @@ appostolic/
   - Introduced `AgentStore` used by the worker to resolve agents (DB-first, fallback to static registry).
 - Database:
   - EF migrations updated to add the `is_enabled` column (default true) on `app.agents`.
+- Notifications framework (v1):
+  - Added an in-process email queue and `EmailDispatcherHostedService` with retry/backoff and OTEL metrics.
+  - Providers: `SmtpEmailSender` (dev/Mailhog), `SendGridEmailSender` (prod/real), and safe `NoopEmailSender` fallback.
+  - Provider selection via `Email:Provider` with a Production guard requiring `SendGrid:ApiKey` when using SendGrid.
+  - Helpers: `NotificationEnqueuer.QueueVerificationAsync` and `.QueueInviteAsync` build absolute links from `Email:WebBaseUrl` and URL-encode tokens.
+  - Observability: counters `email.sent.total` and `email.failed.total` (tagged by kind) and structured logs with correlation fields.
 
 ## Running locally (dev)
 
@@ -275,6 +281,9 @@ Development-only endpoints and test hooks (mapped only when `ASPNETCORE_ENVIRONM
 - `POST /api/dev/agents/demo` (in `DevAgentsDemo.cs`)
   - Runs a `ResearchAgent` inline via the orchestrator and returns `{ task, traces }`
   - Requires dev headers; writes `AgentTask`/`AgentTrace` rows under current tenant
+- `POST /api/dev/notifications/verification` and `/invite` (in `DevNotificationsEndpoints.cs`)
+  - Enqueues a verification or invite email via the notifications queue for E2E testing against Mailhog
+  - Requires dev headers
 
 Agent task endpoints (in `AgentTasksEndpoints.cs`):
 
@@ -371,6 +380,49 @@ Agent resolution (`Application/Agents/AgentStore.cs`):
 - Registered as scoped service; used by `AgentTaskWorker` to resolve agents.
 - Lookup strategy is DB-first by Id, then falls back to static `AgentRegistry.FindById(id)`.
 
+## Notifications (Email)
+
+Components (`apps/api/App/Notifications/*`):
+
+- IEmailQueue + EmailQueue — in-memory channel used by the background dispatcher.
+- EmailDispatcherHostedService — consumes queue, renders templates, sends emails with retry/backoff.
+- ITemplateRenderer — `ScribanTemplateRenderer` composes subject/text/html bodies.
+- IEmailSender — providers: `SmtpEmailSender` (dev), `SendGridEmailSender` (prod/real), and `NoopEmailSender` fallback.
+- NotificationEnqueuer — helpers to enqueue verification and invite emails with correct absolute links.
+
+Configuration keys (Options bound via .NET configuration):
+
+- Email:Provider — "smtp" (default in Development) or "sendgrid" (default in non-Dev if unset)
+- Email:WebBaseUrl — base URL for absolute links (default "http://localhost:3000")
+- Email:FromAddress — default sender address (default "no-reply@appostolic.local")
+- Email:FromName — default sender name (default "Appostolic")
+- Smtp:Host — SMTP host (default 127.0.0.1 in Development)
+- Smtp:Port — SMTP port (default 1025 in Development; Mailhog)
+- Smtp:User / Smtp:Pass — optional credentials
+- SendGrid:ApiKey — required when provider=sendgrid in Production
+
+Environment variables (double-underscore syntax maps to nested keys):
+
+- Email**Provider, Email**WebBaseUrl, Email**FromAddress, Email**FromName
+- Smtp**Host, Smtp**Port, Smtp**User, Smtp**Pass
+- SendGrid\_\_ApiKey (preferred)
+- Compatibility shim: if legacy SENDGRID_API_KEY is set and SendGrid:ApiKey is empty, it is used automatically at startup.
+
+Safety/guards:
+
+- In Production, Email:Provider=sendgrid requires a non-empty SendGrid:ApiKey or the app fails fast at startup with a clear message.
+- Development defaults to SMTP/Mailhog (127.0.0.1:1025) so no secrets are required for local testing.
+
+Observability:
+
+- Metrics: `email.sent.total` and `email.failed.total` counters (tagged by email kind) exposed via OTEL Meter "Appostolic.Metrics".
+- Logs: Dispatcher adds correlation fields to scopes when present on the message data: `email.userId`, `email.tenantId`, `email.inviteId` (plus `email.tenant`, `email.inviter` fallbacks). In Development, logs/metrics are also exported to console.
+
+Local dev (Mailhog):
+
+- With the default SMTP provider, emails appear in Mailhog at http://localhost:8025; no extra setup required.
+- To test SendGrid locally, export `SendGrid__ApiKey` in your shell and set `Email__Provider=sendgrid` (or leave provider unset in non-Dev). Never commit real API keys.
+
 ## Web app (`apps/web`)
 
 - Next.js 14 (App Router); Node runtime for server routes.
@@ -380,6 +432,8 @@ Agent resolution (`Application/Agents/AgentStore.cs`):
     - `GET/PUT/DELETE /api-proxy/agents/{id}` ↔ API `/api/agents/{id}`
     - `GET /api-proxy/agents/tools` ↔ API `/api/agents/tools`
   - `GET /api-proxy/dev/agents` → API `/api/dev/agents`
+  - `POST /api-proxy/dev/notifications/verification` → API `/api/dev/notifications/verification`
+  - `POST /api-proxy/dev/notifications/invite` → API `/api/dev/notifications/invite`
   - `POST /api-proxy/agent-tasks` → API `/api/agent-tasks`
   - `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → API `/api/agent-tasks/{id}`
 - Env validation in `src/lib/serverEnv.ts` for `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`.

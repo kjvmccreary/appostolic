@@ -399,6 +399,77 @@ How to try it
 
 ## Spike - refactor for MUI
 
+---
+
+## Notif-10 — Docs and environment wiring
+
+I’ll document configuration and wire environment defaults for the email notifications system (SMTP dev via Mailhog; SendGrid for prod).
+
+Plan
+
+- Add README section with provider selection, Mailhog URLs/ports, keys, and observability notes.
+- Update RUNBOOK with ops steps: verify Mailhog delivery, switch providers, troubleshoot common issues, and OTEL pointers.
+- Update `.env.example` with `Email__*`, `Smtp__*`, and commented `SendGrid__ApiKey`.
+- Ensure Mailhog SMTP port 1025 is exposed in Compose so the API can send to 127.0.0.1:1025.
+
+Actions taken
+
+- README.md — added “Email notifications” section: dev defaults, switching to SendGrid, configuration keys, safety guard, and observability.
+- RUNBOOK.md — added “Email notifications (ops)” with verification, switching, troubleshooting, and OTEL notes.
+- .env.example — added Email/Smtp defaults and commented SendGrid\_\_ApiKey; kept secrets out of repo.
+- infra/docker/compose.yml — exposed Mailhog SMTP port `1025:1025`.
+
+Results
+
+- Clear developer and operator guidance for email configuration in dev and prod.
+- Local API can send to Mailhog via 127.0.0.1:1025; UI available at http://localhost:8025.
+- Production guard remains in place for SendGrid.
+
+Quality gates
+
+- Build: N/A (docs + compose change only)
+- Lint/Typecheck: N/A
+- Unit tests: Existing suites unchanged; no code changes in API beyond compose/env docs.
+
+Requirements coverage
+
+- README/RUNBOOK/SnapshotArchitecture updated with Email section: Done.
+- Config schema and key names documented: Done.
+- Environment guidance for dev vs prod and secret handling: Done.
+- Env sample and compose wiring updated: Done.
+
+---
+
+## Notif-11 — E2E dev verification (Mailhog)
+
+I verified the end-to-end email flow by enqueuing emails through new dev endpoints and confirming delivery in Mailhog.
+
+Plan
+
+- Add dev-only notification endpoints in the API and corresponding Next.js proxy routes.
+- Start Docker stack (ensures Mailhog at http://localhost:8025) and run API in Development.
+- POST to the proxy endpoints and confirm messages appear in Mailhog.
+
+Actions taken
+
+- API: `DevNotificationsEndpoints.cs` with POST `/api/dev/notifications/verification` and `/invite`; mapped in `Program.cs` for Development only.
+- Web: Proxy routes `/api-proxy/dev/notifications/verification` and `/invite` forwarding JSON and injecting dev headers.
+- Infra: Ensure Mailhog SMTP port 1025 exposed in compose; `.env` contains `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT` for proxies.
+- Docs: README and RUNBOOK updated with Try it steps and cURL examples.
+
+Results
+
+- Verified 202 Accepted from the API; messages delivered to Mailhog and visible in the UI.
+
+Quality gates
+
+- API Build: PASS
+- Web Typecheck: PASS
+
+Requirements coverage
+
+- End-to-end verification of SMTP dev provider via Mailhog: Done.
+
 ## Notif-07 — Signup verification hook
 
 I added a small helper to enqueue verification emails, wired it into DI, and wrote unit tests to verify the enqueued message shape.

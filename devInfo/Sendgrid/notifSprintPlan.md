@@ -169,7 +169,7 @@ Status
 
 - Completed: Added counters `email.sent.total` and `email.failed.total` (tagged by `kind`) in `EmailMetrics` and wired increments from `EmailDispatcherHostedService`. Enriched dispatcher logs with correlation fields when present on `EmailMessage.Data` (userId, tenantId, inviteId; plus tenant, inviter fallbacks). Added a unit test to capture logger scopes and verify correlation keys are included. Full suite green.
 
-## Notif-10 — Docs and environment wiring
+## ~~Notif-10 — Docs and environment wiring~~
 
 Summary
 
@@ -190,6 +190,10 @@ Key Tasks
 
 - Update docs and env sample values
 - Add examples showing `export SendGrid__ApiKey=...` for local testing and secret wiring for deployments (without committing real values)
+
+Status
+
+- Completed: Added Email section to README and RUNBOOK with dev Mailhog flow, provider switching, config keys, and troubleshooting. Updated `.env.example` with `Email__*`, `Smtp__*`, and a commented `SendGrid__ApiKey`. Exposed Mailhog SMTP port 1025 in `infra/docker/compose.yml` so the API can send via 127.0.0.1:1025. Note: `infra/docker/.env` is not used by our Makefile/Compose invocation (root `.env` is passed via `--env-file .env`), so we did not add secrets there.
 
 ## Notif-11 — E2E dev verification (Mailhog)
 

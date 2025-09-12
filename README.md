@@ -112,3 +112,65 @@ PGPASSWORD=<from .env>
 ```
 
 Note: The seed tool reuses the API `AppDbContext` and uses `set_config('app.tenant_id', <tenantId>, true)` during inserts so RLS policies apply per tenant.
+
+---
+
+## Email notifications
+
+Local development defaults to SMTP via Mailhog.
+
+- Mailhog UI: http://localhost:8025
+- SMTP host/port (from API perspective): 127.0.0.1:1025
+  - We expose Mailhog's SMTP port on the host so the API (running on your machine) can send mail.
+
+Switching providers:
+
+- Dev default: `smtp` (Mailhog)
+- To test SendGrid locally, set:
+  - `Email__Provider=sendgrid`
+  - `SendGrid__ApiKey=<your key>`
+  - Alternatively, export `SENDGRID_API_KEY` in your shell (compat shim maps it to `SendGrid:ApiKey`).
+
+Configuration keys (API):
+
+- Email\_\_Provider: smtp | sendgrid (defaults to smtp in Development)
+- Email\_\_WebBaseUrl: http://localhost:3000 (used to build absolute links)
+- Email\_\_FromAddress: no-reply@appostolic.local
+- Email\_\_FromName: Appostolic
+- Smtp\_\_Host: 127.0.0.1
+- Smtp\_\_Port: 1025
+- SendGrid\_\_ApiKey: your SendGrid key (required when provider=sendgrid in Production)
+
+Safety and observability:
+
+- Production guard: if `ASPNETCORE_ENVIRONMENT=Production` and `Email__Provider=sendgrid`, startup fails unless `SendGrid__ApiKey` is set.
+- Metrics: `email.sent.total` and `email.failed.total` (tagged by kind) are emitted via OpenTelemetry.
+- Logs: the email dispatcher enriches logs with correlation fields (user, tenant, invite) when present.
+
+Try it (dev, Mailhog):
+
+- Enqueue a verification email:
+  - POST /api-proxy/dev/notifications/verification with JSON body: { "toEmail": "you@example.com", "toName": "You", "token": "abc123" }
+- Enqueue an invite email:
+  - POST /api-proxy/dev/notifications/invite with JSON body: { "toEmail": "you@example.com", "toName": "You", "tenant": "kevin-personal", "role": "Member", "inviter": "Kevin", "token": "xyz789" }
+- Open Mailhog UI at http://localhost:8025 and check the inbox.
+
+Optional cURL (server proxies inject dev headers):
+
+Verification
+
+```
+curl -sS -X POST \
+  -H 'content-type: application/json' \
+  http://localhost:3000/api-proxy/dev/notifications/verification \
+  -d '{"toEmail":"you@example.com","toName":"You","token":"abc123"}'
+```
+
+Invite
+
+```
+curl -sS -X POST \
+  -H 'content-type: application/json' \
+  http://localhost:3000/api-proxy/dev/notifications/invite \
+  -d '{"toEmail":"you@example.com","toName":"You","tenant":"kevin-personal","role":"Member","inviter":"Kevin","token":"xyz789"}'
+```

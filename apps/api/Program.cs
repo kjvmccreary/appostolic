@@ -298,6 +298,7 @@ app.MapV1Endpoints();
 app.MapDevToolsEndpoints();
 app.MapDevAgentsEndpoints(app.Services.GetRequiredService<IHostEnvironment>());
 app.MapDevAgentsDemoEndpoints();
+app.MapDevNotificationsEndpoints();
 app.MapAgentTasksEndpoints();
 app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();

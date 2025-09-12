@@ -25,8 +25,8 @@ describe('api-proxy/agents GET', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.mocked(buildProxyHeaders).mockReset();
-    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
-    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const fetchMock = vi.fn();
+    (fetchMock as unknown as any).mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -52,12 +52,7 @@ describe('api-proxy/agents GET', () => {
       'x-tenant': 't',
       'Content-Type': 'application/json',
     } as const);
-    vi.mocked(
-      global.fetch as unknown as (
-        input: RequestInfo | URL,
-        init?: RequestInit,
-      ) => Promise<Response>,
-    ).mockResolvedValue(
+    (global.fetch as unknown as any).mockResolvedValue(
       new Response('ok', { status: 200, headers: { 'content-type': 'application/json' } }),
     );
     const res = await getAgents(makeReq());

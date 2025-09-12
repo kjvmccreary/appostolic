@@ -38,7 +38,7 @@ doctor:
 	./scripts/dev-doctor.sh
 
 api:
-	cd apps/api && ASPNETCORE_URLS=http://localhost:5198 dotnet watch
+	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5198 dotnet watch
 
 web:
 	cd apps/web && pnpm dev
@@ -59,7 +59,7 @@ sdk:
 
 dev:
 	# run API + Web concurrently; leave mobile manual (needs interactive Expo)
-	( cd apps/api && ASPNETCORE_URLS=http://localhost:5198 dotnet watch ) & \
+	( cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5198 dotnet watch ) & \
 	( cd apps/web && pnpm dev )
 
 test:

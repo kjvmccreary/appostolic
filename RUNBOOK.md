@@ -58,3 +58,44 @@ PGPASSWORD=<from .env>
 ```
 
 Note: The seed tool reuses the API `AppDbContext` and issues `SET LOCAL app.tenant_id` before RLS-protected operations so policies apply per tenant.
+
+---
+
+## Email notifications (ops)
+
+Dev flow (SMTP/Mailhog):
+
+- Mailhog UI: http://localhost:8025
+- SMTP host/port expected by the API: 127.0.0.1:1025
+- Default provider in Development: smtp (Mailhog). No extra config required.
+
+Switching to SendGrid:
+
+- Set environment for the API service:
+  - `Email__Provider=sendgrid`
+  - `SendGrid__ApiKey=<your key>`
+- A compatibility shim accepts `SENDGRID_API_KEY` and maps it to `SendGrid:ApiKey`.
+- In Production, startup will fail if provider=sendgrid and the API key is missing.
+
+Troubleshooting:
+
+- No emails in Mailhog:
+  - Confirm Mailhog UI is reachable at http://localhost:8025
+  - Ensure SMTP port 1025 is exposed on the host and not blocked
+  - Verify API logs for send attempts and errors
+- SendGrid 401/403:
+  - Check that `SendGrid__ApiKey` is set for the API process
+  - Ensure the key has correct permissions and is not revoked
+- Links are relative (/auth/verify...):
+  - Set `Email__WebBaseUrl` (e.g., http://localhost:3000) so links are absolute
+
+Observability:
+
+- Metrics: `email.sent.total` and `email.failed.total` are exported via OTEL; check your collector or console exporter in Development.
+- Logs: the dispatcher logs per-send with correlation fields when available; use these to trace user/tenant/invite flows.
+
+Quick E2E check (dev):
+
+- POST `/api-proxy/dev/notifications/verification` with { toEmail, toName, token }
+- POST `/api-proxy/dev/notifications/invite` with { toEmail, toName, tenant, role, inviter, token }
+- Open http://localhost:8025 and verify messages and links.
