@@ -31,4 +31,10 @@ public class ToolRegistry
         if (string.IsNullOrWhiteSpace(name)) return false;
         return _byName.TryGetValue(name, out tool);
     }
+
+    /// <summary>
+    /// Snapshot list of registered tool names (sorted, case-insensitive).
+    /// </summary>
+    public IReadOnlyList<string> ListNames()
+        => _byName.Keys.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToArray();
 }

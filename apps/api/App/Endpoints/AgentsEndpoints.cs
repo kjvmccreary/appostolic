@@ -3,6 +3,7 @@ using Appostolic.Api.Domain.Agents;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Appostolic.Api.Application.Agents.Tools;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -99,6 +100,29 @@ public static class AgentsEndpoints
             return Results.NoContent();
         })
         .WithSummary("Delete an agent");
+
+        // GET /api/agents/tools
+        group.MapGet("tools", (ToolRegistry registry) =>
+        {
+            static (string desc, string cat) Describe(string name) => name switch
+            {
+                "web.search" => ("Search a curated, in-memory web fixture for docs and links.", "search"),
+                "db.query" => ("Query in-memory fixtures via a limited SQL SELECT subset.", "db"),
+                "fs.write" => ("Safely write a UTF-8 file under a configured sandbox root.", "fs"),
+                _ => ("Unknown tool.", "other")
+            };
+
+            var items = registry
+                .ListNames()
+                .Select(n =>
+                {
+                    var meta = Describe(n);
+                    return new ToolCatalogItem(n, meta.desc, meta.cat);
+                })
+                .ToArray();
+            return Results.Ok(items);
+        })
+        .WithSummary("List available tools for agents");
 
         return app;
     }
