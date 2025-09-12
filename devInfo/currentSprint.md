@@ -60,7 +60,7 @@ Seed defaults
 
 - ~~AC1: `/login` renders a form (email, password); submitting valid credentials establishes a session and redirects to the originally requested page or `/studio/agents`.~~
 - ~~AC2: Invalid credentials show an inline error with no redirect; form remains accessible.~~
-- AC3: `/logout` ends the session and redirects to `/login`.
+- ~~AC3: `/logout` ends the session and redirects to `/login`.~~
 - AC4: Cookies are httpOnly, SameSite=Lax, secure in production; CSRF token present on the form.
 
 3. Route protection middleware
