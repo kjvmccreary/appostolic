@@ -165,8 +165,8 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appostolic API v1");
 });
 
-// Ensure navigating to /swagger (no trailing slash) shows the UI
-app.MapGet("/swagger", () => Results.Redirect("/swagger/index.html"))
+// Ensure navigating to /swagger (no trailing slash) shows the Swagger UI (with trailing slash)
+app.MapGet("/swagger", () => Results.Redirect("/swagger/", permanent: false))
    .ExcludeFromDescription();
 
 app.UseAuthentication();

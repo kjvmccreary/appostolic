@@ -399,6 +399,59 @@ Files changed
 
 Quality gates
 
+---
+
+## A12-02 — Web Auth MVP + Proxy Fetch Helper
+
+I implemented a minimal web auth using NextAuth (Credentials), wired session-to-dev headers for server proxies, consolidated server-side fetches, and cleaned up middleware warnings.
+
+Plan
+
+- Add NextAuth route and pages (login/logout), and wrap the app with a SessionProvider.
+- Map session email/tenant into `x-dev-user`/`x-tenant` via proxy headers when `WEB_AUTH_ENABLED=true`.
+- Create a reusable server-only `fetchFromProxy` helper to build absolute URLs and forward cookies.
+- Refactor server-rendered pages that call `/api-proxy/*` to use the helper.
+- Fix duplicate middleware warning by keeping a single middleware file.
+- Ignore coverage artifacts; commit and push.
+
+Actions taken
+
+- Added `apps/web/app/api/auth/[...nextauth]/route.ts` exporting NextAuth with `authOptions`.
+- Created `apps/web/src/lib/auth.ts` and `hash.ts` for Credentials provider and argon2 helpers.
+- Added `apps/web/app/login/page.tsx` and `apps/web/app/logout/page.tsx`.
+- Wrapped layout with `apps/web/app/providers.tsx` to provide `SessionProvider` and `ThemeRegistry`.
+- Implemented `apps/web/app/lib/serverFetch.ts` with `fetchFromProxy` (absolute URL + cookie forwarding).
+- Refactored server pages under `/app` and `/src/app` that fetch `/api-proxy/*` to use the helper.
+- Centralized proxy header building in `apps/web/src/lib/proxyHeaders.ts` (session → dev headers or DEV\_\* envs).
+- Removed duplicate middleware by keeping `apps/web/middleware.ts`; updated `.gitignore` to exclude coverage outputs.
+- Added a minimal Vitest for `/api-proxy/agents` GET happy/unauth paths.
+
+Results
+
+- Server pages reliably reach internal proxy routes with cookies forwarded, avoiding 401s and relative URL issues.
+- Login/logout flow works; protected routes use NextAuth middleware for `/studio/*` and `/dev/*`.
+- Duplicate middleware warning resolved; repo no longer tracks coverage HTML.
+
+Files changed (highlights)
+
+- apps/web/app/api/auth/[...nextauth]/route.ts
+- apps/web/app/lib/serverFetch.ts
+- apps/web/app/login/page.tsx, apps/web/app/logout/page.tsx, apps/web/app/providers.tsx
+- apps/web/src/lib/{auth.ts,hash.ts,proxyHeaders.ts}
+- apps/web/app and apps/web/src/app server pages refactored to use `fetchFromProxy`
+- apps/web/middleware.ts (kept), removed duplicate; .gitignore updates
+- apps/web/test/api-proxy/agents.route.test.ts
+
+Quality gates
+
+- Typecheck: PASS (web)
+- Lint: PASS (web)
+- Tests: Added minimal proxy route test
+
+🧮 Savings
+
+{"task":"A12-02","manual_hours":3.0,"actual_hours":0.8,"saved_hours":2.2,"rate":72,"savings_usd":158.4,"ts":"2025-09-12T19:45:00Z"}
+
 - Typecheck: PASS (@appostolic/web)
 
 Requirements coverage
