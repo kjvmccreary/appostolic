@@ -19,17 +19,17 @@ export type AgentDetails = AgentUpsert & {
   updatedAt?: string | null;
 };
 
-function estimateTokens(text: string) {
+export function estimateTokens(text: string) {
   const chars = text?.length ?? 0;
   return Math.ceil(chars / 4);
 }
 
-function impliesTools(prompt: string) {
+export function impliesTools(prompt: string) {
   // naive signal: mentions search/db/file
   return /search|browse|web|db|query|sql|file|write|save/i.test(prompt ?? '');
 }
 
-function validate(a: AgentUpsert) {
+export function validate(a: AgentUpsert) {
   const errors: Partial<Record<keyof AgentUpsert, string>> = {};
   if (!a.name || a.name.trim() === '') errors.name = 'Name is required';
   if (a.name && a.name.length > 120) errors.name = 'Max 120 chars';

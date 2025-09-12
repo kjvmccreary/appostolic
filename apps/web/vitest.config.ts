@@ -10,6 +10,19 @@ export default defineConfig({
     globals: true,
     testTimeout: 15000,
     hookTimeout: 15000,
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'app/**/components/**/*.{test,spec}.{ts,tsx}',
+      'app/**/hooks/**/*.{test,spec}.{ts,tsx}',
+    ],
+    exclude: [
+      // Exclude Playwright suites from Vitest discovery
+      'tests/e2e/**',
+      'node_modules/**',
+      'dist/**',
+      'coverage/**',
+      'playwright.config.*',
+    ],
     environmentOptions: {
       jsdom: {
         url: 'http://localhost/',
