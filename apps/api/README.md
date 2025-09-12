@@ -103,6 +103,74 @@ curl -s http://localhost:5198/api/dev/agents/demo \
   -d '{ "topic": "Intro to EF Core" }' | jq '.task.status, .traces | length'
 ```
 
+## Agents API (A10)
+
+Manage Agents stored in the database. The runtime resolves agents via AgentStore and prefers DB-defined agents; if an agent ID is not found in the DB, it falls back to the read-only AgentRegistry (seeded agents).
+
+Swagger tag: Agents
+
+Endpoints
+
+- GET /api/agents — list agents
+- - By default returns only enabled agents. Add `includeDisabled=true` to include disabled.
+- GET /api/agents/{id} — get one
+- POST /api/agents — create
+- PUT /api/agents/{id} — update
+- DELETE /api/agents/{id} — delete
+- GET /api/agents/tools — read-only tool catalog for allowlisting in UI
+
+cURL examples (Development headers required)
+
+```bash
+# List agents (enabled only)
+curl -s "http://localhost:5198/api/agents?take=50" \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ id, name, model, temperature, maxSteps })'
+
+# Include disabled too
+curl -s "http://localhost:5198/api/agents?includeDisabled=true&take=50" \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ id, name, isEnabled })'
+
+# Create an agent (explicitly disabled example)
+curl -s http://localhost:5198/api/agents \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Researcher",
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "maxSteps": 8,
+    "systemPrompt": "You are a helpful research assistant.",
+  "toolAllowlist": ["web.search", "db.query"],
+  "isEnabled": false
+  }' | jq '{ id, name }'
+
+# Get details
+curl -s http://localhost:5198/api/agents/<AGENT_ID> \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq '{ id, name, toolAllowlist }'
+
+# Update (enable)
+curl -s -X PUT http://localhost:5198/api/agents/<AGENT_ID> \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Researcher",
+    "model": "gpt-4o-mini",
+    "temperature": 0.1,
+    "maxSteps": 10,
+    "systemPrompt": "Focus on credible sources.",
+  "toolAllowlist": ["web.search"],
+  "isEnabled": true
+  }' | jq '{ id, name, temperature, maxSteps }'
+
+# Delete
+curl -s -X DELETE http://localhost:5198/api/agents/<AGENT_ID> \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" -i | head -n1
+
+# Tool catalog (read-only)
+curl -s http://localhost:5198/api/agents/tools \
+  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ name, category, description })'
+```
+
 ## Agent Tasks API (S1-09)
 
 Use these endpoints to create tasks for a deterministic agent and optionally fetch traces.

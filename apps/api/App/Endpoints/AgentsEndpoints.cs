@@ -17,9 +17,13 @@ public static class AgentsEndpoints
             .WithTags("Agents");
 
         // GET /api/agents
-        group.MapGet("", async (int? take, int? skip, AppDbContext db, CancellationToken ct) =>
+        group.MapGet("", async (int? take, int? skip, bool? includeDisabled, AppDbContext db, CancellationToken ct) =>
         {
             var q = db.Set<Agent>().AsNoTracking();
+            if (includeDisabled != true)
+            {
+                q = q.Where(a => a.IsEnabled);
+            }
             int takeVal = take.GetValueOrDefault(50);
             int skipVal = skip.GetValueOrDefault(0);
             if (takeVal <= 0) takeVal = 50;
@@ -30,7 +34,7 @@ public static class AgentsEndpoints
                 .Skip(skipVal)
                 .Take(takeVal)
                 .Select(a => new AgentListItem(
-                    a.Id, a.Name, a.Model, a.Temperature, a.MaxSteps, a.CreatedAt, a.UpdatedAt
+                    a.Id, a.Name, a.Model, a.Temperature, a.MaxSteps, a.IsEnabled, a.CreatedAt, a.UpdatedAt
                 ))
                 .ToListAsync(ct);
             return Results.Ok(items);
@@ -43,7 +47,7 @@ public static class AgentsEndpoints
             var a = await db.Set<Agent>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
             if (a is null) return Results.NotFound();
             return Results.Ok(new AgentDetails(
-                a.Id, a.Name, a.Model, a.Temperature, a.MaxSteps, a.SystemPrompt, a.ToolAllowlist, a.CreatedAt, a.UpdatedAt
+                a.Id, a.Name, a.Model, a.Temperature, a.MaxSteps, a.SystemPrompt, a.ToolAllowlist, a.IsEnabled, a.CreatedAt, a.UpdatedAt
             ));
         })
         .WithSummary("Get agent by id");
@@ -59,10 +63,13 @@ public static class AgentsEndpoints
             var exists = await db.Set<Agent>().AnyAsync(a => a.Name == req.Name, ct);
             if (exists) return Results.Conflict(new { error = "Agent with this name already exists" });
 
-            var agent = new Agent(Guid.NewGuid(), req.Name, req.SystemPrompt ?? string.Empty, req.ToolAllowlist ?? Array.Empty<string>(), req.Model, req.Temperature, req.MaxSteps);
+            var agent = new Agent(Guid.NewGuid(), req.Name, req.SystemPrompt ?? string.Empty, req.ToolAllowlist ?? Array.Empty<string>(), req.Model, req.Temperature, req.MaxSteps)
+            {
+                IsEnabled = req.IsEnabled ?? true
+            };
             db.Add(agent);
             await db.SaveChangesAsync(ct);
-            return Results.Created($"/api/agents/{agent.Id}", new AgentDetails(agent.Id, agent.Name, agent.Model, agent.Temperature, agent.MaxSteps, agent.SystemPrompt, agent.ToolAllowlist, agent.CreatedAt, agent.UpdatedAt));
+            return Results.Created($"/api/agents/{agent.Id}", new AgentDetails(agent.Id, agent.Name, agent.Model, agent.Temperature, agent.MaxSteps, agent.SystemPrompt, agent.ToolAllowlist, agent.IsEnabled, agent.CreatedAt, agent.UpdatedAt));
         })
         .WithSummary("Create a new agent");
 
@@ -83,10 +90,11 @@ public static class AgentsEndpoints
             agent.MaxSteps = req.MaxSteps;
             agent.SystemPrompt = req.SystemPrompt ?? string.Empty;
             agent.ToolAllowlist = req.ToolAllowlist ?? Array.Empty<string>();
+            agent.IsEnabled = req.IsEnabled ?? agent.IsEnabled;
             agent.UpdatedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync(ct);
-            return Results.Ok(new AgentDetails(agent.Id, agent.Name, agent.Model, agent.Temperature, agent.MaxSteps, agent.SystemPrompt, agent.ToolAllowlist, agent.CreatedAt, agent.UpdatedAt));
+            return Results.Ok(new AgentDetails(agent.Id, agent.Name, agent.Model, agent.Temperature, agent.MaxSteps, agent.SystemPrompt, agent.ToolAllowlist, agent.IsEnabled, agent.CreatedAt, agent.UpdatedAt));
         })
         .WithSummary("Update an existing agent");
 

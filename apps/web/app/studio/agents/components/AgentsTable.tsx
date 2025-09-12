@@ -10,6 +10,7 @@ export type AgentListItem = {
   model: string;
   temperature: number;
   maxSteps: number;
+  isEnabled?: boolean;
   createdAt: string;
   updatedAt?: string | null;
 };
@@ -79,7 +80,7 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
         </thead>
         <tbody>
           {rows.map((a) => (
-            <tr key={a.id} className="border-t">
+            <tr key={a.id} className={'border-t ' + (a.isEnabled === false ? 'opacity-50' : '')}>
               <td className="px-3 py-2 font-medium text-blue-700">
                 <Link href={`/studio/agents/${a.id}`}>{a.name}</Link>
               </td>

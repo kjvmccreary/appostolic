@@ -11,6 +11,7 @@ export type AgentUpsert = {
   maxSteps: number;
   systemPrompt: string;
   toolAllowlist: string[];
+  isEnabled?: boolean;
 };
 
 export type AgentDetails = AgentUpsert & {
@@ -54,6 +55,7 @@ export default function AgentForm({ mode, initial, tools }: Props) {
     maxSteps: initial?.maxSteps ?? 12,
     systemPrompt: initial?.systemPrompt ?? '',
     toolAllowlist: initial?.toolAllowlist ?? [],
+    isEnabled: initial?.isEnabled ?? true,
   });
   const [errors, setErrors] = useState<Partial<Record<keyof AgentUpsert, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -98,6 +100,7 @@ export default function AgentForm({ mode, initial, tools }: Props) {
         maxSteps: form.maxSteps,
         systemPrompt: form.systemPrompt,
         toolAllowlist: form.toolAllowlist,
+        isEnabled: form.isEnabled,
       });
 
       const isEdit = mode === 'edit' && initial?.id;
@@ -199,6 +202,18 @@ export default function AgentForm({ mode, initial, tools }: Props) {
               />
               {errors.maxSteps && <p className="text-xs text-red-600 mt-1">{errors.maxSteps}</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Enabled</label>
+            <label className="inline-flex items-center gap-2 mt-1 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isEnabled !== false}
+                onChange={(e) => setField('isEnabled', e.target.checked)}
+              />
+              <span>{form.isEnabled !== false ? 'Enabled' : 'Disabled'}</span>
+            </label>
           </div>
 
           <div>

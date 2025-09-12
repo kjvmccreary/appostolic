@@ -80,3 +80,13 @@
 - A10-03 — Manual 0.7h vs Actual 0.22h → Saved 0.48h ($34.56) — Added AgentStore (DB-first, fallback to AgentRegistry); wired Worker to resolve agents via AgentStore; tests green
 
 - A10-04 — Manual 0.8h vs Actual 0.25h → Saved 0.55h ($39.60) — Next.js /studio/agents page with server fetch via /api-proxy/agents and client table; empty state and New Agent action
+
+- A10-05 — Manual 1.0h vs Actual 0.30h → Saved 0.70h ($50.40) — Agent editor (create/edit) with validation, tool allowlist selector, live token estimate; save/redirect
+
+- A10-06 — Manual 0.6h vs Actual 0.18h → Saved 0.42h ($30.24) — Delete flow with confirm and Run link to /dev/agents?agentId=<id>
+
+- A10-07 — Manual 1.2h vs Actual 0.35h → Saved 0.85h ($61.20) — Frontend unit tests for AgentForm and AgentsTable; vitest config tightened; coverage thresholds met
+
+- A10-08 — Manual 0.7h vs Actual 0.20h → Saved 0.50h ($36.00) — Documentation for Agents API and Agent Studio; noted DB-first AgentStore with registry fallback; examples added
+
+- A10-09 — Manual 0.9h vs Actual 0.28h → Saved 0.62h ($44.64) — Added IsEnabled flag to Agents with default filtering; UI toggle; disabled rows grayed out; no hard deletes required

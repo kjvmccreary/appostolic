@@ -60,6 +60,8 @@ public record class Agent
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
+    public bool IsEnabled { get; set; } = true;
+
     // EF Core requires parameterless ctor
     public Agent() { }
 
@@ -76,5 +78,6 @@ public record class Agent
         Temperature = Application.Validation.Guard.InRange(temperature, 0.0, 2.0, nameof(temperature));
         MaxSteps = Application.Validation.Guard.InRange(maxSteps, 1, 50, nameof(maxSteps));
         CreatedAt = DateTime.UtcNow;
+    IsEnabled = true;
     }
 }

@@ -40,6 +40,7 @@ appostolic/
 │  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
 │  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
+│  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
 │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list)
 │  │  │  └─ Infrastructure/
 │  │  │     ├─ Auth/
@@ -92,8 +93,18 @@ appostolic/
 │  │     ├─ dev/agents/page.tsx
 │  │     ├─ dev/agents/components/AgentRunForm.tsx
 │  │     ├─ dev/agents/components/TracesTable.tsx
+│  │     ├─ studio/agents/                # Agent Studio (CRUD UI)
+│  │     │  ├─ page.tsx                   # List (defaults to enabled-only)
+│  │     │  ├─ new/page.tsx               # Create
+│  │     │  ├─ [id]/page.tsx              # Edit
+│  │     │  └─ components/
+│  │     │     ├─ AgentForm.tsx           # Create/Edit form (includes Enabled toggle)
+│  │     │     └─ AgentsTable.tsx         # List table
 │  │     └─ api-proxy/
 │  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
+│  │        ├─ agents/route.ts            # GET/POST /api-proxy/agents → API /api/agents
+│  │        ├─ agents/[id]/route.ts       # GET/PUT/DELETE /api-proxy/agents/{id}
+│  │        └─ agents/tools/route.ts      # GET /api-proxy/agents/tools → API /api/agents/tools
 │  │        └─ agent-tasks/
 │  │           ├─ route.ts                 # GET/POST /api-proxy/agent-tasks → API
 │  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
@@ -139,6 +150,22 @@ appostolic/
 - Mobile: Expo/React Native (TypeScript)
 - Infra: Docker Compose for Postgres, Redis, MinIO, Qdrant, pgAdmin, Mailhog (dev)
 - Docs/SDK: Swashbuckle for OpenAPI; custom TypeScript SDK package
+
+## What's new since last snapshot
+
+- Agents CRUD API (stable path):
+  - Added `AgentsEndpoints.cs` with `GET/POST /api/agents`, `GET/PUT/DELETE /api/agents/{id}`.
+  - Added `GET /api/agents/tools` to surface a tool catalog for building allowlists in the UI.
+- Agent enable/disable:
+  - New `Agent.IsEnabled boolean default true` persisted via EF; list endpoint hides disabled agents by default.
+  - Pass `includeDisabled=true` on `GET /api/agents` to include disabled records; `POST/PUT` accept `isEnabled`.
+- Agent Studio (web):
+  - New pages under `/studio/agents`: list, create, edit with `AgentForm` and `AgentsTable`.
+  - API proxy routes added for Agents and Tool catalog under `app/api-proxy/agents/*`.
+- Agent resolution:
+  - Introduced `AgentStore` used by the worker to resolve agents (DB-first, fallback to static registry).
+- Database:
+  - EF migrations updated to add the `is_enabled` column (default true) on `app.agents`.
 
 ## Running locally (dev)
 
@@ -211,6 +238,17 @@ Seeded defaults (via `apps/api/tools/seed`):
 
 ### Endpoints
 
+Agents endpoints (in `AgentsEndpoints.cs`):
+
+- `GET /api/agents?take=&skip=&includeDisabled=`
+  - Returns paged `AgentListItem[]` ordered by `CreatedAt DESC`.
+  - Default filters to enabled agents only; pass `includeDisabled=true` to include all.
+- `GET /api/agents/{id}` → `AgentDetails`.
+- `POST /api/agents` → create agent; enforces unique name; defaults `isEnabled=true`.
+- `PUT /api/agents/{id}` → update existing agent; preserves `isEnabled` unless provided.
+- `DELETE /api/agents/{id}` → delete agent.
+- `GET /api/agents/tools` → list tool catalog for building allowlists in UI.
+
 - Grouped in `apps/api/App/Endpoints/V1.cs` under `/api`:
   - `GET /api/me` — returns user/tenant claims
   - `GET /api/tenants` — current tenant summary
@@ -267,6 +305,10 @@ Agent runtime tables (key): `agents`, `agent_tasks`, `agent_traces` with:
 - Unique index on `agent_traces(task_id, step_number)`
 - Check constraints: `step_number >= 1`, `duration_ms >= 0`
 
+Agent fields (highlights):
+
+- `IsEnabled boolean default true` — used to soft-disable agents. API list endpoint hides disabled by default unless `includeDisabled=true`.
+
 ## Agent Runtime (v1)
 
 Domain types (`apps/api/Domain/Agents/`):
@@ -309,15 +351,28 @@ Queue and worker (`Application/Agents/Queue`):
   - Dequeue/load race mitigation: brief retry loop to read the task after enqueue (handles read-before-commit).
   - Logs dequeued count and last in-flight task id on stop.
 
+Agent resolution (`Application/Agents/AgentStore.cs`):
+
+- Registered as scoped service; used by `AgentTaskWorker` to resolve agents.
+- Lookup strategy is DB-first by Id, then falls back to static `AgentRegistry.FindById(id)`.
+
 ## Web app (`apps/web`)
 
 - Next.js 14 (App Router); Node runtime for server routes.
 - Server-only API proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS:
+  - Agents CRUD:
+    - `GET/POST /api-proxy/agents` ↔ API `/api/agents`
+    - `GET/PUT/DELETE /api-proxy/agents/{id}` ↔ API `/api/agents/{id}`
+    - `GET /api-proxy/agents/tools` ↔ API `/api/agents/tools`
   - `GET /api-proxy/dev/agents` → API `/api/dev/agents`
   - `POST /api-proxy/agent-tasks` → API `/api/agent-tasks`
   - `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → API `/api/agent-tasks/{id}`
 - Env validation in `src/lib/serverEnv.ts` for `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`.
 - Dev UI: `/dev/agents` (SSR) lists agents and renders a client `AgentRunForm` to create a task and live-poll details+traces via `useTaskPolling` (750ms until terminal).
+- Agent Studio: `/studio/agents` (list), `/studio/agents/new` (create), `/studio/agents/[id]` (edit)
+  - Uses `AgentForm` (create/edit) and `AgentsTable` (list)
+  - Create/Update payload includes `isEnabled` and `toolAllowlist` selections
+  - List defaults to enabled-only agents; UI can be extended to show disabled
 - Result panel shows parsed JSON on success; error message shown on failure/cancel; recent run ids tracked client-side.
 - Depends on `@appostolic/sdk` for general types/helpers; current panel uses direct fetch via server proxies.
 

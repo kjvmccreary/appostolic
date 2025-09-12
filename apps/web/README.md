@@ -1,4 +1,4 @@
-# Web App — Run Agent Panel (S1-09)
+# Web App — Run Agent Panel (S1-09) & Agent Studio (A10)
 
 This Next.js app includes a developer “Run Agent” panel at `/dev/agents` that lets you:
 
@@ -103,5 +103,41 @@ pnpm --filter @appostolic/web e2e
 ```
 
 CI note:
+
+## Agent Studio (A10)
+
+Manage Agents from the UI under `/studio/agents`.
+
+Pages
+
+- `/studio/agents` — server-rendered list of agents using `GET /api-proxy/agents`
+  - Disabled agents are grayed out; list shows only enabled by default
+- `/studio/agents/new` — create an agent
+- `/studio/agents/[id]` — edit an agent
+
+Form features (create/edit)
+
+- Inline validation: name, model, temperature [0..2], maxSteps [1..50]
+- Tool selection: checkboxes sourced from `GET /api-proxy/agents/tools`
+- System prompt text area with live token estimate (approx. 4 chars/token)
+- Enabled toggle: set `isEnabled`; disabled agents remain in DB but are hidden by default from lists
+- Save triggers POST or PUT via server proxy with dev headers; toasts on success and navigates back to the list
+
+Run this agent
+
+- Each row and editor header links to `/dev/agents?agentId=<id>` to try the agent in the Run panel.
+
+Server proxy routes
+
+- `GET /api-proxy/agents` — list
+- `POST /api-proxy/agents` — create
+- `GET /api-proxy/agents/[id]` — details
+- `PUT /api-proxy/agents/[id]` — update
+- `DELETE /api-proxy/agents/[id]` — delete
+- `GET /api-proxy/agents/tools` — tool catalog for allowlist UI
+
+Notes
+
+- Dev headers are attached in all proxy routes. The API prefers DB-defined agents at runtime and falls back to the seeded registry if not found.
 
 - The test is skipped in CI unless `E2E_WEB_ENABLE=1` is set. To run against already-running servers, set `PLAYWRIGHT_WEB_NO_SERVER=1` and provide `WEB_BASE` and `NEXT_PUBLIC_API_BASE` envs.

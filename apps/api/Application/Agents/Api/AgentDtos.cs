@@ -6,7 +6,8 @@ public record AgentUpsertRequest(
     double Temperature,
     int MaxSteps,
     string SystemPrompt,
-    string[] ToolAllowlist
+    string[] ToolAllowlist,
+    bool? IsEnabled
 );
 
 public record AgentListItem(
@@ -15,6 +16,7 @@ public record AgentListItem(
     string Model,
     double Temperature,
     int MaxSteps,
+    bool IsEnabled,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
@@ -27,6 +29,7 @@ public record AgentDetails(
     int MaxSteps,
     string SystemPrompt,
     string[] ToolAllowlist,
+    bool IsEnabled,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );

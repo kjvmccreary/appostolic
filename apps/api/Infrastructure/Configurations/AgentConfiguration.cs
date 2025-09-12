@@ -20,6 +20,7 @@ public class AgentConfiguration : IEntityTypeConfiguration<Agent>
         b.Property(x => x.MaxSteps).HasColumnName("max_steps");
         b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("timezone('utc', now())");
         b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+    b.Property(x => x.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(true);
 
         // Indexes
         b.HasIndex(x => x.Name).IsUnique();
