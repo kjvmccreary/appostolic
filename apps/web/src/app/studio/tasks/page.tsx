@@ -61,15 +61,23 @@ async function fetchAgents(): Promise<AgentListItem[]> {
 }
 
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-  const [{ items }, agents] = await Promise.all([fetchTasks(searchParams), fetchAgents()]);
+  const [{ items, total }, agents] = await Promise.all([fetchTasks(searchParams), fetchAgents()]);
   const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+  const take = Number((searchParams['take'] as string) ?? '20');
+  const skip = Number((searchParams['skip'] as string) ?? '0');
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Tasks</h1>
       </div>
       <TaskFilters agents={agents} />
-      <TasksTable items={items} agentNameById={agentNameById} />
+      <TasksTable
+        items={items}
+        agentNameById={agentNameById}
+        total={total}
+        take={take}
+        skip={skip}
+      />
     </div>
   );
 }

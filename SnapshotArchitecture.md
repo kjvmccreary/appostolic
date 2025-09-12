@@ -146,7 +146,7 @@ appostolic/
 ## Tech stack (high level)
 
 - Backend: .NET 8, Minimal API, EF Core 8 (Npgsql provider, PostgreSQL)
-- Frontend: Next.js 14 (app router), TypeScript, React 18
+- Frontend: Next.js 14 (app router), TypeScript, React 18, MUI Premium
 - Mobile: Expo/React Native (TypeScript)
 - Infra: Docker Compose for Postgres, Redis, MinIO, Qdrant, pgAdmin, Mailhog (dev)
 - Docs/SDK: Swashbuckle for OpenAPI; custom TypeScript SDK package

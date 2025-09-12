@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { DataGridPremium, GridColDef, GridPaginationModel } from '@mui/x-data-grid-premium';
+import { Chip, Box } from '@mui/material';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 export type TaskSummary = {
   id: string;
@@ -20,75 +23,144 @@ function fmtDate(iso?: string | null) {
   return d.toLocaleString();
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const color =
-    status === 'Succeeded'
-      ? 'bg-green-100 text-green-800'
-      : status === 'Failed'
-        ? 'bg-red-100 text-red-800'
-        : status === 'Running'
-          ? 'bg-blue-100 text-blue-800'
-          : status === 'Canceled'
-            ? 'bg-gray-200 text-gray-700'
-            : 'bg-yellow-100 text-yellow-800';
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${color}`}>{status}</span>;
-}
+// MUI Chip will represent the status; removed old StatusBadge
 
-export function TasksTable({
-  items,
-  agentNameById,
-}: {
+type TasksTableProps = {
   items: TaskSummary[];
   agentNameById: Record<string, string>;
-}) {
+  total?: number;
+  take?: number;
+  skip?: number;
+};
+
+export function TasksTable({ items, agentNameById, total, take, skip }: TasksTableProps) {
   const rows = useMemo(() => items, [items]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+
+  const columns = useMemo<GridColDef<TaskSummary>[]>(
+    () => [
+      {
+        field: 'status',
+        headerName: 'Status',
+        minWidth: 140,
+        renderCell: (p) => (
+          <Link href={`/studio/tasks/${(p.row as TaskSummary).id}`}>
+            <Chip
+              size="small"
+              label={String(p.value ?? '')}
+              color={
+                (p.value as string) === 'Succeeded'
+                  ? 'success'
+                  : (p.value as string) === 'Failed'
+                    ? 'error'
+                    : (p.value as string) === 'Running'
+                      ? 'info'
+                      : (p.value as string) === 'Canceled'
+                        ? 'default'
+                        : 'warning'
+              }
+              variant={(p.value as string) === 'Canceled' ? 'outlined' : 'filled'}
+            />
+          </Link>
+        ),
+      },
+      {
+        field: 'agentId',
+        headerName: 'Agent',
+        flex: 1,
+        minWidth: 160,
+        renderCell: (p) => (
+          <Link href={`/studio/tasks/${(p.row as TaskSummary).id}`}>
+            {agentNameById[p.value as string] ?? (p.value as string)}
+          </Link>
+        ),
+      },
+      {
+        field: 'createdAt',
+        headerName: 'Created',
+        minWidth: 180,
+        valueGetter: (p) => fmtDate(p.value as string),
+      },
+      {
+        field: 'startedAt',
+        headerName: 'Started',
+        minWidth: 180,
+        valueGetter: (p) => fmtDate(p.value as string | null),
+      },
+      {
+        field: 'finishedAt',
+        headerName: 'Finished',
+        minWidth: 180,
+        valueGetter: (p) => fmtDate(p.value as string | null),
+      },
+      {
+        field: 'totalTokens',
+        headerName: 'Total Tokens',
+        type: 'number',
+        minWidth: 140,
+        align: 'right',
+        headerAlign: 'right',
+        valueGetter: (p) => p.value ?? '—',
+      },
+      {
+        field: 'estimatedCostUsd',
+        headerName: 'Est. Cost',
+        minWidth: 120,
+        align: 'right',
+        headerAlign: 'right',
+        valueGetter: (p) => (p.value != null ? `$${(p.value as number).toFixed(2)}` : '—'),
+      },
+    ],
+    [agentNameById],
+  );
+
+  const paginationModel: GridPaginationModel = {
+    pageSize: Math.max(1, Number(take ?? 20)),
+    page: Math.floor(Number(skip ?? 0) / Math.max(1, Number(take ?? 20))),
+  };
+
+  const onPaginationModelChange = useCallback(
+    (model: GridPaginationModel) => {
+      const u = new URLSearchParams(params.toString());
+      u.set('take', String(model.pageSize));
+      u.set('skip', String(model.page * model.pageSize));
+      router.push(`${pathname}?${u.toString()}`);
+    },
+    [params, pathname, router],
+  );
 
   if (!rows.length) {
     return (
-      <div className="p-8 text-center border rounded-md bg-white/50">
-        <p className="text-gray-700">No tasks match your filters.</p>
-      </div>
+      <Box
+        sx={{
+          p: 3,
+          textAlign: 'center',
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
+        No tasks match your filters.
+      </Box>
     );
   }
 
   return (
-    <div className="overflow-x-auto border rounded-md">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-50 text-gray-700">
-          <tr>
-            <th className="text-left px-3 py-2">Status</th>
-            <th className="text-left px-3 py-2">Agent</th>
-            <th className="text-left px-3 py-2">Created</th>
-            <th className="text-left px-3 py-2">Started</th>
-            <th className="text-left px-3 py-2">Finished</th>
-            <th className="text-right px-3 py-2">Total Tokens</th>
-            <th className="text-right px-3 py-2">Est. Cost</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => (
-            <tr key={t.id} className="border-t hover:bg-gray-50">
-              <td className="px-3 py-2">
-                <Link href={`/studio/tasks/${t.id}`} className="underline-offset-2 hover:underline">
-                  <StatusBadge status={t.status} />
-                </Link>
-              </td>
-              <td className="px-3 py-2">
-                <Link href={`/studio/tasks/${t.id}`} className="text-blue-700 hover:underline">
-                  {agentNameById[t.agentId] ?? t.agentId}
-                </Link>
-              </td>
-              <td className="px-3 py-2">{fmtDate(t.createdAt)}</td>
-              <td className="px-3 py-2">{fmtDate(t.startedAt)}</td>
-              <td className="px-3 py-2">{fmtDate(t.finishedAt)}</td>
-              <td className="px-3 py-2 text-right">{t.totalTokens ?? '—'}</td>
-              <td className="px-3 py-2 text-right">
-                {t.estimatedCostUsd != null ? `$${t.estimatedCostUsd.toFixed(2)}` : '—'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Box sx={{ height: 560, width: '100%' }}>
+      <DataGridPremium
+        rows={rows}
+        getRowId={(r) => r.id}
+        columns={columns}
+        pagination
+        paginationMode="server"
+        rowCount={total ?? rows.length}
+        paginationModel={paginationModel}
+        onPaginationModelChange={onPaginationModelChange}
+        disableRowSelectionOnClick
+      />
+    </Box>
   );
 }
