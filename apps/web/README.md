@@ -81,3 +81,27 @@ TODO: Add screenshots of:
 - If `/dev/agents` fails to load agents, verify `.env.local` and that the API is running.
 - If task creation returns 401/403, double-check `DEV_USER` and `DEV_TENANT` match seeded dev values on the API.
 - If polling never reaches a terminal state, check the API Worker logs; the ResearchAgent may hit MaxSteps (this is acceptable in dev and still validates the pipeline).
+
+## End-to-end (Playwright) smoke test
+
+We ship a simple Playwright test that drives the Run Agent page and verifies token totals and optional estimated cost render after completion.
+
+- Test file: `tests/e2e/run-agent.spec.ts`
+- Config: `playwright.config.ts`
+
+Run locally:
+
+```bash
+pnpm --filter @appostolic/web i
+pnpm --filter @appostolic/web exec npx -y playwright install --with-deps
+
+# Ensure API base and dev headers are set for server proxy routes
+cp apps/web/.env.local.example apps/web/.env.local # then edit if needed
+
+# One command will start API (5198) + Web (3000) and run tests
+pnpm --filter @appostolic/web e2e
+```
+
+CI note:
+
+- The test is skipped in CI unless `E2E_WEB_ENABLE=1` is set. To run against already-running servers, set `PLAYWRIGHT_WEB_NO_SERVER=1` and provide `WEB_BASE` and `NEXT_PUBLIC_API_BASE` envs.

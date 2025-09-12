@@ -9,7 +9,11 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest --run --passWithNoTests"
+    "test": "vitest --run --passWithNoTests",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug",
+    "e2e:trace": "PWDEBUG=1 playwright test"
   },
   "dependencies": {
     "@appostolic/models": "workspace:*",
@@ -35,6 +39,7 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^1.6.0",
     "@vitest/coverage-v8": "^1.6.1",
-    "whatwg-fetch": "^3.6.20"
+    "whatwg-fetch": "^3.6.20",
+    "@playwright/test": "^1.47.2"
   }
 }
