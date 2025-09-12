@@ -110,3 +110,7 @@
 ## S1-11 — Web proxy: cancel/retry/export
 
 - Dev Time Saved (A11-05): Manual 0.7h vs Actual 0.15h → Saved 0.55h ($39.60) — Next.js server proxies for POST cancel/retry and GET export under /api-proxy/agent-tasks/[id]/\* with dev headers forwarded
+
+## S1-11 — Inbox page (Web)
+
+- Dev Time Saved (A11-06): Manual 2.1h vs Actual 0.5h → Saved 1.6h ($115.20) — /studio/tasks with filters (status, agent, from/to, q) and paging (take/skip); server fetch via /api-proxy/agent-tasks

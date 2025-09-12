@@ -179,4 +179,6 @@
 
 {"task":"A11-05","phase":"start","ts":"<UTC>"}
 {"task":"A11-05","manual_hours":0.7,"actual_hours":0.15,"saved_hours":0.55,"rate":72,"savings_usd":39.60,"ts":"<UTC>"}
+{"task":"A11-06","phase":"start","ts":"<UTC>"}
+{"task":"A11-06","manual_hours":2.1,"actual_hours":0.5,"saved_hours":1.6,"rate":72,"savings_usd":115.20,"ts":"<UTC>"}
 
