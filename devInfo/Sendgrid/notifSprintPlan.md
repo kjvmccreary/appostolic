@@ -2,7 +2,7 @@
 
 This plan turns the SendGrid notifications design into concrete stories. Prefix: Notif-xx.
 
-## Notif-01 — Notifications scaffolding and options
+## ~~Notif-01 — Notifications scaffolding and options~~
 
 Summary
 
@@ -20,7 +20,7 @@ Key Tasks
 - Add `App/Notifications` with placeholder interfaces and records
 - Add options classes and `BindConfiguration` wiring
 
-## Notif-02 — Template renderer (Scriban)
+## ~~Notif-02 — Template renderer (Scriban)~~
 
 Summary
 
@@ -37,7 +37,7 @@ Key Tasks
 - Add renderer + simple templates for Verify/Invite
 - Add minimal unit tests
 
-## Notif-03 — Email queue and dispatcher service
+## ~~Notif-03 — Email queue and dispatcher service~~
 
 Summary
 
@@ -54,7 +54,7 @@ Key Tasks
 - Implement queue, hosted service, and backoff policy
 - Wire hosted service in DI
 
-## Notif-04 — SendGrid provider
+## ~~Notif-04 — SendGrid provider~~
 
 Summary
 

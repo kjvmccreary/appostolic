@@ -109,6 +109,8 @@ builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appo
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender, Appostolic.Api.App.Notifications.NoopEmailSender>();
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
+builder.Services.AddHttpClient("sendgrid");
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SendGridEmailSender>();
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

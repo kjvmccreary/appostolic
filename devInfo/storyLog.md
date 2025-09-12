@@ -399,6 +399,36 @@ How to try it
 
 ## Spike - refactor for MUI
 
+## Notif-04 — SendGrid provider
+
+I implemented the SendGrid provider and validated behavior with unit tests, then logged and updated the sprint plan.
+
+Summary
+
+- Added `SendGridEmailSender` which uses a named HttpClient and `SendGridOptions.ApiKey` to call the SendGrid v3 API.
+- Success criteria: HTTP 202 Accepted considered success; non-202 throws `HttpRequestException` with an error snippet for diagnostics.
+- Registered a named HttpClient ("sendgrid") and wired the sender in DI (kept `NoopEmailSender` as the active default until provider selection story Notif-06).
+
+Files
+
+- apps/api/App/Notifications/SendGridEmailSender.cs — provider implementation.
+- apps/api.tests/SendGridEmailSenderTests.cs — unit tests for 202 success and 400 failure paths using a fake HttpClient.
+- apps/api/Program.cs — registered named HttpClient and provider type in DI.
+
+Quality gates
+
+- Build: PASS (api project builds).
+- Tests: PASS (test suite includes SendGrid sender tests).
+
+Requirements coverage
+
+- Uses API key from options and sends text+html: Done.
+- Throws on 4xx/5xx responses and logs snippet: Done.
+- Sandbox toggle: Deferred (optional; will revisit when adding provider selection in Notif-06).
+
+Time/savings
+{"task":"Notif-04","manual_hours":1.2,"actual_hours":0.3,"saved_hours":0.9,"rate":72,"savings_usd":64.8}
+
 ## Notif-02 — Template renderer (Scriban)
 
 Summary
