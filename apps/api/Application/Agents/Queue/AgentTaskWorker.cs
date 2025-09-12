@@ -87,10 +87,18 @@ public sealed class AgentTaskWorker : BackgroundService
                         ["agentId"] = task.AgentId
                     }))
                     {
-                        // Idempotency: only process Pending tasks
+                        // Idempotency: only process Pending tasks (refresh from DB to avoid racing with cancel)
                         if (task.Status != AgentStatus.Pending)
                         {
                             log.LogDebug("AgentTask {TaskId} has status {Status}; skipping.", taskId, task.Status);
+                            continue;
+                        }
+
+                        // Re-read to ensure no concurrent transition (e.g., cancel) just occurred
+                        await db.Entry(task).ReloadAsync(stoppingToken);
+                        if (task.Status != AgentStatus.Pending)
+                        {
+                            log.LogDebug("AgentTask {TaskId} status changed to {Status} before start; skipping.", taskId, task.Status);
                             continue;
                         }
 

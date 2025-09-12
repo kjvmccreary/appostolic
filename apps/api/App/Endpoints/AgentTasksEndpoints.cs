@@ -6,6 +6,7 @@ using Appostolic.Api.Domain.Agents;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -60,6 +61,41 @@ public static class AgentTasksEndpoints
 
             db.Add(task);
             await db.SaveChangesAsync(ct);
+
+            // Optional test hooks (Development only):
+            // 1) allow a tiny delay before enqueue via header
+            // 2) allow complete suppression of enqueue to keep task Pending for deterministic testing
+            try
+            {
+                var env = ctx.RequestServices.GetRequiredService<IHostEnvironment>();
+                if (env.IsDevelopment())
+                {
+                    // Suppress enqueue entirely if requested
+                    var suppress = ctx.Request.Headers["x-test-suppress-enqueue"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(suppress) && (suppress == "1" || suppress.Equals("true", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // Return 201 without enqueue; task remains Pending
+                        Appostolic.Api.Application.Agents.Runtime.Metrics.RecordTaskCreated(task.RequestTenant, task.AgentId);
+                        var summarySuppressed = new AgentTaskSummary(
+                            task.Id,
+                            task.AgentId,
+                            task.Status.ToString(),
+                            task.CreatedAt,
+                            task.StartedAt,
+                            task.FinishedAt,
+                            task.TotalTokens
+                        );
+                        return Results.Created($"/api/agent-tasks/{task.Id}", summarySuppressed);
+                    }
+
+                    var delayHeader = ctx.Request.Headers["x-test-enqueue-delay-ms"].FirstOrDefault();
+                    if (int.TryParse(delayHeader, out var delayMs) && delayMs > 0)
+                    {
+                        await Task.Delay(delayMs, ct);
+                    }
+                }
+            }
+            catch { /* ignore */ }
 
             // Enqueue for processing
             await queue.EnqueueAsync(task.Id, ct);
@@ -250,7 +286,7 @@ public static class AgentTasksEndpoints
                 Guid? agentId,
                 DateTime? from,
                 DateTime? to,
-                string? qText,
+                string? q,
                 int? take,
                 int? skip,
                 AppDbContext db,
@@ -285,9 +321,9 @@ public static class AgentTasksEndpoints
                 }
 
                 // free-text q: matches Id, RequestUser, or InputJson text
-                if (!string.IsNullOrWhiteSpace(qText))
+                if (!string.IsNullOrWhiteSpace(q))
                 {
-                    var qval = qText.Trim();
+                    var qval = q.Trim();
 
                     // Try Guid parse for Id match
                     if (Guid.TryParse(qval, out var qId))
@@ -296,19 +332,18 @@ public static class AgentTasksEndpoints
                     }
                     else
                     {
-                        // EF Core provider-specific: prefer ILIKE on PostgreSQL if available; fallback to case-insensitive Contains
-                        var like = $"%{qval}%";
-                        // Note: Npgsql EF Core translates ToLower().Contains to ILIKE; also EF.Functions.ILike available in Npgsql
-                        try
+                        // Provider-agnostic implementation: use Npgsql ILIKE when available; otherwise fall back to case-insensitive Contains for in-memory tests
+                        var provider = db.Database.ProviderName;
+                        if (!string.IsNullOrEmpty(provider) && provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
                         {
+                            var like = $"%{qval}%";
                             query = query.Where(t =>
                                 (t.RequestUser != null && EF.Functions.ILike(t.RequestUser, like)) ||
                                 EF.Functions.ILike(t.InputJson, like)
                             );
                         }
-                        catch
+                        else
                         {
-                            // Safe fallback when provider doesn't support ILike
                             var low = qval.ToLowerInvariant();
                             query = query.Where(t =>
                                 (t.RequestUser != null && t.RequestUser.ToLower().Contains(low)) ||

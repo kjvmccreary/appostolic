@@ -41,7 +41,7 @@ appostolic/
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
 │  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
 │  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
-│  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list)
+  │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list; X-Total-Count; filters: status/agentId/from/to/q)
 │  │  │  └─ Infrastructure/
 │  │  │     ├─ Auth/
 │  │  │     │  └─ DevHeaderAuthHandler.cs
@@ -259,7 +259,7 @@ Agents endpoints (in `AgentsEndpoints.cs`):
   - `/health`, `/healthz`
   - `/lessons` (GET/POST) — uses `X-Tenant-Id` GUID header
 
-Development-only endpoints (mapped only when `ASPNETCORE_ENVIRONMENT=Development`):
+Development-only endpoints and test hooks (mapped only when `ASPNETCORE_ENVIRONMENT=Development`):
 
 - `POST /api/dev/tool-call` (in `DevToolsEndpoints.cs`)
   - Contract: `{ name: string, input: object }`
@@ -278,13 +278,16 @@ Agent task endpoints (in `AgentTasksEndpoints.cs`):
   - Validates `agentId` and non-empty `input` JSON
   - Captures dev headers into `RequestTenant`/`RequestUser`
   - Persists `AgentTask` with `Pending` status, enqueues its id
+  - Development-only test hooks: optional `x-test-enqueue-delay-ms`, `x-test-suppress-enqueue`
   - Returns `201 Created` with `AgentTaskSummary`
 - `GET /api/agent-tasks/{id}`
   - Returns `AgentTaskDetails` (status, timestamps, optional result/error)
   - With `?includeTraces=true`, returns `{ task, traces }` where traces are ordered `AgentTraceDto[]`
 - `GET /api/agent-tasks`
   - Lists `AgentTaskSummary[]` ordered by `CreatedAt DESC`
-  - Optional filters: `status`, `agentId`; paging via `take`/`skip`
+  - Optional filters: `status` (case-insensitive), `agentId`, `from`, `to`, `q` (free-text)
+  - Free-text search is provider-aware: Npgsql uses `EF.Functions.ILike`, others fall back to case-insensitive `Contains`
+  - Paging via `take`/`skip`; sets `X-Total-Count` header with total before paging
 
 ### Swagger/OpenAPI
 

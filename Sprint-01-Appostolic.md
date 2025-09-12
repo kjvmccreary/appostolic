@@ -122,3 +122,7 @@
 ## S1-11 — Web Tests (Inbox & Detail)
 
 - Dev Time Saved (A11-09): Manual 2.6h vs Actual 0.85h → Saved 1.75h ($126.00) — Vitest + RTL + MSW tests for /studio/tasks inbox and TaskDetail actions; MUI providers in tests; coverage thresholds met
+
+## S1-11 — Backend Tests (AgentTasks)
+
+- Dev Time Saved (A11-08): Manual 1.8h vs Actual 0.6h → Saved 1.2h ($86.40) — .NET integration tests for cancel/retry and list filters with X-Total-Count; deterministic in Development with enqueue control hooks
