@@ -447,7 +447,6 @@ Requirements coverage
 - Dispatcher uses jitter; final failure logs a dead-letter event with message key — Done
 - Optional dedupe prevents duplicate sends when key unchanged — Done
 
-
 ---
 
 ## Notif-10 — Docs and environment wiring

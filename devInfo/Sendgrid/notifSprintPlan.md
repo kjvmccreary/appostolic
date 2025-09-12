@@ -232,6 +232,412 @@ Status
 
 - Completed: Implemented jittered backoff (+/-20%), dead-letter logging with message key, and optional dedupe via `DedupeKey` backed by an in-memory TTL store. Updated `NotificationEnqueuer` to set keys for verification/invite. Refactored SMTP sender for testability and ensured template rendering handles nulls safely. Full test suite passing (72/72).
 
+## Notif-13 — Notifications table (outbox) migration
+
+Summary
+
+- Add app.notifications table + enums/indexes for DB-backed outbox.
+
+Dependencies
+
+- Notif-01..06.
+
+Acceptance Criteria
+
+- EF migration creates table/constraints/indexes as per design.
+- App builds and applies migration (Development) with no data loss.
+
+Tasks
+
+- EF model + configuration, enum mapping, partial unique index for dedupe_key (active subset).
+- Migration + update DbContext registration.
+- SnapshotArchitecture “Database” section update.
+
+## Notif-14 — Enqueue writes to DB outbox
+
+Summary
+
+- Refactor enqueue to insert a row (Queued) and push id into Channel.
+
+Dependencies
+
+- Notif-13.
+
+Acceptance Criteria
+
+- New enqueues create DB rows with correct fields and optional dedupe_key.
+- Duplicate active dedupe_key is rejected (friendly error).
+
+Tasks
+
+- Add repository/service method: CreateQueuedAsync(notification).
+- Compute dedupeKey in NotificationEnqueuer (Verify/Invite).
+- Unit tests for insert + duplicate handling.
+
+## Notif-15 — Dispatcher reads/updates DB records
+
+Summary
+
+- Dispatcher transitions Queued→Sending→Sent/Failed/DeadLetter with retries and jitter.
+
+Dependencies
+
+- Notif-14.
+
+Acceptance Criteria
+
+- On success: subject/body snapshots persisted, status=Sent, sent_at set.
+- On failure: attempt_count incremented, next_attempt_at set; after max attempts → DeadLetter.
+
+Tasks
+
+- DB fetch loop (by status/next_attempt_at), state transitions in a transaction.
+- Jittered backoff logic; structured logging with notificationId.
+- Unit tests: success, retry path, dead-letter.
+
+## Notif-16 — Admin/dev endpoints: list + retry
+
+Summary
+
+- Minimal endpoints to list recent notifications and retry DeadLetter.
+
+Dependencies
+
+- Notif-15.
+
+Acceptance Criteria
+
+- GET /api/dev/notifications (filters: kind, status, tenant, take/skip)
+- POST /api/dev/notifications/{id}/retry moves DeadLetter/Failed to Queued.
+
+Tasks
+
+- Endpoints + auth (dev headers).
+- Tests using in-memory DB.
+
+## Notif-17 — Purge job (retention)
+
+Summary
+
+- Background job to purge old notifications by retention window.
+
+Dependencies
+
+- Notif-15.
+
+Acceptance Criteria
+
+- Configurable retention (default 60 days).
+- Job deletes rows older than retention; logs counts.
+
+Tasks
+
+- HostedService + options, unit tests, RUNBOOK note.
+
+## Notif-18 — Dedupe store and policy
+
+Summary
+
+- Optional dedupe policy backed by DB TTL instead of in-memory only.
+
+Dependencies
+
+- Notif-14/15.
+
+Acceptance Criteria
+
+- Enqueue rejects duplicate dedupe_key when active; TTL respected.
+
+Tasks
+
+- DB constraint + guard, test race conditions, documentation.
+
+## Notif-19 — Delivery status webhook (optional)
+
+Summary
+
+- SendGrid event webhook endpoint to update delivery status fields (future).
+
+Dependencies
+
+- Notif-15.
+
+Acceptance Criteria
+
+- Endpoint accepts signed events (or protected by token).
+- Updates notification row with provider status (delivered/bounced/blocked).
+
+Tasks
+
+- Endpoint + model changes (provider_status, provider_event_at), docs.
+
+## Notif-20 — E2E verification (outbox path)
+
+Summary
+
+- End-to-end test in Development: enqueue → DB row → SMTP → Mailhog → status=Sent.
+
+Dependencies
+
+- Notif-15/17.
+
+Acceptance Criteria
+
+- Manual and/or automated E2E confirms DB row transitions to Sent and message present in Mailhog.
+
+Tasks
+
+- Add dev script/docs; optional integration test harness with Testcontainers.
+
+## Notif-21 — PII minimization and token hashing
+
+Summary
+
+- Stop persisting raw tokens; hash tokens before storage. Minimize PII in outbox payloads and dedupe keys.
+
+Dependencies
+
+- Notif-13..15 (outbox path in place) or parallel design prep.
+
+Acceptance Criteria
+
+- Outbox model includes token_hash (no raw token stored).
+- Dedupe keys use hashed email (normalized) and never raw tokens.
+- data_json contains only minimal fields; no sensitive payloads.
+- Logs redact emails to k\*\*\*@domain.com.
+
+Tasks
+
+- Update model/config: add token_hash (text), ensure raw tokens never persisted.
+- Update NotificationEnqueuer to compute token_hash and hashed-email dedupe keys.
+- Add redaction helper; use in dispatcher logs.
+- Unit tests for hashing and redaction.
+
+## Notif-22 — Field-level encryption for sensitive columns (optional)
+
+Summary
+
+- Encrypt sensitive outbox fields at rest (if stored): body_html, body_text, to_name (and optionally subject).
+
+Dependencies
+
+- Notif-13..15.
+
+Acceptance Criteria
+
+- AES-GCM envelope encryption with rotating key (via .NET DataProtection or KMS-backed key).
+- Read/write paths covered by tests; migration adds encrypted columns or switches serialization.
+- Configurable on/off; default off in Development.
+
+Tasks
+
+- Introduce IFieldCipher abstraction and implementation.
+- Wrap persistence for targeted fields; migration if schema changes required.
+- Tests for encrypt/decrypt and key-rotation compatibility.
+
+## Notif-23 — Retention policy hardening (PII-aware)
+
+Summary
+
+- Extend purge job to enforce PII retention windows (60 days Sent/Failed, 90 days DeadLetter) and document schedule.
+
+Dependencies
+
+- Notif-17.
+
+Acceptance Criteria
+
+- Configurable retention per status; defaults documented.
+- Purge run logs counts; verified by unit/integration tests.
+
+Tasks
+
+- Extend purge job options and filtering by status/age.
+- Tests with seeded data across age buckets.
+- RUNBOOK update for retention settings.
+
+## Notif-24 — Access control for notification views (prod)
+
+Summary
+
+- Restrict list/retry endpoints and future admin UI: SuperAdmin cross-tenant; Tenant Admin scoped to their tenant.
+
+Dependencies
+
+- Notif-16 (list/retry endpoints).
+
+Acceptance Criteria
+
+- Authorization policy and handlers enforce role/tenant scope.
+- Queries filter by tenant for Tenant Admin.
+- Dev endpoints remain dev-only.
+
+Tasks
+
+- Add policies/attributes; enforce in endpoints.
+- Add tests for authorization and tenant filtering.
+
+## Notif-25 — Logging and telemetry privacy gates
+
+Summary
+
+- Enforce redaction and avoid PII in logs/metrics.
+
+Dependencies
+
+- Notif-09 (observability).
+
+Acceptance Criteria
+
+- Logger helpers redact emails across dispatcher/enqueuer.
+- Metrics exclude PII (counts/tags only).
+- Tests for redaction helper and logging usage.
+
+Tasks
+
+- Implement RedactEmail utility.
+- Replace direct email logging with redacted versions.
+- Add unit tests verifying redaction in scopes/messages.
+
+## Notif-26 — Privacy Policy and vendor compliance docs
+
+Summary
+
+- Document PII handling, retention, subprocessors (SendGrid), and user rights; add DPA references.
+
+Dependencies
+
+- None (docs).
+
+Acceptance Criteria
+
+- Privacy Policy draft updated in repo.
+- Subprocessor list includes SendGrid; DPA/Vendor section in RUNBOOK.
+- Link from README.
+
+Tasks
+
+- Author/update Privacy Policy and subprocessor doc.
+- RUNBOOK: data-subject request handling and incident response outline.
+- README: link to policy and subprocessor list.
+
+## Notif-27 — Outbox schema extension for Resend
+
+Summary
+
+- Extend the notifications table with resend fields and supporting indexes.
+
+Dependencies
+
+- Notif-13..15 (Outbox baseline).
+
+Acceptance Criteria
+
+- Columns added: resend_of_notification_id, resend_reason, resend_count (default 0), last_resend_at, throttle_until.
+- Indexes created on (resend_of_notification_id) and (to_email, kind, created_at desc).
+- Migrations apply cleanly in Development.
+
+Tasks
+
+- EF model + configuration; migration; update SnapshotArchitecture DB section.
+
+## Notif-28 — Manual resend endpoint (single)
+
+Summary
+
+- Add POST /api/notifications/{id}/resend to create a new notification referencing the original.
+
+Dependencies
+
+- Notif-27.
+
+Acceptance Criteria
+
+- Creates a new outbox row with resend_of_notification_id set, derived dedupe_key that bypasses standard dedupe, and policy-enforced throttle.
+- Returns 201 with new id; 429 if throttled; 404 if original not found; 403 if unauthorized.
+
+Tasks
+
+- Endpoint, policy service (throttle calc), unit/integration tests, structured logs with originalId.
+
+## Notif-29 — Bulk resend endpoint
+
+Summary
+
+- Add POST /api/notifications/resend-bulk with filters to resend many safely.
+
+Dependencies
+
+- Notif-28.
+
+Acceptance Criteria
+
+- Accepts filters (kind, tenant, to_emails, from/to date, limit).
+- Streams creation with batching/backpressure; returns a summary (created, skipped_throttled, errors).
+- Enforces per-tenant caps and per-recipient throttle.
+
+Tasks
+
+- Endpoint + request validation, batch processing, caps, tests (happy/edge cases), RUNBOOK note.
+
+## Notif-30 — Resend policy, throttling, and metrics
+
+Summary
+
+- Centralize resend policy and add metrics.
+
+Dependencies
+
+- Notif-28/29.
+
+Acceptance Criteria
+
+- Configurable defaults: min interval (e.g., 48h), per-tenant daily cap, per-run safety cap.
+- Metrics: email.resend.total tagged by kind and reason.
+- Unit tests for policy outcomes.
+
+Tasks
+
+- Policy service + options, metrics emission, docs for defaults and overrides.
+
+## Notif-31 — Resend history and admin UI hooks (API)
+
+Summary
+
+- Provide history API to list resends for a notification and wire minimal admin hooks.
+
+Dependencies
+
+- Notif-28.
+
+Acceptance Criteria
+
+- GET /api/notifications/{id}/resends returns child notifications (paged).
+- Web: placeholder admin integration point defined (API contract docs).
+
+Tasks
+
+- Endpoint + tests, API docs update, add to SnapshotArchitecture “Notifications” section.
+
+## Notif-32 — Automated resend (no-action detector) [optional]
+
+Summary
+
+- A scheduled job initiates resends when an expected action did not occur.
+
+Dependencies
+
+- Notif-30.
+
+Acceptance Criteria
+
+- Job evaluates rules (e.g., “Invite not accepted after 7 days”), respects throttle/caps, and emits metrics/logs.
+- Configurable enable/disable and evaluation window.
+
+Tasks
+
+- HostedService + rules interface, tests with seeded data, RUNBOOK “operations” note.
+
 ---
 
-Suggested order: Notif-01 → Notif-02 → Notif-03 → Notif-04 → Notif-05 → Notif-06 → Notif-07 → Notif-08 → Notif-09 → Notif-10 → Notif-11 → Notif-12
+Suggested order: Notif-01 → Notif-02 → Notif-03 → Notif-04 → Notif-05 → Notif-06 → Notif-07 → Notif-08 → Notif-09 → Notif-10 → Notif-11 → Notif-12 → Notif-13 → Notif-14 → Notif-15 → Notif-16 → Notif-17 → Notif-18 → Notif-19 → Notif-20 → Notif-21 → Notif-22 → Notif-23 → Notif-24 → Notif-25 → Notif-26 → Notif-27 → Notif-28 → Notif-29 → Notif-30 → Notif-31 → Notif-32
