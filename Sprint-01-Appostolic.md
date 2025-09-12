@@ -72,3 +72,5 @@
 - A09-09.6 — Manual 0.8h vs Actual 0.25h → Saved 0.55h ($39.60) — API E2E golden snapshot for happy-path agent run; stable JSON projection guards against schema regressions
 
 - A09-09.7 — Manual 0.5h vs Actual 0.12h → Saved 0.38h ($27.36) — Bash smoke script to exercise create+poll E2E without tests; prints status, totals, and last two traces
+
+- A09-09.8 — Manual 0.9h vs Actual 0.22h → Saved 0.68h ($48.96) — CI job runs API E2E tests (apps/api.tests) on PRs; uploads results and coverage artifacts
