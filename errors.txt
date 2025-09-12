@@ -1,34 +1,50 @@
-macdaddy:~/appostolic$ export WEB_BASE=http://localhost:3000
-
-macdaddy:~/appostolic$ 
-macdaddy:~/appostolic$ export NEXT_PUBLIC_API_BASE=http://localhost:5198
-
-macdaddy:~/appostolic$ pnpm -C apps/web e2e --reporter=list
-
-> @appostolic/web@0.0.0 e2e /Users/kevinmccreary/appostolic/apps/web
-> playwright test "--reporter=list"
 
 
-Running 1 test using 1 worker
+1 of 1 error
+Next.js (14.2.32) is outdated (learn more)
 
-  ✘  1 … tests/e2e/run-agent.spec.ts:6:29 › Run Agent page shows tokens/cost and traces after completion (30.9s)
+Unhandled Runtime Error
+Error: Failed to parse URL from /api-proxy/agents?take=50
 
+Source
+Next.js
+app/studio/agents/page.tsx (7:21) @ fetch
 
-  1) [chromium] › tests/e2e/run-agent.spec.ts:6:29 › Run Agent page shows tokens/cost and traces after completion 
-
-    TimeoutError: page.waitForResponse: Timeout 30000ms exceeded while waiting for event "response"
-
-      34 |     await expect(runButton).toBeEnabled();
-      35 |     const [postRes] = await Promise.all([
-    > 36 |       page.waitForResponse(
-         |            ^
-      37 |         (res) => res.request().method() === 'POST' && res.url().includes('/api-proxy/agent-tasks'),
-      38 |         { timeout: 30_000 },
-      39 |       ),
-        at /Users/kevinmccreary/appostolic/apps/web/tests/e2e/run-agent.spec.ts:36:12
-
-    Error Context: test-results/run-agent-Run-Agent-page-s-9e317-and-traces-after-completion-chromium/error-context.md
-
-  1 failed
-    [chromium] › tests/e2e/run-agent.spec.ts:6:29 › Run Agent page shows tokens/cost and traces after completion 
- ELIFECYCLE  Command failed with exit code 1.
+   5 |
+   6 | async function fetchAgents(): Promise<AgentListItem[]> {
+>  7 |   const res = await fetch(`/api-proxy/agents?take=50`, {
+     |                     ^
+   8 |     cache: 'no-store',
+   9 |     next: { revalidate: 0 },
+  10 |   });
+Call Stack
+fetchAgents
+app/studio/agents/page.tsx (16:23)
+Next.js
+e_
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264164)
+e
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268296)
+eF
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268784)
+eq
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:274748)
+ej
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264992)
+e_
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264034)
+e
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268296)
+eF
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268784)
+<unknown>
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266015)
+Array.toJSON
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266479)
+eq
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:274847)
+eJ
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:275365)
+Timeout._onTimeout
+/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:283454)
+Hide collapsed frames

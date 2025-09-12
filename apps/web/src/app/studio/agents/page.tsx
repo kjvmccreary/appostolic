@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import { AgentsTable, type AgentListItem } from './components/AgentsTable';
+import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 
 async function fetchAgents(): Promise<AgentListItem[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_WEB_BASE ?? ''}/api-proxy/agents?take=50`, {
-    cache: 'no-store',
-    // Force server-side fetch regardless of client navigation
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy('/api-proxy/agents?take=50');
   if (!res.ok) throw new Error(`Failed to load agents: ${res.status}`);
   return res.json();
 }

@@ -1,13 +1,11 @@
 import Link from 'next/link';
+import { fetchFromProxy } from '../../lib/serverFetch';
 import { AgentsTable, type AgentListItem } from './components/AgentsTable';
 
 export const dynamic = 'force-dynamic';
 
 async function fetchAgents(): Promise<AgentListItem[]> {
-  const res = await fetch(`/api-proxy/agents?take=50`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy('/api-proxy/agents?take=50');
   if (!res.ok) throw new Error(`Failed to load agents: ${res.status}`);
   return res.json();
 }

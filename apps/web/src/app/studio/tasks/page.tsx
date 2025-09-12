@@ -1,5 +1,6 @@
 import { TaskFilters } from './components/TaskFilters';
 import { TasksTable, type TaskSummary } from './components/TasksTable';
+import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,10 +35,7 @@ function splitStatuses(sp: SearchParams): { apiParams: SearchParams; statuses: s
 async function fetchTasks(sp: SearchParams): Promise<{ items: TaskSummary[]; total?: number }> {
   const { apiParams, statuses } = splitStatuses(sp);
   const qs = toQueryString(apiParams);
-  const res = await fetch(`/api-proxy/agent-tasks?${qs}`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy(`/api-proxy/agent-tasks?${qs}`);
   if (!res.ok) throw new Error(`Failed to load tasks: ${res.status}`);
   const totalHeader = res.headers.get('x-total-count');
   const total = totalHeader ? Number(totalHeader) : undefined;
@@ -52,10 +50,7 @@ async function fetchTasks(sp: SearchParams): Promise<{ items: TaskSummary[]; tot
 
 type AgentListItem = { id: string; name: string };
 async function fetchAgents(): Promise<AgentListItem[]> {
-  const res = await fetch(`/api-proxy/agents?take=200`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy(`/api-proxy/agents?take=200`);
   if (!res.ok) throw new Error(`Failed to load agents: ${res.status}`);
   return (await res.json()) as AgentListItem[];
 }

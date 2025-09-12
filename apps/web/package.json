@@ -27,13 +27,16 @@
     "@mui/x-data-grid-premium": "^6.10.2",
     "@mui/x-date-pickers": "^6.10.2",
     "@mui/x-license-pro": "^6.10.2",
+    "argon2": "^0.41.1",
     "date-fns": "^3.6.0",
     "next": "^14.2.32",
+    "next-auth": "^4.24.11",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native-web": "^0.19.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.47.2",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -41,14 +44,13 @@
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^1.6.1",
     "jsdom": "^26.1.0",
     "msw": "^2.11.2",
     "typescript": "^5.6.2",
     "vite": "^5.4.20",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.1",
-    "whatwg-fetch": "^3.6.20",
-    "@playwright/test": "^1.47.2"
+    "whatwg-fetch": "^3.6.20"
   }
 }

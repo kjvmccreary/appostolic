@@ -1,4 +1,5 @@
 import TaskDetail from '../components/TaskDetail';
+import { fetchFromProxy } from '../../../../../app/lib/serverFetch';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,10 +31,7 @@ type Task = {
 };
 
 async function fetchTaskWithTraces(id: string): Promise<{ task: Task; traces: Trace[] }> {
-  const res = await fetch(`/api-proxy/agent-tasks/${id}?includeTraces=true`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy(`/api-proxy/agent-tasks/${id}?includeTraces=true`);
   if (!res.ok) throw new Error(`Failed to load task ${id}: ${res.status}`);
   return (await res.json()) as { task: Task; traces: Trace[] };
 }

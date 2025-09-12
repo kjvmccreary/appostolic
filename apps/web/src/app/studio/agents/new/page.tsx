@@ -1,10 +1,8 @@
 import AgentForm, { type ToolItem } from '../components/AgentForm';
+import { fetchFromProxy } from '../../../../../app/lib/serverFetch';
 
 async function loadTools(): Promise<ToolItem[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_WEB_BASE ?? ''}/api-proxy/agents/tools`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
+  const res = await fetchFromProxy('/api-proxy/agents/tools');
   if (!res.ok) throw new Error(`Failed to load tool catalog: ${res.status}`);
   return res.json();
 }

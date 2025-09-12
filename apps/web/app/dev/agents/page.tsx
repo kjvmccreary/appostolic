@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { fetchFromProxy } from '../../lib/serverFetch';
 import AgentRunForm from './components/AgentRunForm';
 
 type Agent = {
@@ -13,12 +13,7 @@ type Agent = {
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const hdrs = headers();
-  const host = hdrs.get('host');
-  const proto = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const base = `${proto}://${host}`;
-
-  const res = await fetch(`${base}/api-proxy/dev/agents`, { cache: 'no-store' });
+  const res = await fetchFromProxy('/api-proxy/dev/agents');
   if (!res.ok) {
     throw new Error(`Failed to load agents: ${res.status}`);
   }

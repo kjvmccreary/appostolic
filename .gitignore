@@ -49,6 +49,10 @@ android/app/build/
 .next/
 out/
 
+# Test coverage
+coverage/
+apps/web/coverage/
+
 # Docker
 infra/docker/data/**
 /infra/docker/volumes/
