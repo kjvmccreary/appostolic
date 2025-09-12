@@ -90,3 +90,7 @@
 - A10-08 — Manual 0.7h vs Actual 0.20h → Saved 0.50h ($36.00) — Documentation for Agents API and Agent Studio; noted DB-first AgentStore with registry fallback; examples added
 
 - A10-09 — Manual 0.9h vs Actual 0.28h → Saved 0.62h ($44.64) — Added IsEnabled flag to Agents with default filtering; UI toggle; disabled rows grayed out; no hard deletes required
+
+## S1-11 — AgentTasks Filters & Paging
+
+- Dev Time Saved (A11-01): Manual 1.1h vs Actual <calc>h → Saved <calc>h (~$<calc>) — Extend GET /api/agent-tasks with status/agentId/date/q filters, paging, and X-Total-Count

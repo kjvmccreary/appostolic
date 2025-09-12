@@ -156,52 +156,109 @@ public static class AgentTasksEndpoints
         .WithDescription("Returns task details. Use includeTraces=true to include ordered trace steps (Model/Tool) as AgentTraceDto[].");
 
         // GET /api/agent-tasks (list, optional filters)
-    group.MapGet("", async (
-            string? status,
-            Guid? agentId,
-            int? take,
-            int? skip,
-            AppDbContext db,
-            CancellationToken ct) =>
-        {
-            var q = db.Set<AgentTask>().AsNoTracking().AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(status))
+        group.MapGet("", async (
+                HttpContext http,
+                string? status,
+                Guid? agentId,
+                DateTime? from,
+                DateTime? to,
+                string? qText,
+                int? take,
+                int? skip,
+                AppDbContext db,
+                CancellationToken ct) =>
             {
-                if (!Enum.TryParse<AgentStatus>(status, ignoreCase: true, out var st))
-                    return Results.BadRequest(new { error = "invalid status" });
-                q = q.Where(t => t.Status == st);
-            }
+                var query = db.Set<AgentTask>().AsNoTracking().AsQueryable();
 
-            if (agentId.HasValue && agentId.Value != Guid.Empty)
-            {
-                q = q.Where(t => t.AgentId == agentId.Value);
-            }
+                // status filter (case-insensitive enum)
+                if (!string.IsNullOrWhiteSpace(status))
+                {
+                    if (!Enum.TryParse<AgentStatus>(status, ignoreCase: true, out var st))
+                        return Results.BadRequest(new { error = "invalid status" });
+                    query = query.Where(t => t.Status == st);
+                }
 
-            int takeVal = take.GetValueOrDefault(20);
-            int skipVal = skip.GetValueOrDefault(0);
-            if (takeVal <= 0) takeVal = 20;
-            if (skipVal < 0) skipVal = 0;
+                // agentId filter
+                if (agentId.HasValue && agentId.Value != Guid.Empty)
+                {
+                    query = query.Where(t => t.AgentId == agentId.Value);
+                }
 
-            var items = await q
-                .OrderByDescending(t => t.CreatedAt)
-                .Skip(skipVal)
-                .Take(takeVal)
-                .Select(t => new AgentTaskSummary(
-                    t.Id,
-                    t.AgentId,
-                    t.Status.ToString(),
-                    t.CreatedAt,
-                    t.StartedAt,
-                    t.FinishedAt,
-                    t.TotalTokens
-                ))
-                .ToListAsync(ct);
+                // date range on CreatedAt (UTC)
+                if (from.HasValue)
+                {
+                    var f = DateTime.SpecifyKind(from.Value, DateTimeKind.Utc);
+                    query = query.Where(t => t.CreatedAt >= f);
+                }
+                if (to.HasValue)
+                {
+                    var tmax = DateTime.SpecifyKind(to.Value, DateTimeKind.Utc);
+                    query = query.Where(t => t.CreatedAt <= tmax);
+                }
 
-            return Results.Ok(items);
-        })
-        .WithSummary("List agent tasks (paged)")
-        .WithDescription("Returns AgentTaskSummary[] ordered by CreatedAt DESC. Optional filters: status, agentId. Supports take/skip paging.");
+                // free-text q: matches Id, RequestUser, or InputJson text
+                if (!string.IsNullOrWhiteSpace(qText))
+                {
+                    var qval = qText.Trim();
+
+                    // Try Guid parse for Id match
+                    if (Guid.TryParse(qval, out var qId))
+                    {
+                        query = query.Where(t => t.Id == qId || t.RequestUser!.Contains(qval));
+                    }
+                    else
+                    {
+                        // EF Core provider-specific: prefer ILIKE on PostgreSQL if available; fallback to case-insensitive Contains
+                        var like = $"%{qval}%";
+                        // Note: Npgsql EF Core translates ToLower().Contains to ILIKE; also EF.Functions.ILike available in Npgsql
+                        try
+                        {
+                            query = query.Where(t =>
+                                (t.RequestUser != null && EF.Functions.ILike(t.RequestUser, like)) ||
+                                EF.Functions.ILike(t.InputJson, like)
+                            );
+                        }
+                        catch
+                        {
+                            // Safe fallback when provider doesn't support ILike
+                            var low = qval.ToLowerInvariant();
+                            query = query.Where(t =>
+                                (t.RequestUser != null && t.RequestUser.ToLower().Contains(low)) ||
+                                t.InputJson.ToLower().Contains(low)
+                            );
+                        }
+                    }
+                }
+
+                // Total count for X-Total-Count header
+                var total = await query.CountAsync(ct);
+
+                // paging
+                int takeVal = take.GetValueOrDefault(20);
+                int skipVal = skip.GetValueOrDefault(0);
+                if (takeVal <= 0) takeVal = 20;
+                if (skipVal < 0) skipVal = 0;
+
+                var items = await query
+                    .OrderByDescending(t => t.CreatedAt)
+                    .Skip(skipVal)
+                    .Take(takeVal)
+                    .Select(t => new AgentTaskSummary(
+                        t.Id,
+                        t.AgentId,
+                        t.Status.ToString(),
+                        t.CreatedAt,
+                        t.StartedAt,
+                        t.FinishedAt,
+                        t.TotalTokens
+                    ))
+                    .ToListAsync(ct);
+
+                http.Response.Headers["X-Total-Count"] = total.ToString();
+                return Results.Ok(items);
+            })
+            .WithSummary("List agent tasks (paged)")
+            .WithDescription("Returns AgentTaskSummary[] ordered by CreatedAt DESC. Optional filters: status, agentId, from, to, q. Supports take/skip paging and sets X-Total-Count header.");
 
     return app;
     }
