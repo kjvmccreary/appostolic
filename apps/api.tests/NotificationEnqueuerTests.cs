@@ -65,4 +65,48 @@ public class NotificationEnqueuerTests
             return ValueTask.CompletedTask;
         }
     }
+
+    [Fact]
+    public async Task QueueInvite_enqueues_correct_message()
+    {
+        var captured = new List<EmailMessage>();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEmailQueue>(new CapturingQueue(captured));
+        services.Configure<EmailOptions>(o => o.WebBaseUrl = "http://localhost:3000");
+        services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
+
+        await using var sp = services.BuildServiceProvider();
+        var enqueuer = sp.GetRequiredService<INotificationEnqueuer>();
+
+        await enqueuer.QueueInviteAsync("invitee@example.com", null, "Acme", "Admin", "Alice", "tok-789");
+
+        var msg = Assert.Single(captured);
+        Assert.Equal(EmailKind.Invite, msg.Kind);
+        Assert.Equal("invitee@example.com", msg.ToEmail);
+        Assert.Null(msg.ToName);
+        Assert.Equal("Acme", msg.Data["tenant"]);
+        Assert.Equal("Admin", msg.Data["role"]);
+        Assert.Equal("Alice", msg.Data["inviter"]);
+        var link = (string)msg.Data["link"]!;
+        Assert.Equal("http://localhost:3000/auth/invite/accept?token=tok-789", link);
+    }
+
+    [Fact]
+    public async Task QueueInvite_uses_relative_when_base_missing()
+    {
+        var captured = new List<EmailMessage>();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEmailQueue>(new CapturingQueue(captured));
+        services.Configure<EmailOptions>(o => o.WebBaseUrl = "");
+        services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
+
+        await using var sp = services.BuildServiceProvider();
+        var enqueuer = sp.GetRequiredService<INotificationEnqueuer>();
+
+        await enqueuer.QueueInviteAsync("invitee@example.com", "Buddy", "Team", "Viewer", "Bob", "tok 123");
+
+        var msg = Assert.Single(captured);
+        var link = (string)msg.Data["link"]!;
+        Assert.Equal("/auth/invite/accept?token=tok%20123", link);
+    }
 }

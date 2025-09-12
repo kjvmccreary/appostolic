@@ -130,7 +130,7 @@ Status
 
 - Completed: Implemented `NotificationEnqueuer.QueueVerificationAsync` building the verification link from `EmailOptions.WebBaseUrl`; registered in DI; added unit tests covering absolute/relative link and fields. Full test suite green.
 
-## Notif-08 — Invite creation hook
+## ~~Notif-08 — Invite creation hook~~
 
 Summary
 
@@ -145,6 +145,10 @@ Key Tasks
 
 - Add helper `QueueInviteAsync(invite, tenant, inviter, token)`
 - Write test around the helper
+
+Status
+
+- Completed: Implemented `NotificationEnqueuer.QueueInviteAsync` to build the invite accept link from `EmailOptions.WebBaseUrl` and include `tenant`, `role`, and `inviter` in the message data. Added unit tests covering absolute and relative link generation and field assertions. Full test suite green.
 
 ## Notif-09 — Observability (metrics + logs)
 

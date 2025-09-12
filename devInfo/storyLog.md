@@ -434,6 +434,42 @@ Quality gates
 Time/savings
 {"task":"Notif-07","manual_hours":1.1,"actual_hours":0.25,"saved_hours":0.85,"rate":72,"savings_usd":61.2}
 
+## Notif-08 — Invite creation hook
+
+I added an invite enqueue helper and unit tests to verify the enqueued message includes invite metadata and a correct accept link.
+
+Plan
+
+- Provide `INotificationEnqueuer.QueueInviteAsync(email, name, tenant, role, inviter, token)`.
+- Build the accept link using `EmailOptions.WebBaseUrl` + `/auth/invite/accept?token=...` (URL-encoded token). Use relative path if base is empty.
+- Enqueue `EmailMessage(Invite)` carrying link, tenant, role, and inviter in Data.
+
+Actions taken
+
+- Extended `apps/api/App/Notifications/NotificationEnqueuer.cs` with `QueueInviteAsync` including validation for required fields.
+- Added tests in `apps/api.tests/NotificationEnqueuerTests.cs` covering:
+  - Absolute base URL produces absolute link
+  - Empty base uses relative link and URL-encodes token
+  - Data fields `tenant`, `role`, `inviter` are present
+
+Results
+
+- Build and tests: PASS (full suite green).
+- Consumers can inject `INotificationEnqueuer` to queue invite emails; dispatcher will render and send via configured provider.
+
+Files changed
+
+- apps/api/App/Notifications/NotificationEnqueuer.cs — added `QueueInviteAsync`.
+- apps/api.tests/NotificationEnqueuerTests.cs — added invite tests.
+
+Quality gates
+
+- Build: PASS
+- Tests: PASS
+
+Time/savings
+{"task":"Notif-08","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54}
+
 ## Notif-06 — DI selection and safety checks
 
 I implemented provider selection for notifications based on configuration, added a SendGrid key shim, and guarded production startup when misconfigured. Logged work and savings.
