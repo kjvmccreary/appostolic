@@ -1,0 +1,8 @@
+{
+  "status": "Succeeded",
+  "totalTokens": 0,
+  "traces": [
+    { "stepNumber": 1, "kind": "Model", "name": "model" },
+    { "stepNumber": 2, "kind": "Tool", "name": "web.search" }
+  ]
+}

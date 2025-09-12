@@ -21,4 +21,9 @@
   <ItemGroup>
     <ProjectReference Include="../api/Appostolic.Api.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="E2E/fixtures/golden-task.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

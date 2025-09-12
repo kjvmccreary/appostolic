@@ -68,3 +68,5 @@
 - A09-09.4 — Manual 1.0h vs Actual 0.18h → Saved 0.82h ($59.04)
 
 - A09-09.5 — Manual 2.0h vs Actual 0.42h → Saved 1.58h ($113.76) — Web E2E (Playwright) smoke test for Run Agent page; verifies Total tokens, Est. cost, and Traces; orchestrates API+Web servers during test
+
+- A09-09.6 — Manual 0.8h vs Actual 0.25h → Saved 0.55h ($39.60) — API E2E golden snapshot for happy-path agent run; stable JSON projection guards against schema regressions

@@ -86,11 +86,11 @@ const skipInCi = !!process.env.CI && !process.env.E2E_WEB_ENABLE;
       expect(costValue).toBeGreaterThan(0);
     }
 
-  // Traces table should have at least one Model and one Tool row with non-zero durationMs
-  const modelCell = page.getByRole('cell', { name: 'Model', exact: true }).first();
-  await expect(modelCell).toBeVisible();
-  const toolCell = page.getByRole('cell', { name: 'Tool', exact: true }).first();
-  await expect(toolCell).toBeVisible();
+    // Traces table should have at least one Model and one Tool row with non-zero durationMs
+    const modelCell = page.getByRole('cell', { name: 'Model', exact: true }).first();
+    await expect(modelCell).toBeVisible();
+    const toolCell = page.getByRole('cell', { name: 'Tool', exact: true }).first();
+    await expect(toolCell).toBeVisible();
 
     // Check at least one duration cell has a non-zero number
     const durationCells = page.locator('table td:nth-child(4)');
