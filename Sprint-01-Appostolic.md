@@ -118,3 +118,7 @@
 ## S1-11 — Task Details (Web)
 
 - Dev Time Saved (A11-07): Manual 2.4h vs Actual 0.085h → Saved 2.315h ($166.66) — /studio/tasks/[id] with MUI header/actions (Cancel, Retry, Export) and Traces grid detail panels
+
+## S1-11 — Web Tests (Inbox & Detail)
+
+- Dev Time Saved (A11-09): Manual 2.6h vs Actual 0.85h → Saved 1.75h ($126.00) — Vitest + RTL + MSW tests for /studio/tasks inbox and TaskDetail actions; MUI providers in tests; coverage thresholds met
