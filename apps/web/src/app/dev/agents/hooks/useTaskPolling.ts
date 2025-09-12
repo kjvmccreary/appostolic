@@ -7,6 +7,10 @@ export type TaskDetails = {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+  totalPromptTokens?: number;
+  totalCompletionTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number | null;
   result?: unknown;
   errorMessage?: string | null;
 };

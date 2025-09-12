@@ -152,6 +152,25 @@ export default function AgentRunForm({ agents }: Props) {
       {taskId && (
         <div className="space-y-2">
           <h2 className="text-lg font-medium">Traces</h2>
+          {/* Token summary badges */}
+          <div className="flex flex-wrap gap-2 text-xs">
+            {polledTask?.totalTokens != null && polledTask.totalTokens > 0 && (
+              <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800">
+                Total tokens: {polledTask.totalTokens}
+              </span>
+            )}
+            {polledTask?.totalPromptTokens != null && polledTask?.totalCompletionTokens != null && (
+              <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800">
+                Prompt / Completion: {polledTask.totalPromptTokens} /{' '}
+                {polledTask.totalCompletionTokens}
+              </span>
+            )}
+            {polledTask?.estimatedCostUsd != null && (
+              <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-800">
+                Est. cost: ${'{'}polledTask.estimatedCostUsd.toFixed(4){'}'}
+              </span>
+            )}
+          </div>
           <TracesTable traces={traces} />
         </div>
       )}

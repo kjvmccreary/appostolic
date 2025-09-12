@@ -37,7 +37,7 @@ export default function TracesTable({ traces }: { traces: Trace[] }) {
               <td className="px-3 py-2">{t.name}</td>
               <td className="px-3 py-2">{t.durationMs}</td>
               <td className="px-3 py-2">
-                {[t.promptTokens ?? 0, t.completionTokens ?? 0].join(' / ')}
+                {t.kind === 'Model' ? `${t.promptTokens ?? 0} / ${t.completionTokens ?? 0}` : ''}
               </td>
               <td className="px-3 py-2 text-red-600">{t.error ?? ''}</td>
               <td className="px-3 py-2 text-right">
