@@ -70,6 +70,7 @@ builder.Services.AddSingleton<ITool, WebSearchTool>();
 builder.Services.AddSingleton<ITool, DbQueryTool>();
 builder.Services.AddSingleton<ITool, FsWriteTool>();
 builder.Services.AddSingleton<ToolRegistry>();
+builder.Services.AddScoped<Appostolic.Api.Application.Agents.AgentStore>();
 
 // Options
 builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools"));

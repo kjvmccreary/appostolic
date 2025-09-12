@@ -74,3 +74,7 @@
 - A09-09.7 — Manual 0.5h vs Actual 0.12h → Saved 0.38h ($27.36) — Bash smoke script to exercise create+poll E2E without tests; prints status, totals, and last two traces
 
 - A09-09.8 — Manual 0.9h vs Actual 0.22h → Saved 0.68h ($48.96) — CI job runs API E2E tests (apps/api.tests) on PRs; uploads results and coverage artifacts
+
+- A10-02 — Manual 0.5h vs Actual 0.20h → Saved 0.30h ($21.60) — Added GET /api/agents/tools endpoint returning web.search, db.query, fs.write with category and description for UI
+
+- A10-03 — Manual 0.7h vs Actual 0.22h → Saved 0.48h ($34.56) — Added AgentStore (DB-first, fallback to AgentRegistry); wired Worker to resolve agents via AgentStore; tests green

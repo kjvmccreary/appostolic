@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using Appostolic.Api.Application.Agents.Runtime;
+using Appostolic.Api.Application.Agents;
 using Appostolic.Api.Domain.Agents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -49,6 +50,7 @@ public sealed class AgentTaskWorker : BackgroundService
             var sp = scope.ServiceProvider;
             var db = sp.GetRequiredService<AppDbContext>();
             var orchestrator = sp.GetRequiredService<IAgentOrchestrator>();
+            var agentStore = sp.GetRequiredService<AgentStore>();
             var log = sp.GetRequiredService<ILogger<AgentTaskWorker>>();
 
             using (log.BeginScope(new Dictionary<string, object>
@@ -97,8 +99,8 @@ public sealed class AgentTaskWorker : BackgroundService
                         task.StartedAt = DateTime.UtcNow;
                         await db.SaveChangesAsync(stoppingToken);
 
-                        // Resolve agent from registry
-                        var agent = Application.Agents.AgentRegistry.FindById(task.AgentId);
+                        // Resolve agent via AgentStore (DB first, then registry fallback)
+                        var agent = await agentStore.GetAsync(task.AgentId, stoppingToken);
                         if (agent is null)
                         {
                             task.Status = AgentStatus.Failed;

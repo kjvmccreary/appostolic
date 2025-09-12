@@ -3,6 +3,7 @@ using Appostolic.Api.Application.Agents.Model;
 using Appostolic.Api.Application.Agents.Queue;
 using Appostolic.Api.Application.Agents.Runtime;
 using Appostolic.Api.Application.Agents.Tools;
+using Appostolic.Api.Application.Agents;
 using Appostolic.Api.Domain.Agents;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,7 @@ public class AgentTaskWorkerTests
 
                 services.AddSingleton<ITool, WebSearchTool>();
                 services.AddSingleton<ToolRegistry>();
+                services.AddScoped<AgentStore>();
 
                 services.AddScoped<ITraceWriter, TraceWriter>();
                 services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
