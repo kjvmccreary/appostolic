@@ -106,3 +106,7 @@
 ## S1-11 — Export Endpoint
 
 - Dev Time Saved (A11-04): Manual 0.6h vs Actual 0.12h → Saved 0.48h ($34.56) — Added GET /api/agent-tasks/{id}/export to return task+traces JSON with attachment headers
+
+## S1-11 — Web proxy: cancel/retry/export
+
+- Dev Time Saved (A11-05): Manual 0.7h vs Actual 0.15h → Saved 0.55h ($39.60) — Next.js server proxies for POST cancel/retry and GET export under /api-proxy/agent-tasks/[id]/\* with dev headers forwarded

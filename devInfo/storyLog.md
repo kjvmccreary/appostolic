@@ -186,3 +186,49 @@ Requirements coverage
 - Endpoint behavior (Pending/Running/Terminal): Done.
 - Orchestrator observes cancel: Done.
 - Story log entry and savings: Done.
+
+## A11-05 — Web proxy: cancel/retry/export routes
+
+I’ll add web server proxy handlers so the browser can call cancel/retry/export without CORS, then log work and savings.
+
+Plan
+
+- Create three proxy routes under Next.js app router:
+  - `POST /api-proxy/agent-tasks/{id}/cancel`
+  - `POST /api-proxy/agent-tasks/{id}/retry`
+  - `GET /api-proxy/agent-tasks/{id}/export`
+- Forward to `${API_BASE}/api/agent-tasks/...` with `x-dev-user` and `x-tenant` headers from `serverEnv`.
+- Preserve relevant response headers (Location for retry; Content-Type and Content-Disposition for export).
+- Append savings entries and sprint note; commit and push.
+
+Actions taken
+
+- Added cancel proxy: forwards POST to `/api/agent-tasks/{id}/cancel` with dev headers.
+- Added retry proxy: forwards POST to `/api/agent-tasks/{id}/retry`, forwarding Location header.
+- Added export proxy: forwards GET to `/api/agent-tasks/{id}/export`, streaming body and passing Content-Type/Disposition.
+- Logged savings start entry.
+
+Results
+
+- Browser can call cancel, retry, and export via `/api-proxy/*` with no CORS issues; headers are preserved for client handling.
+
+Files changed
+
+- apps/web/app/api-proxy/agent-tasks/[id]/cancel/route.ts
+- apps/web/app/api-proxy/agent-tasks/[id]/retry/route.ts
+- apps/web/app/api-proxy/agent-tasks/[id]/export/route.ts
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+
+Quality gates
+
+- Build: Pending in this step; proxy route patterns mirror existing ones and should compile.
+
+Requirements coverage
+
+- Server proxies for cancel/retry/export with dev headers: Done.
+- No-CORS browser access via Next.js API proxy: Done.
+
+```
+# File: devInfo/storyLog.md (append-only)
+```
