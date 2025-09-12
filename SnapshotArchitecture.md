@@ -316,6 +316,14 @@ Agent fields (highlights):
 
 - `IsEnabled boolean default true` — used to soft-disable agents. API list endpoint hides disabled by default unless `includeDisabled=true`.
 
+Auth/Multi-tenant schema updates (MVP prep):
+
+- Tenants use `name` as a slug with a unique index (`app.tenants(name)`), aligning with existing seed and dev headers.
+- Foreign keys enforce integrity:
+  - `app.memberships(user_id) → app.users(id)` (cascade delete)
+  - `app.memberships(tenant_id) → app.tenants(id)` (cascade delete)
+  - `app.lessons(tenant_id) → app.tenants(id)` (cascade delete)
+
 ## Agent Runtime (v1)
 
 Domain types (`apps/api/Domain/Agents/`):

@@ -319,6 +319,8 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.Name).HasColumnName("name").IsRequired();
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // Treat Name as a slug; enforce uniqueness to support natural-key lookups
+            b.HasIndex(x => x.Name).IsUnique();
         });
 
         modelBuilder.Entity<User>(b =>
@@ -342,6 +344,17 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.Status).HasColumnName("status");
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
+
+            // Enforce referential integrity
+            b.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Lesson>(b =>
@@ -356,6 +369,12 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => new { x.TenantId, x.Status });
+
+            // FK: lessons.tenant_id → tenants.id
+            b.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Apply configurations for domain types (Agent runtime)
