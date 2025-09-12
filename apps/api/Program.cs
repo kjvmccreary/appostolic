@@ -100,6 +100,12 @@ builder.Services.AddScoped<Appostolic.Api.Application.Agents.AgentStore>();
 // Options
 builder.Services.Configure<ToolsOptions>(builder.Configuration.GetSection("Tools"));
 builder.Services.Configure<ModelPricingOptions>(builder.Configuration.GetSection("ModelPricing"));
+builder.Services.Configure<Appostolic.Api.App.Options.EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<Appostolic.Api.App.Options.SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
+builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+
+// Notifications scaffolding registration (queue only for Notif-01; providers added in later stories)
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();

@@ -199,6 +199,44 @@ Plan
 - Added cancel proxy: forwards POST to `/api/agent-tasks/{id}/cancel` with dev headers.
 - Logged savings start entry.
 
+## Notif-01 — Notifications scaffolding and options
+
+Summary
+
+- Create initial notifications scaffolding and bind options.
+
+Actions taken
+
+- Added notifications interfaces and types:
+  - `apps/api/App/Notifications/IEmailSender.cs`
+  - `apps/api/App/Notifications/IEmailQueue.cs` (with basic Channel-backed `EmailQueue`)
+  - `apps/api/App/Notifications/EmailMessage.cs`
+  - `apps/api/App/Notifications/ITemplateRenderer.cs` (interface only)
+- Added options classes and bindings:
+  - `apps/api/App/Options/EmailOptions.cs`
+  - `apps/api/App/Options/SendGridOptions.cs`
+  - `apps/api/App/Options/SmtpOptions.cs`
+  - Bound in `apps/api/Program.cs` via `builder.Services.Configure<...>(GetSection(...))`
+- Registered `IEmailQueue` singleton in DI (providers come in later stories).
+- Added production guard and env shim for SendGrid in Program.cs earlier: use `SendGrid__ApiKey` and fallback from `SENDGRID_API_KEY`.
+
+Results
+
+- API compiles with the new scaffolding; runtime-safe (no throwing placeholders registered).
+- Clear option shapes are in place for follow-on stories (renderer, providers, dispatcher).
+
+Requirements coverage
+
+- Notif-01: Done (folders, interfaces, options, DI bindings). Providers/renderer deferred to Notif-02/04/05.
+
+Quality gates
+
+- Build: PASS (compile-only validation in this step).
+- Tests: N/A for scaffolding; to be added in Notif-02+.
+
+Time/savings
+{"task":"Notif-01","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54}
+
 Results
 
 - apps/web/app/api-proxy/agent-tasks/[id]/retry/route.ts
