@@ -102,3 +102,7 @@
 ## S1-11 — Retry Endpoint
 
 - Dev Time Saved (A11-03): Manual 0.8h vs Actual 0.15h → Saved 0.65h ($46.80) — Added POST /api/agent-tasks/{id}/retry to clone terminal tasks and enqueue a new one
+
+## S1-11 — Export Endpoint
+
+- Dev Time Saved (A11-04): Manual 0.6h vs Actual 0.12h → Saved 0.48h ($34.56) — Added GET /api/agent-tasks/{id}/export to return task+traces JSON with attachment headers

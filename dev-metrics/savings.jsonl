@@ -174,4 +174,6 @@
 {"task":"A11-02","manual_hours":1.0,"actual_hours":0.25,"saved_hours":0.75,"rate":72,"savings_usd":54.00,"ts":"<UTC>"}
 {"task":"A11-03","phase":"start","ts":"<UTC>"}
 {"task":"A11-03","manual_hours":0.8,"actual_hours":0.15,"saved_hours":0.65,"rate":72,"savings_usd":46.80,"ts":"<UTC>"}
+{"task":"A11-04","phase":"start","ts":"<UTC>"}
+{"task":"A11-04","manual_hours":0.6,"actual_hours":0.12,"saved_hours":0.48,"rate":72,"savings_usd":34.56,"ts":"<UTC>"}
 

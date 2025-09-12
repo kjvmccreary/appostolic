@@ -1,3 +1,43 @@
+## A11-04 — API: Export endpoint (JSON)
+
+I’ll add an export endpoint to retrieve a task + traces JSON blob for audit/sharing, then log work and savings.
+
+Plan
+
+- Create `AgentTasksExportEndpoints.cs` with GET `/api/agent-tasks/{id}/export`.
+- Return `{ task, traces }` where task includes result, totals, and cost (if present) and traces are ordered by StepNumber.
+- Set `Content-Type: application/json` and suggest `Content-Disposition: attachment; filename="agent-task-<id>.json"`.
+- Append savings entries and sprint note; commit and push.
+
+Actions taken
+
+- Implemented GET `/api/agent-tasks/{id}/export` returning `{ task, traces }`.
+- Task payload includes: id, agentId, status, created/started/finished, totalPrompt/totalCompletion/totalTokens, estimatedCostUsd, requestTenant/user, result (parsed), error.
+- Traces payload includes ordered steps with parsed input/output JSON.
+- Added suggested attachment header with filename `agent-task-<id>.json`.
+- Wired endpoint in `Program.cs`.
+- Built API to validate.
+
+Results
+
+- cURL downloads the JSON blob; shape matches details + traces.
+
+Files changed
+
+- apps/api/App/Endpoints/AgentTasksExportEndpoints.cs
+- apps/api/Program.cs
+- dev-metrics/savings.jsonl
+- devInfo/storyLog.md
+
+Quality gates
+
+- Build: PASS.
+
+Requirements coverage
+
+- Export endpoint returns task+traces JSON with totals and cost, ordered by StepNumber: Done.
+- Attachment headers and filename suggestion: Done.
+
 ## A11-03 — API: Retry endpoint
 
 I’ll add a retry endpoint that clones a terminal task’s agent and input into a new task and enqueues it, then log work and savings.

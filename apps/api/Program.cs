@@ -229,6 +229,7 @@ app.MapDevToolsEndpoints();
 app.MapDevAgentsEndpoints(app.Services.GetRequiredService<IHostEnvironment>());
 app.MapDevAgentsDemoEndpoints();
 app.MapAgentTasksEndpoints();
+app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
