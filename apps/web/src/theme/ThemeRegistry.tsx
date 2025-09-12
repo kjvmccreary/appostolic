@@ -6,7 +6,7 @@ import createCache from '@emotion/cache';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { enUS as enUSCore } from '@mui/material/locale';
 import { LicenseInfo } from '@mui/x-license-pro';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 // Initialize MUI X Pro license from env if provided (no-op if missing in dev)
