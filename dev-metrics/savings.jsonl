@@ -114,5 +114,13 @@
 {"task":"A09-08.4","manual_hours":0.6,"actual_hours":0.08,"saved_hours":0.52,"rate":72,"savings_usd":37.44,"ts":"<UTC>"}
 
 {"task":"A09-08.5","phase":"start","ts":"<UTC>"}
+{"task":"A09-08.5","phase":"end","ts":"<UTC>"}
+{"task":"A09-08.5","manual_hours":0.8,"actual_hours":0.20,"saved_hours":0.60,"rate":72,"savings_usd":43.20,"ts":"<UTC>"}
 
 {"task":"A09-08.6","phase":"start","ts":"<UTC>"}
+{"task":"A09-08.6","phase":"end","ts":"<UTC>"}
+{"task":"A09-08.6","manual_hours":0.9,"actual_hours":0.25,"saved_hours":0.65,"rate":72,"savings_usd":46.80,"ts":"<UTC>"}
+
+{"task":"A09-08.7","phase":"start","ts":"<UTC>"}
+{"task":"A09-08.7","phase":"end","ts":"<UTC>"}
+{"task":"A09-08.7","manual_hours":1.4,"actual_hours":0.35,"saved_hours":1.05,"rate":72,"savings_usd":75.60,"ts":"<UTC>"}
