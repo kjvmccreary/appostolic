@@ -227,7 +227,6 @@ Requirements coverage
 - Inbox page with server fetch and filters/paging: Done.
 - Columns and navigation to detail page: Done.
 
-```
 - Logged savings (start/end), appended story summary, and updated sprint bullet.
 - Committed and pushed to main.
 
@@ -236,4 +235,56 @@ Requirements coverage
 - Proxy routes exist and forward with dev headers: Done
 - Browser access without CORS: Done
 - Story log appended and metrics/sprint updated: Done
-```
+
+## Spike - refactor for MUI
+
+I’m adopting MUI (Material UI) Premium across the web app, adding SSR-safe theming and refactoring the Tasks Inbox to use DataGridPremium and MUI inputs.
+
+Plan
+
+- Add MUI packages: @mui/material, @mui/icons-material (core), @mui/x-data-grid-premium, @mui/x-date-pickers, @mui/x-license-pro (X Pro), and Emotion packages for SSR.
+- Create a ThemeRegistry that sets up Emotion CacheProvider, ThemeProvider (CssBaseline), and LocalizationProvider for date pickers; initialize MUI X Pro license from env.
+- Wrap the Next.js root layout with ThemeRegistry.
+- Refactor /studio/tasks: switch table to DataGridPremium and filters to MUI Select/TextField/DateTimePicker; keep URL-based filters and enable server pagination.
+- Typecheck and commit.
+
+Actions taken
+
+- Installed and aligned package versions (MUI core v5 + MUI X v6) to satisfy peer deps; added Emotion packages and date-fns.
+- Added `apps/web/src/theme/ThemeRegistry.tsx` with Emotion SSR cache, MUI ThemeProvider + CssBaseline, and Date pickers `LocalizationProvider`; optional X Pro license init via `NEXT_PUBLIC_MUI_LICENSE_KEY`.
+- Updated `apps/web/app/layout.tsx` to wrap app in `ThemeRegistry`.
+- Refactored Tasks Inbox UI:
+  - `TasksTable.tsx`: migrated to `DataGridPremium`, status as color `Chip`, server pagination (`rowCount`, `paginationModel`, `onPaginationModelChange`) with URL updates.
+  - `TaskFilters.tsx`: replaced plain controls with MUI `Chip`, `Select`, `TextField`, `DateTimePicker`; kept URL apply behavior; removed manual Prev/Next/Page size (grid owns pagination).
+  - `page.tsx`: passes `total`, `take`, `skip` from `searchParams` to the table.
+- Typecheck: PASS for web package.
+- Committed changes.
+
+Results
+
+- Theme and components are consistent and SSR-safe; DataGrid provides accessible pagination and better UX.
+- Filters still work via URL semantics; pagination state is preserved in the query and drives server fetch.
+
+Files changed
+
+- apps/web/package.json
+- apps/web/app/layout.tsx
+- apps/web/src/theme/ThemeRegistry.tsx (new)
+- apps/web/src/app/studio/tasks/components/TasksTable.tsx
+- apps/web/src/app/studio/tasks/components/TaskFilters.tsx
+- apps/web/src/app/studio/tasks/page.tsx
+
+Quality gates
+
+- Typecheck: PASS (@appostolic/web)
+
+Requirements coverage
+
+- Add MUI with SSR theme and license init: Done.
+- Refactor Tasks Inbox to DataGridPremium and MUI inputs: Done.
+- Server pagination with URL updates: Done.
+
+How to try it
+
+- Start the dev server and navigate to `/studio/tasks`.
+- Use the chips/selects/date pickers/search to filter; use the grid’s footer to page; observe the URL reflecting state.
