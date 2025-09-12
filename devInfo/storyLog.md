@@ -439,6 +439,50 @@ How to try it
 - Open `/studio/tasks` and click a row, or navigate to `/studio/tasks/{id}` directly.
 - Try Cancel on Pending/Running, Retry on terminal tasks, and Export anytime; observe UI updates and downloaded filename.
 
+## A11-08 — API tests: AgentTasks cancel/retry + list filters
+
+I’ll add backend integration tests for AgentTasks covering cancel/retry flows and list filters with X-Total-Count, make them deterministic in Development, and log work and savings.
+
+Plan
+
+- Use WebApplicationFactory in Development so hosted services (AgentTaskWorker) run.
+- Require dev headers on all requests and seed a dev user/tenant/membership in the test factory.
+- Provide shared test base with helpers: CreateTaskAsync, GetTaskAsync, WaitUntilAsync, ClearAllTasksAsync.
+- Tests: cancel Pending (202 + terminal Canceled), cancel terminal (409), retry terminal (201 creates new running task), list filters (status/agentId/from/to/q), ordering (CreatedAt DESC), and X-Total-Count.
+- Keep timeouts small and tests deterministic; add development-only enqueue control hooks if needed.
+
+Actions taken
+
+- Added AgentTasks test fixture and base with default dev headers and InMemory EF provider; seeded dev user/tenant/membership for the auth handler.
+- Authored tests for cancel/retry and list filters; added ClearAllTasksAsync to isolate state across tests.
+- Implemented provider-agnostic free-text search: uses EF.Functions.ILike on Npgsql, falls back to case-insensitive Contains on non-Npgsql (InMemory provider).
+- Mitigated worker race: `AgentTaskWorker` reloads the entity and re-checks status before transitioning to Running.
+- Added Development-only POST hooks for tests: `x-test-enqueue-delay-ms` and `x-test-suppress-enqueue` to keep tasks Pending deterministically.
+- Renamed list param to `q` and ensured `X-Total-Count` is always set; ordering is `CreatedAt DESC`.
+
+Results
+
+- All AgentTasks tests pass deterministically; cancel-pending returns 202 with Canceled, terminal cancel returns 409, retry clones and runs, and list endpoint filters/order/pagination header are validated.
+
+Files changed
+
+- apps/api.tests/AgentTasks/AgentTasksTestBase.cs — new fixture/base; dev headers; helpers.
+- apps/api.tests/AgentTasks/AgentTasksCancelRetryTests.cs — cancel/retry tests using suppress-enqueue.
+- apps/api.tests/AgentTasks/AgentTasksListFilterPaginationTests.cs — paging, ordering, and filters incl. q.
+- apps/api/App/Endpoints/AgentTasksEndpoints.cs — provider-agnostic q filter; X-Total-Count; dev-only test hooks.
+- apps/api/Application/Agents/Queue/AgentTaskWorker.cs — status reload safeguard before Running.
+
+Quality gates
+
+- Build: PASS.
+- Tests: PASS (8/8 AgentTasks tests in apps/api.tests).
+
+Requirements coverage
+
+- Cancel/retry behaviors: Done (Pending 202 Canceled, terminal 409; retry 201 clones/enqueues).
+- List endpoint: Done (X-Total-Count, CreatedAt DESC, status/agentId/from/to/q filters with provider-aware q).
+- Determinism and small timeouts: Done (InMemory provider fallback, worker race fix, test hooks for enqueue control).
+
 ## A11-09 — Web: Frontend Tests (MUI) for Inbox & Task Detail Actions
 
 I’ll add unit tests with Vitest/RTL/MSW for the Tasks Inbox and Task Detail actions, ensure MUI providers are wired in tests, fix failing assertions, and get coverage green.
