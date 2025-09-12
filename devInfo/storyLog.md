@@ -425,12 +425,14 @@ Actions taken
 - Centralized proxy header building in `apps/web/src/lib/proxyHeaders.ts` (session → dev headers or DEV\_\* envs).
 - Removed duplicate middleware by keeping `apps/web/middleware.ts`; updated `.gitignore` to exclude coverage outputs.
 - Added a minimal Vitest for `/api-proxy/agents` GET happy/unauth paths.
+- Ensured AC4 hardening: included Auth.js CSRF token on the login form and verified cookie flags (httpOnly, SameSite=Lax; secure in production via NextAuth defaults).
 
 Results
 
 - Server pages reliably reach internal proxy routes with cookies forwarded, avoiding 401s and relative URL issues.
 - Login/logout flow works; protected routes use NextAuth middleware for `/studio/*` and `/dev/*`.
 - Duplicate middleware warning resolved; repo no longer tracks coverage HTML.
+- CSRF token present on the login form; cookie flags align with AC4 in dev and will be secure in production.
 
 Files changed (highlights)
 
