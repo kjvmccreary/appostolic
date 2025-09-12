@@ -71,7 +71,7 @@ Key Tasks
 - Implement sender and basic error handling
 - Add a small unit test with a mocked client (or interface seam)
 
-## Notif-05 — SMTP dev fallback (Mailhog)
+## ~~Notif-05 — SMTP dev fallback (Mailhog)~~
 
 Summary
 

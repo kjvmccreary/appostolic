@@ -429,6 +429,35 @@ Requirements coverage
 Time/savings
 {"task":"Notif-04","manual_hours":1.2,"actual_hours":0.3,"saved_hours":0.9,"rate":72,"savings_usd":64.8}
 
+## Notif-05 — SMTP dev fallback (Mailhog)
+
+Implemented a simple SMTP sender with a seam for testing, wired with Development-friendly defaults for Mailhog.
+
+Summary
+
+- Added `SmtpEmailSender` using `System.Net.Mail` and an `ISmtpClientFactory` seam to allow unit testing without network.
+- Defaults in Development: Host=127.0.0.1, Port=1025 (Mailhog). Optional auth via `SmtpOptions` when provided.
+- DI registration added for factory and sender; the global provider switch will arrive in Notif-06.
+
+Files
+
+- apps/api/App/Notifications/SmtpEmailSender.cs — SMTP client factory and sender implementation.
+- apps/api.tests/SmtpEmailSenderTests.cs — unit test validating text+html delivery (AlternateViews) and invocation.
+- apps/api/Program.cs — PostConfigure defaults for Development and DI registrations.
+
+Quality gates
+
+- Build: PASS.
+- Tests: PASS (suite green including new SMTP test).
+
+Requirements coverage
+
+- Configurable host/port with Development defaults to Mailhog: Done.
+- Successful send path validated via unit test seam: Done.
+
+Time/savings
+{"task":"Notif-05","manual_hours":1.0,"actual_hours":0.35,"saved_hours":0.65,"rate":72,"savings_usd":46.8}
+
 ## Notif-02 — Template renderer (Scriban)
 
 Summary
