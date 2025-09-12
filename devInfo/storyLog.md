@@ -288,3 +288,49 @@ How to try it
 
 - Start the dev server and navigate to `/studio/tasks`.
 - Use the chips/selects/date pickers/search to filter; use the grid’s footer to page; observe the URL reflecting state.
+
+## Spike - refactor for MUI - Part 2
+
+I’ll continue the MUI migration by centralizing theme options and converting the Agents and Traces tables to DataGridPremium, keeping SSR theming consistent.
+
+Plan
+
+- Add a shared theme options module and wire it into `ThemeRegistry`.
+- Convert Agents table to `DataGridPremium` with consistent columns and action buttons.
+- Convert Traces table to `DataGridPremium` with a toggle to preview input/output JSON.
+- Typecheck and commit.
+
+Actions taken
+
+- Added `apps/web/src/theme/themeOptions.ts` and updated `ThemeRegistry` to build the theme from these options plus `enUS` locale.
+- Refactored `apps/web/src/app/studio/agents/components/AgentsTable.tsx` to use `DataGridPremium` with columns: Name (link), Model, Temp, MaxSteps, Updated, and Actions (Edit/Delete buttons); empty state uses MUI Button and Box.
+- Refactored `apps/web/app/dev/agents/components/TracesTable.tsx` to `DataGridPremium` and added a MUI `Collapse` section per row to display JSON for input/output; removed inline styles in favor of MUI `sx`.
+- Ran typecheck: PASS.
+- Committed changes.
+
+Results
+
+- Agents and Traces tables now match the MUI look-and-feel and benefit from DataGrid features (accessibility, sorting hooks, density).
+- Theme is centralized for easier brand changes and consistent defaults (sizes, shapes).
+
+Files changed
+
+- apps/web/src/theme/themeOptions.ts (new)
+- apps/web/src/theme/ThemeRegistry.tsx
+- apps/web/src/app/studio/agents/components/AgentsTable.tsx
+- apps/web/app/dev/agents/components/TracesTable.tsx
+
+Quality gates
+
+- Typecheck: PASS (@appostolic/web)
+
+Requirements coverage
+
+- Shared theme options wired into SSR: Done.
+- Agents table migrated to DataGridPremium: Done.
+- Traces table migrated to DataGridPremium with JSON preview: Done.
+
+How to try it
+
+- Navigate to `/studio/agents` to see the Agents grid with action buttons.
+- Navigate to the Dev Agents page to see Traces with the View/Hide JSON toggle.
