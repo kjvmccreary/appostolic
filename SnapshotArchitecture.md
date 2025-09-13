@@ -228,6 +228,15 @@ Components:
   - Pre‑rendered snapshots: subject/html/text may be pre‑rendered at enqueue time and stored; dispatcher reuses snapshots when present to avoid re‑render divergence.
   - Redacted logging: emails in logs are redacted (e.g., k\*\*\*@example.com) across SMTP/SendGrid providers and dispatcher paths.
 
+PII scrubbing (Notif‑23):
+
+- Early scrub of sensitive fields prior to deletion to minimize PII exposure time. A dedicated scrub pass nulls selected columns for notifications older than a scrub window but newer than the delete retention cutoff.
+- Configuration (NotificationOptions):
+  - Master switch `PiiScrubEnabled` (default true).
+  - Scrub windows: `ScrubSentAfter`, `ScrubFailedAfter`, `ScrubDeadLetterAfter`.
+  - Per‑field toggles: `ScrubToName`, `ScrubSubject`, `ScrubBodyHtml`, `ScrubBodyText`, and `ScrubToEmail` (email off by default).
+- Observability: `NotificationsPurgeHostedService` logs `scrubbed` counts alongside purged counts each run.
+
 Outbox & Dispatcher (Notif‑13/14/15):
 
 - Table `app.notifications` stores durable outbox entries (kind, to_email, data_json, dedupe_key, status, attempts, errors, timestamps; snapshots subject/html/text)
@@ -239,6 +248,7 @@ Dedupe & Retention (Notif‑17/18):
 - TTL dedupe table `app.notification_dedupes` (PK: dedupe_key, expires_at) is claimed before outbox insert; duplicate claims within TTL throw `DuplicateNotificationException`
 - Partial unique index `ux_notifications_dedupe_key_active` applies only to in‑flight statuses (`Queued`,`Sending`); `Sent` dedupe is governed by the TTL table
 - Hourly purge job removes expired dedupe claims and old notifications; retention windows configurable via `Notifications` options (e.g., Sent: 60d; Failed/Dead: 90d)
+- Scrub‑then‑delete ordering (Notif‑23): For items within the scrub window but not yet at the deletion cutoff, the job nulls configured fields first; items past the deletion cutoff are removed entirely.
 
 Dev endpoints:
 

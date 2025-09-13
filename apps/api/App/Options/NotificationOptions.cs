@@ -10,6 +10,18 @@ public sealed class NotificationOptions
     public TimeSpan RetainFailedFor { get; set; } = TimeSpan.FromDays(90);
     public TimeSpan RetainDeadLetterFor { get; set; } = TimeSpan.FromDays(90);
 
+    // PII-aware scrubbing (optional): before delete, scrub sensitive fields after a shorter window
+    public bool PiiScrubEnabled { get; set; } = true;
+    public TimeSpan ScrubSentAfter { get; set; } = TimeSpan.FromDays(30);
+    public TimeSpan ScrubFailedAfter { get; set; } = TimeSpan.FromDays(30);
+    public TimeSpan ScrubDeadLetterAfter { get; set; } = TimeSpan.FromDays(60);
+    // Which fields to scrub (defaults avoid scrubbing email address unless explicitly enabled)
+    public bool ScrubToName { get; set; } = true;
+    public bool ScrubSubject { get; set; } = true;
+    public bool ScrubBodyHtml { get; set; } = true;
+    public bool ScrubBodyText { get; set; } = true;
+    public bool ScrubToEmail { get; set; } = false;
+
     // Field encryption (optional; default off)
     // When enabled and a valid key is provided, selected fields are stored encrypted at rest using AES-GCM.
     public bool EncryptFields { get; set; } = false;

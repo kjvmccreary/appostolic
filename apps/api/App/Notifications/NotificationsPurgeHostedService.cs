@@ -32,9 +32,9 @@ public sealed class NotificationsPurgeHostedService : BackgroundService
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var now = DateTimeOffset.UtcNow;
                 var result = await _purger.PurgeOnceAsync(db, now, _options, stoppingToken);
-                if (result.TotalPurged > 0)
+                if (result.TotalPurged > 0 || result.PiiScrubbed > 0)
                 {
-                    _logger.LogInformation("Notifications purge: dedupes={Expired}, sent={Sent}, failed={Failed}, dead={Dead}", result.DedupesPurged, result.SentPurged, result.FailedPurged, result.DeadPurged);
+                    _logger.LogInformation("Notifications purge: dedupes={Expired}, sent={Sent}, failed={Failed}, dead={Dead}, scrubbed={Scrubbed}", result.DedupesPurged, result.SentPurged, result.FailedPurged, result.DeadPurged, result.PiiScrubbed);
                 }
             }
             catch (OperationCanceledException)

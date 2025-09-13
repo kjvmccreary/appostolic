@@ -461,11 +461,11 @@ Status
 
 - Completed: Implemented optional field-level encryption using AES-GCM with Base64URL payloads prefixed by `enc:v1:`. Added `NotificationOptions` toggles (`EncryptFields`, `EncryptionKeyBase64`, `EncryptToName`, `EncryptSubject`, `EncryptBodyHtml`, `EncryptBodyText`). Wired `IFieldCipher` in DI: selects AES-GCM when enabled + valid key, else a no-op cipher for backward compatibility. `EfNotificationOutbox` encrypts at write (`CreateQueuedAsync`, `MarkSentAsync`) and decrypts on lease (`LeaseNextDueAsync`). No schema changes required. Added unit tests verifying encrypted-at-rest storage and round-trip decryption. Full API test suite green.
 
-## Notif-23 — Retention policy hardening (PII-aware)
+## ~~Notif-23 — Retention policy hardening (PII-aware)~~
 
 Summary
 
-- Extend purge job to enforce PII retention windows (60 days Sent/Failed, 90 days DeadLetter) and document schedule.
+- Add PII scrubbing to the purge job so sensitive fields are nulled before final deletion. Scrub windows are configurable per status and occur prior to the deletion retention windows; behavior is documented and observable.
 
 Dependencies
 
@@ -473,14 +473,25 @@ Dependencies
 
 Acceptance Criteria
 
-- Configurable retention per status; defaults documented.
-- Purge run logs counts; verified by unit/integration tests.
+- Configurable scrub windows per status (Sent/Failed/DeadLetter) via options; master on/off switch.
+- Per-field scrub toggles for `to_name`, `subject`, `body_html`, `body_text`, and `to_email` (email off by default).
+- Purge run logs scrub counts in addition to delete counts.
+- Unit tests cover recent/scrub-eligible/delete-eligible buckets and verify nulling for scrubbed fields.
 
 Tasks
 
-- Extend purge job options and filtering by status/age.
-- Tests with seeded data across age buckets.
-- RUNBOOK update for retention settings.
+- Extend purge job with scrub pass that targets items older than the scrub window but newer than the delete window; then perform deletion by retention cutoffs.
+- Add options for scrub configuration and per-field toggles; wire into DI.
+- Implement helpers to apply scrubbing consistently across relational and InMemory EF paths.
+- Tests with seeded data across age buckets; update docs.
+
+Status
+
+- Completed: Introduced PII-aware scrubbing prior to deletion with new `NotificationOptions`:
+  - `PiiScrubEnabled` (default true), `ScrubSentAfter`, `ScrubFailedAfter`, `ScrubDeadLetterAfter`.
+  - Per-field controls: `ScrubToName`, `ScrubSubject`, `ScrubBodyHtml`, `ScrubBodyText`, and `ScrubToEmail` (default false).
+  - Purger performs a scrub pass first, then deletes by retention cutoffs; `NotificationsPurgeHostedService` logs scrubbed counts alongside purged counts.
+  - Added `NotificationsPiiScrubTests` which seeds three Sent notifications (recent, scrub-eligible, delete-eligible) and asserts one scrubbed, one deleted, and one unchanged. Full API test suite green.
 
 ## Notif-24 — Access control for notification views (prod)
 
