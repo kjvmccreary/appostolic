@@ -103,7 +103,7 @@ Design refs: devInfo/Sendgrid/notifDesign.md (Outbox + PII sections)
 Resend capability (after baseline outbox)
 | Story ID | Title | Source | Notes |
 |---|---|---|---|
-| Notif‑27 | Outbox schema extension for Resend | devInfo/Sendgrid/notifSprintPlan.md | Adds resend fields, throttle |
+| ✅ (DONE) Notif‑27 | Outbox schema extension for Resend | devInfo/Sendgrid/notifSprintPlan.md | Adds resend fields, throttle |
 | Notif‑28 | Manual resend endpoint (single) | devInfo/Sendgrid/notifSprintPlan.md | 201/429; links to original |
 | Notif‑29 | Bulk resend endpoint | devInfo/Sendgrid/notifSprintPlan.md | Caps + batching |
 | Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
@@ -114,7 +114,7 @@ Resend capability (after baseline outbox)
 
 ## Phase 4 — E2E hardening and docs
 
-### Notif‑27 — Outbox schema extension for Resend (In progress)
+### Notif‑27 — Outbox schema extension for Resend (Completed)
 
 Summary
 
@@ -134,12 +134,61 @@ Acceptance criteria
 - EF migration applies cleanly in Development; snapshot updated.
 - No behavior change to dispatch; retention/dedupe/encryption remain compatible.
 
-Tasks
+Tasks (completed)
 
 - Update EF model/config (self‑FK + columns); generate migration and indexes.
 - Verify encryption toggles still apply to subject/body when set; new columns are plaintext metadata.
 - Confirm retention logic ignores child relationships; children are purged by their own age.
 - Add minimal tests: entity mapping, index presence (where feasible), and basic insert with `resend_of_notification_id`.
+
+### Notif‑28 — Manual resend endpoint (single) (In progress)
+
+Summary
+
+- Add an API endpoint to manually resend a single notification based on an existing outbox row. The endpoint enqueues a new notification linked back to the original via `ResendOfNotificationId`, updates resend metadata on the original (`ResendCount`, `LastResendAt`, optional `ThrottleUntil`), and respects tenant access and throttling.
+
+Proposed endpoint
+
+- `POST /api/notifications/{id}/resend`
+  - Success: `201 Created` with body `{ id, kind, toEmail, createdAt, resendOfNotificationId }` and `Location: /api/notifications/{newId}`
+  - Errors: `404` (not found), `403` (wrong tenant/no superadmin), `409` (invalid status if we restrict), `429` (throttled; includes `Retry-After` header)
+
+Acceptance criteria
+
+- Access control
+  - Non‑superadmin callers may only resend within their current tenant; superadmin may resend across tenants.
+  - Requires the same roles as other notifications admin endpoints (Owner/Admin for tenant).
+- Behavior
+  - Creates a new notification row that clones essential fields (kind, to_email, to_name, data_json) from the original and re‑renders content via the existing templating path; snapshots may be regenerated or reused per implementation.
+  - Sets `ResendOfNotificationId` on the new row to the original id.
+  - Increments `ResendCount` on the original and sets `LastResendAt` UTC.
+  - Returns `201 Created` with `Location` header to the new resource.
+- Throttling
+  - If a resend for the same `(to_email, kind)` would violate throttle policy (window T), return `429 Too Many Requests` with `Retry-After: seconds` and do not enqueue.
+  - Use the `(to_email, kind, created_at DESC)` index to find recent attempts; persist `ThrottleUntil` on the original when applicable.
+- Dedupe compatibility
+  - Honor dedupe TTL claims to avoid duplicate in‑flight sends when payloads match; ensure friendly `DuplicateNotificationException` surfaces as `409 Conflict`.
+- Tests
+  - 201 path creates child row with `resend_of_notification_id` and enqueues it.
+  - 429 path when throttle window not elapsed; includes `Retry-After` header with remainder.
+  - 403/404 paths for cross‑tenant or missing id; 409 on duplicate dedupe claim.
+
+Tasks
+
+- API
+  - Map route in `NotificationsAdminEndpoints` under production endpoints: `POST /api/notifications/{id}/resend`.
+  - Implement handler to load original (tenant‑scoped), evaluate throttle policy, call enqueuer to create/send a new row, update original metadata, and return 201.
+  - Plumb `Retry-After` seconds on throttled responses.
+- Application
+  - Add a method on `INotificationOutbox` (e.g., `CreateResendAsync(originalId, reason?)`) that performs clone + link + metadata updates atomically.
+  - Consider a small `IResendPolicy` abstraction with window settings (defaults; env‑configurable) used by the endpoint.
+- Tests
+  - Add unit/integration tests in `apps/api.tests/Api/NotificationsAdminEndpointsTests.cs` covering 201/429/403/404/409.
+  - Ensure tenant scoping and superadmin cases are exercised.
+- Docs & bookkeeping (per Guidelines)
+  - Update `SnapshotArchitecture.md` to include the new endpoint under Notifications admin.
+  - Append completion entry to `devInfo/storyLog.md` upon finishing.
+  - Commit with descriptive message and push.
 
 | Story ID           | Title                                            | Source                              | Notes/Dependencies      |
 | ------------------ | ------------------------------------------------ | ----------------------------------- | ----------------------- |
