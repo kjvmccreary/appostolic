@@ -184,16 +184,19 @@ public static class NotificationsAdminEndpoints
                 var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
                 await idQueue.EnqueueAsync(newId, ct);
                 var location = $"/api/notifications/{newId}";
+                EmailMetrics.RecordResend(original.Kind.ToString(), mode: "manual", tenantScope: isSuper ? "superadmin" : "self", outcome: "created");
                 return Results.Created(location, new { id = newId });
             }
             catch (ResendThrottledException rte)
             {
                 var delta = (int)Math.Ceiling((rte.RetryAfter - DateTimeOffset.UtcNow).TotalSeconds);
                 resp.Headers.Append("Retry-After", Math.Max(delta, 1).ToString());
+                EmailMetrics.RecordResend(original!.Kind.ToString(), mode: "manual", tenantScope: isSuper ? "superadmin" : "self", outcome: "throttled");
                 return Results.StatusCode(StatusCodes.Status429TooManyRequests);
             }
             catch (InvalidResendStateException ex)
             {
+                EmailMetrics.RecordResend(original!.Kind.ToString(), mode: "manual", tenantScope: isSuper ? "superadmin" : "self", outcome: "error");
                 return Results.Conflict(new { message = ex.Message });
             }
         })
@@ -207,6 +210,7 @@ public static class NotificationsAdminEndpoints
             INotificationOutbox outbox,
             INotificationIdQueue idQueue,
             IOptions<NotificationOptions> options,
+            HttpResponse resp,
             BulkResendRequest body,
             CancellationToken ct) =>
         {
@@ -272,8 +276,11 @@ public static class NotificationsAdminEndpoints
                     .Where(n => n.TenantId == capTenant && n.ResendOfNotificationId != null && n.CreatedAt >= since)
                     .CountAsync(ct);
                 var remaining = Math.Max(0, options.Value.BulkResendPerTenantDailyCap - recentResends);
+                // Surface remaining via response header per Notif-30
+                resp.Headers.Append("X-Resend-Remaining", remaining.ToString());
                 if (remaining == 0)
                 {
+                    EmailMetrics.RecordResendBatchSize(0, tenantScope: isSuper ? "superadmin" : "self", kind: body.Kind?.ToString());
                     return Results.Ok(new BulkResendResult(0, 0, 0, 0, 0, new()));
                 }
                 if (originals.Count > remaining)
@@ -285,12 +292,16 @@ public static class NotificationsAdminEndpoints
             int created = 0, throttled = 0, forbidden = 0, notFound = 0, errors = 0;
             var ids = new List<Guid>(originals.Count);
 
+            // Record selected size as batch size (pre-throttle outcome)
+            EmailMetrics.RecordResendBatchSize(originals.Count, tenantScope: isSuper ? "superadmin" : "self", kind: body.Kind?.ToString());
+
             foreach (var o in originals)
             {
                 // Double-check tenant scoping at item level for safety
                 if (!isSuper && o.TenantId != currentTenantId)
                 {
                     forbidden++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: "self", outcome: "forbidden");
                     continue;
                 }
 
@@ -300,6 +311,7 @@ public static class NotificationsAdminEndpoints
                 if (throttledRecent)
                 {
                     throttled++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "throttled");
                     continue;
                 }
                 try
@@ -308,24 +320,29 @@ public static class NotificationsAdminEndpoints
                     await idQueue.EnqueueAsync(newId, ct);
                     ids.Add(newId);
                     created++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "created");
                 }
                 catch (ResendThrottledException)
                 {
                     throttled++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "throttled");
                 }
                 catch (InvalidResendStateException)
                 {
                     // Treat as error for summary visibility
                     errors++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "error");
                 }
                 catch (DbUpdateConcurrencyException)
                 {
                     // Original disappeared
                     notFound++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "not_found");
                 }
                 catch
                 {
                     errors++;
+                    EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "error");
                 }
             }
 

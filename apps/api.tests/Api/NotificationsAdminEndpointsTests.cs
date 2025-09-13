@@ -134,12 +134,14 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
         client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
 
-        // First bulk resend should create up to limit=3
+    // First bulk resend should create up to limit=3
         var req = JsonContent.Create(new { kind = "Verification", limit = 3 });
         var r1 = await client.PostAsync("/api/notifications/resend-bulk", req);
         r1.StatusCode.Should().Be(HttpStatusCode.OK);
         var summary1 = await r1.Content.ReadFromJsonAsync<BulkSummary>() ?? new BulkSummary();
         summary1.Created.Should().Be(3);
+    // Header for remaining cap should be present for tenant-scoped request
+    r1.Headers.Contains("X-Resend-Remaining").Should().BeTrue();
 
         // Second bulk resend immediately will encounter throttling for same recipients
         var r2 = await client.PostAsync("/api/notifications/resend-bulk", req);
@@ -152,6 +154,57 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         var rdb = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
         var children = await rdb.Notifications.AsNoTracking().Where(n => n.ResendOfNotificationId != null).ToListAsync();
         children.Count.Should().BeGreaterOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task Resend_metrics_emitted_for_manual_and_bulk()
+    {
+        using var localFactory = new WebAppFactory();
+        using var app = localFactory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var original = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "m1@x.com", DataJson = "{}", Status = NotificationStatus.Sent, TenantId = tenantId, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10) };
+        db.Notifications.Add(original);
+        await db.SaveChangesAsync();
+
+        // Capture metrics via MeterListener
+        var measurements = new List<(string name, double value, IReadOnlyList<KeyValuePair<string, object?>> tags)>();
+        using var meterListener = new System.Diagnostics.Metrics.MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Appostolic.Metrics") listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meterListener.SetMeasurementEventCallback<long>((inst, val, tags, state) =>
+        {
+            lock (measurements) measurements.Add((inst.Name, val, tags.ToArray()));
+        });
+        meterListener.Start();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        // Manual resend (dev)
+        var r1 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+        r1.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // Bulk resend with throttle (should record throttled outcomes)
+        var req = JsonContent.Create(new { kind = "Verification", limit = 1 });
+        var r2 = await client.PostAsync("/api/notifications/resend-bulk", req);
+        r2.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Snapshot and assert metrics names observed
+        List<(string name, double value, IReadOnlyList<KeyValuePair<string, object?>> tags)> snapshot;
+        lock (measurements) snapshot = measurements.ToList();
+
+        snapshot.Any(m => m.name == "email.resend.total" && m.tags.Any(t => t.Key == "mode"))
+            .Should().BeTrue();
+        snapshot.Any(m => m.name == "email.resend.batch.size").Should().BeTrue();
     }
 
     private class BulkSummary

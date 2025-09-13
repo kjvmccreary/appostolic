@@ -222,7 +222,10 @@ Endpoints:
 
 ### Notifications (email)
 
-Components:
+- Metrics: `email.sent.total` and `email.failed.total` counters (tagged by email kind) exposed via OTEL Meter "Appostolic.Metrics".
+- Notif-30: Resend telemetry — `email.resend.total` (tags: kind, mode=manual|bulk, tenant_scope=self|superadmin|dev, outcome),
+  `email.resend.throttled.total` (same tags), and histogram `email.resend.batch.size` (tags: tenant_scope, and kind when filtered).
+- Bulk header: `X-Resend-Remaining` on `/api/notifications/resend-bulk` reflects remaining per-tenant daily cap when tenant context is known.
 
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL

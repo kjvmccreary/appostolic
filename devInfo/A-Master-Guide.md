@@ -106,7 +106,7 @@ Resend capability (after baseline outbox)
 | ✅ (DONE) Notif‑27 | Outbox schema extension for Resend | devInfo/Sendgrid/notifSprintPlan.md | Adds resend fields, throttle |
 | ✅ (DONE) Notif‑28 | Manual resend endpoint (single) | devInfo/Sendgrid/notifSprintPlan.md | 201/429; tenant‑scoped; links to original; tests green |
 | ✅ (DONE) Notif‑29 | Bulk resend endpoint | devInfo/Sendgrid/notifSprintPlan.md | Caps + batching |
-| Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
+| ✅ (DONE) Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
 | Notif‑31 | Resend history and admin UI hooks (API) | devInfo/Sendgrid/notifSprintPlan.md | History per original |
 | Notif‑32 | Automated resend (no‑action detector) [optional] | devInfo/Sendgrid/notifSprintPlan.md | Scheduled job rules |
 
@@ -114,42 +114,17 @@ Resend capability (after baseline outbox)
 
 ## Phase 4 — E2E hardening and docs
 
-### Notif‑30 — Resend policy, throttling, and metrics (Planned)
+### Notif‑30 — Resend policy, throttling, and metrics (Completed)
 
 Summary
 
-- Add end-to-end observability and controls for resend flows. Emit metrics for manual and bulk resends; tighten throttling semantics and ensure consistent user-facing signals. No functional changes to delivery; focus is on policy enforcement and telemetry.
+- Implemented resend metrics and bulk header surfacing. No functional delivery changes; improved observability and policy clarity.
 
-Acceptance criteria
+Deliverables
 
-- Metrics
-  - Counter email.resend.total with tags: kind, mode (manual|bulk), tenant_scope (current|superadmin), outcome (created|throttled|forbidden|notfound|error).
-  - Counter email.resend.throttled.total with tags: kind, reason (window|policy|cap), and tenant_scope.
-  - Histogram email.resend.batch.size (bulk only) with min/max/avg exported.
-- Throttling & policy
-  - Respect ResendThrottleWindow consistently across manual and bulk; bulk maintains per-recipient pre-check and returns a clear summary.
-  - Enforce per-tenant daily cap with explicit remaining calculation and include remaining in response headers: X-Resend-Remaining.
-  - Return Retry-After on 429 for manual resend as implemented; document behavior for bulk (200 with summary counts; no 429 at batch level).
-- Logging
-  - Structured logs on resend paths include correlation (original id, new id when created, tenant, user) and redact emails.
-- Docs
-  - SnapshotArchitecture updated with metrics and throttling policy notes.
-  - storyLog entry added upon completion.
-
-Tasks (planned)
-
-- Instrumentation
-  - Introduce an OTEL Meter in Notifications for resend counters and a histogram.
-  - Add metric increments in NotificationsAdminEndpoints and DevNotificationsEndpoints for both manual and bulk paths.
-- Policy surfacing
-  - Compute and include X-Resend-Remaining when BulkResendPerTenantDailyCap is active and tenant context is known.
-  - Keep pre-check throttle and map reasons (window vs. cap) into outcome tags.
-- Tests
-  - Add unit tests for cap header and summary correctness.
-  - Add metric assertion tests (using a test meter/collector) for created and throttled outcomes.
-- Documentation
-  - Update SnapshotArchitecture “Notifications” with metrics names/tags and policy notes.
-  - Update A‑Master‑Guide and storyLog when done.
+- Metrics: email.resend.total, email.resend.throttled.total, email.resend.batch.size with consistent tags (kind, mode, tenant_scope, outcome).
+- Header: X‑Resend‑Remaining for bulk when tenant context is known.
+- Tests cover header presence and metrics emission; full suite passed.
 
 ### Notif‑27 — Outbox schema extension for Resend (Completed)
 

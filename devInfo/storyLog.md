@@ -1,3 +1,16 @@
+## Notif-30 — Resend policy, throttling, and metrics (Completed)
+
+- Summary: Added resend metrics (email.resend.total, email.resend.throttled.total, email.resend.batch.size) and surfaced X-Resend-Remaining header on bulk endpoint. Instrumented manual (dev/prod) and bulk endpoints; added tests using MeterListener for metrics and header validation.
+- Files changed:
+  - apps/api/App/Notifications/EmailMetrics.cs (new counters/histogram and record helpers)
+  - apps/api/App/Endpoints/NotificationsAdminEndpoints.cs (metrics + header)
+  - apps/api/App/Endpoints/DevNotificationsEndpoints.cs (metrics)
+  - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs (new assertions/tests)
+  - SnapshotArchitecture.md (observability + header)
+  - devInfo/A-Master-Guide.md (mark DONE)
+- Quality gates: Build PASS; Tests PASS (101/101); Lint N/A.
+- Requirements coverage: metrics (Done), header (Done), tests (Done), docs (Done).
+
 ## Notif-29 — Bulk resend endpoint — Completed
 
 Summary

@@ -149,16 +149,19 @@ public static class DevNotificationsEndpoints
                 var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
                 await idQueue.EnqueueAsync(newId, ct);
                 var location = $"/api/dev/notifications/{newId}";
+                EmailMetrics.RecordResend(original.Kind.ToString(), mode: "manual", tenantScope: "dev", outcome: "created");
                 return Results.Created(location, new { id = newId });
             }
             catch (ResendThrottledException rte)
             {
                 var delta = (int)Math.Ceiling((rte.RetryAfter - DateTimeOffset.UtcNow).TotalSeconds);
                 resp.Headers.Append("Retry-After", Math.Max(delta, 1).ToString());
+                EmailMetrics.RecordResend(original!.Kind.ToString(), mode: "manual", tenantScope: "dev", outcome: "throttled");
                 return Results.StatusCode(StatusCodes.Status429TooManyRequests);
             }
             catch (InvalidResendStateException ex)
             {
+                EmailMetrics.RecordResend(original!.Kind.ToString(), mode: "manual", tenantScope: "dev", outcome: "error");
                 return Results.Conflict(new { message = ex.Message });
             }
         })
