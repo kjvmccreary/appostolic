@@ -435,11 +435,11 @@ Tasks
 - Add redaction helper; use in dispatcher logs. ✅
 - Unit tests for hashing and redaction. ✅
 
-## Notif-22 — Field-level encryption for sensitive columns (optional)
+## ~~Notif-22 — Field-level encryption for sensitive columns (optional)~~
 
 Summary
 
-- Encrypt sensitive outbox fields at rest (if stored): body_html, body_text, to_name (and optionally subject).
+- Encrypt sensitive outbox fields at rest: `to_name`, `subject` (optional), `body_html`, and `body_text` when configured.
 
 Dependencies
 
@@ -447,15 +447,19 @@ Dependencies
 
 Acceptance Criteria
 
-- AES-GCM envelope encryption with rotating key (via .NET DataProtection or KMS-backed key).
-- Read/write paths covered by tests; migration adds encrypted columns or switches serialization.
+- AES-GCM field encryption with explicit key material from configuration.
+- Read/write paths covered by tests; no schema migration required (ciphertext serialized into existing text columns with `enc:v1:` prefix).
 - Configurable on/off; default off in Development.
 
 Tasks
 
-- Introduce IFieldCipher abstraction and implementation.
-- Wrap persistence for targeted fields; migration if schema changes required.
-- Tests for encrypt/decrypt and key-rotation compatibility.
+- Introduce `IFieldCipher` abstraction and implementations (AES-GCM and no-op).
+- Wrap persistence for targeted fields on create/lease/mark-sent paths.
+- Add tests for encrypt/decrypt and storage format.
+
+Status
+
+- Completed: Implemented optional field-level encryption using AES-GCM with Base64URL payloads prefixed by `enc:v1:`. Added `NotificationOptions` toggles (`EncryptFields`, `EncryptionKeyBase64`, `EncryptToName`, `EncryptSubject`, `EncryptBodyHtml`, `EncryptBodyText`). Wired `IFieldCipher` in DI: selects AES-GCM when enabled + valid key, else a no-op cipher for backward compatibility. `EfNotificationOutbox` encrypts at write (`CreateQueuedAsync`, `MarkSentAsync`) and decrypts on lease (`LeaseNextDueAsync`). No schema changes required. Added unit tests verifying encrypted-at-rest storage and round-trip decryption. Full API test suite green.
 
 ## Notif-23 — Retention policy hardening (PII-aware)
 

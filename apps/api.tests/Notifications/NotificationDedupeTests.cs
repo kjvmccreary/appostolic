@@ -22,8 +22,8 @@ public class NotificationDedupeTests
         services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase($"dedupe-{Guid.NewGuid()}"));
         var sp = services.BuildServiceProvider();
         var db = sp.GetRequiredService<AppDbContext>();
-        var options = new OptionsWrapper<NotificationOptions>(new NotificationOptions { DedupeTtl = TimeSpan.FromMinutes(5) });
-        var outbox = new EfNotificationOutbox(db, options);
+    var options = new OptionsWrapper<NotificationOptions>(new NotificationOptions { DedupeTtl = TimeSpan.FromMinutes(5) });
+    var outbox = new EfNotificationOutbox(db, options, new NullFieldCipher());
         return (sp, db, outbox);
     }
 

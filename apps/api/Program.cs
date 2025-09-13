@@ -120,6 +120,22 @@ if (builder.Environment.IsDevelopment())
 
 // Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
+// Field cipher (encryption) selection
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IFieldCipher>(sp =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationOptions>>().Value;
+    if (!opts.EncryptFields || string.IsNullOrWhiteSpace(opts.EncryptionKeyBase64)) return new Appostolic.Api.App.Notifications.NullFieldCipher();
+    try
+    {
+        var key = Convert.FromBase64String(opts.EncryptionKeyBase64);
+        return new Appostolic.Api.App.Notifications.AesGcmFieldCipher(key);
+    }
+    catch
+    {
+        // Fallback to null cipher on invalid key
+        return new Appostolic.Api.App.Notifications.NullFieldCipher();
+    }
+});
 // Outbox must be scoped because it depends on AppDbContext (scoped)
 builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();

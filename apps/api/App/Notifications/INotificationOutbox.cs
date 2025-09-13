@@ -30,11 +30,13 @@ public sealed class EfNotificationOutbox : INotificationOutbox
 {
     private readonly AppDbContext _db;
     private readonly Appostolic.Api.App.Options.NotificationOptions _options;
+    private readonly IFieldCipher _cipher;
 
-    public EfNotificationOutbox(AppDbContext db, Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationOptions> options)
+    public EfNotificationOutbox(AppDbContext db, Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationOptions> options, IFieldCipher cipher)
     {
         _db = db;
         _options = options.Value;
+        _cipher = cipher;
     }
 
     public async Task<Guid> CreateQueuedAsync(EmailMessage message, CancellationToken ct = default)
@@ -81,7 +83,7 @@ public sealed class EfNotificationOutbox : INotificationOutbox
             Id = Guid.NewGuid(),
             Kind = message.Kind,
             ToEmail = message.ToEmail,
-            ToName = message.ToName,
+            ToName = _options.EncryptFields && _options.EncryptToName && !string.IsNullOrEmpty(message.ToName) ? _cipher.Encrypt(message.ToName!) : message.ToName,
             DataJson = System.Text.Json.JsonSerializer.Serialize(message.Data ?? new Dictionary<string, object?>()),
             DedupeKey = message.DedupeKey,
             TokenHash = tokenHash,
@@ -93,9 +95,9 @@ public sealed class EfNotificationOutbox : INotificationOutbox
 
         if (snapshots is (string subj, string html, string text))
         {
-            entity.Subject = subj;
-            entity.BodyHtml = html;
-            entity.BodyText = text;
+            entity.Subject = _options.EncryptFields && _options.EncryptSubject && !string.IsNullOrEmpty(subj) ? _cipher.Encrypt(subj) : subj;
+            entity.BodyHtml = _options.EncryptFields && _options.EncryptBodyHtml && !string.IsNullOrEmpty(html) ? _cipher.Encrypt(html) : html;
+            entity.BodyText = _options.EncryptFields && _options.EncryptBodyText && !string.IsNullOrEmpty(text) ? _cipher.Encrypt(text) : text;
         }
 
         _db.Notifications.Add(entity);
@@ -133,6 +135,15 @@ public sealed class EfNotificationOutbox : INotificationOutbox
             return null;
         }
 
+        // Decrypt fields for processing (no-op for NullFieldCipher or if not encrypted)
+        if (_options.EncryptFields)
+        {
+            if (_options.EncryptToName && !string.IsNullOrEmpty(item.ToName)) item.ToName = _cipher.Decrypt(item.ToName!);
+            if (_options.EncryptSubject && !string.IsNullOrEmpty(item.Subject)) item.Subject = _cipher.Decrypt(item.Subject!);
+            if (_options.EncryptBodyHtml && !string.IsNullOrEmpty(item.BodyHtml)) item.BodyHtml = _cipher.Decrypt(item.BodyHtml!);
+            if (_options.EncryptBodyText && !string.IsNullOrEmpty(item.BodyText)) item.BodyText = _cipher.Decrypt(item.BodyText!);
+        }
+
         item.Status = NotificationStatus.Sending;
         item.UpdatedAt = now;
         await _db.SaveChangesAsync(ct);
@@ -145,9 +156,9 @@ public sealed class EfNotificationOutbox : INotificationOutbox
     {
         var now = DateTimeOffset.UtcNow;
         var n = await _db.Notifications.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new InvalidOperationException($"Notification {id} not found");
-        n.Subject = subject;
-        n.BodyHtml = html;
-        n.BodyText = text;
+    n.Subject = _options.EncryptFields && _options.EncryptSubject && !string.IsNullOrEmpty(subject) ? _cipher.Encrypt(subject) : subject;
+    n.BodyHtml = _options.EncryptFields && _options.EncryptBodyHtml && !string.IsNullOrEmpty(html) ? _cipher.Encrypt(html) : html;
+    n.BodyText = _options.EncryptFields && _options.EncryptBodyText && !string.IsNullOrEmpty(text) ? _cipher.Encrypt(text) : text;
         n.Status = NotificationStatus.Sent;
         n.AttemptCount++;
         n.SentAt = now;

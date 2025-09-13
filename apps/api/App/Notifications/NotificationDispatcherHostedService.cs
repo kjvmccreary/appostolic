@@ -68,7 +68,7 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                 {
                     ["notification.id"] = leased.Id,
                     ["email.kind"] = leased.Kind.ToString(),
-                    ["email.to"] = leased.ToEmail,
+                    ["email.to"] = EmailRedactor.Redact(leased.ToEmail),
                 };
                 if (leased.TenantId is Guid tid)
                 {

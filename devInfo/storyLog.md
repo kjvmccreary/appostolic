@@ -11,7 +11,7 @@ Files changed
 
 - apps/api/Domain/Notifications/Notification.cs — added `TokenHash` property
 - apps/api/Infrastructure/Configurations/NotificationConfiguration.cs — EF mapping for `token_hash`
-- apps/api/Migrations/*_s3_21_notifications_token_hash.* — migration adding column
+- apps/api/Migrations/_\_s3_21_notifications_token_hash._ — migration adding column
 - apps/api/App/Notifications/NotificationEnqueuer.cs — normalize email, hash token, pre‑render snapshots, pass to outbox
 - apps/api/App/Notifications/INotificationOutbox.cs — overloads to accept tokenHash and snapshots
 - apps/api/App/Notifications/EfNotificationOutbox.cs — sets `TokenHash`, persists snapshots, provider‑aware leasing
@@ -31,6 +31,40 @@ Requirements coverage
 - Outbox includes token_hash; raw tokens never stored: Done.
 - Dedupe keys/email normalization and minimal data_json: Done.
 - Logs redact emails consistently: Done.
+
+## Notif-22 — Field-level encryption (optional) — Completed
+
+Summary
+
+- Added optional AES-GCM field encryption for sensitive outbox columns at rest: `to_name`, `subject` (optional), `body_html`, and `body_text`.
+- Introduced `IFieldCipher` with `AesGcmFieldCipher` (enc:v1 base64url format) and `NullFieldCipher` (no-op).
+- Extended `NotificationOptions` with `EncryptFields`, `EncryptionKeyBase64`, and per-field toggles.
+- Wired DI in `Program.cs` to select AES-GCM cipher when enabled with a valid key; otherwise fallback to no-op for backward compatibility.
+- Updated `EfNotificationOutbox` to encrypt on write (`CreateQueuedAsync`, `MarkSentAsync`) and decrypt when leasing (`LeaseNextDueAsync`).
+- No schema migration required; ciphertext stored in existing text columns using the `enc:v1:` prefix to indicate encrypted payloads.
+- Added tests `FieldEncryptionTests` verifying enc-at-rest and round-trip decryption; updated an existing test to pass the cipher dependency.
+
+Files changed
+
+- apps/api/App/Notifications/IFieldCipher.cs — new abstraction, AES-GCM and null implementations
+- apps/api/App/Options/NotificationOptions.cs — encryption toggles and key
+- apps/api/App/Notifications/INotificationOutbox.cs — Ef implementation uses cipher on read/write paths
+- apps/api/App/Notifications/NotificationEnqueuer.cs — reused as-is; snapshots still supported
+- apps/api/App/Notifications/NotificationDispatcherHostedService.cs — consumes decrypted snapshots from lease
+- apps/api/Program.cs — DI registration for `IFieldCipher`
+- apps/api.tests/Notifications/FieldEncryptionTests.cs — new tests for storage format and round trip
+- apps/api.tests/Notifications/NotificationDedupeTests.cs — constructor update to pass cipher
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full suite incl. new encryption tests)
+
+Requirements coverage
+
+- Encrypt at rest with AES-GCM and configurable toggles: Done.
+- No schema changes; storage format identifiable via `enc:v1:` prefix: Done.
+- Decrypt on lease to keep downstream processing unchanged: Done.
 
 ## Notif-17 — Purge job (retention) — Completed
 
