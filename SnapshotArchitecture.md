@@ -172,6 +172,18 @@ appostolic/
   - Provider selection via `Email:Provider` with a Production guard requiring `SendGrid:ApiKey` when using SendGrid.
   - Helpers: `NotificationEnqueuer.QueueVerificationAsync` and `.QueueInviteAsync` build absolute links from `Email:WebBaseUrl` and URL-encode tokens.
   - Observability: counters `email.sent.total` and `email.failed.total` (tagged by kind) and structured logs with correlation fields.
+  - Outbox (Notif-13): Added DB table `app.notifications` with indexes and dedupe.
+
+### Database — Notifications Outbox (Notif-13)
+
+- Table: `app.notifications`
+  - Columns: id (uuid, pk), kind (text enum), to_email (citext), to_name (text), subject/body_html/body_text (text snapshots), data_json (jsonb), tenant_id (uuid, null), dedupe_key (varchar(200), null), status (text enum), attempt_count (int2), next_attempt_at (timestamptz, null), last_error (text), created_at/updated_at (timestamptz, defaults UTC now), sent_at (timestamptz, null)
+  - Indexes:
+    - (status, next_attempt_at) for dispatcher eligibility
+    - (tenant_id, created_at DESC) for admin/dev listings
+    - (created_at DESC)
+    - Partial unique on (dedupe_key) where status IN ('Queued','Sending','Sent')
+  - Extensions: `citext` enabled for case-insensitive email storage
 
 ## Running locally (dev)
 

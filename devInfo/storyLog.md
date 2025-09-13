@@ -358,6 +358,32 @@ Requirements coverage
 
 Quality gates
 
+## Notif-13 — Notifications table (outbox) migration — Completed
+
+Summary
+
+- Added DB-backed outbox table `app.notifications` for transactional email persistence.
+- Introduced domain entity `Domain.Notifications.Notification` and EF configuration with enums and column mappings.
+- Generated and applied EF migration `s3_13_notifications_outbox` creating the table, enabling `citext`, and adding indexes and a partial unique on `dedupe_key` for active statuses.
+
+Files changed
+
+- apps/api/Domain/Notifications/Notification.cs — new domain model and NotificationStatus enum
+- apps/api/Infrastructure/Configurations/NotificationConfiguration.cs — EF mapping, indexes, partial unique
+- apps/api/Infrastructure/AppDbContext.cs — added DbSet<Notification>
+- apps/api/Migrations/20250913030717_s3_13_notifications_outbox.\* — migration and model snapshot update
+- SnapshotArchitecture.md — documented the outbox schema and indexes
+
+Quality gates
+
+- Build (API): PASS
+- Migration apply (Development DB): PASS (table created; indexes present; citext enabled)
+
+Requirements coverage
+
+- EF migration creates table/constraints/indexes as per design: Done.
+- App builds and applies migration (Development) with no data loss: Done.
+
 - Build: PASS (compile-only validation in this step).
 - Tests: N/A for scaffolding; to be added in Notif-02+.
 
