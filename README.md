@@ -115,6 +115,54 @@ Note: The seed tool reuses the API `AppDbContext` and uses `set_config('app.tena
 
 ---
 
+## Authentication (dev)
+
+Core flows implemented and test‑covered:
+
+- Signup (anonymous) → creates user and a personal tenant; auto sign‑in from the web UI
+- Invite acceptance (signed‑in) → adds membership for the invite’s tenant and role
+- Two‑stage tenant selection (`/select-tenant`) → auto‑selects when only one membership exists
+- Header TenantSwitcher → updates session and sets a `selected_tenant` cookie via `/api/tenant/select`
+
+Web entry points:
+
+- `/signup` — self‑serve signup form (supports optional invite token)
+- `/invite/accept?token=...` — server route to accept an invite (redirects to `/login` if unauthenticated)
+- `/select-tenant` — server route that selects tenant and redirects to the app
+
+Environment variables (dev defaults shown where applicable):
+
+- Web (apps/web)
+  - `AUTH_SECRET` — required when web auth is enabled (generate any random string for dev)
+  - `NEXTAUTH_URL=http://localhost:3000` — NextAuth base URL in dev
+  - `NEXT_PUBLIC_API_BASE=http://localhost:5198` — API base used by the web app
+- API (apps/api)
+  - `Auth:PasswordPepper` — arbitrary secret used for Argon2id password hashing (set in your shell or appsettings for dev)
+  - `Email:WebBaseUrl=http://localhost:3000` — used for absolute links in emails
+
+Quick checks (dev):
+
+- Signup via API (optional smoke):
+
+```sh
+curl -sS -X POST http://localhost:5198/api/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"Passw0rd!"}' | jq
+```
+
+- Visit the web app:
+  - Open `http://localhost:3000/signup` to create an account and be signed in.
+  - If invited, open the invite link pointing to `http://localhost:3000/invite/accept?token=...`.
+  - You’ll be redirected to `/select-tenant` on first sign‑in to pick a tenant.
+
+Troubleshooting:
+
+- Web shows “Missing required env var NEXT_PUBLIC_API_BASE”: create `apps/web/.env.local` with `NEXT_PUBLIC_API_BASE=http://localhost:5198` and restart the dev server.
+- Redirect loops or 401s on protected routes: ensure `WEB_AUTH_ENABLED=true` and `AUTH_SECRET` are set for the web app; see RUNBOOK “Web authentication & route protection”.
+- Invite accept requires auth: if you see a redirect to `/login`, sign in first, then revisit `/invite/accept?token=...`.
+
+---
+
 ## Email notifications
 
 Local development defaults to SMTP via Mailhog.

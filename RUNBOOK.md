@@ -41,20 +41,82 @@ Use Makefile targets to bring up infra and load demo data:
 
 ```
 make up
+## Authentication flows (operations)
+
+This section is a practical guide to exercise auth flows in Development.
+
+Prereqs
+
+- API running at `http://localhost:5198` (Task: Dev: api-only)
+- Web running at `http://localhost:3000` (Task: Dev: web+api+mobile)
+- Web env: `apps/web/.env.local` contains at minimum:
+
+```
+
+AUTH_SECRET=devsecret
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_BASE=http://localhost:5198
+
+````
+
+### 1) Signup (anonymous)
+
+- Browser path: `http://localhost:3000/signup`
+- Expected: successful submit auto signs in and redirects to `/select-tenant`
+
+Optional API smoke:
+
+```sh
+curl -sS -X POST http://localhost:5198/api/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you+dev@example.com","password":"Passw0rd!"}' | jq
+````
+
+### 2) Two-stage tenant selection
+
+- Browser path after first sign‑in: `/select-tenant`
+- Behavior:
+  - If a single membership exists, page auto‑selects the tenant and redirects to `/studio`.
+  - Otherwise, the user picks from memberships. The page sets the `selected_tenant` cookie and redirects.
+
+### 3) Tenant switching
+
+- Use the header TenantSwitcher (visible when authenticated) to change tenants.
+- Behavior: triggers `session.update({ tenant })`, POSTs to `/api/tenant/select` to set `selected_tenant` cookie, then refreshes.
+
+### 4) Invite acceptance
+
+- Open an invite link in the browser: `http://localhost:3000/invite/accept?token=...`
+- If unauthenticated, the route redirects to `/login?next=/invite/accept?token=...`. Sign in, then revisit the link.
+- On success, a membership is added for the invite’s tenant and role.
+
+Troubleshooting
+
+- Missing `NEXT_PUBLIC_API_BASE`
+  - Create `apps/web/.env.local` with `NEXT_PUBLIC_API_BASE=http://localhost:5198`; restart web dev server.
+- 401/redirects on protected pages
+  - Ensure `WEB_AUTH_ENABLED=true` and `AUTH_SECRET` are set in `apps/web/.env.local`.
+- API signup fails with 500/400
+  - Check API logs for `Auth:PasswordPepper` presence (set via environment or `appsettings.Development.json`).
+  - Ensure database is migrated/seeded: `make bootstrap`.
+
 make seed
-make api    # terminal 1
-make web    # terminal 2
+make api # terminal 1
+make web # terminal 2
 make mobile # terminal 3
+
 ```
 
 Env vars used by seed:
 
 ```
+
 PGHOST=localhost
 PGPORT=55432
 PGDATABASE=appdb
 PGUSER=<from .env>
 PGPASSWORD=<from .env>
+
 ```
 
 Note: The seed tool reuses the API `AppDbContext` and issues `SET LOCAL app.tenant_id` before RLS-protected operations so policies apply per tenant.
@@ -128,10 +190,13 @@ The web app uses a lightweight route-protection middleware to guard developer an
 Configure via `apps/web/.env.local`:
 
 ```
+
 WEB_AUTH_ENABLED=true
 AUTH_SECRET=your_auth_secret
 NEXTAUTH_URL=http://localhost:3000
+
 # Seed credentials for Credentials provider are also defined here
+
 ```
 
 Changing `WEB_AUTH_ENABLED` requires restarting the web dev server.
@@ -139,16 +204,21 @@ Changing `WEB_AUTH_ENABLED` requires restarting the web dev server.
 Quick verification (use a separate terminal; do not run these in server log terminals):
 
 ```
+
 # Replace 3000 with the actual dev port if Next started on 3001
-curl -sS -D - -o /dev/null http://localhost:3000/studio/agents   # expect 307 → /login?next=...
-curl -sS -D - -o /dev/null http://localhost:3000/dev             # expect 307 → /login?next=...
-curl -sS -D - -o /dev/null http://localhost:3000/login           # expect 200
+
+curl -sS -D - -o /dev/null http://localhost:3000/studio/agents # expect 307 → /login?next=...
+curl -sS -D - -o /dev/null http://localhost:3000/dev # expect 307 → /login?next=...
+curl -sS -D - -o /dev/null http://localhost:3000/login # expect 200
+
 ```
 
 Tip: Next.js may choose 3001 if 3000 is occupied. You can discover the port with:
 
 ```
+
 lsof -nP -iTCP -sTCP:LISTEN | grep -E ':300[0-9]'
+
 ```
 
 ### Node version note
@@ -156,7 +226,9 @@ lsof -nP -iTCP -sTCP:LISTEN | grep -E ':300[0-9]'
 The monorepo targets Node 20.x. If VS Code tasks or new shells pick up a different default, set the default with nvm so background tasks use Node 20:
 
 ```
+
 nvm alias default 20
+
 ```
 
 ---
@@ -165,3 +237,4 @@ nvm alias default 20
 
 - Privacy Policy (engineering draft for notifications): devInfo/Sendgrid/privacyPolicy.md
 - Vendor/Subprocessors and compliance notes: devInfo/Sendgrid/vendorCompliance.md
+```

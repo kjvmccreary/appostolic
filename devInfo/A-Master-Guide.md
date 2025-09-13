@@ -4,9 +4,9 @@ This guide sequences the current work across Auth, Notifications, and Pre‑Migr
 
 Quick status (as of now)
 
-- Current Sprint: Phase 0 complete (middleware + proxy/header bridge + tests). Moving to Phase 1.
-- Notifications: Notif‑01..12 completed; DB outbox work starts at Notif‑13.
-- Auth: Auth‑01..14 not started.
+- Phase 0 complete (middleware + proxy/header bridge + tests). Phase 1 & 2 delivered (Auth core + Members/Invites).
+- Notifications: Notif‑01..32 completed (outbox + resend + auto‑resend).
+- Auth: Through Auth‑13 delivered; Auth‑14 docs/runbook now complete.
 - Pre‑Migration: Plans only.
 
 Source plans and designs
@@ -262,7 +262,7 @@ Tasks (completed)
 | ✅ (DONE) Auth‑11  | Route Protection (Role‑based)                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
 | ✅ (DONE) Auth‑12  | API Integration Tests (Security & Flows)         | devInfo/AuthInfo/authSprintPlan.md  | Dev env tests           |
 | ✅ (DONE) Auth‑13  | Web Tests (Sign‑up, Invite, Two‑Stage, Switcher) | devInfo/AuthInfo/authSprintPlan.md  | Vitest + RTL + MSW      |
-| Auth‑14            | Docs & Runbook Updates                           | devInfo/AuthInfo/authSprintPlan.md  | Flows + env vars        |
+| ✅ (DONE) Auth‑14  | Docs & Runbook Updates                           | devInfo/AuthInfo/authSprintPlan.md  | Flows + env vars        |
 | ✅ (DONE) Notif‑20 | E2E verification (outbox path)                   | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog |
 
 ---

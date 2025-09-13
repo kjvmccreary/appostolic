@@ -501,7 +501,35 @@ Files
 Wrapup
 
 - Test suite green; coverage above thresholds. Lint/typecheck pass.
-- `currentSprint.md` updated to strike #5 ACs with file references.
+
+```
+
+## Auth-13 — Web Tests (Sign-up, Invite, Two-Stage, Switcher) — Completed
+
+Summary
+
+- Added web app tests to validate core auth UX flows: Sign-up, Invite acceptance, Two-stage tenant selection, and Header tenant switcher. Ensures redirects for unauthenticated paths, inline error rendering on failures, cookie and session updates, and API proxy compatibility.
+
+Files changed
+
+- apps/web/app/signup/page.tsx — new Sign-up page (client form calling API, auto sign-in, redirect to next)
+- apps/web/app/signup/page.test.tsx — tests: failure inline error; success path performs signIn and redirects
+- apps/web/app/invite/accept/page.test.tsx — tests: unauth redirect to /login?next=; API error renders
+- apps/web/app/select-tenant/page.test.tsx — tests: unauth redirect; auto-select single membership sets cookie and redirects
+- apps/web/src/components/TenantSwitcher.test.tsx — tests: session.update + POST /api/tenant/select upon change
+
+Quality gates
+
+- Web tests: PASS (17/17 files; 38 assertions)
+- Coverage (web): lines ~92%, branches ~71.5% (v8)
+
+Requirements coverage
+
+- Sign-up happy/invalid: Done
+- Invite acceptance (new-user redirect and error rendering; signed-in success path indirectly via API call): Done
+- Two-stage /select-tenant auto-select and redirect: Done
+- Header tenant switcher updates session and persists selection via API route: Done
+
 - Committed and pushed.
 
 🧮 Stop/Compute
@@ -969,6 +997,36 @@ Results
 ## Current Sprint #5 — Tests (minimal)
 
 This is an additional completion note for Current Sprint #5 — Tests (minimal)
+
+
+## Auth-14 — Docs & Runbook Updates — Completed
+
+Summary
+
+- Added developer-focused documentation for authentication flows and operations.
+- README: new section “Authentication (dev)” covering signup, invite acceptance, two-stage tenant selection (`/select-tenant`), and the header TenantSwitcher; includes required env vars and troubleshooting.
+- RUNBOOK: new section “Authentication flows (operations)” with end-to-end run steps, a signup cURL smoke, and common issues.
+- Marked Auth‑14 as DONE in `devInfo/A-Master-Guide.md` (Phase 4 table update and quick status).
+- SnapshotArchitecture: added What’s new bullet pointing to README and RUNBOOK sections.
+
+Files changed
+
+- README.md — Authentication (dev) section added
+- RUNBOOK.md — Authentication flows (operations) section added
+- devInfo/A-Master-Guide.md — mark Auth‑14 DONE and update quick status
+- SnapshotArchitecture.md — What’s new includes Auth‑14 docs note
+
+Quality gates
+
+- Build: N/A (docs only)
+- Tests: N/A (docs only)
+- Lint/Typecheck: N/A (docs only)
+
+Requirements coverage
+
+- Add clear documentation for signup, invite acceptance, two-stage tenant selection, and tenant switching: Done.
+- Include env vars for web/API and troubleshooting for common dev issues: Done.
+- Update Master Guide status and Architecture snapshot: Done.
 
 Files
 
@@ -1890,3 +1948,4 @@ Requirements coverage
 - Indexes created on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`: Done.
 - EF migrations scaffolded with Designer + snapshot; apply cleanly in Development: Done.
 - No behavior change to dispatcher; retention/dedupe/encryption remain compatible: Done.
+```
