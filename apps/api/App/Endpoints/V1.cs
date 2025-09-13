@@ -426,6 +426,146 @@ public static class V1
             return Results.NoContent();
         });
 
+        // PUT /api/tenants/{tenantId}/members/{userId} — change member role (Admin/Owner only)
+        api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}", async (
+            Guid tenantId,
+            Guid userId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            UpdateMemberRoleDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Role))
+                return Results.BadRequest(new { error = "role is required" });
+
+            var callerIdStr = user.FindFirstValue("sub");
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
+            if (me is null) return Results.Forbid();
+            var isCallerOwner = me.Role == MembershipRole.Owner;
+            var isCallerAdminOrOwner = isCallerOwner || me.Role == MembershipRole.Admin;
+            if (!isCallerAdminOrOwner) return Results.Forbid();
+
+            var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
+            if (target is null) return Results.NotFound();
+
+            if (!Enum.TryParse<MembershipRole>(dto.Role, true, out var newRole))
+                return Results.BadRequest(new { error = "invalid role" });
+
+            if (target.Role == newRole)
+                return Results.NoContent();
+
+            // Only Owner can assign Owner
+            if (newRole == MembershipRole.Owner && !isCallerOwner)
+                return Results.Forbid();
+
+            // Cannot demote the last Owner; also prevent self-demotion from last Owner explicitly
+            if (target.Role == MembershipRole.Owner && newRole != MembershipRole.Owner)
+            {
+                var ownerCount = await db.Memberships.AsNoTracking()
+                    .CountAsync(m => m.TenantId == tenantId && m.Role == MembershipRole.Owner && m.Status == MembershipStatus.Active);
+                if (ownerCount <= 1)
+                    return Results.BadRequest(new { error = "cannot demote the last Owner" });
+                if (target.UserId == callerId)
+                    return Results.BadRequest(new { error = "cannot change your own role when you are the last Owner" });
+            }
+
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
+            {
+                // Replace immutable record with updated role, preserving CreatedAt
+                var replacement = new Membership
+                {
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Role = newRole,
+                    Status = target.Status,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+                return Results.NoContent();
+            }
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                var replacement = new Membership
+                {
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Role = newRole,
+                    Status = target.Status,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+                return Results.NoContent();
+            }
+        });
+
+        // DELETE /api/tenants/{tenantId}/members/{userId} — remove member (Admin/Owner only)
+        api.MapDelete("/tenants/{tenantId:guid}/members/{userId:guid}", async (
+            Guid tenantId,
+            Guid userId,
+            ClaimsPrincipal user,
+            AppDbContext db) =>
+        {
+            var callerIdStr = user.FindFirstValue("sub");
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
+            if (me is null) return Results.Forbid();
+            var isCallerAdminOrOwner = me.Role == MembershipRole.Admin || me.Role == MembershipRole.Owner;
+            if (!isCallerAdminOrOwner) return Results.Forbid();
+
+            var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
+            if (target is null) return Results.NotFound();
+
+            // Forbid removing yourself
+            if (target.UserId == callerId)
+                return Results.BadRequest(new { error = "cannot remove yourself" });
+
+            // Forbid removing the last Owner
+            if (target.Role == MembershipRole.Owner)
+            {
+                var ownerCount = await db.Memberships.AsNoTracking()
+                    .CountAsync(m => m.TenantId == tenantId && m.Role == MembershipRole.Owner && m.Status == MembershipStatus.Active);
+                if (ownerCount <= 1)
+                    return Results.BadRequest(new { error = "cannot remove the last Owner" });
+            }
+
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
+            {
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                return Results.NoContent();
+            }
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+                return Results.NoContent();
+            }
+        });
+
         // POST /api/invites/accept — Accept an invite as the signed-in user
         api.MapPost("/invites/accept", async (
             ClaimsPrincipal user,
@@ -525,4 +665,5 @@ public static class V1
     public record LoginDto(string Email, string Password);
     public record InviteRequest(string Email, string? Role);
     public record AcceptInviteDto(string Token);
+    public record UpdateMemberRoleDto(string Role);
 }

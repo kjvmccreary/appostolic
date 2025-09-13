@@ -467,6 +467,10 @@ Local dev (Mailhog):
   - `POST /api-proxy/dev/notifications/invite` → API `/api/dev/notifications/invite`
   - `POST /api-proxy/agent-tasks` → API `/api/agent-tasks`
   - `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → API `/api/agent-tasks/{id}`
+  - Tenants/Members (auth):
+    - `GET /api-proxy/tenants/{tenantId}/members` ↔ API `/api/tenants/{tenantId}/members`
+    - `PUT /api-proxy/tenants/{tenantId}/members/{userId}` ↔ API `/api/tenants/{tenantId}/members/{userId}`
+    - `DELETE /api-proxy/tenants/{tenantId}/members/{userId}` ↔ API `/api/tenants/{tenantId}/members/{userId}`
 - Env validation in `src/lib/serverEnv.ts` for `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`.
 - Dev UI: `/dev/agents` (SSR) lists agents and renders a client `AgentRunForm` to create a task and live-poll details+traces via `useTaskPolling` (750ms until terminal).
 - Agent Studio: `/studio/agents` (list), `/studio/agents/new` (create), `/studio/agents/[id]` (edit)

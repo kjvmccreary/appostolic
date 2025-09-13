@@ -172,7 +172,7 @@ Key Tasks
 
 ---
 
-## Auth-08 — Invite Acceptance Flow
+## ✅ (DONE) Auth-08 — Invite Acceptance Flow
 
 Summary
 
