@@ -155,6 +155,9 @@ builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationEnqueue
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailDedupeStore, Appostolic.Api.App.Notifications.InMemoryEmailDedupeStore>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationsPurger, Appostolic.Api.App.Notifications.NotificationsPurger>();
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationsPurgeHostedService>();
+// Automated resend scanner and hosted service (feature-gated via options)
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IAutoResendScanner, Appostolic.Api.App.Notifications.AutoResendScanner>();
+builder.Services.AddHostedService<Appostolic.Api.App.Notifications.AutoResendHostedService>();
 builder.Services.AddHttpClient("sendgrid");
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SendGridEmailSender>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ISmtpClientFactory, Appostolic.Api.App.Notifications.DefaultSmtpClientFactory>();

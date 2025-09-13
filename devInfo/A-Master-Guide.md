@@ -108,7 +108,7 @@ Resend capability (after baseline outbox)
 | ✅ (DONE) Notif‑29 | Bulk resend endpoint | devInfo/Sendgrid/notifSprintPlan.md | Caps + batching |
 | ✅ (DONE) Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
 | ✅ (DONE) Notif‑31 | Resend history and admin UI hooks (API) | devInfo/Sendgrid/notifSprintPlan.md | History per original |
-| Notif‑32 | Automated resend (no‑action detector) [optional] | devInfo/Sendgrid/notifSprintPlan.md | Scheduled job rules |
+| ✅ (DONE) Notif‑32 | Automated resend (no‑action detector) [optional] | devInfo/Sendgrid/notifSprintPlan.md | Scheduled job rules |
 
 ---
 

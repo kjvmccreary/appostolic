@@ -7,6 +7,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
 - Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
 - Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
+- Notif‑32: Automated resend service — background scanner detects "no‑action" originals (Sent and older than a window) and creates linked resends under caps/throttle. Feature‑gated via `Notifications:EnableAutoResend`.
 
 ## Monorepo overview
 
@@ -233,6 +234,13 @@ Endpoints:
   - `GET /api/notifications/{id}/resends` lists child resend notifications linked to the original.
   - Paging via `take`/`skip`; sets `X‑Total‑Count` header; ordered by `CreatedAt DESC`.
   - Tenant scoping enforced: non‑superadmin limited to current tenant; superadmin may view across tenants.
+
+- Automated resend (Notif‑32):
+  - Background scanner (`AutoResendHostedService` + `AutoResendScanner`) runs on an interval to detect "no‑action" notifications and enqueue resends with reason `auto_no_action`.
+  - Eligibility: originals only (no `ResendOfNotificationId`), `Status=Sent`, older than `AutoResendNoActionWindow`, no existing resend child, and not explicitly delivered/opened by provider webhook.
+  - Guardrails: respects `ResendThrottleWindow`, per‑scan cap `AutoResendMaxPerScan`, and per‑tenant daily cap `AutoResendPerTenantDailyCap`.
+  - Observability: reuse `email.resend.total` metrics with `mode=auto` and outcomes `created|throttled|forbidden|error`.
+  - Configuration (NotificationOptions): `EnableAutoResend` (default false), `AutoResendScanInterval` (5m), `AutoResendNoActionWindow` (24h), `AutoResendMaxPerScan` (50), `AutoResendPerTenantDailyCap` (200).
 
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL

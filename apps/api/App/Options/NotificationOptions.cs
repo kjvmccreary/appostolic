@@ -42,4 +42,16 @@ public sealed class NotificationOptions
     public int BulkResendMaxPerRequest { get; set; } = 100;
     // Per-tenant daily cap for resends (rolling 24h window)
     public int BulkResendPerTenantDailyCap { get; set; } = 500;
+
+    // Automated resend (Notif-32)
+    // Feature flag to enable automated detection and resend for "no-action" scenarios
+    public bool EnableAutoResend { get; set; } = false;
+    // How often the background service scans for candidates
+    public TimeSpan AutoResendScanInterval { get; set; } = TimeSpan.FromMinutes(5);
+    // Consider originals older than this window (since CreatedAt) for auto-resend
+    public TimeSpan AutoResendNoActionWindow { get; set; } = TimeSpan.FromHours(24);
+    // Hard cap per scan to avoid spikes
+    public int AutoResendMaxPerScan { get; set; } = 50;
+    // Per-tenant daily cap applied to automated resends (rolling 24h window)
+    public int AutoResendPerTenantDailyCap { get; set; } = 200;
 }
