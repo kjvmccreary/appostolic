@@ -1,3 +1,5 @@
+// Obsolete: manual migration placeholder excluded from build; superseded by scaffolded migration.
+#if false
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -22,3 +24,4 @@ CREATE UNIQUE INDEX ux_notifications_dedupe_key_active ON app.notifications(dedu
         }
     }
 }
+#endif

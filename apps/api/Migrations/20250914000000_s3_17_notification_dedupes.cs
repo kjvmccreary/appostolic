@@ -1,3 +1,5 @@
+// Obsolete: manual migration placeholder excluded from build; superseded by scaffolded migration.
+#if false
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -45,3 +47,4 @@ namespace Appostolic.Api.Migrations
         }
     }
 }
+#endif
