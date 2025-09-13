@@ -9,12 +9,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid tenant' }, { status: 400 });
   }
   const res = NextResponse.json({ ok: true });
-  // Cookie for 7 days, Lax, httpOnly=false so client can read current selection if needed
+  // Cookie for 7 days, Lax, httpOnly for security; client can use session.update to reflect selection
   res.cookies.set('selected_tenant', tenant, {
     path: '/',
-    httpOnly: false,
+    httpOnly: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
+    secure: process.env.NODE_ENV === 'production',
   });
   return res;
 }

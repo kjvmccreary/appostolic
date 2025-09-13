@@ -80,7 +80,7 @@ Key Tasks
 
 ---
 
-## Auth-04 — Two-Stage Login: /select-tenant
+## ✅ (DONE) Auth-04 — Two-Stage Login: /select-tenant
 
 Summary
 

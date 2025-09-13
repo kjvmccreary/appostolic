@@ -30,12 +30,16 @@ export const authOptions: NextAuthOptions & {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       const t = token as AppToken;
       if (user && (user as unknown as { memberships?: MembershipDto[] }).memberships) {
         t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
       }
       if (user?.email) t.email = user.email;
+      // Respect session.update({ tenant }) calls from the client switcher
+      if (trigger === 'update' && session && (session as unknown as { tenant?: string }).tenant) {
+        t.tenant = (session as unknown as { tenant?: string }).tenant;
+      }
       return t;
     },
     async session({ session, token }) {
