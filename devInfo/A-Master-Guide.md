@@ -116,6 +116,36 @@ Resend capability (after baseline outbox)
 
 ### Notif‑30 — Resend policy, throttling, and metrics (Completed)
 
+### Auth‑12 — API Integration Tests (Security & Flows) (Completed)
+
+Summary
+
+- Added integration tests covering auth flows and security contracts in the API test project:
+  - Signup happy/invalid
+  - Invites: create, list, resend, accept (signed-in and via signup)
+  - Members: list (Admin/Owner only), role change, remove, owner invariants
+  - Contract: unauthenticated `/api/*` returns 401/403; Swagger JSON remains public
+
+Deliverables
+
+- Tests under `apps/api.tests`:
+  - `Auth/SignupTests.cs`, `Auth/LoginTests.cs`
+  - `Api/InvitesEndpointsTests.cs`, `Api/InvitesAcceptTests.cs`
+  - `Api/MembersManagementTests.cs`, `Api/MembersListTests.cs` (new)
+  - `Security/AgentTasksAuthContractTests.cs`
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full suite 108/108)
+
+Requirements coverage
+
+- Signup OK/KO: Done
+- Invite create/list/resend/accept: Done
+- Members list/role change/remove + owner guardrails: Done
+- 401/403 contract and public Swagger: Done
+
 Summary
 
 - Implemented resend metrics and bulk header surfacing. No functional delivery changes; improved observability and policy clarity.
@@ -230,7 +260,7 @@ Tasks (completed)
 | ------------------ | ------------------------------------------------ | ----------------------------------- | ----------------------- |
 | ✅ (DONE) Auth‑10  | Proxy Header Mapping & Guards                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
 | ✅ (DONE) Auth‑11  | Route Protection (Role‑based)                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
-| Auth‑12            | API Integration Tests (Security & Flows)         | devInfo/AuthInfo/authSprintPlan.md  | Dev env tests           |
+| ✅ (DONE) Auth‑12  | API Integration Tests (Security & Flows)         | devInfo/AuthInfo/authSprintPlan.md  | Dev env tests           |
 | Auth‑13            | Web Tests (Sign‑up, Invite, Two‑Stage, Switcher) | devInfo/AuthInfo/authSprintPlan.md  | Vitest + RTL + MSW      |
 | Auth‑14            | Docs & Runbook Updates                           | devInfo/AuthInfo/authSprintPlan.md  | Flows + env vars        |
 | ✅ (DONE) Notif‑20 | E2E verification (outbox path)                   | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog |

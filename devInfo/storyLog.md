@@ -328,6 +328,35 @@ Requirements coverage
 - Quality gates: Build PASS; Tests PASS (102/102); Lint N/A.
 - Requirements coverage: history endpoint (Done), paging + X-Total-Count (Done), tenant scoping (Done), docs (Done).
 
+## Auth-12 — API Integration Tests (Security & Flows) — Completed
+
+Summary
+
+- Added API integration tests to validate core auth flows and security contracts. Covered signup (happy/invalid), invite lifecycle (create, list, resend, accept), members list/management (role changes, removal, owner invariants), and the unauthenticated 401/403 contract while keeping Swagger JSON public.
+
+Files changed
+
+- apps/api.tests/Auth/SignupTests.cs — existing
+- apps/api.tests/Auth/LoginTests.cs — existing
+- apps/api.tests/Api/InvitesEndpointsTests.cs — existing
+- apps/api.tests/Api/InvitesAcceptTests.cs — existing
+- apps/api.tests/Api/MembersManagementTests.cs — existing
+- apps/api.tests/Api/MembersListTests.cs — new (Owner 200, Viewer 403, Unauth 401/403)
+- apps/api.tests/Security/AgentTasksAuthContractTests.cs — existing
+- devInfo/A-Master-Guide.md — marked Auth‑12 DONE and added completion block
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (108/108)
+
+Requirements coverage
+
+- Signup OK/KO: Done
+- Invites lifecycle (create/list/resend/accept): Done
+- Members list/role change/remove + owner guardrails: Done
+- Unauthenticated contract (401/403) and public Swagger JSON: Done
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary

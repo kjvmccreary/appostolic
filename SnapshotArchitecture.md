@@ -8,6 +8,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
 - Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
 - Notif‑32: Automated resend service — background scanner detects "no‑action" originals (Sent and older than a window) and creates linked resends under caps/throttle. Feature‑gated via `Notifications:EnableAutoResend`.
+- Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (108/108).
 
 ## Monorepo overview
 
