@@ -52,16 +52,27 @@ public static class V1
             }
             else
             {
-                // Create personal tenant (slug: {localpart}-personal) if not exists
+                // Create a personal tenant for this user.
+                // Base slug: {localpart}-personal (lowercased). If taken, append a numeric suffix to ensure uniqueness.
                 var local = email.Split('@')[0].ToLowerInvariant();
-                var slug = $"{local}-personal";
-                var tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == slug)
-                             ?? new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = DateTime.UtcNow };
-                if (await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == tenant.Id) == false)
+                var baseSlug = $"{local}-personal";
+                var slug = baseSlug;
+                var attempt = 1;
+                while (await db.Tenants.AsNoTracking().AnyAsync(t => t.Name == slug))
                 {
-                    db.Tenants.Add(tenant);
-                    await db.SaveChangesAsync();
+                    attempt++;
+                    slug = $"{baseSlug}-{attempt}";
                 }
+
+                var tenant = new Tenant
+                {
+                    Id = Guid.NewGuid(),
+                    Name = slug,
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.Tenants.Add(tenant);
+                await db.SaveChangesAsync();
+
                 tenantId = tenant.Id;
                 role = MembershipRole.Owner;
             }
