@@ -107,7 +107,7 @@ Resend capability (after baseline outbox)
 | ✅ (DONE) Notif‑28 | Manual resend endpoint (single) | devInfo/Sendgrid/notifSprintPlan.md | 201/429; tenant‑scoped; links to original; tests green |
 | ✅ (DONE) Notif‑29 | Bulk resend endpoint | devInfo/Sendgrid/notifSprintPlan.md | Caps + batching |
 | ✅ (DONE) Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
-| Notif‑31 | Resend history and admin UI hooks (API) | devInfo/Sendgrid/notifSprintPlan.md | History per original |
+| ✅ (DONE) Notif‑31 | Resend history and admin UI hooks (API) | devInfo/Sendgrid/notifSprintPlan.md | History per original |
 | Notif‑32 | Automated resend (no‑action detector) [optional] | devInfo/Sendgrid/notifSprintPlan.md | Scheduled job rules |
 
 ---
@@ -125,6 +125,28 @@ Deliverables
 - Metrics: email.resend.total, email.resend.throttled.total, email.resend.batch.size with consistent tags (kind, mode, tenant_scope, outcome).
 - Header: X‑Resend‑Remaining for bulk when tenant context is known.
 - Tests cover header presence and metrics emission; full suite passed.
+
+### Notif‑31 — Resend history and admin UI hooks (Completed)
+
+Summary
+
+- Added resend history endpoint to support admin UX: `GET /api/notifications/{id}/resends` returns child resends linked to an original. Enforces tenant scoping (non‑superadmin limited to current tenant; superadmin may view across tenants).
+
+Deliverables
+
+- API: Endpoint under `NotificationsAdminEndpoints` with paging (`take`/`skip`), `X‑Total‑Count` header, and ordering by `CreatedAt DESC`.
+- Tests: Integration test verifies paging, ordering, and tenant scoping.
+- Docs: SnapshotArchitecture updated; story log updated.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full suite 102/102)
+
+Requirements coverage
+
+- History endpoint returns child resends with correct scoping and paging: Done.
+- Header `X‑Total‑Count` present and count reflects total before paging: Done.
 
 ### Notif‑27 — Outbox schema extension for Resend (Completed)
 

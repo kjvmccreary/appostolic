@@ -5,6 +5,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
+- Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
+- Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
 
 ## Monorepo overview
 
@@ -227,6 +229,11 @@ Endpoints:
   `email.resend.throttled.total` (same tags), and histogram `email.resend.batch.size` (tags: tenant_scope, and kind when filtered).
 - Bulk header: `X-Resend-Remaining` on `/api/notifications/resend-bulk` reflects remaining per-tenant daily cap when tenant context is known.
 
+- Resend history (Notif‑31):
+  - `GET /api/notifications/{id}/resends` lists child resend notifications linked to the original.
+  - Paging via `take`/`skip`; sets `X‑Total‑Count` header; ordered by `CreatedAt DESC`.
+  - Tenant scoping enforced: non‑superadmin limited to current tenant; superadmin may view across tenants.
+
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL
 - Template renderer: `ScribanTemplateRenderer`
@@ -286,6 +293,11 @@ Prod admin endpoints (Notif‑24):
   - Superadmin: allowed.
 - `POST /api/notifications/{id}/retry` — retry Failed/DeadLetter
   - Transitions to `Queued` and nudges dispatcher; enforces same tenant/superadmin gating.
+
+- `GET /api/notifications/{id}/resends` (Notif‑31)
+  - Returns child resends for an original; ordered latest-first.
+  - Paging via `take`/`skip`; sets `X‑Total‑Count`.
+  - Tenant scoping as above; superadmin cross‑tenant allowed.
 
 Access control:
 

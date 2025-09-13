@@ -126,6 +126,51 @@ public static class NotificationsAdminEndpoints
         })
         .WithSummary("Notification details (tenant-scoped or superadmin)");
 
+        // GET /api/notifications/{id}/resends
+        group.MapGet("/{id:guid}/resends", async (
+            Guid id,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            HttpRequest req,
+            HttpResponse resp,
+            CancellationToken ct) =>
+        {
+            var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+
+            var original = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (original is null) return Results.NotFound();
+
+            if (!isSuper)
+            {
+                var tenantIdStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(tenantIdStr, out var tenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+                if (original.TenantId != tenantId) return Results.Forbid();
+            }
+
+            // Paging
+            int take = 50;
+            int skip = 0;
+            if (req.Query.TryGetValue("take", out var takeVals) && int.TryParse(takeVals.ToString(), out var t) && t > 0 && t <= 500)
+                take = t;
+            if (req.Query.TryGetValue("skip", out var skipVals) && int.TryParse(skipVals.ToString(), out var s) && s >= 0)
+                skip = s;
+
+            var q = db.Notifications.AsNoTracking()
+                .Where(n => n.ResendOfNotificationId == id)
+                .OrderByDescending(n => n.CreatedAt);
+
+            var total = await q.CountAsync(ct);
+            var items = await q.Skip(skip).Take(take)
+                .Select(n => new NotificationAdminListItem(
+                    n.Id, n.Kind, n.ToEmail, n.ToName, n.Status, n.AttemptCount, n.CreatedAt, n.SentAt, n.NextAttemptAt, n.LastError, n.TenantId, n.DedupeKey))
+                .ToListAsync(ct);
+
+            resp.Headers.Append("X-Total-Count", total.ToString());
+            return Results.Ok(items);
+        })
+        .WithSummary("Resend history for a notification (tenant-scoped or superadmin)")
+        .WithDescription("Lists child notifications created via resend for the given original id, newest first. Supports paging via take/skip.");
+
         // POST /api/notifications/{id}/retry
         group.MapPost("/{id:guid}/retry", async (
             Guid id,

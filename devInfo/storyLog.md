@@ -317,6 +317,17 @@ Requirements coverage
 - Vendor/Subprocessor compliance doc created with SendGrid listed: Done.
 - Architecture cross-links added for discoverability: Done.
 
+## Notif-31 — Resend history and admin UI hooks (Completed)
+
+- Summary: Implemented `GET /api/notifications/{id}/resends` to list child resends for an original notification. Supports paging via `take`/`skip`, returns `X-Total-Count`, orders by `CreatedAt DESC`, and enforces tenant scoping (non‑superadmin limited to current tenant; superadmin may view across tenants).
+- Files changed:
+  - apps/api/App/Endpoints/NotificationsAdminEndpoints.cs (new history route)
+  - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs (history paging/scoping test)
+  - SnapshotArchitecture.md (API surface + Notifications updates)
+  - devInfo/A-Master-Guide.md (mark DONE with completion block)
+- Quality gates: Build PASS; Tests PASS (102/102); Lint N/A.
+- Requirements coverage: history endpoint (Done), paging + X-Total-Count (Done), tenant scoping (Done), docs (Done).
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary

@@ -157,6 +157,49 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
+    public async Task Resend_history_lists_children_with_paging_and_scoping()
+    {
+        using var localFactory = new WebAppFactory();
+        using var app = localFactory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var original = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "h1@x.com", DataJson = "{}", Status = NotificationStatus.Sent, TenantId = tenantId, CreatedAt = now.AddMinutes(-20), UpdatedAt = now.AddMinutes(-20) };
+        db.Notifications.Add(original);
+        var children = Enumerable.Range(0, 3).Select(i => new Notification
+        {
+            Id = Guid.NewGuid(),
+            Kind = EmailKind.Verification,
+            ToEmail = "h1@x.com",
+            DataJson = "{}",
+            Status = NotificationStatus.Queued,
+            TenantId = tenantId,
+            CreatedAt = now.AddMinutes(-i),
+            UpdatedAt = now.AddMinutes(-i),
+            ResendOfNotificationId = original.Id
+        }).ToList();
+        db.Notifications.AddRange(children);
+        await db.SaveChangesAsync();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        var r1 = await client.GetAsync($"/api/notifications/{original.Id}/resends?take=2&skip=0");
+        r1.StatusCode.Should().Be(HttpStatusCode.OK);
+        r1.Headers.Contains("X-Total-Count").Should().BeTrue();
+        var page1 = await r1.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+        page1.Count.Should().Be(2);
+
+        var r2 = await client.GetAsync($"/api/notifications/{original.Id}/resends?take=2&skip=2");
+        r2.StatusCode.Should().Be(HttpStatusCode.OK);
+        var page2 = await r2.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+        page2.Count.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Resend_metrics_emitted_for_manual_and_bulk()
     {
         using var localFactory = new WebAppFactory();
