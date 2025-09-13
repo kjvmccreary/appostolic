@@ -114,6 +114,33 @@ Resend capability (after baseline outbox)
 
 ## Phase 4 — E2E hardening and docs
 
+### Notif‑27 — Outbox schema extension for Resend (In progress)
+
+Summary
+
+- Extend notifications outbox to record resend relationships and enable safe resend policies later. Adds a self‑referencing FK and operational fields without changing existing send flow.
+
+Acceptance criteria
+
+- Schema includes:
+  - `resend_of_notification_id UUID NULL` (FK → notifications.id, on delete no action)
+  - `resend_reason TEXT NULL`
+  - `resend_count INT NOT NULL DEFAULT 0`
+  - `last_resend_at TIMESTAMPTZ NULL`
+  - `throttle_until TIMESTAMPTZ NULL`
+- Indexes created:
+  - `(resend_of_notification_id)`
+  - `(to_email, kind, created_at DESC)` to assist future resend queries
+- EF migration applies cleanly in Development; snapshot updated.
+- No behavior change to dispatch; retention/dedupe/encryption remain compatible.
+
+Tasks
+
+- Update EF model/config (self‑FK + columns); generate migration and indexes.
+- Verify encryption toggles still apply to subject/body when set; new columns are plaintext metadata.
+- Confirm retention logic ignores child relationships; children are purged by their own age.
+- Add minimal tests: entity mapping, index presence (where feasible), and basic insert with `resend_of_notification_id`.
+
 | Story ID           | Title                                            | Source                              | Notes/Dependencies      |
 | ------------------ | ------------------------------------------------ | ----------------------------------- | ----------------------- |
 | ✅ (DONE) Auth‑10  | Proxy Header Mapping & Guards                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
