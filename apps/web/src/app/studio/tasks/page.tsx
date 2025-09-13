@@ -1,6 +1,7 @@
 import { TaskFilters } from './components/TaskFilters';
 import { TasksTable, type TaskSummary } from './components/TasksTable';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,9 @@ async function fetchTasks(sp: SearchParams): Promise<{ items: TaskSummary[]; tot
   const { apiParams, statuses } = splitStatuses(sp);
   const qs = toQueryString(apiParams);
   const res = await fetchFromProxy(`/api-proxy/agent-tasks?${qs}`);
+  if (res.status === 401) {
+    redirect('/select-tenant');
+  }
   if (!res.ok) throw new Error(`Failed to load tasks: ${res.status}`);
   const totalHeader = res.headers.get('x-total-count');
   const total = totalHeader ? Number(totalHeader) : undefined;
@@ -51,6 +55,9 @@ async function fetchTasks(sp: SearchParams): Promise<{ items: TaskSummary[]; tot
 type AgentListItem = { id: string; name: string };
 async function fetchAgents(): Promise<AgentListItem[]> {
   const res = await fetchFromProxy(`/api-proxy/agents?take=200`);
+  if (res.status === 401) {
+    redirect('/select-tenant');
+  }
   if (!res.ok) throw new Error(`Failed to load agents: ${res.status}`);
   return (await res.json()) as AgentListItem[];
 }

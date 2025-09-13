@@ -5,6 +5,7 @@ export const DEFAULT_TENANT =
   (process.env.DEFAULT_TENANT as string | undefined) ?? 'kevin-personal';
 
 const WEB_AUTH_ENABLED = (process.env.WEB_AUTH_ENABLED ?? 'false').toLowerCase() === 'true';
+const IS_SERVER = typeof window === 'undefined';
 
 function requireEnv(name: string, value: string | undefined) {
   if (!value || value.trim() === '') {
@@ -16,8 +17,9 @@ function requireEnv(name: string, value: string | undefined) {
 
 requireEnv('NEXT_PUBLIC_API_BASE', API_BASE);
 
-// Only require DEV headers when WEB_AUTH_ENABLED is false.
-if (!WEB_AUTH_ENABLED) {
+// Only require DEV headers when WEB_AUTH_ENABLED is false AND on the server.
+// Client bundles (e.g., /signup) shouldn't force DEV_* to be present.
+if (!WEB_AUTH_ENABLED && IS_SERVER) {
   requireEnv('DEV_USER', DEV_USER);
   requireEnv('DEV_TENANT', DEV_TENANT);
 }

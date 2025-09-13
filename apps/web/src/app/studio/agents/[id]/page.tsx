@@ -1,14 +1,21 @@
 import AgentForm, { type ToolItem, type AgentDetails } from '../components/AgentForm';
 import { fetchFromProxy } from '../../../../../app/lib/serverFetch';
+import { redirect } from 'next/navigation';
 
 async function loadTools(): Promise<ToolItem[]> {
   const res = await fetchFromProxy('/api-proxy/agents/tools');
+  if (res.status === 401) {
+    redirect('/select-tenant');
+  }
   if (!res.ok) throw new Error(`Failed to load tool catalog: ${res.status}`);
   return res.json();
 }
 
 async function loadAgent(id: string): Promise<AgentDetails> {
   const res = await fetchFromProxy(`/api-proxy/agents/${id}`);
+  if (res.status === 401) {
+    redirect('/select-tenant');
+  }
   if (!res.ok) throw new Error(`Failed to load agent: ${res.status}`);
   return res.json();
 }

@@ -8,7 +8,9 @@ export default function SignupPage() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get('next') || '/select-tenant';
-  const inviteToken = params.get('token') || '';
+  // Accept multiple param aliases for compatibility: invite (emails), inviteToken, token
+  const inviteToken =
+    params.get('invite') || params.get('inviteToken') || params.get('token') || '';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,15 +23,24 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const body: Record<string, unknown> = { email, password };
-      if (inviteToken) body.token = inviteToken;
+      if (inviteToken) body.inviteToken = inviteToken;
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const text = await res.text().catch(() => 'Signup failed');
-        setError(text || 'Signup failed');
+        // Try to surface a useful message from JSON { error }
+        let message = 'Signup failed';
+        try {
+          const data = await res.json();
+          if (data?.error && typeof data.error === 'string') message = data.error;
+          else message = JSON.stringify(data);
+        } catch {
+          const text = await res.text().catch(() => '');
+          if (text) message = text;
+        }
+        setError(message);
         return;
       }
       // Auto sign-in with entered credentials, then move to next step

@@ -11,6 +11,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (108/108).
 - Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (17/17 files; 38 assertions). Coverage ~92% lines.
 - Auth‑14: Documentation updates — README gains an Authentication (dev) section; RUNBOOK adds an "Authentication flows (operations)" run guide. See README “Authentication (dev)” and RUNBOOK “Authentication flows (operations)”.
+- Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
 
 ## Monorepo overview
 
@@ -179,6 +180,11 @@ appostolic/
 - Next.js 14 (App Router); server-only proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS
 - Env validation: `src/lib/serverEnv.ts` ensures `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`
 - Dev pages: `/dev/agents`, Agent Studio under `/studio/agents`
+- Server fetch helper: `app/lib/serverFetch.ts` exports `fetchFromProxy()` which:
+  - Builds an absolute base URL from request headers (`x-forwarded-host`/`x-forwarded-proto`) or `NEXT_PUBLIC_WEB_BASE` when provided
+  - Forwards cookies so NextAuth session reaches the proxy
+  - Disables cache by default (`no-store`) with `next: { revalidate: 0 }`
+    Use this helper in server components and server actions to call internal `/api-proxy/*` routes. Avoid `fetch('/api-proxy/...')` directly in server code to prevent URL parse errors.
 
 ### Mobile (`apps/mobile`) and Render Worker (`apps/render-worker`)
 
@@ -878,6 +884,7 @@ Dev auth for API testing:
 - 401 on `/api/*`: send `x-dev-user` and `x-tenant` headers; if you haven’t seeded, run `make seed` (or `make bootstrap`)
 - Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
 - Postgres connection errors: ensure Docker is up and port `55432` matches env
+- Next.js server error “Failed to parse URL from /api-proxy/…”: A server component used a relative fetch to a Next API route. Fix by using `fetchFromProxy('/api-proxy/...')` from `app/lib/serverFetch.ts` (which builds an absolute URL from headers), or set `NEXT_PUBLIC_WEB_BASE` and restart the web server.
 
 Node/pnpm engines:
 

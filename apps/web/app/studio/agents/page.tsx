@@ -1,11 +1,16 @@
 import Link from 'next/link';
 import { fetchFromProxy } from '../../lib/serverFetch';
+import { redirect } from 'next/navigation';
 import { AgentsTable, type AgentListItem } from './components/AgentsTable';
 
 export const dynamic = 'force-dynamic';
 
 async function fetchAgents(): Promise<AgentListItem[]> {
   const res = await fetchFromProxy('/api-proxy/agents?take=50');
+  if (res.status === 401) {
+    // No session or missing tenant when WEB_AUTH_ENABLED=true → send to selector
+    redirect('/select-tenant');
+  }
   if (!res.ok) throw new Error(`Failed to load agents: ${res.status}`);
   return res.json();
 }

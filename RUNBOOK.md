@@ -96,6 +96,7 @@ Troubleshooting
   - Create `apps/web/.env.local` with `NEXT_PUBLIC_API_BASE=http://localhost:5198`; restart web dev server.
 - 401/redirects on protected pages
   - Ensure `WEB_AUTH_ENABLED=true` and `AUTH_SECRET` are set in `apps/web/.env.local`.
+  - If you’re signed in but haven’t chosen a tenant yet, protected server pages that call `/api-proxy/*` will redirect you to `/select-tenant`. Pick a tenant and you’ll be navigated to `/studio`.
 - API signup fails with 500/400
   - Check API logs for `Auth:PasswordPepper` presence (set via environment or `appsettings.Development.json`).
   - Ensure database is migrated/seeded: `make bootstrap`.

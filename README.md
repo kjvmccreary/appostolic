@@ -159,6 +159,7 @@ Troubleshooting:
 
 - Web shows “Missing required env var NEXT_PUBLIC_API_BASE”: create `apps/web/.env.local` with `NEXT_PUBLIC_API_BASE=http://localhost:5198` and restart the dev server.
 - Redirect loops or 401s on protected routes: ensure `WEB_AUTH_ENABLED=true` and `AUTH_SECRET` are set for the web app; see RUNBOOK “Web authentication & route protection”.
+- Missing tenant after sign-in: if a protected page returns 401 due to no tenant selected, the page will redirect to `/select-tenant`. Choose a tenant (or it auto-selects if you have one) and you’ll be taken to `/studio`.
 - Invite accept requires auth: if you see a redirect to `/login`, sign in first, then revisit `/invite/accept?token=...`.
 
 ---

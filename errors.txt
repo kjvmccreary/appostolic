@@ -1,50 +1,789 @@
-
-
-1 of 1 error
-Next.js (14.2.32) is outdated (learn more)
-
-Unhandled Runtime Error
-Error: Failed to parse URL from /api-proxy/agents?take=50
-
-Source
-Next.js
-app/studio/agents/page.tsx (7:21) @ fetch
-
-   5 |
-   6 | async function fetchAgents(): Promise<AgentListItem[]> {
->  7 |   const res = await fetch(`/api-proxy/agents?take=50`, {
-     |                     ^
-   8 |     cache: 'no-store',
-   9 |     next: { revalidate: 0 },
-  10 |   });
-Call Stack
-fetchAgents
-app/studio/agents/page.tsx (16:23)
-Next.js
-e_
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264164)
-e
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268296)
-eF
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268784)
-eq
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:274748)
-ej
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264992)
-e_
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:264034)
-e
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268296)
-eF
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:268784)
-<unknown>
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266015)
-Array.toJSON
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266479)
-eq
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:274847)
-eJ
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:275365)
-Timeout._onTimeout
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:283454)
-Hide collapsed frames
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:54a27575-128c-4777-9774-3bda4e71e14d)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:54a27575-128c-4777-9774-3bda4e71e14d)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:cb78dfe9-b220-4a47-a1d4-6bb9c7bc09ba)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:cb78dfe9-b220-4a47-a1d4-6bb9c7bc09ba)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:command, name:logEvent, id:444f9bb0-5b8a-4a94-987e-2edb3e56cf04)
+signup:1 Access to fetch at 'http://localhost:5198/api/auth/signup' from origin 'http://localhost:3000' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+frame_ant.js:2  POST http://localhost:5198/api/auth/signup net::ERR_FAILED
+window.fetch @ frame_ant.js:2
+onSubmit @ page.tsx:25
+callCallback @ react-dom.development.js:20565
+invokeGuardedCallbackImpl @ react-dom.development.js:20614
+invokeGuardedCallback @ react-dom.development.js:20689
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:20703
+executeDispatch @ react-dom.development.js:32128
+processDispatchQueueItemsInOrder @ react-dom.development.js:32160
+processDispatchQueue @ react-dom.development.js:32173
+dispatchEventsForPlugins @ react-dom.development.js:32184
+eval @ react-dom.development.js:32374
+batchedUpdates$1 @ react-dom.development.js:24953
+batchedUpdates @ react-dom.development.js:28844
+dispatchEventForPluginEventSystem @ react-dom.development.js:32373
+dispatchEvent @ react-dom.development.js:30141
+dispatchDiscreteEvent @ react-dom.development.js:30112
+frame_ant.js:2   Uncaught (in promise) TypeError: Failed to fetch
+    at window.fetch (frame_ant.js:2:14027)
+    at onSubmit (page.tsx:25:25)
+    at HTMLUnknownElement.callCallback (react-dom.development.js:20565:14)
+    at Object.invokeGuardedCallbackImpl (react-dom.development.js:20614:16)
+    at invokeGuardedCallback (react-dom.development.js:20689:29)
+    at invokeGuardedCallbackAndCatchFirstError (react-dom.development.js:20703:25)
+    at executeDispatch (react-dom.development.js:32128:3)
+    at processDispatchQueueItemsInOrder (react-dom.development.js:32160:7)
+    at processDispatchQueue (react-dom.development.js:32173:5)
+    at dispatchEventsForPlugins (react-dom.development.js:32184:3)
+    at eval (react-dom.development.js:32374:12)
+    at batchedUpdates$1 (react-dom.development.js:24953:12)
+    at batchedUpdates (react-dom.development.js:28844:12)
+    at dispatchEventForPluginEventSystem (react-dom.development.js:32373:3)
+    at dispatchEvent (react-dom.development.js:30141:5)
+    at dispatchDiscreteEvent (react-dom.development.js:30112:5)
+window.fetch @ frame_ant.js:2
+onSubmit @ page.tsx:25
+callCallback @ react-dom.development.js:20565
+invokeGuardedCallbackImpl @ react-dom.development.js:20614
+invokeGuardedCallback @ react-dom.development.js:20689
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:20703
+executeDispatch @ react-dom.development.js:32128
+processDispatchQueueItemsInOrder @ react-dom.development.js:32160
+processDispatchQueue @ react-dom.development.js:32173
+dispatchEventsForPlugins @ react-dom.development.js:32184
+eval @ react-dom.development.js:32374
+batchedUpdates$1 @ react-dom.development.js:24953
+batchedUpdates @ react-dom.development.js:28844
+dispatchEventForPluginEventSystem @ react-dom.development.js:32373
+dispatchEvent @ react-dom.development.js:30141
+dispatchDiscreteEvent @ react-dom.development.js:30112
+frame_ant.js:2   Uncaught (in promise) TypeError: Failed to fetch
+    at window.fetch (frame_ant.js:2:14027)
+    at onSubmit (page.tsx:25:25)
+    at HTMLUnknownElement.callCallback (react-dom.development.js:20565:14)
+    at Object.invokeGuardedCallbackImpl (react-dom.development.js:20614:16)
+    at invokeGuardedCallback (react-dom.development.js:20689:29)
+    at invokeGuardedCallbackAndCatchFirstError (react-dom.development.js:20703:25)
+    at executeDispatch (react-dom.development.js:32128:3)
+    at processDispatchQueueItemsInOrder (react-dom.development.js:32160:7)
+    at processDispatchQueue (react-dom.development.js:32173:5)
+    at dispatchEventsForPlugins (react-dom.development.js:32184:3)
+    at eval (react-dom.development.js:32374:12)
+    at batchedUpdates$1 (react-dom.development.js:24953:12)
+    at batchedUpdates (react-dom.development.js:28844:12)
+    at dispatchEventForPluginEventSystem (react-dom.development.js:32373:3)
+    at dispatchEvent (react-dom.development.js:30141:5)
+    at dispatchDiscreteEvent (react-dom.development.js:30112:5)
+window.fetch @ frame_ant.js:2
+onSubmit @ page.tsx:25
+callCallback @ react-dom.development.js:20565
+invokeGuardedCallbackImpl @ react-dom.development.js:20614
+invokeGuardedCallback @ react-dom.development.js:20689
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:20703
+executeDispatch @ react-dom.development.js:32128
+processDispatchQueueItemsInOrder @ react-dom.development.js:32160
+processDispatchQueue @ react-dom.development.js:32173
+dispatchEventsForPlugins @ react-dom.development.js:32184
+eval @ react-dom.development.js:32374
+batchedUpdates$1 @ react-dom.development.js:24953
+batchedUpdates @ react-dom.development.js:28844
+dispatchEventForPluginEventSystem @ react-dom.development.js:32373
+dispatchEvent @ react-dom.development.js:30141
+dispatchDiscreteEvent @ react-dom.development.js:30112
+background-framework.js:1 [background/framework] Processing incoming request passwordLimit.getPasswordLimitStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request passwordLimit.getPasswordLimitStatus (id: 0.8168983881223185)
+frame_ant.js:2  GET http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=chrome-extension%3A%2F%2Fhoklmmgfnpapgjgcpechhaamimifchmp%2Fframe_ant%2Fframe_ant.js&methodName=window.fetch&arguments=&lineNumber=2&column=14027 400 (Bad Request)
+window.fetch @ frame_ant.js:2
+_getOriginalStackFrame @ stack-frame.js:35
+getOriginalStackFrame @ stack-frame.js:68
+eval @ stack-frame.js:83
+getOriginalStackFrames @ stack-frame.js:83
+getErrorByType @ getErrorByType.js:24
+eval @ Errors.js:108
+commitHookEffectListMount @ react-dom.development.js:21102
+commitHookPassiveMountEffects @ react-dom.development.js:23154
+commitPassiveMountOnFiber @ react-dom.development.js:23259
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23256
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23370
+recursivelyTraversePassiveMountEffects @ react-dom.development.js:23237
+commitPassiveMountOnFiber @ react-dom.development.js:23267
+commitPassiveMountEffects @ react-dom.development.js:23225
+flushPassiveEffectsImpl @ react-dom.development.js:26497
+flushPassiveEffects @ react-dom.development.js:26438
+commitRootImpl @ react-dom.development.js:26337
+commitRoot @ react-dom.development.js:26077
+performSyncWorkOnRoot @ react-dom.development.js:24925
+flushSyncWorkAcrossRoots_impl @ react-dom.development.js:7758
+flushSyncWorkOnAllRoots @ react-dom.development.js:7718
+commitRootImpl @ react-dom.development.js:26369
+commitRoot @ react-dom.development.js:26077
+commitRootWhenReady @ react-dom.development.js:24749
+finishConcurrentRender @ react-dom.development.js:24714
+performConcurrentWorkOnRoot @ react-dom.development.js:24559
+workLoop @ scheduler.development.js:256
+flushWork @ scheduler.development.js:225
+performWorkUntilDeadline @ scheduler.development.js:534
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8168983881223185)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f2080eef-81e4-4aeb-a019-ab084266a451)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f87ccef7-bcd5-4d8a-862e-253915cfc491)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:5c2db3ac-dad5-4ead-83b2-2c6577a90e32)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f2080eef-81e4-4aeb-a019-ab084266a451)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f87ccef7-bcd5-4d8a-862e-253915cfc491)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:5c2db3ac-dad5-4ead-83b2-2c6577a90e32)
+background-framework.js:1 [background/framework] Processing incoming request featureFlips.userFeatureFlip (id: 0.8152997311797323)
+background-framework.js:1 [background/framework] Done processing incoming request featureFlips.userFeatureFlip (id: 0.8152997311797323)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:4913138a-66a1-49d9-811b-0c896e7dd90f)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:4913138a-66a1-49d9-811b-0c896e7dd90f)
+background-framework.js:1 [background/framework] Processing incoming request passwordLimit.isFreeUserFrozen (id: 0.5184114887470695)
+background-framework.js:1 [background/framework] Done processing incoming request passwordLimit.isFreeUserFrozen (id: 0.5184114887470695)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.5184114887470695)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.5184114887470695)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:ee5c1729-382a-4827-9b7e-66149a7a47b2)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:ee5c1729-382a-4827-9b7e-66149a7a47b2)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.2825056158928969)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:023c2cf5-e40c-4a48-8d99-03f26e38311c)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:023c2cf5-e40c-4a48-8d99-03f26e38311c)
+frame_ant.js:2  GET http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=chrome-extension%3A%2F%2Fhoklmmgfnpapgjgcpechhaamimifchmp%2Fframe_ant%2Fframe_ant.js&methodName=window.fetch&arguments=&lineNumber=2&column=14027 400 (Bad Request)
+window.fetch @ frame_ant.js:2
+_getOriginalStackFrame @ stack-frame.js:35
+getOriginalStackFrame @ stack-frame.js:68
+eval @ stack-frame.js:83
+getOriginalStackFrames @ stack-frame.js:83
+getErrorByType @ getErrorByType.js:24
+eval @ Errors.js:108
+commitHookEffectListMount @ react-dom.development.js:21102
+invokePassiveEffectMountInDEV @ react-dom.development.js:23980
+invokeEffectsInDev @ react-dom.development.js:26852
+legacyCommitDoubleInvokeEffectsInDEV @ react-dom.development.js:26835
+commitDoubleInvokeEffectsInDEV @ react-dom.development.js:26816
+flushPassiveEffectsImpl @ react-dom.development.js:26514
+flushPassiveEffects @ react-dom.development.js:26438
+commitRootImpl @ react-dom.development.js:26337
+commitRoot @ react-dom.development.js:26077
+performSyncWorkOnRoot @ react-dom.development.js:24925
+flushSyncWorkAcrossRoots_impl @ react-dom.development.js:7758
+flushSyncWorkOnAllRoots @ react-dom.development.js:7718
+commitRootImpl @ react-dom.development.js:26369
+commitRoot @ react-dom.development.js:26077
+commitRootWhenReady @ react-dom.development.js:24749
+finishConcurrentRender @ react-dom.development.js:24714
+performConcurrentWorkOnRoot @ react-dom.development.js:24559
+workLoop @ scheduler.development.js:256
+flushWork @ scheduler.development.js:225
+performWorkUntilDeadline @ scheduler.development.js:534
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.8604856243198219)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.23900001790396497)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.1390502168786225)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.7179476811956349)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.8822125743813858)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.3480591844009281)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.43302855924491135)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.6835996623865801)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.8604856243198219)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.582876602619883)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.23900001790396497)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.08508922904628213)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.1390502168786225)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.8464508467846928)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.7179476811956349)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:2cb06197-57d4-4eb2-bb91-6cd81999242f)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.18434582756941342)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.8822125743813858)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:b8ed6130-486e-4a2b-89c4-8f075568133a)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.006297941371594451)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.3480591844009281)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:8482b0ce-f9ee-4bdd-b8b4-3d5b50dadea4)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.9445364323341945)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.43302855924491135)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:1d15412a-5698-4d44-a49f-2d5a90669d30)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.9299371383417172)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.6835996623865801)
+ [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:2cb06197-57d4-4eb2-bb91-6cd81999242f)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:5b889119-1946-4635-b50f-3f76863a2bfd)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.27126435687549755)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.582876602619883)
+ [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:b8ed6130-486e-4a2b-89c4-8f075568133a)
+ [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:aaf8466f-3a3c-48b6-a6d5-69316d3b4b5b)
+ [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.1932370188122129)
+ [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.08508922904628213)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:8482b0ce-f9ee-4bdd-b8b4-3d5b50dadea4)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:012e97c2-e3ce-411b-a604-d49163b0be88)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.7466399423530994)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.8464508467846928)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:1d15412a-5698-4d44-a49f-2d5a90669d30)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:289534da-6d7c-43a2-ad96-e37a4723f4e9)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.07993121171995599)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.18434582756941342)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:5b889119-1946-4635-b50f-3f76863a2bfd)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:fef1ec83-9e40-43fd-ba80-29e0fd9ffada)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.14617914624658157)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.006297941371594451)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:aaf8466f-3a3c-48b6-a6d5-69316d3b4b5b)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:2accd54b-0e4d-436e-b66d-284f4317f3c8)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.13273585629805884)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.9445364323341945)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:012e97c2-e3ce-411b-a604-d49163b0be88)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:7aad953b-902d-4106-9c1c-01bd0a30e1e0)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.9928319429659249)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.9299371383417172)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:289534da-6d7c-43a2-ad96-e37a4723f4e9)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:c4d3e5f6-2349-4cd4-8789-5f364d97124e)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.0576147816309005)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.27126435687549755)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:fef1ec83-9e40-43fd-ba80-29e0fd9ffada)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:ed985584-8d35-4968-b74b-8686a7d753ae)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.7839648985036008)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.1932370188122129)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:2accd54b-0e4d-436e-b66d-284f4317f3c8)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:f6a49bbc-efb1-414b-8ff0-9b9f4531316d)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.4047792710221475)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.7466399423530994)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:7aad953b-902d-4106-9c1c-01bd0a30e1e0)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:40f252f9-2905-4b11-9cd0-0ba5437ff77b)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.4500050377639654)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.07993121171995599)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:c4d3e5f6-2349-4cd4-8789-5f364d97124e)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:dfe577ff-72b6-40b1-a6b0-553f5c75898a)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.36241391693187186)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.14617914624658157)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:ed985584-8d35-4968-b74b-8686a7d753ae)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:fc47ef67-b5db-4d89-87c7-da5d49e24fcd)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.9003556713160871)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.13273585629805884)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:f6a49bbc-efb1-414b-8ff0-9b9f4531316d)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:c7c697c5-da6a-416b-aab6-6e0998e3194f)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getPlatformInfo (id: 0.5497528566163086)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.9928319429659249)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:40f252f9-2905-4b11-9cd0-0ba5437ff77b)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:8d5ad808-8315-43a1-8aab-6ce8ada9e186)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.0576147816309005)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:dfe577ff-72b6-40b1-a6b0-553f5c75898a)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:141002e1-2959-4f3f-8841-a942c41d88b4)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.7839648985036008)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:fc47ef67-b5db-4d89-87c7-da5d49e24fcd)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:b8cbf9c0-c63a-4137-8f61-477a22251b4c)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.4047792710221475)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:c7c697c5-da6a-416b-aab6-6e0998e3194f)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:d96261a8-4e8e-4791-bcf9-b72305383129)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.4500050377639654)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:8d5ad808-8315-43a1-8aab-6ce8ada9e186)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:07938527-7c63-45af-bf71-9ee63b31f4b4)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.36241391693187186)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:141002e1-2959-4f3f-8841-a942c41d88b4)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:4a52d37a-6392-4ac3-b34b-16cc8725d245)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.9003556713160871)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:b8cbf9c0-c63a-4137-8f61-477a22251b4c)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:056c12f8-3c9f-4380-9d6a-73cb23c5e7cf)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getPlatformInfo (id: 0.5497528566163086)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:d96261a8-4e8e-4791-bcf9-b72305383129)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:51b76d87-1846-405b-873f-a5b71be5bb28)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:07938527-7c63-45af-bf71-9ee63b31f4b4)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:f67512cc-b074-4476-83de-b32293c324aa)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:4a52d37a-6392-4ac3-b34b-16cc8725d245)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:26e8777b-3108-4d00-83a0-b36ad852d3a2)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:056c12f8-3c9f-4380-9d6a-73cb23c5e7cf)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getPlatformInfo, id:ae62c779-3d36-4308-8b0d-d311f1b84cd9)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:51b76d87-1846-405b-873f-a5b71be5bb28)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:f67512cc-b074-4476-83de-b32293c324aa)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:26e8777b-3108-4d00-83a0-b36ad852d3a2)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getPlatformInfo, id:ae62c779-3d36-4308-8b0d-d311f1b84cd9)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getPermissionForItem (id: 0.2825056158928969)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:command, name:getGlobalExtensionSettings, id:bac9f78f-78fd-46ea-bd26-5f9fbfece581)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:command, name:getGlobalExtensionSettings, id:bac9f78f-78fd-46ea-bd26-5f9fbfece581)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getAnalysisStatusOnUrl (id: 0.702249996853163)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getAnalysisStatusOnUrl (id: 0.702249996853163)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.702249996853163)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.702249996853163)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.702249996853163)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.702249996853163)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:f953b533-e953-4551-af5a-d0a12b504c64)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:f953b533-e953-4551-af5a-d0a12b504c64)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getAutofillSettings (id: 0.22223449980516663)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getAutofillSettings (id: 0.22223449980516663)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getUserAutofillCorrections (id: 0.38779705758069694)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getUserAutofillCorrections (id: 0.38779705758069694)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:2de77b31-da32-4f3e-ba85-22ad197baa57)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:2de77b31-da32-4f3e-ba85-22ad197baa57)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.7836083275224413)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:1103ef01-ed55-4186-abc0-00d1bf16dc48)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:1103ef01-ed55-4186-abc0-00d1bf16dc48)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.7836083275224413)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:8a39c7de-5b52-46d6-9dbf-10cd5b805ea4)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:8a39c7de-5b52-46d6-9dbf-10cd5b805ea4)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getSpaces, id:18aa9cf8-fd19-4835-92e6-e2ad91abea4a)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getSpaces, id:18aa9cf8-fd19-4835-92e6-e2ad91abea4a)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.5296644220477529)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f23373ec-ec98-43a7-af54-c591a8fa91a8)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:f23373ec-ec98-43a7-af54-c591a8fa91a8)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.7836083275224413)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request autofillSettings.getPreferencesForCredentials (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.5296644220477529)
+background-framework.js:1 [background/framework] Processing incoming request passwordLimit.getPasswordLimitStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Done processing incoming request passwordLimit.getPasswordLimitStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05185812320235195)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:fb0fa459-fc0f-4fcb-a558-287ca24028e7)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:3532cc59-8f0a-46c3-a848-32c68a8bbada)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:b37d5b13-43dc-4f4e-9bbb-f97a2ac53de1)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:fb0fa459-fc0f-4fcb-a558-287ca24028e7)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:3532cc59-8f0a-46c3-a848-32c68a8bbada)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:b37d5b13-43dc-4f4e-9bbb-f97a2ac53de1)
+background-framework.js:1 [background/framework] Processing incoming request featureFlips.userFeatureFlip (id: 0.6543945948046525)
+background-framework.js:1 [background/framework] Done processing incoming request featureFlips.userFeatureFlip (id: 0.6543945948046525)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:9d8021ab-aa5c-4301-a797-ea34950a09f8)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:9d8021ab-aa5c-4301-a797-ea34950a09f8)
+background-framework.js:1 [background/framework] Processing incoming request passwordLimit.isFreeUserFrozen (id: 0.1751382340581784)
+background-framework.js:1 [background/framework] Done processing incoming request passwordLimit.isFreeUserFrozen (id: 0.1751382340581784)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.1751382340581784)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.1751382340581784)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:92ebe70f-0926-44d3-9977-dcfc60cf0947)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:92ebe70f-0926-44d3-9977-dcfc60cf0947)
+background-framework.js:1 [background/framework] Processing incoming request vaultItemsCrud.richIconsEnabled (id: 0.1360999512758515)
+background-framework.js:1 [background/framework] Done processing incoming request vaultItemsCrud.richIconsEnabled (id: 0.1360999512758515)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.1360999512758515)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.1360999512758515)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:feeb18e0-6334-4701-a512-36beb4d02269)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:feeb18e0-6334-4701-a512-36beb4d02269)
+background-framework.js:1 [background/framework] Processing incoming request icons.fetchIconsForMultipleDomains (id: 0.0936099714080898)
+background-framework.js:1 [background/framework] Processing incoming request icons.getIconsForMultipleDomains (id: 0.6938330874165783)
+background-framework.js:1 [background/framework] Done processing incoming request icons.fetchIconsForMultipleDomains (id: 0.0936099714080898)
+background-framework.js:1 [background/framework] Done processing incoming request icons.getIconsForMultipleDomains (id: 0.6938330874165783)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.7592128442469488)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:2cf4c8b8-e799-49e2-a8fa-79763db48891)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:2cf4c8b8-e799-49e2-a8fa-79763db48891)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.8158100659273864)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:45d2b684-03f2-4a99-be27-dd0f70775c42)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:45d2b684-03f2-4a99-be27-dd0f70775c42)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.8158100659273864)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.carbonState (id: 0.7592128442469488)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.carbonState (id: 0.7592128442469488)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getIsSSOUser, id:71d4dbce-25d4-434a-a2c3-2190cbc09484)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getIsSSOUser, id:71d4dbce-25d4-434a-a2c3-2190cbc09484)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getAccountAuthenticationType, id:90875e83-7219-44f9-9715-e305f3240cb0)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getAccountAuthenticationType, id:90875e83-7219-44f9-9715-e305f3240cb0)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getSpaces, id:b30b24a2-2fcf-4d70-bd66-cf816afd492f)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getSpaces, id:b30b24a2-2fcf-4d70-bd66-cf816afd492f)
+background-framework.js:1 [background/framework] Processing incoming request featureFlips.userFeatureFlip (id: 0.8532067102213504)
+background-framework.js:1 [background/framework] Done processing incoming request featureFlips.userFeatureFlip (id: 0.8532067102213504)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getUserLoginStatus, id:020f5d82-51d9-4f2f-aabc-0bc2e51b0d29)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getUserLoginStatus, id:020f5d82-51d9-4f2f-aabc-0bc2e51b0d29)
+background-framework.js:1 [background/framework] Processing incoming request autofillData.searchAutofillData (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request autofillData.searchAutofillData (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request vaultSearch.search (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request vaultSearch.search (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request vaultOrganization.queryCollections (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request vaultOrganization.queryCollections (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request sharingCollections.sharedCollectionsWithItems (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request sharingItems.getSharedItems (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request carbon-legacy.getNodePremiumStatus (id: 0.05113717906994686)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:query, name:getNodePremiumStatus, id:b7a8abfd-94f7-4e70-a6bc-b955ac1e5a9f)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:query, name:getNodePremiumStatus, id:b7a8abfd-94f7-4e70-a6bc-b955ac1e5a9f)
+background-framework.js:1 [background/framework] Done processing incoming request sharingItems.getSharedItems (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-framework.js:1 [background/framework] Done processing incoming request linkedWebsites.getDashlaneDefinedLinkedWebsites (id: 0.05113717906994686)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:command, name:logEvent, id:444f9bb0-5b8a-4a94-987e-2edb3e56cf04)
+background-legacy.js:42 [background/carbon] Processing CarbonApi request (type:command, name:logEvent, id:486d1708-ee8c-446e-909c-e013b8b88854)
+background-legacy.js:42 [background/carbon] Done processing CarbonApi request (type:command, name:logEvent, id:486d1708-ee8c-446e-909c-e013b8b88854)
