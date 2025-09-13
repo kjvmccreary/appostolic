@@ -11,4 +11,5 @@ public partial class AppDbContext : DbContext
 
     // Notifications outbox
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationDedupe> NotificationDedupes => Set<NotificationDedupe>();
 }

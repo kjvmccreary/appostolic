@@ -107,6 +107,7 @@ builder.Services.Configure<ModelPricingOptions>(builder.Configuration.GetSection
 builder.Services.Configure<Appostolic.Api.App.Options.EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<Appostolic.Api.App.Options.SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<Appostolic.Api.App.Options.NotificationOptions>(builder.Configuration.GetSection("Notifications"));
 // Provide Development-friendly defaults for SMTP if not configured (Mailhog)
 if (builder.Environment.IsDevelopment())
 {
@@ -128,6 +129,8 @@ builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatch
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationDispatcherHostedService>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailDedupeStore, Appostolic.Api.App.Notifications.InMemoryEmailDedupeStore>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationsPurger, Appostolic.Api.App.Notifications.NotificationsPurger>();
+builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationsPurgeHostedService>();
 builder.Services.AddHttpClient("sendgrid");
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SendGridEmailSender>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ISmtpClientFactory, Appostolic.Api.App.Notifications.DefaultSmtpClientFactory>();

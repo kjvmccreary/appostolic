@@ -324,7 +324,7 @@ namespace Appostolic.Api.Migrations
                     b.HasIndex("DedupeKey")
                         .IsUnique()
                         .HasDatabaseName("ux_notifications_dedupe_key_active")
-                        .HasFilter("dedupe_key IS NOT NULL AND status IN ('Queued','Sending','Sent')");
+                        .HasFilter("dedupe_key IS NOT NULL AND status IN ('Queued','Sending')");
 
                     b.HasIndex("Status", "NextAttemptAt")
                         .HasDatabaseName("ix_notifications_status_next_attempt");
@@ -334,6 +334,37 @@ namespace Appostolic.Api.Migrations
                         .HasDatabaseName("ix_notifications_tenant_created");
 
                     b.ToTable("notifications", "app");
+                });
+
+            modelBuilder.Entity("Appostolic.Api.Domain.Notifications.NotificationDedupe", b =>
+                {
+                    b.Property<string>("DedupeKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("dedupe_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.HasKey("DedupeKey");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_notification_dedupes_expires");
+
+                    b.ToTable("notification_dedupes", "app");
                 });
 
             modelBuilder.Entity("Invitation", b =>

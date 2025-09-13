@@ -20,14 +20,50 @@ public interface INotificationOutbox
 public sealed class EfNotificationOutbox : INotificationOutbox
 {
     private readonly AppDbContext _db;
+    private readonly Appostolic.Api.App.Options.NotificationOptions _options;
 
-    public EfNotificationOutbox(AppDbContext db)
+    public EfNotificationOutbox(AppDbContext db, Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationOptions> options)
     {
         _db = db;
+        _options = options.Value;
     }
 
     public async Task<Guid> CreateQueuedAsync(EmailMessage message, CancellationToken ct = default)
     {
+        var now = DateTimeOffset.UtcNow;
+        // First, claim dedupe key if provided (TTL window)
+        if (!string.IsNullOrWhiteSpace(message.DedupeKey))
+        {
+            var dd = new Appostolic.Api.Domain.Notifications.NotificationDedupe
+            {
+                DedupeKey = message.DedupeKey!,
+                ExpiresAt = now.Add(_options.DedupeTtl),
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            // Pre-check to avoid EF.InMemory tracking exception on Add
+            var exists = await _db.NotificationDedupes.AnyAsync(x => x.DedupeKey == dd.DedupeKey && x.ExpiresAt > now, ct);
+            if (exists)
+            {
+                throw new DuplicateNotificationException("Duplicate dedupe key within TTL");
+            }
+            _db.NotificationDedupes.Add(dd);
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex)
+            {
+                // Assume PK conflict → duplicate within TTL
+                throw new DuplicateNotificationException("Duplicate dedupe key within TTL", ex);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("cannot be tracked because another instance with the same key value", StringComparison.OrdinalIgnoreCase))
+            {
+                // InMemory provider throws tracking conflict instead of DbUpdateException
+                throw new DuplicateNotificationException("Duplicate dedupe key within TTL", ex);
+            }
+        }
+
         var entity = new Notification
         {
             Id = Guid.NewGuid(),
@@ -38,8 +74,8 @@ public sealed class EfNotificationOutbox : INotificationOutbox
             DedupeKey = message.DedupeKey,
             Status = NotificationStatus.Queued,
             AttemptCount = 0,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         _db.Notifications.Add(entity);

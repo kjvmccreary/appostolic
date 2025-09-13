@@ -41,10 +41,10 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .IsDescending(true)
             .HasDatabaseName("ix_notifications_created_desc");
 
-        // Partial unique index on dedupe_key where status in ('Queued','Sending','Sent')
+        // Partial unique index on dedupe_key for in-flight statuses only; Sent is excluded now that TTL table handles dedupe
         b.HasIndex(x => x.DedupeKey)
             .IsUnique()
-            .HasFilter("dedupe_key IS NOT NULL AND status IN ('Queued','Sending','Sent')")
+            .HasFilter("dedupe_key IS NOT NULL AND status IN ('Queued','Sending')")
             .HasDatabaseName("ux_notifications_dedupe_key_active");
     }
 }
