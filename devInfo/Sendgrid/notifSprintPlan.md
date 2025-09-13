@@ -315,6 +315,15 @@ Tasks
 - Endpoints + auth (dev headers).
 - Tests using in-memory DB.
 
+Completed
+
+- Implemented dev-only endpoints in `DevNotificationsEndpoints.cs`:
+  - `GET /api/dev/notifications` with filters (kind, status, tenantId) and paging (`take`/`skip`) + `X-Total-Count`.
+  - `POST /api/dev/notifications/{id}/retry` transitions `Failed/DeadLetter → Queued` via `INotificationOutbox.TryRequeueAsync`.
+- Gated to `Development` and requires dev header auth (tenant/user from headers).
+- Added tests in `apps/api.tests` covering listing, filtering, paging, and retry state transition (fresh scope + `AsNoTracking`).
+- Result: Full API test suite green (86/86). Avoided using a shared `InMemoryDatabaseRoot` to prevent cross-test interference.
+
 ## Notif-17 — Purge job (retention)
 
 Summary

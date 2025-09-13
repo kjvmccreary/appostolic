@@ -1493,8 +1493,39 @@ Quality gates
 - Build: PASS (API + tests)
 - Tests: PASS (security contract test)
 
-Requirements coverage
+## Notif-16 — Admin/dev endpoints: list + retry — Completed
 
-- Unauthenticated list returns 401/403: Done.
-- Authenticated list returns 200 and JSON array: Done.
-- Swagger JSON publicly accessible: Done.
+Summary
+
+- Added dev-only notifications admin endpoints to list and retry outbox items.
+- Implemented safe requeue of terminal statuses and ensured clean test isolation.
+
+Actions taken
+
+- API
+  - `apps/api/App/Endpoints/DevNotificationsEndpoints.cs`: mapped `/api/dev/notifications` group (Development only).
+    - GET list with filters (`kind`, `status`, `tenantId`) and server paging (`take`, `skip`); returns `X-Total-Count`.
+    - POST `{id}/retry` uses `INotificationOutbox.TryRequeueAsync(id)` to move `Failed/DeadLetter → Queued` and nudges dispatcher ID queue.
+  - `apps/api/App/Notifications/INotificationOutbox.cs` (+ EF impl): added `TryRequeueAsync(Guid)`.
+  - `apps/api/Program.cs`: ensured endpoint mapping under Development gate.
+- Tests
+  - `apps/api.tests/Api/NotificationsAdminEndpointsTests.cs`: list, filter, paging, and retry assertions.
+  - Ensured fresh EF scope + `AsNoTracking` on verification; background hosted services disabled in test host.
+  - Avoided shared `InMemoryDatabaseRoot` to prevent cross-test interference with AgentTasks.
+
+Results
+
+- Full API test suite green: 86 passed, 0 failed.
+- Dev endpoints work with header-based auth and are environment-gated.
+
+✅ Acceptance
+
+- GET `/api/dev/notifications` supports filters and paging with total count. PASS.
+- POST `/api/dev/notifications/{id}/retry` requeues Failed/DeadLetter to Queued. PASS.
+
+Files
+
+- apps/api/App/Endpoints/DevNotificationsEndpoints.cs
+- apps/api/App/Notifications/INotificationOutbox.cs (and EF impl)
+- apps/api.tests/Api/NotificationsAdminEndpointsTests.cs
+- apps/api.tests/WebAppFactory.cs

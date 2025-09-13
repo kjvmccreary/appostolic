@@ -1,6 +1,6 @@
 # Appostolic — Architecture Snapshot (2025-09-11)
 
-This document captures the current structure, tech stack, and runtime expectations of the Appostolic monorepo so you can paste it into ChatGPT and get precise guidance and prompts for ongoing work.
+This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
 ## Monorepo overview
 
@@ -40,6 +40,7 @@ appostolic/
 │  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
 │  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
+│  │  │  │  ├─ DevNotificationsEndpoints.cs # GET/POST /api/dev/notifications (Development only)
 │  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
   │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list; X-Total-Count; filters: status/agentId/from/to/q)
 │  │  │  └─ Infrastructure/
@@ -151,29 +152,224 @@ appostolic/
 - Infra: Docker Compose for Postgres, Redis, MinIO, Qdrant, pgAdmin, Mailhog (dev)
 - Docs/SDK: Swashbuckle for OpenAPI; custom TypeScript SDK package
 
-## What's new since last snapshot
+---
 
-- Agents CRUD API (stable path):
-  - Added `AgentsEndpoints.cs` with `GET/POST /api/agents`, `GET/PUT/DELETE /api/agents/{id}`.
-  - Added `GET /api/agents/tools` to surface a tool catalog for building allowlists in the UI.
-- Agent enable/disable:
-  - New `Agent.IsEnabled boolean default true` persisted via EF; list endpoint hides disabled agents by default.
-  - Pass `includeDisabled=true` on `GET /api/agents` to include disabled records; `POST/PUT` accept `isEnabled`.
-- Agent Studio (web):
-  - New pages under `/studio/agents`: list, create, edit with `AgentForm` and `AgentsTable`.
-  - API proxy routes added for Agents and Tool catalog under `app/api-proxy/agents/*`.
-- Agent resolution:
-  - Introduced `AgentStore` used by the worker to resolve agents (DB-first, fallback to static registry).
-- Database:
-  - EF migrations updated to add the `is_enabled` column (default true) on `app.agents`.
-- Notifications framework (v1):
-  - Added an in-process email queue and `EmailDispatcherHostedService` with retry/backoff and OTEL metrics.
-  - Providers: `SmtpEmailSender` (dev/Mailhog), `SendGridEmailSender` (prod/real), and safe `NoopEmailSender` fallback.
-  - Provider selection via `Email:Provider` with a Production guard requiring `SendGrid:ApiKey` when using SendGrid.
-  - Helpers: `NotificationEnqueuer.QueueVerificationAsync` and `.QueueInviteAsync` build absolute links from `Email:WebBaseUrl` and URL-encode tokens.
-  - Observability: counters `email.sent.total` and `email.failed.total` (tagged by kind) and structured logs with correlation fields.
-  - Outbox (Notif-13): Added DB table `app.notifications` with indexes and dedupe.
-  - Dedupe/Retention (Notif-17/18): Added TTL dedupe table `app.notification_dedupes`, adjusted partial unique index to in-flight statuses, and an hourly purge job.
+## Runtime architecture
+
+### API service (`apps/api`)
+
+- Entrypoint: `apps/api/Program.cs`
+- Middleware: Swagger, Authentication/Authorization, TenantScopeMiddleware, legacy sample for `X-Tenant-Id`
+- Auto-migration (Dev/Test): `Database.Migrate()` at startup for relational providers
+- OpenTelemetry: traces, metrics, logs with optional OTLP exporter; console exporters in Development
+
+### Web app (`apps/web`)
+
+- Next.js 14 (App Router); server-only proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS
+- Env validation: `src/lib/serverEnv.ts` ensures `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`
+- Dev pages: `/dev/agents`, Agent Studio under `/studio/agents`
+
+### Mobile (`apps/mobile`) and Render Worker (`apps/render-worker`)
+
+- Mobile: Expo/React Native (TypeScript), minimal scaffold
+- Render Worker: Node/TypeScript worker for rendering tasks (placeholder)
+
+---
+
+## Cross-cutting concerns
+
+### Authentication & Authorization
+
+- Dev headers (API): `x-dev-user` and `x-tenant`; emits claims `sub`, `email`, `tenant_id`, `tenant_slug`. All `/api/*` require authorization (dev headers expected). Swagger remains public.
+- Web tenant selection/switcher:
+  - Two‑stage login with `/select-tenant`; auto‑select when single membership.
+  - Header `TenantSwitcher` updates session via `session.update({ tenant })` and sets `selected_tenant` cookie via `/api/tenant/select`.
+  - Server proxies forward `x-tenant` based on session or cookie; when web auth is enabled, protected routes require a selected tenant (401), except invite acceptance route.
+- Role-based guards (Auth‑11): server-only helpers (`roleGuard.ts`) enforce Owner/Admin on sensitive proxy routes for defense-in-depth.
+- Security contract: a dev-mode integration test verifies unauthenticated `/api/*` calls return 401/403; the same requests succeed with dev headers.
+
+### Multi-tenancy & RLS
+
+- `TenantScopeMiddleware` skips `/health*` and `/swagger*`; when authenticated and `tenant_id` exists, begins a DB transaction and sets `app.tenant_id` GUC for RLS.
+- Legacy demo header `X-Tenant-Id` in `Program.cs` for sample `/lessons` endpoints.
+
+---
+
+## Domain capabilities
+
+### Agents (runtime v1)
+
+- Domain types: Agent, AgentTask, AgentTrace; enums AgentStatus, TraceKind
+- Validation: `Guard.cs` enforces invariants (NotNull, MaxLength, InRange)
+- Orchestration: `AgentOrchestrator` with deterministic `MockModelAdapter` in dev; allowlist enforcement; trace step numbering strategy
+- TraceWriter: persists traces; clamps non‑negatives; retries once on unique conflicts
+- Tools: `web.search`, `db.query`, `fs.write` via `ToolRegistry`
+- Queue/Worker: `InMemoryAgentTaskQueue` (Channel<Guid>, SingleReader=true); `AgentTaskWorker` consumes and processes with idempotence and graceful shutdown semantics
+- Agent store resolution is DB‑first with fallback to static `AgentRegistry`
+
+Endpoints:
+
+- `GET /api/agents` (+ paging, includeDisabled)
+- `GET /api/agents/{id}` | `POST /api/agents` | `PUT /api/agents/{id}` | `DELETE /api/agents/{id}`
+- `GET /api/agents/tools`
+- Agent tasks: `POST /api/agent-tasks`, `GET /api/agent-tasks/{id}?includeTraces=true`, `GET /api/agent-tasks` (filters, paging; `X-Total-Count`)
+
+### Notifications (email)
+
+Components:
+
+- Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
+- Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL
+- Template renderer: `ScribanTemplateRenderer`
+- Providers: `SmtpEmailSender` (dev), `SendGridEmailSender` (prod/real), `NoopEmailSender` fallback
+- Enqueuer: `NotificationEnqueuer` helpers for verification and invite emails
+
+Outbox & Dispatcher (Notif‑13/14/15):
+
+- Table `app.notifications` stores durable outbox entries (kind, to_email, data_json, dedupe_key, status, attempts, errors, timestamps; snapshots subject/html/text)
+- Dispatcher `NotificationDispatcherHostedService` leases (`Queued`→`Sending`), renders, sends, and updates status with jittered backoff (0.5s/2s/8s +/-20%) and terminal `DeadLetter` on exhaustion; event‑driven via ID queue with polling fallback
+
+Dedupe & Retention (Notif‑17/18):
+
+- TTL dedupe table `app.notification_dedupes` (PK: dedupe_key, expires_at) is claimed before outbox insert; duplicate claims within TTL throw `DuplicateNotificationException`
+- Partial unique index `ux_notifications_dedupe_key_active` applies only to in‑flight statuses (`Queued`,`Sending`); `Sent` dedupe is governed by the TTL table
+- Hourly purge job removes expired dedupe claims and old notifications; retention windows configurable via `Notifications` options (e.g., Sent: 60d; Failed/Dead: 90d)
+
+Dev endpoints:
+
+- `POST /api/dev/notifications/verification` and `/invite` enqueue test emails; requires dev headers
+
+---
+
+## API surface
+
+### Grouped v1 endpoints (`apps/api/App/Endpoints/V1.cs`)
+
+- `GET /api/me` — user/tenant claims
+- `GET /api/tenants` — current tenant summary
+- `GET /api/lessons?take=&skip=` — paginated list; `POST /api/lessons` — create (uses current tenant)
+
+### Agents endpoints
+
+- `GET /api/agents?take=&skip=&includeDisabled=` — list (enabled‑only by default)
+- `GET /api/agents/{id}` | `POST /api/agents` | `PUT /api/agents/{id}` | `DELETE /api/agents/{id}`
+- `GET /api/agents/tools` — tool catalog for allowlists
+
+### Agent tasks endpoints
+
+- `POST /api/agent-tasks` — create, enqueue, returns `201 Created` with summary
+- `GET /api/agent-tasks/{id}` — details; `?includeTraces=true` includes traces
+- `GET /api/agent-tasks` — list with filters (status/agentId/from/to/q) and paging; sets `X-Total-Count`
+
+### Dev-only endpoints
+
+- `POST /api/dev/tool-call` — deterministic tool tests
+- `GET /api/dev/agents` — seeded agents for UI dropdowns
+- `POST /api/dev/agents/demo` — inline agent run with traces
+- `POST /api/dev/notifications/verification` and `/invite` — enqueue test emails
+
+### Swagger/OpenAPI
+
+- Swagger JSON: `GET /swagger/v1/swagger.json` | UI: `GET /swagger/`
+- Security scheme: API key (DevHeaders) for dev headers; UI remains public
+
+---
+
+## Data & persistence (EF Core)
+
+- Provider: Npgsql (PostgreSQL 16 dev); default schema `app`
+- Migrations under `apps/api/Migrations/`; auto‑migrate enabled in Dev/Test
+- RLS strategy: set `app.tenant_id` via middleware; DB‑side policies/init in `infra/initdb` and EF migrations
+
+Key domain tables and constraints:
+
+- Agent runtime: `agents`, `agent_tasks`, `agent_traces` with unique index `(task_id, step_number)` and checks on step/duration
+- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data
+- Invitations: `invitations` with FKs to `tenants` and `users`; functional unique `(tenant_id, lower(email))` and index on `(tenant_id, expires_at)`
+- Auth/tenant integrity: unique slug `tenants(name)`; FKs cascade/set‑null as appropriate
+
+---
+
+## Observability
+
+- OpenTelemetry resource: `Appostolic.Api`
+- Traces: ASP.NET Core, HTTP client, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`)
+- Metrics: ASP.NET Core, HTTP client, runtime, `Appostolic.Metrics` (e.g., email sent/failed)
+- Logs: structured logs; console exporters in Development; optional OTLP endpoint via `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+---
+
+## Infra & local development
+
+- Docker Compose: Postgres, Redis, MinIO, Qdrant, Mailhog, pgAdmin
+- Init SQL: `infra/initdb/init.sql` sets extensions, schemas, GUC helpers
+- Devcontainer configuration available
+
+Makefile highlights:
+
+- `make migrate` — apply EF migrations
+- `make sdk` — regenerate OpenAPI/SDK
+- `make down` — stop local Docker stack
+- `make up` — start infra Docker stack
+- `make bootstrap` — nuke volumes, bring up infra, wait for Postgres, migrate, and seed
+- `make api` — run API with dotnet watch (http://localhost:5198)
+- `make web` — run Next.js dev server
+- `make mobile` — run Expo dev server (port 8082)
+- `make doctor` — run dev-doctor script
+
+Important URLs:
+
+- API base: http://localhost:5198
+- Swagger UI: http://localhost:5198/swagger/
+- Swagger JSON: http://localhost:5198/swagger/v1/swagger.json
+- Postgres: localhost:55432 (container `postgres`)
+- Redis: localhost:6380
+- MinIO: http://localhost:9002 (API) / http://localhost:9003 (Console)
+- Mailhog UI: http://localhost:8025
+- Qdrant UI/API: http://localhost:6334
+- pgAdmin: http://localhost:8081
+
+Dev credentials (local only): see `infra/docker/.env` for Postgres/Redis/MinIO/Mailhog/Qdrant/pgAdmin
+
+Dev auth for API testing: send headers `x-dev-user` and `x-tenant` (default seed: `kevin@example.com` / `kevin-personal`)
+
+Troubleshooting:
+
+- Swagger shows JSON: use `/swagger/` (trailing slash) or rely on `/swagger` redirect
+- 401 on `/api/*`: send dev headers; run `make seed` (or `make bootstrap`) if you haven’t seeded
+- Tenant scoping: verify `tenant_id` claim exists or use legacy `X-Tenant-Id` for sample `/lessons`
+- Postgres connection errors: ensure Docker is up and port `55432` matches env
+- Node engines: repo requires `node >=20 <21`; using Node 19 may error (URL.canParse). Use Node 20.x.
+
+---
+
+## SDK & OpenAPI (`packages/sdk`)
+
+- OpenAPI generated via Swashbuckle CLI (output at `packages/sdk/openapi.json`)
+- SDK currently provides minimal fetch helpers/types; can be expanded via codegen
+
+---
+
+## What’s new since last snapshot
+
+- Agents CRUD: endpoints added, tool catalog surfaced; Agent enable/disable via `IsEnabled` with default true and includeDisabled query
+- Agent Studio (web): list/create/edit pages; server proxies for Agents and Tools
+- Agent resolution: `AgentStore` for DB‑first resolution with static fallback
+- Database: migration for `is_enabled` on `app.agents`
+- Notifications v1: in‑process queue + dispatcher with retry/backoff and OTEL metrics; SMTP/SendGrid/Noop providers and production guard; enqueue helpers for verification/invite with absolute links
+- Outbox (Notif‑13): durable table `app.notifications` with indexes and dedupe
+- Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
+
+---
+
+## Prompt starters (copy into ChatGPT)
+
+- “Expose read-only endpoints for dev agents (already available at `/api/dev/agents`) and consider promoting to `/api/agents` for non-dev contexts. Update Swagger and web to consume the stable path.”
+- “Extend EF configurations for Agent runtime with additional indexes and constraints [describe]. Create and apply a migration and confirm defaults in PostgreSQL.”
+- “Regenerate OpenAPI and update the TypeScript SDK to include new endpoints (AgentTasks, DevAgents). Update `apps/web` to call through the SDK or keep using server proxies.”
+- “Implement AgentTask flows (done: create, get by id with traces, list with filters). Add delete/cancel if needed and write integration tests.”
+- “Harden `TenantScopeMiddleware`: ensure GUC set/reset semantics, add diagnostics, and handle exceptions explicitly.”
+- “Add integration tests for `/api/lessons` using dev auth and a test Postgres; include test harness and migrations in CI.”
 
 ### Database — Notifications Outbox (Notif-13)
 
