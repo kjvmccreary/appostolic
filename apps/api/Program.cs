@@ -119,6 +119,8 @@ if (builder.Environment.IsDevelopment())
 
 // Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();

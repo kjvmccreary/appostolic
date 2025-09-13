@@ -84,7 +84,7 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | Story ID           | Title                                     | Source                              | Notes/Dependencies         |
 | ------------------ | ----------------------------------------- | ----------------------------------- | -------------------------- |
 | ✅ (DONE) Notif‑13 | Notifications table (outbox) migration    | devInfo/Sendgrid/notifSprintPlan.md | DB schema + indexes        |
-| Notif‑14           | Enqueue writes to DB outbox               | devInfo/Sendgrid/notifSprintPlan.md | Insert + dedupe guard      |
+| ✅ (DONE) Notif‑14 | Enqueue writes to DB outbox               | devInfo/Sendgrid/notifSprintPlan.md | Insert + dedupe guard      |
 | Notif‑15           | Dispatcher reads/updates DB records       | devInfo/Sendgrid/notifSprintPlan.md | Transitions + retries      |
 | Notif‑17           | Purge job (retention)                     | devInfo/Sendgrid/notifSprintPlan.md | 60–90 day defaults         |
 | Notif‑18           | Dedupe store and policy                   | devInfo/Sendgrid/notifSprintPlan.md | DB TTL + constraints       |

@@ -10,16 +10,18 @@ public interface INotificationEnqueuer
 
 public sealed class NotificationEnqueuer : INotificationEnqueuer
 {
-    private readonly IEmailQueue _queue;
+    private readonly INotificationOutbox _outbox;
+    private readonly INotificationIdQueue _idQueue;
     private readonly EmailOptions _emailOptions;
 
-    public NotificationEnqueuer(IEmailQueue queue, Microsoft.Extensions.Options.IOptions<EmailOptions> emailOptions)
+    public NotificationEnqueuer(INotificationOutbox outbox, INotificationIdQueue idQueue, Microsoft.Extensions.Options.IOptions<EmailOptions> emailOptions)
     {
-        _queue = queue;
+        _outbox = outbox;
+        _idQueue = idQueue;
         _emailOptions = emailOptions.Value;
     }
 
-    public Task QueueVerificationAsync(string toEmail, string? toName, string token, CancellationToken ct = default)
+    public async Task QueueVerificationAsync(string toEmail, string? toName, string token, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(toEmail)) throw new ArgumentException("toEmail is required", nameof(toEmail));
         if (string.IsNullOrWhiteSpace(token)) throw new ArgumentException("token is required", nameof(token));
@@ -36,10 +38,11 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
 
         var dedupeKey = $"verification::{toEmail}::{token}";
         var msg = new EmailMessage(EmailKind.Verification, toEmail, toName, data, dedupeKey);
-        return _queue.EnqueueAsync(msg, ct).AsTask();
+        var id = await _outbox.CreateQueuedAsync(msg, ct);
+        await _idQueue.EnqueueAsync(id, ct);
     }
 
-    public Task QueueInviteAsync(string toEmail, string? toName, string tenant, string role, string inviter, string token, CancellationToken ct = default)
+    public async Task QueueInviteAsync(string toEmail, string? toName, string tenant, string role, string inviter, string token, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(toEmail)) throw new ArgumentException("toEmail is required", nameof(toEmail));
         if (string.IsNullOrWhiteSpace(tenant)) throw new ArgumentException("tenant is required", nameof(tenant));
@@ -62,6 +65,7 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
 
         var dedupeKey = $"invite::{toEmail}::{tenant}::{role}::{token}";
         var msg = new EmailMessage(EmailKind.Invite, toEmail, toName, data, dedupeKey);
-        return _queue.EnqueueAsync(msg, ct).AsTask();
+        var id = await _outbox.CreateQueuedAsync(msg, ct);
+        await _idQueue.EnqueueAsync(id, ct);
     }
 }

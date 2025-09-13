@@ -1,3 +1,27 @@
+## Notif-14 — Enqueue writes to DB outbox — Completed
+
+Summary
+
+- Refactored enqueue path to persist notifications to the DB outbox (status=Queued) and push the new row id to an in-process ID queue as the wake-up signal.
+- Added repository `INotificationOutbox` (EF-backed) to insert rows with dedupe keys and convert unique index violations to a friendly `DuplicateNotificationException`.
+- Updated `NotificationEnqueuer` to compute dedupe keys (unchanged shapes) and call repository + ID queue.
+
+Files changed
+
+- apps/api/App/Notifications/INotificationOutbox.cs — new EF repository + exception type
+- apps/api/App/Notifications/INotificationIdQueue.cs — new ID queue abstraction
+- apps/api/App/Notifications/NotificationEnqueuer.cs — refactor to DB + ID queue
+- apps/api/Program.cs — DI registrations
+
+Quality gates
+
+- Build (API): PASS
+
+Requirements coverage
+
+- New enqueues create DB rows with correct fields and optional dedupe_key: Done.
+- Duplicate active dedupe_key is rejected (friendly error): Done (mapped via index name match).
+
 ## Auth-01 — Schema & Migrations (Users/Memberships/Invitations) — Completed
 
 ## Auth-05 — Header Tenant Switcher — Completed
