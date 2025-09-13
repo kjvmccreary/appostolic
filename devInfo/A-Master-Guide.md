@@ -40,11 +40,13 @@ Guidelines
 
 ## Phase 0 — Close security basics
 
-| Story ID          | Title                         | Source                             | Notes/Dependencies                 |
-| ----------------- | ----------------------------- | ---------------------------------- | ---------------------------------- |
-| Current Sprint #3 | Route protection middleware   | devInfo/currentSprint.md           | Finish before expanding flows      |
-| Auth‑10           | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
-| Auth‑11           | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
+| Story ID                    | Title                         | Source                             | Notes/Dependencies                 |
+| --------------------------- | ----------------------------- | ---------------------------------- | ---------------------------------- |
+| ✅ (DONE) Current Sprint #3 | Route protection middleware   | devInfo/currentSprint.md           | Finish before expanding flows      |
+| ✅ (DONE) Current Sprint #4 | Session → API headers bridge  | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2 & AC3  |
+| Current Sprint #5           | Tests (minimal)               | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2        |
+| Auth‑10                     | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
+| Auth‑11                     | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
 
 ---
 

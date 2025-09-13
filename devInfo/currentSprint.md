@@ -63,16 +63,19 @@ Seed defaults
 - ~~AC3: `/logout` ends the session and redirects to `/login`.~~
 - ~~AC4: Cookies are httpOnly, SameSite=Lax, secure in production; CSRF token present on the form.~~
 
-3. Route protection middleware
+3. ~~Route protection middleware~~
 
-- AC1: Visiting any page under `/studio/*` or `/dev/*` without a session redirects 302 to `/login?next=/requested/path`.
-- AC2: Visiting `/login` while already authenticated redirects to `/studio/agents`.
+- ~~AC1: Visiting any page under `/studio/*` or `/dev/*` without a session redirects 302 to `/login?next=/requested/path`.~~
+- ~~AC2: Visiting `/login` while already authenticated redirects to `/studio/agents`.~~
 
 4. Session → API headers bridge
 
-- AC1: Server-only API proxy routes under `apps/web/app/api-proxy/*` inject `x-dev-user` (session email) and `x-tenant` (selected tenant slug) instead of env defaults when a session exists.
-- AC2: If no session exists, proxy refuses the request with 401 (do not fall back to env headers) for protected resources.
-- AC3: A simple tenant selector persists the chosen tenant slug in session or cookie; defaults to the first membership.
+- ~~AC1: Server-only API proxy routes under `apps/web/app/api-proxy/*` inject `x-dev-user` (session email) and `x-tenant` (selected tenant slug) instead of env defaults when a session exists.~~
+  - Implemented in `src/lib/proxyHeaders.ts` using NextAuth session + `selected_tenant` cookie.
+- ~~AC2: If no session exists, proxy refuses the request with 401 (do not fall back to env headers) for protected resources.~~
+  - All proxies call `buildProxyHeaders()` and return 401 when absent.
+- ~~AC3: A simple tenant selector persists the chosen tenant slug in session or cookie; defaults to the first membership.~~
+  - Minimal `TenantSelector` added with `/api/tenant/select` route; cookie-based persistence for now.
 
 5. Tests (minimal)
 
