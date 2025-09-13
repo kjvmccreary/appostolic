@@ -122,7 +122,10 @@ builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appo
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
+// Legacy in-memory email dispatcher (kept temporarily for compatibility)
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
+// New DB-backed notifications dispatcher
+builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationDispatcherHostedService>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailDedupeStore, Appostolic.Api.App.Notifications.InMemoryEmailDedupeStore>();
 builder.Services.AddHttpClient("sendgrid");

@@ -398,6 +398,34 @@ Files changed
 - apps/api/Migrations/20250913030717_s3_13_notifications_outbox.\* — migration and model snapshot update
 - SnapshotArchitecture.md — documented the outbox schema and indexes
 
+## Notif-15 — Dispatcher reads/updates DB records — Completed
+
+Summary
+
+- Added DB-backed Notification Dispatcher hosted service that leases due notifications from the outbox, renders email content, sends via configured provider, and transitions status through Sending → Sent/Failed/DeadLetter with jittered retries.
+- Extended `INotificationOutbox` to support leasing and state transitions: `LeaseNextDueAsync`, `MarkSentAsync`, `MarkFailedAsync`, and `MarkDeadLetterAsync` with attempt count and scheduling.
+- Dispatcher operates event-driven via `INotificationIdQueue` with periodic polling fallback to catch due items even without a signal.
+- Kept legacy in-memory `EmailDispatcherHostedService` temporarily registered to avoid breaking existing tests/flows during transition; new DB dispatcher added alongside.
+- Updated enqueuer unit tests to target the outbox+id queue path instead of the old in-memory queue.
+
+Files changed
+
+- apps/api/App/Notifications/INotificationOutbox.cs — extended interface and EF implementation for leasing/marking
+- apps/api/App/Notifications/NotificationDispatcherHostedService.cs — new DB-backed dispatcher
+- apps/api/App/Notifications/NotificationEnqueuer.cs — uses outbox + id queue (from Notif-14)
+- apps/api/Program.cs — DI: register new dispatcher hosted service
+- apps/api.tests/NotificationEnqueuerTests.cs — updated to use capturing outbox/id queue
+
+Quality gates
+
+- Build (API): PASS
+- Unit tests: PASS (updated NotificationEnqueuerTests; existing EmailDispatcherTests PASS)
+
+Requirements coverage
+
+- Dispatcher leases and processes due notifications with retries and updates DB statuses: Done.
+- Event-driven wake via ID queue plus polling safety net: Done.
+
 Quality gates
 
 - Build (API): PASS

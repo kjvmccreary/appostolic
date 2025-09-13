@@ -185,6 +185,15 @@ appostolic/
     - Partial unique on (dedupe_key) where status IN ('Queued','Sending','Sent')
   - Extensions: `citext` enabled for case-insensitive email storage
 
+### Notifications — Dispatcher (Notif-15)
+
+- A background service `NotificationDispatcherHostedService` consumes IDs from an in-process `INotificationIdQueue` and also polls the DB periodically.
+- It leases the next due outbox row by transitioning `Queued` → `Sending`, renders the templated content, sends via the configured provider (SMTP or SendGrid), and updates status:
+  - On success: `Sent` with snapshots (`subject`, `body_html`, `body_text`) and `sent_at`.
+  - On transient failure: increments `attempt_count`, records `last_error`, sets `next_attempt_at` using jittered backoff (0.5s, 2s, 8s +/-20%).
+  - After max attempts: marks `DeadLetter`.
+- Enqueue path (Notif-14) writes `Queued` rows and pushes the new `id` to the ID queue to wake the dispatcher quickly; polling is a safety net.
+
 ## Running locally (dev)
 
 - Monorepo dev: `pnpm dev` (spawns web/api/mobile if configured)
