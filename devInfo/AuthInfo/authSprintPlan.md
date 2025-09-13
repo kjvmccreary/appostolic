@@ -31,7 +31,7 @@ Key Tasks
 
 ---
 
-## Auth-02 — Password Hashing & Signup API
+## ✅ (DONE) Auth-02 — Password Hashing & Signup API
 
 Summary
 

@@ -95,6 +95,25 @@ public static class V1
             return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, tenant = tenantEntity is null ? null : new { tenantEntity.Id, tenantEntity.Name } });
     }).AllowAnonymous();
 
+        // POST /api/auth/login (AllowAnonymous)
+        // Verifies user credentials using Argon2id and returns minimal user payload on success.
+        apiRoot.MapPost("/auth/login", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, LoginDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+                return Results.BadRequest(new { error = "email and password are required" });
+
+            var email = dto.Email.Trim();
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
+                return Results.Unauthorized();
+
+            // We currently don't persist iterations; pass 0 to use hasher's default.
+            var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
+            if (!ok) return Results.Unauthorized();
+
+            return Results.Ok(new { user.Id, user.Email });
+        }).AllowAnonymous();
+
         var api = apiRoot.RequireAuthorization();
 
         // GET /api/me
@@ -158,4 +177,5 @@ public static class V1
 
     public record NewLessonDto(string? Title);
     public record SignupDto(string Email, string Password, string? InviteToken = null);
+    public record LoginDto(string Email, string Password);
 }
