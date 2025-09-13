@@ -1,20 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import {
-  GET as getInvites,
-  POST as postInvite,
-} from '../../app/api-proxy/tenants/[tenantId]/invites/route';
-import {
-  POST as resendInvite,
-  DELETE as revokeInvite,
-} from '../../app/api-proxy/tenants/[tenantId]/invites/[email]/route';
+import { GET as getInvites, POST as postInvite } from './route';
+import { POST as resendInvite, DELETE as revokeInvite } from './[email]/route';
 import type { NextRequest } from 'next/server';
-import { buildProxyHeaders } from '../../src/lib/proxyHeaders';
-import { guardProxyRole } from '../../src/lib/roleGuard';
+import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
+import { guardProxyRole } from '../../../../../src/lib/roleGuard';
 
-vi.mock('../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
-vi.mock('../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
-vi.mock('../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
+vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
+vi.mock('../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
 
 function makeReq(url: string): NextRequest {
   return { nextUrl: new URL(url), text: async () => '{}' } as unknown as NextRequest;

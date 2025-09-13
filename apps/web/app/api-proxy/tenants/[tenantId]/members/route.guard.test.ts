@@ -1,17 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { GET as getMembers } from '../../app/api-proxy/tenants/[tenantId]/members/route';
-import {
-  PUT as putMember,
-  DELETE as deleteMember,
-} from '../../app/api-proxy/tenants/[tenantId]/members/[userId]/route';
+import { GET as getMembers } from './route';
+import { PUT as putMember, DELETE as deleteMember } from './[userId]/route';
 import type { NextRequest } from 'next/server';
-import { buildProxyHeaders } from '../../src/lib/proxyHeaders';
-import { guardProxyRole } from '../../src/lib/roleGuard';
+import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
+import { guardProxyRole } from '../../../../../src/lib/roleGuard';
 
-vi.mock('../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
-vi.mock('../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
-vi.mock('../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
+vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
+vi.mock('../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
 
 function makeReq(url: string): NextRequest {
   return { nextUrl: new URL(url), text: async () => '{}' } as unknown as NextRequest;
