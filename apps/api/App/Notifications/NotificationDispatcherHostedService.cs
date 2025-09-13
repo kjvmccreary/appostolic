@@ -2,13 +2,14 @@ using System.Text.Json;
 using Appostolic.Api.Domain.Notifications;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Appostolic.Api.App.Notifications;
 
 public sealed class NotificationDispatcherHostedService : BackgroundService
 {
     private readonly ILogger<NotificationDispatcherHostedService> _logger;
-    private readonly INotificationOutbox _outbox;
+    private readonly IServiceProvider _sp;
     private readonly ITemplateRenderer _renderer;
     private readonly IEmailSender _sender;
     private readonly INotificationIdQueue _idQueue;
@@ -18,13 +19,13 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
 
     public NotificationDispatcherHostedService(
         ILogger<NotificationDispatcherHostedService> logger,
-        INotificationOutbox outbox,
+        IServiceProvider sp,
         ITemplateRenderer renderer,
         IEmailSender sender,
         INotificationIdQueue idQueue)
     {
         _logger = logger;
-        _outbox = outbox;
+        _sp = sp;
         _renderer = renderer;
         _sender = sender;
         _idQueue = idQueue;
@@ -58,7 +59,9 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
             // Process as many due notifications as available right now
             while (!stoppingToken.IsCancellationRequested)
             {
-                var leased = await _outbox.LeaseNextDueAsync(stoppingToken);
+                using var scopeSvc = _sp.CreateScope();
+                var outbox = scopeSvc.ServiceProvider.GetRequiredService<INotificationOutbox>();
+                var leased = await outbox.LeaseNextDueAsync(stoppingToken);
                 if (leased is null) break;
 
                 var scopeState = new Dictionary<string, object?>
@@ -72,7 +75,7 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                     scopeState["email.tenantId"] = tid;
                 }
 
-                using var scope = _logger.BeginScope(scopeState);
+                using var logScope = _logger.BeginScope(scopeState);
 
                 var data = JsonSerializer.Deserialize<Dictionary<string, object?>>(leased.DataJson) ?? new();
                 Exception? last = null;
@@ -84,7 +87,7 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                     {
                         var (subject, html, text) = await _renderer.RenderAsync(new EmailMessage(leased.Kind, leased.ToEmail, leased.ToName, data, leased.DedupeKey), stoppingToken);
                         await _sender.SendAsync(leased.ToEmail, subject, html, text, stoppingToken);
-                        await _outbox.MarkSentAsync(leased.Id, subject, html, text, stoppingToken);
+                        await outbox.MarkSentAsync(leased.Id, subject, html, text, stoppingToken);
                         _logger.LogInformation("Notification sent");
                         last = null;
                         break;
@@ -103,7 +106,7 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                             var jitter = (int)(ms * 0.2);
                             var wait = ms + rand.Next(-jitter, jitter + 1);
                             var nextAt = DateTimeOffset.UtcNow.AddMilliseconds(wait);
-                            await _outbox.MarkFailedAsync(leased.Id, ex.Message, nextAt, stoppingToken);
+                            await outbox.MarkFailedAsync(leased.Id, ex.Message, nextAt, stoppingToken);
                             try
                             {
                                 await Task.Delay(wait, stoppingToken);
@@ -118,7 +121,9 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
 
                 if (last != null)
                 {
-                    await _outbox.MarkDeadLetterAsync(leased.Id, last.Message, stoppingToken);
+                    using var scope2 = _sp.CreateScope();
+                    var outbox2 = scope2.ServiceProvider.GetRequiredService<INotificationOutbox>();
+                    await outbox2.MarkDeadLetterAsync(leased.Id, last.Message, stoppingToken);
                     _logger.LogError(last, "Notification permanently failed");
                 }
             }

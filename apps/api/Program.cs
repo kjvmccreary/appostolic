@@ -120,14 +120,16 @@ if (builder.Environment.IsDevelopment())
 
 // Notifications registration
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
+// Outbox must be scoped because it depends on AppDbContext (scoped)
+builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
 // Legacy in-memory email dispatcher (kept temporarily for compatibility)
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
 // New DB-backed notifications dispatcher
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationDispatcherHostedService>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();
+// Enqueuer uses the outbox; make it scoped as well
+builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailDedupeStore, Appostolic.Api.App.Notifications.InMemoryEmailDedupeStore>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationsPurger, Appostolic.Api.App.Notifications.NotificationsPurger>();
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationsPurgeHostedService>();
