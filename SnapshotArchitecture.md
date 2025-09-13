@@ -239,6 +239,10 @@ Dev endpoints:
 
 - `POST /api/dev/notifications/verification` and `/invite` enqueue test emails; requires dev headers
 
+Provider webhooks:
+
+- `POST /api/notifications/webhook/sendgrid` — receives SendGrid event webhooks; optional shared-secret via header. Normalizes and stores provider delivery status under `notifications.data_json.provider_status` along with event timestamp; designed to be idempotent for replayed events.
+
 ---
 
 ## API surface

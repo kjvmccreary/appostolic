@@ -15,6 +15,13 @@ public interface INotificationOutbox
     Task MarkSentAsync(Guid id, string subject, string html, string? text, CancellationToken ct = default);
     Task MarkFailedAsync(Guid id, string error, DateTimeOffset nextAttemptAt, CancellationToken ct = default);
     Task MarkDeadLetterAsync(Guid id, string error, CancellationToken ct = default);
+
+    // Move a Failed or DeadLetter notification back to Queued for retry. Returns false if not found.
+    Task<bool> TryRequeueAsync(Guid id, CancellationToken ct = default);
+
+    // Store provider delivery status details on an existing notification.
+    // This is additive and idempotent-friendly (last write wins). Data is recorded under data_json provider_status fields.
+    Task UpdateProviderStatusAsync(Guid id, string provider, string status, DateTimeOffset eventAt, string? reason, CancellationToken ct = default);
 }
 
 public sealed class EfNotificationOutbox : INotificationOutbox
@@ -150,6 +157,41 @@ public sealed class EfNotificationOutbox : INotificationOutbox
         n.Status = NotificationStatus.DeadLetter;
         n.AttemptCount++;
         n.UpdatedAt = now;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<bool> TryRequeueAsync(Guid id, CancellationToken ct = default)
+    {
+        var n = await _db.Notifications.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (n is null) return false;
+        if (n.Status != NotificationStatus.Failed && n.Status != NotificationStatus.DeadLetter)
+        {
+            return false;
+        }
+        n.Status = NotificationStatus.Queued;
+        n.NextAttemptAt = null;
+        n.LastError = null;
+        n.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task UpdateProviderStatusAsync(Guid id, string provider, string status, DateTimeOffset eventAt, string? reason, CancellationToken ct = default)
+    {
+        var n = await _db.Notifications.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new InvalidOperationException($"Notification {id} not found");
+        // Merge provider status under a nested object in DataJson
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(n.DataJson) ?? new();
+        var key = "provider_status";
+        var payload = new Dictionary<string, object?>
+        {
+            ["provider"] = provider,
+            ["status"] = status,
+            ["event_at"] = eventAt,
+            ["reason"] = reason
+        };
+        dict[key] = payload;
+        n.DataJson = System.Text.Json.JsonSerializer.Serialize(dict);
+        n.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
     }
 

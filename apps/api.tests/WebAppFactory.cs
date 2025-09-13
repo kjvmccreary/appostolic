@@ -2,9 +2,11 @@ using System.Linq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Appostolic.Api.App.Notifications;
 
 namespace Appostolic.Api.Tests;
 
@@ -27,6 +29,7 @@ public class WebAppFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(opts =>
             {
+                // Use a unique in-memory database per factory instance to avoid cross-test interference
                 opts.UseInMemoryDatabase(_dbName);
             });
 
@@ -36,6 +39,26 @@ public class WebAppFactory : WebApplicationFactory<Program>
             {
                 services.Remove(d);
             }
+
+            // Also remove notification hosted services to keep tests deterministic
+            var notifHosted = services.Where(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType != null && (
+                d.ImplementationType.Name.Contains("EmailDispatcherHostedService") ||
+                d.ImplementationType.Name.Contains("NotificationDispatcherHostedService") ||
+                d.ImplementationType.Name.Contains("NotificationsPurgeHostedService")
+            )).ToList();
+            foreach (var d in notifHosted)
+            {
+                services.Remove(d);
+            }
+
+            // Ensure notification outbox/enqueuer use scoped lifetime (DbContext dependency)
+            var outboxDesc = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationOutbox));
+            if (outboxDesc != null) services.Remove(outboxDesc);
+            services.AddScoped<INotificationOutbox, EfNotificationOutbox>();
+
+            var enqDesc = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationEnqueuer));
+            if (enqDesc != null) services.Remove(enqDesc);
+            services.AddScoped<INotificationEnqueuer, NotificationEnqueuer>();
 
             // Seed dev user/tenant/membership expected by DevHeaderAuthHandler
             using var sp = services.BuildServiceProvider();

@@ -53,6 +53,10 @@ out/
 coverage/
 apps/web/coverage/
 
+# .NET test artifacts
+**/TestResults/
+*.trx
+
 # Docker
 infra/docker/data/**
 /infra/docker/volumes/

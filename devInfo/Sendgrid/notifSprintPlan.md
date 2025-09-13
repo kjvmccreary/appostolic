@@ -361,24 +361,29 @@ Tasks
 
 - DB constraint + guard, test race conditions, documentation.
 
-## Notif-19 — Delivery status webhook (optional)
+## ~~Notif-19 — Delivery status webhook (optional)~~
 
 Summary
 
-- SendGrid event webhook endpoint to update delivery status fields (future).
-
-Dependencies
-
-- Notif-15.
+- Implemented SendGrid event webhook to record provider delivery updates on notifications.
 
 Acceptance Criteria
 
-- Endpoint accepts signed events (or protected by token).
-- Updates notification row with provider status (delivered/bounced/blocked).
+- POST `/api/notifications/webhook/sendgrid` accepts event payloads and honors optional shared-secret token header.
+- Updates the notification row with a normalized `provider_status` and event timestamp; idempotent on replays.
 
-Tasks
+Files/Changes
 
-- Endpoint + model changes (provider_status, provider_event_at), docs.
+- apps/api/App/Endpoints/NotificationsWebhookEndpoints.cs — new endpoint mapping (SendGrid).
+- apps/api/App/Options/SendGridOptions.cs — added `WebhookToken` for simple shared-secret validation.
+- apps/api/App/Notifications/INotificationOutbox.cs — added `UpdateProviderStatusAsync`.
+- apps/api/App/Notifications/EfNotificationOutbox.cs — persists provider status under `DataJson.provider_status`.
+- apps/api/Program.cs — maps webhook endpoint.
+- apps/api.tests/Api/NotificationsWebhookTests.cs — tests for accepted event and token behavior.
+
+Status
+
+- Completed: Endpoint implemented and tested; docs updated. No schema migration required (stored under `data_json`).
 
 ## Notif-20 — E2E verification (outbox path)
 

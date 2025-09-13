@@ -1,6 +1,10 @@
 using Appostolic.Api.App.Notifications;
 using Appostolic.Api.App.Options;
+using Appostolic.Api.Domain.Notifications;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Primitives;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -8,12 +12,26 @@ public static class DevNotificationsEndpoints
 {
     public sealed record VerificationRequest(string ToEmail, string? ToName, string Token);
     public sealed record InviteRequest(string ToEmail, string? ToName, string Tenant, string Role, string Inviter, string Token);
+    public sealed record NotificationListItem(
+        Guid Id,
+        EmailKind Kind,
+        string ToEmail,
+        string? ToName,
+        NotificationStatus Status,
+        short AttemptCount,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset? SentAt,
+        DateTimeOffset? NextAttemptAt,
+        string? LastError,
+        Guid? TenantId,
+        string? DedupeKey
+    );
 
     public static void MapDevNotificationsEndpoints(this WebApplication app)
     {
         if (!app.Environment.IsDevelopment()) return;
 
-        var group = app.MapGroup("/api/dev/notifications").RequireAuthorization();
+        var group = app.MapGroup("/api/dev/notifications").RequireAuthorization().WithTags("DevNotifications");
 
         group.MapPost("/verification", async (
             INotificationEnqueuer enqueuer,
@@ -32,5 +50,86 @@ public static class DevNotificationsEndpoints
             await enqueuer.QueueInviteAsync(body.ToEmail, body.ToName, body.Tenant, body.Role, body.Inviter, body.Token, ct);
             return Results.Accepted();
         }).WithSummary("Dev: enqueue invite email");
+
+        // GET /api/dev/notifications?kind=&status=&tenantId=&take=&skip=
+        group.MapGet("", async (
+            AppDbContext db,
+            HttpRequest req,
+            HttpResponse resp,
+            CancellationToken ct) =>
+        {
+            var q = db.Notifications.AsNoTracking().OrderByDescending(n => n.CreatedAt).AsQueryable();
+
+            // Parse filters
+            if (req.Query.TryGetValue("kind", out var kindVals) && !StringValues.IsNullOrEmpty(kindVals))
+            {
+                var kindStr = kindVals.ToString();
+                if (Enum.TryParse<EmailKind>(kindStr, ignoreCase: true, out var kind))
+                {
+                    q = q.Where(n => n.Kind == kind);
+                }
+            }
+            if (req.Query.TryGetValue("status", out var statusVals) && !StringValues.IsNullOrEmpty(statusVals))
+            {
+                var statusStr = statusVals.ToString();
+                if (Enum.TryParse<NotificationStatus>(statusStr, ignoreCase: true, out var status))
+                {
+                    q = q.Where(n => n.Status == status);
+                }
+            }
+            // Support both tenant and tenantId for convenience
+            Guid tenantId;
+            if ((req.Query.TryGetValue("tenantId", out var tVals) && Guid.TryParse(tVals.ToString(), out tenantId))
+                || (req.Query.TryGetValue("tenant", out var t2Vals) && Guid.TryParse(t2Vals.ToString(), out tenantId)))
+            {
+                q = q.Where(n => n.TenantId == tenantId);
+            }
+
+            // Paging
+            int take = 50;
+            int skip = 0;
+            if (req.Query.TryGetValue("take", out var takeVals) && int.TryParse(takeVals.ToString(), out var t) && t > 0 && t <= 500)
+            {
+                take = t;
+            }
+            if (req.Query.TryGetValue("skip", out var skipVals) && int.TryParse(skipVals.ToString(), out var s) && s >= 0)
+            {
+                skip = s;
+            }
+
+            var total = await q.CountAsync(ct);
+            var items = await q.Skip(skip).Take(take)
+                .Select(n => new NotificationListItem(
+                    n.Id, n.Kind, n.ToEmail, n.ToName, n.Status, n.AttemptCount, n.CreatedAt, n.SentAt, n.NextAttemptAt, n.LastError, n.TenantId, n.DedupeKey))
+                .ToListAsync(ct);
+
+            resp.Headers.Append("X-Total-Count", total.ToString());
+            return Results.Ok(items);
+        })
+        .WithSummary("Dev: list notifications")
+        .WithDescription("Development-only. Lists notifications with optional filters and paging.");
+
+        // POST /api/dev/notifications/{id}/retry
+        group.MapPost("/{id:guid}/retry", async (
+            Guid id,
+            AppDbContext db,
+            INotificationOutbox outbox,
+            INotificationIdQueue idQueue,
+            CancellationToken ct) =>
+        {
+            var n = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (n == null) return Results.NotFound();
+            if (n.Status != NotificationStatus.DeadLetter && n.Status != NotificationStatus.Failed)
+            {
+                return Results.Conflict(new { message = $"Cannot retry notification in status {n.Status}" });
+            }
+
+            var ok = await outbox.TryRequeueAsync(id, ct);
+            if (!ok) return Results.NotFound();
+            await idQueue.EnqueueAsync(id, ct);
+            return Results.Accepted();
+        })
+        .WithSummary("Dev: retry a failed/dead-letter notification")
+        .WithDescription("Transitions Failed/DeadLetter back to Queued and nudges the dispatcher.");
     }
 }

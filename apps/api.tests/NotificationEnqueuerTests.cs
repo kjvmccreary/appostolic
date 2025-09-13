@@ -71,6 +71,8 @@ public class NotificationEnqueuerTests
         public Task MarkDeadLetterAsync(Guid id, string error, CancellationToken ct = default) => Task.CompletedTask;
         public Task MarkFailedAsync(Guid id, string error, DateTimeOffset nextAttemptAt, CancellationToken ct = default) => Task.CompletedTask;
         public Task MarkSentAsync(Guid id, string subject, string html, string? text, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> TryRequeueAsync(Guid id, CancellationToken ct = default) => Task.FromResult(false);
+        public Task UpdateProviderStatusAsync(Guid id, string provider, string status, DateTimeOffset eventAt, string? reason, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class CapturingIdQueue : INotificationIdQueue

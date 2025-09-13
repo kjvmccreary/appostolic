@@ -81,19 +81,21 @@ Notifications hooks already in place (Notif‑07/08); see devInfo/Sendgrid/notif
 
 Baseline outbox and privacy-by-design before scaling email usage.
 
-| Story ID           | Title                                     | Source                              | Notes/Dependencies         |
-| ------------------ | ----------------------------------------- | ----------------------------------- | -------------------------- |
-| ✅ (DONE) Notif‑13 | Notifications table (outbox) migration    | devInfo/Sendgrid/notifSprintPlan.md | DB schema + indexes        |
-| ✅ (DONE) Notif‑14 | Enqueue writes to DB outbox               | devInfo/Sendgrid/notifSprintPlan.md | Insert + dedupe guard      |
-| ✅ (DONE) Notif‑15 | Dispatcher reads/updates DB records       | devInfo/Sendgrid/notifSprintPlan.md | Transitions + retries      |
-| ✅ (DONE) Notif‑16 | Admin/dev endpoints: list + retry         | devInfo/Sendgrid/notifSprintPlan.md | Dev‑only list/filter + retry; tests green |
-| ✅ (DONE) Notif‑17 | Purge job (retention)                     | devInfo/Sendgrid/notifSprintPlan.md | Hourly purger; 60–90d defs |
-| ✅ (DONE) Notif‑18 | Dedupe store and policy                   | devInfo/Sendgrid/notifSprintPlan.md | TTL table + index adj.     |
-| Notif‑19           | Delivery status webhook (optional)        | devInfo/Sendgrid/notifSprintPlan.md |                            |
-| Notif‑21           | PII minimization and token hashing        | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs   |
-| Notif‑23           | Retention policy hardening (PII‑aware)    | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows         |
-| Notif‑25           | Logging and telemetry privacy gates       | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage    |
-| Notif‑26           | Privacy Policy and vendor compliance docs | devInfo/Sendgrid/notifSprintPlan.md | Policy + subprocessor list |
+| Story ID           | Title                                                   | Source                              | Notes/Dependencies                        |
+| ------------------ | ------------------------------------------------------- | ----------------------------------- | ----------------------------------------- |
+| ✅ (DONE) Notif‑13 | Notifications table (outbox) migration                  | devInfo/Sendgrid/notifSprintPlan.md | DB schema + indexes                       |
+| ✅ (DONE) Notif‑14 | Enqueue writes to DB outbox                             | devInfo/Sendgrid/notifSprintPlan.md | Insert + dedupe guard                     |
+| ✅ (DONE) Notif‑15 | Dispatcher reads/updates DB records                     | devInfo/Sendgrid/notifSprintPlan.md | Transitions + retries                     |
+| ✅ (DONE) Notif‑16 | Admin/dev endpoints: list + retry                       | devInfo/Sendgrid/notifSprintPlan.md | Dev‑only list/filter + retry; tests green |
+| ✅ (DONE) Notif‑17 | Purge job (retention)                                   | devInfo/Sendgrid/notifSprintPlan.md | Hourly purger; 60–90d defs                |
+| ✅ (DONE) Notif‑18 | Dedupe store and policy                                 | devInfo/Sendgrid/notifSprintPlan.md | TTL table + index adj.                    |
+| ✅ (DONE) Notif‑19 | Delivery status webhook (optional)                      | devInfo/Sendgrid/notifSprintPlan.md | SendGrid webhook → provider_status stored |
+| Notif‑20           | E2E verification (outbox path)                          | devInfo/Sendgrid/notifSprintPlan.md |                                           |
+| Notif‑21           | PII minimization and token hashing                      | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs                  |
+| Notif‑22           | Field-level encryption for sensitive columns (optional) | devInfo/Sendgrid/notifSprintPlan.md |                                           |
+| Notif‑23           | Retention policy hardening (PII‑aware)                  | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows                        |
+| Notif‑25           | Logging and telemetry privacy gates                     | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage                   |
+| Notif‑26           | Privacy Policy and vendor compliance docs               | devInfo/Sendgrid/notifSprintPlan.md | Policy + subprocessor list                |
 
 Design refs: devInfo/Sendgrid/notifDesign.md (Outbox + PII sections)
 

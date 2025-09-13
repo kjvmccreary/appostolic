@@ -54,6 +54,31 @@ Requirements coverage
 - Duplicate dedupe key within TTL rejected with a friendly error: Done.
 - Post-send dedupe governed by TTL store; in-flight dedupe enforced via partial unique index: Done.
 
+## Notif-19 — Delivery status webhook — Completed
+
+Summary
+
+- Added webhook endpoint to accept SendGrid event callbacks and record provider delivery outcomes per notification.
+
+Files changed
+
+- apps/api/App/Endpoints/NotificationsWebhookEndpoints.cs — new endpoint.
+- apps/api/App/Options/SendGridOptions.cs — added `WebhookToken`.
+- apps/api/App/Notifications/INotificationOutbox.cs — added `UpdateProviderStatusAsync`.
+- apps/api/App/Notifications/EfNotificationOutbox.cs — persists `provider_status` under `DataJson`.
+- apps/api/Program.cs — maps webhook route.
+- apps/api.tests/Api/NotificationsWebhookTests.cs — token/accept tests.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (targeted webhook tests green). Two unrelated E2E tests were flaky in one full run; both pass in isolation.
+
+Requirements coverage
+
+- Endpoint accepts events and optionally validates token: Done.
+- Provider status recorded idempotently under data_json with event timestamp: Done.
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary
