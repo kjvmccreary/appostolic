@@ -46,7 +46,7 @@ Guidelines
 | ✅ (DONE) Current Sprint #4 | Session → API headers bridge  | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2 & AC3  |
 | ✅ (DONE) Current Sprint #5 | Tests (minimal)               | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2        |
 | ✅ (DONE) Auth‑10           | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
-| Auth‑11                     | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
+| ✅ (DONE) Auth‑11           | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
 
 ---
 
