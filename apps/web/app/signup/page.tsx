@@ -2,7 +2,7 @@
 import React, { useState, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { API_BASE } from '../../src/lib/serverEnv';
+// API_BASE no longer needed; we call a same-origin proxy
 
 export default function SignupPage() {
   const router = useRouter();
@@ -24,7 +24,8 @@ export default function SignupPage() {
     try {
       const body: Record<string, unknown> = { email, password };
       if (inviteToken) body.inviteToken = inviteToken;
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      // Call same-origin proxy to avoid CORS
+      const res = await fetch(`/api-proxy/auth/signup`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
