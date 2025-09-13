@@ -78,6 +78,25 @@ Requirements coverage
 - Signed-in acceptance creates membership and marks invite accepted: Done.
 - Web route orchestrates signed-in vs login path and redirects on success: Done.
 
+## Auth-10 — Proxy Header Mapping & Guards — Completed
+
+Summary
+
+- Web: Tightened proxy header mapping. `buildProxyHeaders` now requires a selected tenant when web auth is enabled; returns null so proxies respond 401 if session or tenant is missing.
+- Exception: Invite acceptance proxy (`POST /api-proxy/invites/accept`) calls `buildProxyHeaders({ requireTenant: false })` to allow user-only auth during acceptance (no `x-tenant` sent), matching the API guard.
+- Tests: Added unit tests for agents proxy 401 path (existing) and new tests for invites acceptance covering user-only success and 401 on missing session.
+- Docs: Updated `SnapshotArchitecture.md` to note the stricter header requirement and the acceptance exception.
+
+Quality gates
+
+- Lint/Typecheck (web): PASS
+- Unit tests (web): PASS (11/11)
+
+Requirements coverage
+
+- Proxies enforce tenant selection and return 401 when absent: Done.
+- Invite acceptance permits user-only without tenant: Done.
+
 ## CS-05 — Web: Tests (minimal)
 
 This is story CS-05 — Web: Tests (minimal)

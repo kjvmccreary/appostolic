@@ -253,6 +253,7 @@ Seeded defaults (via `apps/api/tools/seed`):
   - Calls `session.update({ tenant })` so NextAuth JWT/session reflect the choice.
   - POSTs to `/api/tenant/select` to set `selected_tenant` cookie with `{ httpOnly: true, sameSite: 'lax', secure: NODE_ENV==='production' }`.
   - Server proxy (`buildProxyHeaders`) reads session.tenant or the cookie to forward `x-tenant` to the API in dev.
+  - Auth‑10 hardening: when web auth is enabled, proxy headers now require a selected tenant for protected routes (401 if missing). A single exception exists for invite acceptance (`POST /api-proxy/invites/accept`) which allows user‑only auth and omits `x-tenant` during acceptance flow, matching the API guard.
 
 ### Endpoints
 

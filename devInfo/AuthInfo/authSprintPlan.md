@@ -196,7 +196,7 @@ Key Tasks
 
 ---
 
-## Auth-09 — Members Management (Admin Write)
+## ✅ (DONE) Auth-09 — Members Management (Admin Write)
 
 Summary
 

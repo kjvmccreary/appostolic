@@ -45,7 +45,7 @@ Guidelines
 | ✅ (DONE) Current Sprint #3 | Route protection middleware   | devInfo/currentSprint.md           | Finish before expanding flows      |
 | ✅ (DONE) Current Sprint #4 | Session → API headers bridge  | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2 & AC3  |
 | ✅ (DONE) Current Sprint #5 | Tests (minimal)               | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2        |
-| Auth‑10                     | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
+| ✅ (DONE) Auth‑10           | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
 | Auth‑11                     | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
 
 ---
@@ -71,7 +71,7 @@ Design refs: devInfo/AuthInfo/authDesign.md
 | ✅ (DONE) Auth‑06 | Members List (Admin Read‑Only)   | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04                       |
 | ✅ (DONE) Auth‑07 | Invite API & Email (Dev)         | devInfo/AuthInfo/authSprintPlan.md | Uses notifications; token 7‑day expiry |
 | ✅ (DONE) Auth‑08 | Invite Acceptance Flow           | devInfo/AuthInfo/authSprintPlan.md | Accept path for existing/new users     |
-| Auth‑09           | Members Management (Admin Write) | devInfo/AuthInfo/authSprintPlan.md | Role change/remove                     |
+| ✅ (DONE) Auth‑09 | Members Management (Admin Write) | devInfo/AuthInfo/authSprintPlan.md | Role change/remove                     |
 
 Notifications hooks already in place (Notif‑07/08); see devInfo/Sendgrid/notifSprintPlan.md
 

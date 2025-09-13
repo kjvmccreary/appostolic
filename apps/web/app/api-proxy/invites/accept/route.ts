@@ -5,7 +5,8 @@ import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const headers = await buildProxyHeaders();
+  // Invitation acceptance allows user-only authorization; tenant may not be selected yet
+  const headers = await buildProxyHeaders({ requireTenant: false });
   if (!headers) return new Response('Unauthorized', { status: 401 });
   const body = await req.text();
   const res = await fetch(`${API_BASE}/api/invites/accept`, {
