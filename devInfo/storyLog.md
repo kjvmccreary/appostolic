@@ -1,3 +1,37 @@
+## Notif-21 — PII minimization and token hashing — Completed
+
+Summary
+
+- Eliminated raw token persistence from notifications outbox by introducing `TokenHash` (SHA‑256) and updating enqueuer to store only the hash.
+- Pre‑rendered subject/html/text snapshots at enqueue; dispatcher reuses snapshots when present.
+- Redacted logging for recipient emails across SMTP/SendGrid providers.
+- Ensured EF InMemory provider compatibility by gating transactional leasing to relational providers only.
+
+Files changed
+
+- apps/api/Domain/Notifications/Notification.cs — added `TokenHash` property
+- apps/api/Infrastructure/Configurations/NotificationConfiguration.cs — EF mapping for `token_hash`
+- apps/api/Migrations/*_s3_21_notifications_token_hash.* — migration adding column
+- apps/api/App/Notifications/NotificationEnqueuer.cs — normalize email, hash token, pre‑render snapshots, pass to outbox
+- apps/api/App/Notifications/INotificationOutbox.cs — overloads to accept tokenHash and snapshots
+- apps/api/App/Notifications/EfNotificationOutbox.cs — sets `TokenHash`, persists snapshots, provider‑aware leasing
+- apps/api/App/Notifications/NotificationDispatcherHostedService.cs — snapshot reuse path
+- apps/api/App/Notifications/SmtpEmailSender.cs — redacted logging
+- apps/api/App/Notifications/SendGridEmailSender.cs — redacted logging
+- apps/api/App/Notifications/EmailRedactor.cs — new helper
+- apps/api.tests/NotificationEnqueuerTests.cs — updated for hashing/snapshots; tests green
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (focused regression + full suite)
+
+Requirements coverage
+
+- Outbox includes token_hash; raw tokens never stored: Done.
+- Dedupe keys/email normalization and minimal data_json: Done.
+- Logs redact emails consistently: Done.
+
 ## Notif-17 — Purge job (retention) — Completed
 
 Summary

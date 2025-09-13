@@ -91,7 +91,7 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | ✅ (DONE) Notif‑18 | Dedupe store and policy                                 | devInfo/Sendgrid/notifSprintPlan.md | TTL table + index adj.                    |
 | ✅ (DONE) Notif‑19 | Delivery status webhook (optional)                      | devInfo/Sendgrid/notifSprintPlan.md | SendGrid webhook → provider_status stored |
 | ✅ (DONE) Notif‑20 | E2E verification (outbox path)                          | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog verified          |
-| Notif‑21           | PII minimization and token hashing                      | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs                  |
+| ✅ (DONE) Notif‑21 | PII minimization and token hashing                      | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs                  |
 | Notif‑22           | Field-level encryption for sensitive columns (optional) | devInfo/Sendgrid/notifSprintPlan.md |                                           |
 | Notif‑23           | Retention policy hardening (PII‑aware)                  | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows                        |
 | Notif‑25           | Logging and telemetry privacy gates                     | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage                   |

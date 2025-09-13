@@ -66,6 +66,12 @@ public class NotificationEnqueuerTests
             return Task.FromResult(Guid.NewGuid());
         }
 
+        public Task<Guid> CreateQueuedAsync(EmailMessage message, string? tokenHash, (string Subject, string Html, string Text)? snapshots, CancellationToken ct = default)
+        {
+            Captured.Add(message);
+            return Task.FromResult(Guid.NewGuid());
+        }
+
         // Unused in these tests
         public Task<Appostolic.Api.Domain.Notifications.Notification?> LeaseNextDueAsync(CancellationToken ct = default) => Task.FromResult<Appostolic.Api.Domain.Notifications.Notification?>(null);
         public Task MarkDeadLetterAsync(Guid id, string error, CancellationToken ct = default) => Task.CompletedTask;

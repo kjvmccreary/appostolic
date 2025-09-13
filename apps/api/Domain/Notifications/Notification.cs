@@ -31,6 +31,9 @@ public sealed record Notification
     // Original template data as JSON (jsonb in DB)
     public string DataJson { get; set; } = "{}";
 
+    // Hashed token (PII minimization) — raw tokens are never stored
+    public string? TokenHash { get; set; }
+
     // Optional tenant correlation
     public Guid? TenantId { get; set; }
 

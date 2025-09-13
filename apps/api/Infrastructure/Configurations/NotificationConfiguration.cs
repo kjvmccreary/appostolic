@@ -19,6 +19,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         b.Property(x => x.BodyHtml).HasColumnName("body_html").HasColumnType("text");
         b.Property(x => x.BodyText).HasColumnName("body_text").HasColumnType("text");
         b.Property(x => x.DataJson).HasColumnName("data_json").HasColumnType("jsonb").IsRequired();
+    b.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("varchar(128)");
         b.Property(x => x.TenantId).HasColumnName("tenant_id");
         b.Property(x => x.DedupeKey).HasColumnName("dedupe_key").HasMaxLength(200);
         b.Property(x => x.Status).HasColumnName("status").HasConversion<string>();

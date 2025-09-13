@@ -7,6 +7,7 @@ namespace Appostolic.Api.App.Notifications;
 public interface INotificationOutbox
 {
     Task<Guid> CreateQueuedAsync(EmailMessage message, CancellationToken ct = default);
+    Task<Guid> CreateQueuedAsync(EmailMessage message, string? tokenHash, (string Subject, string Html, string Text)? snapshots, CancellationToken ct = default);
 
     // Lease the next due notification (Status=Queued and due by NextAttemptAt) and transition it to Sending atomically if possible.
     // Returns null when nothing is due.
@@ -37,6 +38,9 @@ public sealed class EfNotificationOutbox : INotificationOutbox
     }
 
     public async Task<Guid> CreateQueuedAsync(EmailMessage message, CancellationToken ct = default)
+        => await CreateQueuedAsync(message, tokenHash: null, snapshots: null, ct);
+
+    public async Task<Guid> CreateQueuedAsync(EmailMessage message, string? tokenHash, (string Subject, string Html, string Text)? snapshots, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
         // First, claim dedupe key if provided (TTL window)
@@ -80,11 +84,19 @@ public sealed class EfNotificationOutbox : INotificationOutbox
             ToName = message.ToName,
             DataJson = System.Text.Json.JsonSerializer.Serialize(message.Data ?? new Dictionary<string, object?>()),
             DedupeKey = message.DedupeKey,
+            TokenHash = tokenHash,
             Status = NotificationStatus.Queued,
             AttemptCount = 0,
             CreatedAt = now,
             UpdatedAt = now
         };
+
+        if (snapshots is (string subj, string html, string text))
+        {
+            entity.Subject = subj;
+            entity.BodyHtml = html;
+            entity.BodyText = text;
+        }
 
         _db.Notifications.Add(entity);
         try

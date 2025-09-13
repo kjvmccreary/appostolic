@@ -84,12 +84,12 @@ public sealed class SmtpEmailSender : IEmailSender
 
         try
         {
-            _logger.LogInformation("Sending SMTP email to={To} subject={Subject}", to, subject);
+            _logger.LogInformation("Sending SMTP email to={To} subject={Subject}", EmailRedactor.Redact(to), subject);
             await smtp.SendMailAsync(message, ct);
         }
         catch (SmtpException ex)
         {
-            _logger.LogError(ex, "SMTP send failed to={To} subject={Subject}", to, subject);
+            _logger.LogError(ex, "SMTP send failed to={To} subject={Subject}", EmailRedactor.Redact(to), subject);
             throw;
         }
     }

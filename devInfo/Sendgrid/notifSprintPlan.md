@@ -407,7 +407,7 @@ Tasks
 
 - Add dev script/docs; optional integration test harness with Testcontainers.
 
-## Notif-21 — PII minimization and token hashing
+## ~~Notif-21 — PII minimization and token hashing~~
 
 Summary
 
@@ -424,12 +424,16 @@ Acceptance Criteria
 - data_json contains only minimal fields; no sensitive payloads.
 - Logs redact emails to k\*\*\*@domain.com.
 
+Status
+
+- Completed: Added `token_hash` to outbox model and EF mapping/migration; `NotificationEnqueuer` normalizes email, computes SHA‑256 token hash, pre‑renders subject/html/text snapshots, and stores only the hash (no raw tokens) in the outbox. Dispatcher reuses snapshots when present. Logging redacts recipient emails across SMTP/SendGrid paths. Focused regression and full API test suites are green.
+
 Tasks
 
-- Update model/config: add token_hash (text), ensure raw tokens never persisted.
-- Update NotificationEnqueuer to compute token_hash and hashed-email dedupe keys.
-- Add redaction helper; use in dispatcher logs.
-- Unit tests for hashing and redaction.
+- Update model/config: add token_hash (text), ensure raw tokens never persisted. ✅
+- Update NotificationEnqueuer to compute token_hash and hashed-email dedupe keys. ✅
+- Add redaction helper; use in dispatcher logs. ✅
+- Unit tests for hashing and redaction. ✅
 
 ## Notif-22 — Field-level encryption for sensitive columns (optional)
 

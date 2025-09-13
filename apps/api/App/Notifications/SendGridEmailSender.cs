@@ -55,12 +55,12 @@ public sealed class SendGridEmailSender : IEmailSender
         var resp = await client.SendAsync(req, ct);
         if (resp.StatusCode == HttpStatusCode.Accepted)
         {
-            _logger.LogInformation("SendGrid accepted email to {To}", toEmail);
+            _logger.LogInformation("SendGrid accepted email to {To}", EmailRedactor.Redact(toEmail));
             return;
         }
 
         var body = await SafeReadAsync(resp, ct);
-        _logger.LogError("SendGrid error {Status}: {Body}", (int)resp.StatusCode, body);
+        _logger.LogError("SendGrid error {Status} for {To}: {Body}", (int)resp.StatusCode, EmailRedactor.Redact(toEmail), body);
         throw new HttpRequestException($"SendGrid returned {(int)resp.StatusCode}: {body}");
     }
 

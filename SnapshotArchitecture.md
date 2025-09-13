@@ -223,11 +223,16 @@ Components:
 - Template renderer: `ScribanTemplateRenderer`
 - Providers: `SmtpEmailSender` (dev), `SendGridEmailSender` (prod/real), `NoopEmailSender` fallback
 - Enqueuer: `NotificationEnqueuer` helpers for verification and invite emails
+ - PII hardening (Notif‑21):
+   - Token hashing: verification/invite tokens are hashed (SHA‑256) and only the hash is stored on the outbox row (`TokenHash`); raw tokens are never persisted in Notification fields or `data_json`.
+   - Pre‑rendered snapshots: subject/html/text may be pre‑rendered at enqueue time and stored; dispatcher reuses snapshots when present to avoid re‑render divergence.
+   - Redacted logging: emails in logs are redacted (e.g., k***@example.com) across SMTP/SendGrid providers and dispatcher paths.
 
 Outbox & Dispatcher (Notif‑13/14/15):
 
 - Table `app.notifications` stores durable outbox entries (kind, to_email, data_json, dedupe_key, status, attempts, errors, timestamps; snapshots subject/html/text)
 - Dispatcher `NotificationDispatcherHostedService` leases (`Queued`→`Sending`), renders, sends, and updates status with jittered backoff (0.5s/2s/8s +/-20%) and terminal `DeadLetter` on exhaustion; event‑driven via ID queue with polling fallback
+ - Testing note: EF InMemory provider does not support transactions; leasing logic gates transactional semantics behind `Database.IsRelational()` to keep tests stable while retaining transactions for relational providers.
 
 Dedupe & Retention (Notif‑17/18):
 

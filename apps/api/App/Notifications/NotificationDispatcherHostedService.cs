@@ -85,7 +85,11 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                 {
                     try
                     {
-                        var (subject, html, text) = await _renderer.RenderAsync(new EmailMessage(leased.Kind, leased.ToEmail, leased.ToName, data, leased.DedupeKey), stoppingToken);
+                        // Use pre-rendered snapshots if available; otherwise render now
+                        var (subject, html, text) =
+                            leased.Subject is { Length: > 0 } && leased.BodyHtml is { Length: > 0 }
+                                ? (leased.Subject!, leased.BodyHtml!, leased.BodyText ?? string.Empty)
+                                : await _renderer.RenderAsync(new EmailMessage(leased.Kind, leased.ToEmail, leased.ToName, data, leased.DedupeKey), stoppingToken);
                         await _sender.SendAsync(leased.ToEmail, subject, html, text, stoppingToken);
                         await outbox.MarkSentAsync(leased.Id, subject, html, text, stoppingToken);
                         _logger.LogInformation("Notification sent");
