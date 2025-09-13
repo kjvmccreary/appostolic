@@ -4,7 +4,7 @@ This guide sequences the current work across Auth, Notifications, and Pre‑Migr
 
 Quick status (as of now)
 
-- Current Sprint: Route protection middleware pending.
+- Current Sprint: Phase 0 complete (middleware + proxy/header bridge + tests). Moving to Phase 1.
 - Notifications: Notif‑01..12 completed; DB outbox work starts at Notif‑13.
 - Auth: Auth‑01..14 not started.
 - Pre‑Migration: Plans only.
@@ -31,7 +31,7 @@ Phases overview
 
 Guidelines
 
-- With each story completion, update /Users/kevinmccreary/appostolic/devInfo/storyLog.md with the exact summary that you display in the Github Copilot chat window. Updates are additive; no distruction. Include a header row for each addition showing the story ID and Name.
+- With each story completion, update /Users/kevinmccreary/appostolic/devInfo/storyLog.md with the exact summary that you display in the Github Copilot chat window. Updates are additive; no destruction. Include a header row for each addition showing the story ID and Name.
 - At the end of each story, update SnapshotArchitecture.md. Updates should be additive. Only destructive items allowed are instances where the item is outdated or superseded.
 - Commit w message and sync at conclusion of each story.
 - Update the story references below each time a story is complete. An emoticon or something. Be consistent.
@@ -44,7 +44,7 @@ Guidelines
 | --------------------------- | ----------------------------- | ---------------------------------- | ---------------------------------- |
 | ✅ (DONE) Current Sprint #3 | Route protection middleware   | devInfo/currentSprint.md           | Finish before expanding flows      |
 | ✅ (DONE) Current Sprint #4 | Session → API headers bridge  | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2 & AC3  |
-| Current Sprint #5           | Tests (minimal)               | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2        |
+| ✅ (DONE) Current Sprint #5 | Tests (minimal)               | devInfo/currentSprint.md           | Complete sub tasks AC1, AC2        |
 | Auth‑10                     | Proxy Header Mapping & Guards | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04 (tenant selected) |
 | Auth‑11                     | Route Protection (Role‑based) | devInfo/AuthInfo/authSprintPlan.md | Admin‑only gating                  |
 

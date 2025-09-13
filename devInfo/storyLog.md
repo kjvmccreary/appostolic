@@ -399,6 +399,26 @@ Results
 - Inbox shows tasks with working filters and server pagination; URL reflects state for shareability and refresh persistence.
 - Provides a foundation later reused during MUI refactor to switch to DataGridPremium seamlessly.
 
+## Current Sprint #5 — Tests (minimal)
+
+This is an additional completion note for Current Sprint #5 — Tests (minimal)
+
+Files
+
+- apps/web/app/logout/page.test.tsx — logout page smoke: triggers signOut and redirects to /login.
+- apps/web/app/api-proxy/agent-tasks/route.test.ts — proxy smokes: 401 unauthenticated; 200 with mocked headers; POST 201 with Location header forwarded.
+
+✅ Acceptance
+
+- AC1: Proxy handler contract smokes extended to AgentTasks: unauthenticated → 401; authenticated (mocked) → 200/201 with expected body/headers. PASS.
+- AC2: Logout flow covered: signOut called and client redirected to /login. PASS.
+
+Wrapup
+
+- Tests, lint, and typecheck all pass after fixes (removed any-cast; used NextRequest wrapper in tests).
+- SnapshotArchitecture updated (additive) to note new test coverage.
+- Committed and pushed.
+
 Files changed
 
 - apps/web/src/app/studio/tasks/page.tsx

@@ -445,6 +445,14 @@ Local dev (Mailhog):
 - Result panel shows parsed JSON on success; error message shown on failure/cancel; recent run ids tracked client-side.
 - Depends on `@appostolic/sdk` for general types/helpers; current panel uses direct fetch via server proxies.
 
+### Test coverage (Phase 0 additions)
+
+- Middleware gating tests ensure unauthenticated users are redirected to `/login` and authenticated users are kept away from `/login`.
+- Logout page smoke test verifies `signOut({ redirect: false })` is called and the client navigates to `/login`.
+- API proxy smokes for AgentTasks:
+  - `GET /api-proxy/agent-tasks` returns 401 when unauthenticated and 200 when headers are present (mocked).
+  - `POST /api-proxy/agent-tasks` returns 201 and forwards the `Location` header from the API.
+
 ## SDK and OpenAPI (`packages/sdk`)
 
 - TS SDK scaffolding under `packages/sdk`
