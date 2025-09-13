@@ -173,6 +173,7 @@ appostolic/
   - Helpers: `NotificationEnqueuer.QueueVerificationAsync` and `.QueueInviteAsync` build absolute links from `Email:WebBaseUrl` and URL-encode tokens.
   - Observability: counters `email.sent.total` and `email.failed.total` (tagged by kind) and structured logs with correlation fields.
   - Outbox (Notif-13): Added DB table `app.notifications` with indexes and dedupe.
+  - Dedupe/Retention (Notif-17/18): Added TTL dedupe table `app.notification_dedupes`, adjusted partial unique index to in-flight statuses, and an hourly purge job.
 
 ### Database — Notifications Outbox (Notif-13)
 
@@ -193,6 +194,12 @@ appostolic/
   - On transient failure: increments `attempt_count`, records `last_error`, sets `next_attempt_at` using jittered backoff (0.5s, 2s, 8s +/-20%).
   - After max attempts: marks `DeadLetter`.
 - Enqueue path (Notif-14) writes `Queued` rows and pushes the new `id` to the ID queue to wake the dispatcher quickly; polling is a safety net.
+
+### Notifications — Dedupe & Retention (Notif-17/18)
+
+- Dedupe TTL table: `app.notification_dedupes` with primary key `dedupe_key` and `expires_at`; used to claim dedupe keys before inserting outbox rows. Duplicate claims within TTL raise a friendly `DuplicateNotificationException`.
+- Partial unique index change: `ux_notifications_dedupe_key_active` now applies to in-flight statuses only (`Queued`,`Sending`), while Sent dedupe is governed by the TTL table.
+- Purge job: a hosted service runs hourly and removes expired dedupe claims and notifications older than retention windows (Sent: 60d; Failed/DeadLetter: 90d; configurable via `Notifications` options).
 
 ## Running locally (dev)
 

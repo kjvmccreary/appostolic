@@ -87,8 +87,8 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | ✅ (DONE) Notif‑14 | Enqueue writes to DB outbox               | devInfo/Sendgrid/notifSprintPlan.md | Insert + dedupe guard      |
 | ✅ (DONE) Notif‑15 | Dispatcher reads/updates DB records       | devInfo/Sendgrid/notifSprintPlan.md | Transitions + retries      |
 | Notif‑16           | Admin/dev endpoints: list + retry         | devInfo/Sendgrid/notifSprintPlan.md |                            |
-| ✅ (DONE) Notif‑17 | Purge job (retention)                     | devInfo/Sendgrid/notifSprintPlan.md | 60–90 day defaults         |
-| ✅ (DONE) Notif‑18 | Dedupe store and policy                   | devInfo/Sendgrid/notifSprintPlan.md | DB TTL + constraints       |
+| ✅ (DONE) Notif‑17 | Purge job (retention)                     | devInfo/Sendgrid/notifSprintPlan.md | Hourly purger; 60–90d defs |
+| ✅ (DONE) Notif‑18 | Dedupe store and policy                   | devInfo/Sendgrid/notifSprintPlan.md | TTL table + index adj.     |
 | Notif‑19           | Delivery status webhook (optional)        | devInfo/Sendgrid/notifSprintPlan.md |                            |
 | Notif‑21           | PII minimization and token hashing        | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs   |
 | Notif‑23           | Retention policy hardening (PII‑aware)    | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows         |

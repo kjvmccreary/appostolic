@@ -1,3 +1,59 @@
+## Notif-17 — Purge job (retention) — Completed
+
+Summary
+
+- Added hourly purge hosted service and extracted `INotificationsPurger` to make retention rules testable.
+- Purges:
+  - Expired dedupe TTL rows (app.notification_dedupes)
+  - Notifications older than retention windows by status (Sent/Failed/DeadLetter)
+
+Files changed
+
+- apps/api/App/Notifications/NotificationsPurgeHostedService.cs — hosted purger
+- apps/api/App/Notifications/INotificationsPurger.cs — purger interface + implementation
+- apps/api/App/Options/NotificationOptions.cs — retention windows + DedupeTtl
+- apps/api/Program.cs — bind options, register purger + hosted service
+- apps/api.tests/Notifications/NotificationsRetentionTests.cs — retention test
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (retention test green)
+
+Requirements coverage
+
+- Purges dedupe TTL and old notifications on schedule: Done.
+- Configurable retention windows with sensible defaults: Done.
+
+## Notif-18 — Dedupe store and policy — Completed
+
+Summary
+
+- Introduced `notification_dedupes` TTL table to suppress duplicates across restarts.
+- `EfNotificationOutbox.CreateQueuedAsync` now claims a dedupe key first; throws `DuplicateNotificationException` on conflict.
+- Adjusted partial unique index on `notifications.dedupe_key` to only apply to in-flight statuses ('Queued','Sending'); Sent now governed by TTL table.
+
+Files changed
+
+- apps/api/Domain/Notifications/NotificationDedupe.cs — new entity
+- apps/api/Infrastructure/Configurations/NotificationDedupeConfiguration.cs — EF mapping
+- apps/api/Migrations/20250914000000_s3_17_notification_dedupes.cs — table migration
+- apps/api/Infrastructure/Configurations/NotificationConfiguration.cs — index filter change
+- apps/api/Migrations/20250914001000_s3_18_adjust_dedupe_index.cs — index adjust migration (SQL)
+- apps/api/Migrations/AppDbContextModelSnapshot.cs — snapshot updates
+- apps/api/App/Notifications/INotificationOutbox.cs — claim TTL + consistent duplicate handling
+- apps/api.tests/Notifications/NotificationDedupeTests.cs — dedupe conflict test
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (dedupe + retention tests green)
+
+Requirements coverage
+
+- Duplicate dedupe key within TTL rejected with a friendly error: Done.
+- Post-send dedupe governed by TTL store; in-flight dedupe enforced via partial unique index: Done.
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary
