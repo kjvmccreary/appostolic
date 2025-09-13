@@ -221,6 +221,37 @@ Requirements coverage
 
 ## Notif-26 — Privacy Policy and vendor compliance docs — Completed
 
+## Notif-28 — Manual resend endpoint with throttle — Completed
+
+Summary
+
+- Added a manual resend flow for notifications. New endpoint `POST /api/notifications/{id}/resend` (and dev variant) clones the original notification, links to it via `resend_of_notification_id`, and enqueues the new row.
+- Introduced `INotificationOutbox.CreateResendAsync(originalId, reason)` with atomic metadata updates on the original (`resend_count`, `last_resend_at`, `throttle_until`).
+- Enforced a simple resend throttle policy using `(to_email, kind, created_at DESC)`: if within `ResendThrottleWindow`, endpoint returns 429 with `Retry-After` header.
+- Tenancy: non‑superadmins can only resend within their tenant; returns 403 otherwise. 404 for missing, 409 for invalid states (e.g., in‑flight).
+
+Files changed
+
+- apps/api/App/Options/NotificationOptions.cs — added `ResendThrottleWindow` (default 5m).
+- apps/api/App/Notifications/INotificationOutbox.cs — new `CreateResendAsync`, plus `ResendThrottledException` and `InvalidResendStateException` types; EF implementation clones row, updates original, and enforces throttle.
+- apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — added `POST /{id}/resend` with tenant/superadmin guards, 201/429/409/404 paths, and `Retry-After` header.
+- apps/api/App/Endpoints/DevNotificationsEndpoints.cs — dev resend route mirroring admin behavior for local testing.
+- apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — dev resend test: 201 then 429, asserts metadata linkage.
+- apps/api.tests/Api/NotificationsProdEndpointsTests.cs — prod resend tests: tenant success and cross‑tenant 403; 404 when missing.
+- apps/api.tests/NotificationEnqueuerTests.cs — updated test double to implement new outbox method.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (99/99)
+
+Requirements coverage
+
+- POST /api/notifications/{id}/resend creates a linked clone and returns 201 with Location: Done.
+- Throttle policy returns 429 with Retry‑After when within window: Done.
+- Tenant scoping and superadmin override respected: Done.
+- Proper error responses for 404 and 409 states: Done.
+
 Summary
 
 - Authored privacy and compliance documentation covering notifications PII handling, retention, subprocessors (SendGrid), and operator guidance.

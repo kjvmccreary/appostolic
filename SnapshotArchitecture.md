@@ -418,6 +418,7 @@ Troubleshooting:
 - Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
 - Notifications (Notif‑24): production admin endpoints under `/api/notifications` with tenant‑scoped access for Owner/Admin and optional cross‑tenant superadmin view; superadmin claim available via dev header or allowlist for testing and operations.
 - Notifications (Notif‑27): outbox resend metadata added — self‑FK `resend_of_notification_id` (NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; supporting indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
+- Notifications (Notif‑28): manual resend endpoints — `POST /api/notifications/{id}/resend` (prod admin, tenant‑scoped with superadmin override) and `POST /api/dev/notifications/{id}/resend` (dev). Returns `201 Created` with `Location` on success; enforces resend throttling with `429 Too Many Requests` and `Retry‑After` seconds header. Throttle window configurable via `NotificationOptions.ResendThrottleWindow` (default 5m).
 - Migrations hygiene: proper EF migrations were scaffolded (Designer files + updated ModelSnapshot). An obsolete `token_aggregates` migration was converted to a no‑op to avoid conflicts.
 
 ---

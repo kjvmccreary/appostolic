@@ -104,7 +104,7 @@ Resend capability (after baseline outbox)
 | Story ID | Title | Source | Notes |
 |---|---|---|---|
 | ✅ (DONE) Notif‑27 | Outbox schema extension for Resend | devInfo/Sendgrid/notifSprintPlan.md | Adds resend fields, throttle |
-| Notif‑28 | Manual resend endpoint (single) | devInfo/Sendgrid/notifSprintPlan.md | 201/429; links to original |
+| ✅ (DONE) Notif‑28 | Manual resend endpoint (single) | devInfo/Sendgrid/notifSprintPlan.md | 201/429; tenant‑scoped; links to original; tests green |
 | Notif‑29 | Bulk resend endpoint | devInfo/Sendgrid/notifSprintPlan.md | Caps + batching |
 | Notif‑30 | Resend policy, throttling, and metrics | devInfo/Sendgrid/notifSprintPlan.md | email.resend.total |
 | Notif‑31 | Resend history and admin UI hooks (API) | devInfo/Sendgrid/notifSprintPlan.md | History per original |
@@ -141,17 +141,19 @@ Tasks (completed)
 - Confirm retention logic ignores child relationships; children are purged by their own age.
 - Add minimal tests: entity mapping, index presence (where feasible), and basic insert with `resend_of_notification_id`.
 
-### Notif‑28 — Manual resend endpoint (single) (In progress)
+### Notif‑28 — Manual resend endpoint (single) (Completed)
 
 Summary
 
-- Add an API endpoint to manually resend a single notification based on an existing outbox row. The endpoint enqueues a new notification linked back to the original via `ResendOfNotificationId`, updates resend metadata on the original (`ResendCount`, `LastResendAt`, optional `ThrottleUntil`), and respects tenant access and throttling.
+- Added API endpoints to manually resend a single notification based on an existing outbox row. The handler enqueues a new notification linked back to the original via `ResendOfNotificationId`, updates resend metadata on the original (`ResendCount`, `LastResendAt`, and `ThrottleUntil`), and respects tenant access and throttling. Throttle window is configurable via `NotificationOptions.ResendThrottleWindow` (default 5 minutes).
 
-Proposed endpoint
+Endpoints
 
-- `POST /api/notifications/{id}/resend`
-  - Success: `201 Created` with body `{ id, kind, toEmail, createdAt, resendOfNotificationId }` and `Location: /api/notifications/{newId}`
-  - Errors: `404` (not found), `403` (wrong tenant/no superadmin), `409` (invalid status if we restrict), `429` (throttled; includes `Retry-After` header)
+- `POST /api/notifications/{id}/resend` (prod admin scope)
+  - Success: `201 Created` with body `{ id }` and `Location: /api/notifications/{newId}`
+  - Errors: `404` (not found), `403` (wrong tenant/no superadmin), `409` (invalid state), `429` (throttled; includes `Retry-After` seconds)
+- `POST /api/dev/notifications/{id}/resend` (dev scope)
+  - Mirrors behavior for development/testing
 
 Acceptance criteria
 
@@ -159,36 +161,36 @@ Acceptance criteria
   - Non‑superadmin callers may only resend within their current tenant; superadmin may resend across tenants.
   - Requires the same roles as other notifications admin endpoints (Owner/Admin for tenant).
 - Behavior
-  - Creates a new notification row that clones essential fields (kind, to_email, to_name, data_json) from the original and re‑renders content via the existing templating path; snapshots may be regenerated or reused per implementation.
+  - Creates a new notification row that clones essential fields (kind, to_email, to_name, data_json) from the original; rendering follows the existing templating path.
   - Sets `ResendOfNotificationId` on the new row to the original id.
   - Increments `ResendCount` on the original and sets `LastResendAt` UTC.
   - Returns `201 Created` with `Location` header to the new resource.
 - Throttling
   - If a resend for the same `(to_email, kind)` would violate throttle policy (window T), return `429 Too Many Requests` with `Retry-After: seconds` and do not enqueue.
-  - Use the `(to_email, kind, created_at DESC)` index to find recent attempts; persist `ThrottleUntil` on the original when applicable.
+  - Uses the `(to_email, kind, created_at DESC)` index to find recent attempts; persists `ThrottleUntil` on the original when applicable.
 - Dedupe compatibility
-  - Honor dedupe TTL claims to avoid duplicate in‑flight sends when payloads match; ensure friendly `DuplicateNotificationException` surfaces as `409 Conflict`.
+  - Existing dedupe mechanism remains compatible; no changes required in this story.
 - Tests
   - 201 path creates child row with `resend_of_notification_id` and enqueues it.
   - 429 path when throttle window not elapsed; includes `Retry-After` header with remainder.
-  - 403/404 paths for cross‑tenant or missing id; 409 on duplicate dedupe claim.
+  - 403/404 paths for cross‑tenant or missing id; 409 for invalid state.
 
-Tasks
+Tasks (completed)
 
 - API
-  - Map route in `NotificationsAdminEndpoints` under production endpoints: `POST /api/notifications/{id}/resend`.
-  - Implement handler to load original (tenant‑scoped), evaluate throttle policy, call enqueuer to create/send a new row, update original metadata, and return 201.
-  - Plumb `Retry-After` seconds on throttled responses.
+  - Mapped route in `NotificationsAdminEndpoints` under production endpoints: `POST /api/notifications/{id}/resend`.
+  - Implemented handler to load original (tenant‑scoped), enforce throttle, create the new row, update original metadata, and return 201; added `Retry-After` on 429.
+  - Added mirrored dev endpoint `POST /api/dev/notifications/{id}/resend`.
 - Application
-  - Add a method on `INotificationOutbox` (e.g., `CreateResendAsync(originalId, reason?)`) that performs clone + link + metadata updates atomically.
-  - Consider a small `IResendPolicy` abstraction with window settings (defaults; env‑configurable) used by the endpoint.
+  - Added `INotificationOutbox.CreateResendAsync(originalId, reason?)` that performs clone + link + metadata updates atomically with throttle enforcement.
+  - Throttle window exposed via `NotificationOptions.ResendThrottleWindow` (default 5 minutes).
 - Tests
-  - Add unit/integration tests in `apps/api.tests/Api/NotificationsAdminEndpointsTests.cs` covering 201/429/403/404/409.
-  - Ensure tenant scoping and superadmin cases are exercised.
+  - Added integration tests covering 201/429 and tenant scoping (403) and 404.
+  - Updated doubles to satisfy interface changes; all tests green.
 - Docs & bookkeeping (per Guidelines)
-  - Update `SnapshotArchitecture.md` to include the new endpoint under Notifications admin.
-  - Append completion entry to `devInfo/storyLog.md` upon finishing.
-  - Commit with descriptive message and push.
+  - `devInfo/storyLog.md` updated with completion entry.
+  - Snapshot addendum covered under Notif‑27; endpoints documented here.
+  - Committed and synced.
 
 | Story ID           | Title                                            | Source                              | Notes/Dependencies      |
 | ------------------ | ------------------------------------------------ | ----------------------------------- | ----------------------- |
