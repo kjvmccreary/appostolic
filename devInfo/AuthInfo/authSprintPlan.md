@@ -125,7 +125,7 @@ Key Tasks
 
 ---
 
-## Auth-06 — Members List (Admin Read-Only)
+## ✅ (DONE) Auth-06 — Members List (Admin Read-Only)
 
 Summary
 
@@ -148,7 +148,7 @@ Key Tasks
 
 ---
 
-## Auth-07 — Invite API & Email (Dev)
+## ✅ (DONE) Auth-07 — Invite API & Email (Dev)
 
 Summary
 

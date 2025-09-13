@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -40,11 +41,14 @@ public static class V1
             MembershipRole role;
             if (!string.IsNullOrWhiteSpace(dto.InviteToken))
             {
-                var invite = await db.Invitations.AsNoTracking().FirstOrDefaultAsync(i => i.Token == dto.InviteToken);
+                // Load tracked invitation to mark as accepted
+                var invite = await db.Invitations.FirstOrDefaultAsync(i => i.Token == dto.InviteToken);
                 if (invite is null || invite.ExpiresAt < DateTime.UtcNow)
                     return Results.BadRequest(new { error = "invalid or expired invite" });
                 tenantId = invite.TenantId;
                 role = invite.Role;
+                // Mark as accepted; save within the same transaction later
+                invite.AcceptedAt = DateTime.UtcNow;
             }
             else
             {
@@ -79,6 +83,11 @@ public static class V1
             {
                 db.Memberships.Add(membership);
                 await db.SaveChangesAsync();
+                // Save invite acceptance if applicable
+                if (!string.IsNullOrWhiteSpace(dto.InviteToken))
+                {
+                    await db.SaveChangesAsync();
+                }
             }
             else
             {
@@ -87,6 +96,11 @@ public static class V1
                     await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
                     db.Memberships.Add(membership);
                     await db.SaveChangesAsync();
+                    // Save invite acceptance if applicable
+                    if (!string.IsNullOrWhiteSpace(dto.InviteToken))
+                    {
+                        await db.SaveChangesAsync();
+                    }
                     await tx.CommitAsync();
                 }
             }
@@ -211,10 +225,212 @@ public static class V1
             return Results.Ok(members);
         });
 
+        // POST /api/tenants/{tenantId}/invites (Admin/Owner only)
+        api.MapPost("/tenants/{tenantId:guid}/invites", async (
+            Guid tenantId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            IConfiguration config,
+            InviteRequest dto) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var userIdStr = user.FindFirstValue("sub");
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
+            if (me is null) return Results.Forbid();
+            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
+                return Results.BadRequest(new { error = "email is required" });
+
+            var email = dto.Email.Trim();
+            var emailLower = email.ToLowerInvariant();
+            var role = MembershipRole.Viewer;
+            if (!string.IsNullOrWhiteSpace(dto.Role))
+            {
+                if (!Enum.TryParse<MembershipRole>(dto.Role, true, out role))
+                    return Results.BadRequest(new { error = "invalid role" });
+            }
+
+            // If user already exists and is a member, conflict
+            var existingUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            if (existingUser is not null)
+            {
+                var alreadyMember = await db.Memberships.AsNoTracking()
+                    .AnyAsync(m => m.TenantId == tenantId && m.UserId == existingUser.Id);
+                if (alreadyMember)
+                    return Results.Conflict(new { error = "user already a member" });
+            }
+
+            // Upsert single invitation per (tenant, lower(email))
+            var existingInvite = await db.Invitations.FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email.ToLower() == emailLower);
+            var token = Guid.NewGuid().ToString("N");
+            var expiresAt = DateTime.UtcNow.AddDays(7);
+            if (existingInvite is null)
+            {
+                var invite = new Invitation
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Email = email,
+                    Role = role,
+                    Token = token,
+                    ExpiresAt = expiresAt,
+                    InvitedByUserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.Invitations.Add(invite);
+            }
+            else
+            {
+                existingInvite.Email = email; // normalize casing
+                existingInvite.Role = role;
+                existingInvite.Token = token;
+                existingInvite.ExpiresAt = expiresAt;
+                existingInvite.InvitedByUserId = userId;
+                existingInvite.AcceptedAt = null;
+            }
+            await db.SaveChangesAsync();
+
+            // Send dev email via SMTP (Mailhog)
+            try
+            {
+                var host = config["Smtp:Host"] ?? "localhost";
+                var portStr = config["Smtp:Port"] ?? "1025";
+                var from = config["Smtp:From"] ?? "no-reply@appostolic.local";
+                _ = int.TryParse(portStr, out var port);
+                using var client = new SmtpClient(host, port == 0 ? 1025 : port);
+                using var msg = new MailMessage();
+                msg.From = new MailAddress(from);
+                msg.To.Add(new MailAddress(email));
+                msg.Subject = $"You're invited to join tenant {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
+                var signupUrl = $"http://localhost:3000/signup?invite={token}";
+                msg.Body = $"You've been invited as {role}.\n\nUse this invite token during signup: {token}\n\nOr open: {signupUrl}\n\nThis invite expires at {expiresAt:u}.";
+                await client.SendMailAsync(msg);
+            }
+            catch
+            {
+                // Best-effort in dev; ignore email failures
+            }
+
+            return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, role = role.ToString(), expiresAt });
+        });
+
+        // GET /api/tenants/{tenantId}/invites (Admin/Owner only)
+        api.MapGet("/tenants/{tenantId:guid}/invites", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var userIdStr = user.FindFirstValue("sub");
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
+            if (me is null) return Results.Forbid();
+            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+
+            var invites = await db.Invitations.AsNoTracking()
+                .Where(i => i.TenantId == tenantId)
+                .OrderByDescending(i => i.CreatedAt)
+                .Select(i => new
+                {
+                    email = i.Email,
+                    role = i.Role.ToString(),
+                    expiresAt = i.ExpiresAt,
+                    acceptedAt = i.AcceptedAt,
+                    invitedByEmail = db.Users.AsNoTracking().Where(u => u.Id == i.InvitedByUserId).Select(u => u.Email).FirstOrDefault(),
+                    acceptedByEmail = db.Users.AsNoTracking().Where(u => u.Email == i.Email).Select(u => u.Email).FirstOrDefault()
+                })
+                .ToListAsync();
+            return Results.Ok(invites);
+        });
+
+        // POST /api/tenants/{tenantId}/invites/{email}/resend (Admin/Owner only)
+        api.MapPost("/tenants/{tenantId:guid}/invites/{email}/resend", async (
+            Guid tenantId,
+            string email,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            IConfiguration config) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var userIdStr = user.FindFirstValue("sub");
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
+            if (me is null) return Results.Forbid();
+            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+
+            var lower = email.Trim().ToLowerInvariant();
+            var invite = await db.Invitations.FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email.ToLower() == lower);
+            if (invite is null) return Results.NotFound();
+
+            invite.Token = Guid.NewGuid().ToString("N");
+            invite.ExpiresAt = DateTime.UtcNow.AddDays(7);
+            invite.InvitedByUserId = userId;
+            invite.AcceptedAt = null;
+            await db.SaveChangesAsync();
+
+            try
+            {
+                var host = config["Smtp:Host"] ?? "localhost";
+                var portStr = config["Smtp:Port"] ?? "1025";
+                var from = config["Smtp:From"] ?? "no-reply@appostolic.local";
+                _ = int.TryParse(portStr, out var port);
+                using var client = new SmtpClient(host, port == 0 ? 1025 : port);
+                using var msg = new MailMessage();
+                msg.From = new MailAddress(from);
+                msg.To.Add(new MailAddress(invite.Email));
+                msg.Subject = $"Your invite was re-sent for {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
+                var signupUrl = $"http://localhost:3000/signup?invite={invite.Token}";
+                msg.Body = $"You've been invited as {invite.Role}.\n\nUse this invite token during signup: {invite.Token}\n\nOr open: {signupUrl}\n\nThis invite expires at {invite.ExpiresAt:u}.";
+                await client.SendMailAsync(msg);
+            }
+            catch { }
+
+            return Results.Ok(new { email = invite.Email, role = invite.Role.ToString(), expiresAt = invite.ExpiresAt });
+        });
+
+        // DELETE /api/tenants/{tenantId}/invites/{email} (Admin/Owner only)
+        api.MapDelete("/tenants/{tenantId:guid}/invites/{email}", async (
+            Guid tenantId,
+            string email,
+            ClaimsPrincipal user,
+            AppDbContext db) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var userIdStr = user.FindFirstValue("sub");
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
+            if (me is null) return Results.Forbid();
+            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+
+            var lower = email.Trim().ToLowerInvariant();
+            var invite = await db.Invitations.FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email.ToLower() == lower);
+            if (invite is null) return Results.NotFound();
+
+            db.Invitations.Remove(invite);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
         return app;
     }
 
     public record NewLessonDto(string? Title);
     public record SignupDto(string Email, string Password, string? InviteToken = null);
     public record LoginDto(string Email, string Password);
+    public record InviteRequest(string Email, string? Role);
 }

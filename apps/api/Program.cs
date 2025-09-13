@@ -60,6 +60,10 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Appostolic API", Version = "v1" });
 
+    // Use fully-qualified type names for schema Ids to avoid collisions between same-named records/classes
+    // e.g., multiple InviteRequest records used in different endpoint groups
+    c.CustomSchemaIds(type => type.FullName?.Replace('+', '.') ?? type.Name);
+
     // Dev headers as API key security scheme
     c.AddSecurityDefinition("DevHeaders", new OpenApiSecurityScheme
     {
@@ -543,15 +547,15 @@ public record Lesson
 
 public record Invitation
 {
-    public Guid Id { get; init; }
-    public Guid TenantId { get; init; }
-    public string Email { get; init; } = string.Empty;
-    public MembershipRole Role { get; init; }
-    public string Token { get; init; } = string.Empty;
-    public DateTime ExpiresAt { get; init; }
-    public Guid? InvitedByUserId { get; init; }
-    public DateTime? AcceptedAt { get; init; }
-    public DateTime CreatedAt { get; init; }
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public MembershipRole Role { get; set; }
+    public string Token { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public Guid? InvitedByUserId { get; set; }
+    public DateTime? AcceptedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 // Expose Program for WebApplicationFactory in tests
