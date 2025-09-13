@@ -114,6 +114,43 @@ Resend capability (after baseline outbox)
 
 ## Phase 4 — E2E hardening and docs
 
+### Notif‑30 — Resend policy, throttling, and metrics (Planned)
+
+Summary
+
+- Add end-to-end observability and controls for resend flows. Emit metrics for manual and bulk resends; tighten throttling semantics and ensure consistent user-facing signals. No functional changes to delivery; focus is on policy enforcement and telemetry.
+
+Acceptance criteria
+
+- Metrics
+  - Counter email.resend.total with tags: kind, mode (manual|bulk), tenant_scope (current|superadmin), outcome (created|throttled|forbidden|notfound|error).
+  - Counter email.resend.throttled.total with tags: kind, reason (window|policy|cap), and tenant_scope.
+  - Histogram email.resend.batch.size (bulk only) with min/max/avg exported.
+- Throttling & policy
+  - Respect ResendThrottleWindow consistently across manual and bulk; bulk maintains per-recipient pre-check and returns a clear summary.
+  - Enforce per-tenant daily cap with explicit remaining calculation and include remaining in response headers: X-Resend-Remaining.
+  - Return Retry-After on 429 for manual resend as implemented; document behavior for bulk (200 with summary counts; no 429 at batch level).
+- Logging
+  - Structured logs on resend paths include correlation (original id, new id when created, tenant, user) and redact emails.
+- Docs
+  - SnapshotArchitecture updated with metrics and throttling policy notes.
+  - storyLog entry added upon completion.
+
+Tasks (planned)
+
+- Instrumentation
+  - Introduce an OTEL Meter in Notifications for resend counters and a histogram.
+  - Add metric increments in NotificationsAdminEndpoints and DevNotificationsEndpoints for both manual and bulk paths.
+- Policy surfacing
+  - Compute and include X-Resend-Remaining when BulkResendPerTenantDailyCap is active and tenant context is known.
+  - Keep pre-check throttle and map reasons (window vs. cap) into outcome tags.
+- Tests
+  - Add unit tests for cap header and summary correctness.
+  - Add metric assertion tests (using a test meter/collector) for created and throttled outcomes.
+- Documentation
+  - Update SnapshotArchitecture “Notifications” with metrics names/tags and policy notes.
+  - Update A‑Master‑Guide and storyLog when done.
+
 ### Notif‑27 — Outbox schema extension for Resend (Completed)
 
 Summary
