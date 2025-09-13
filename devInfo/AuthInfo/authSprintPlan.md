@@ -103,7 +103,7 @@ Key Tasks
 
 ---
 
-## Auth-05 — Header Tenant Switcher
+## ✅ (DONE) Auth-05 — Header Tenant Switcher
 
 Summary
 

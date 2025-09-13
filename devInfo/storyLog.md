@@ -2,6 +2,24 @@
 
 ## Auth-05 — Header Tenant Switcher — Completed
 
+## Auth-06 — Members List (Admin Read-Only) — Completed
+
+Summary
+
+- API: Added `GET /api/tenants/{tenantId}/members` requiring Admin/Owner and matching tenant claim.
+- Web: Added proxy route `/api-proxy/tenants/[tenantId]/members` and SSR page `/studio/admin/members` rendering members table for the selected tenant.
+- Guards: Server-side checks ensure user has Admin/Owner in the current tenant; otherwise redirects or 403.
+
+Quality gates
+
+- Lint/Typecheck (web): PASS
+- API: Build PASS
+
+Requirements coverage
+
+- Renders members list (email, role, joinedAt): Done.
+- Access gated to Admin/Owner for selected tenant: Done.
+
 Summary
 
 - Added header TenantSwitcher component rendered from `apps/web/app/layout.tsx`.

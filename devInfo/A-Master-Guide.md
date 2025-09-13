@@ -66,12 +66,12 @@ Design refs: devInfo/AuthInfo/authDesign.md
 
 ## Phase 2 — Members + Invites
 
-| Story ID | Title                            | Source                             | Notes/Dependencies                     |
-| -------- | -------------------------------- | ---------------------------------- | -------------------------------------- |
-| Auth‑06  | Members List (Admin Read‑Only)   | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04                       |
-| Auth‑07  | Invite API & Email (Dev)         | devInfo/AuthInfo/authSprintPlan.md | Uses notifications; token 7‑day expiry |
-| Auth‑08  | Invite Acceptance Flow           | devInfo/AuthInfo/authSprintPlan.md | Accept path for existing/new users     |
-| Auth‑09  | Members Management (Admin Write) | devInfo/AuthInfo/authSprintPlan.md | Role change/remove                     |
+| Story ID          | Title                            | Source                             | Notes/Dependencies                     |
+| ----------------- | -------------------------------- | ---------------------------------- | -------------------------------------- |
+| ✅ (DONE) Auth‑06 | Members List (Admin Read‑Only)   | devInfo/AuthInfo/authSprintPlan.md | Requires Auth‑04                       |
+| Auth‑07           | Invite API & Email (Dev)         | devInfo/AuthInfo/authSprintPlan.md | Uses notifications; token 7‑day expiry |
+| Auth‑08           | Invite Acceptance Flow           | devInfo/AuthInfo/authSprintPlan.md | Accept path for existing/new users     |
+| Auth‑09           | Members Management (Admin Write) | devInfo/AuthInfo/authSprintPlan.md | Role change/remove                     |
 
 Notifications hooks already in place (Notif‑07/08); see devInfo/Sendgrid/notifSprintPlan.md
 

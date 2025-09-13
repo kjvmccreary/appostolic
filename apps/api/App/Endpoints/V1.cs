@@ -183,6 +183,34 @@ public static class V1
             return Results.Created($"/api/lessons/{lesson.Id}", lesson);
         });
 
+        // GET /api/tenants/{tenantId}/members (Admin/Owner only)
+        api.MapGet("/tenants/{tenantId:guid}/members", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var userIdStr = user.FindFirstValue("sub");
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
+            if (me is null) return Results.Forbid();
+            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+
+            var members = await db.Memberships.AsNoTracking()
+                .Where(m => m.TenantId == tenantId)
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new
+                {
+                    userId = u.Id,
+                    email = u.Email,
+                    role = m.Role.ToString(),
+                    joinedAt = m.CreatedAt
+                })
+                .OrderBy(x => x.email)
+                .ToListAsync();
+            return Results.Ok(members);
+        });
+
         return app;
     }
 
