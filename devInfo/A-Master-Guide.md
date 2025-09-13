@@ -90,7 +90,7 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | ✅ (DONE) Notif‑17 | Purge job (retention)                                   | devInfo/Sendgrid/notifSprintPlan.md | Hourly purger; 60–90d defs                |
 | ✅ (DONE) Notif‑18 | Dedupe store and policy                                 | devInfo/Sendgrid/notifSprintPlan.md | TTL table + index adj.                    |
 | ✅ (DONE) Notif‑19 | Delivery status webhook (optional)                      | devInfo/Sendgrid/notifSprintPlan.md | SendGrid webhook → provider_status stored |
-| Notif‑20           | E2E verification (outbox path)                          | devInfo/Sendgrid/notifSprintPlan.md |                                           |
+| ✅ (DONE) Notif‑20 | E2E verification (outbox path)                          | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog verified          |
 | Notif‑21           | PII minimization and token hashing                      | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs                  |
 | Notif‑22           | Field-level encryption for sensitive columns (optional) | devInfo/Sendgrid/notifSprintPlan.md |                                           |
 | Notif‑23           | Retention policy hardening (PII‑aware)                  | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows                        |
@@ -113,14 +113,14 @@ Resend capability (after baseline outbox)
 
 ## Phase 4 — E2E hardening and docs
 
-| Story ID          | Title                                            | Source                              | Notes/Dependencies      |
-| ----------------- | ------------------------------------------------ | ----------------------------------- | ----------------------- |
-| ✅ (DONE) Auth‑10 | Proxy Header Mapping & Guards                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
-| ✅ (DONE) Auth‑11 | Route Protection (Role‑based)                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
-| Auth‑12           | API Integration Tests (Security & Flows)         | devInfo/AuthInfo/authSprintPlan.md  | Dev env tests           |
-| Auth‑13           | Web Tests (Sign‑up, Invite, Two‑Stage, Switcher) | devInfo/AuthInfo/authSprintPlan.md  | Vitest + RTL + MSW      |
-| Auth‑14           | Docs & Runbook Updates                           | devInfo/AuthInfo/authSprintPlan.md  | Flows + env vars        |
-| Notif‑20          | E2E verification (outbox path)                   | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog |
+| Story ID           | Title                                            | Source                              | Notes/Dependencies      |
+| ------------------ | ------------------------------------------------ | ----------------------------------- | ----------------------- |
+| ✅ (DONE) Auth‑10  | Proxy Header Mapping & Guards                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
+| ✅ (DONE) Auth‑11  | Route Protection (Role‑based)                    | devInfo/AuthInfo/authSprintPlan.md  | If not done in Phase 0  |
+| Auth‑12            | API Integration Tests (Security & Flows)         | devInfo/AuthInfo/authSprintPlan.md  | Dev env tests           |
+| Auth‑13            | Web Tests (Sign‑up, Invite, Two‑Stage, Switcher) | devInfo/AuthInfo/authSprintPlan.md  | Vitest + RTL + MSW      |
+| Auth‑14            | Docs & Runbook Updates                           | devInfo/AuthInfo/authSprintPlan.md  | Flows + env vars        |
+| ✅ (DONE) Notif‑20 | E2E verification (outbox path)                   | devInfo/Sendgrid/notifSprintPlan.md | DB row → SMTP → Mailhog |
 
 ---
 

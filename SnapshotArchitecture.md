@@ -532,6 +532,7 @@ Development-only endpoints and test hooks (mapped only when `ASPNETCORE_ENVIRONM
 - `POST /api/dev/notifications/verification` and `/invite` (in `DevNotificationsEndpoints.cs`)
   - Enqueues a verification or invite email via the notifications queue for E2E testing against Mailhog
   - Requires dev headers
+  - E2E (Notif‑20): Verified full outbox path in Development — enqueue → DB row → SMTP (Mailhog) → `Sent`. Tests gate EF transactions behind `Database.IsRelational()` to support InMemory provider.
 
 Agent task endpoints (in `AgentTasksEndpoints.cs`):
 

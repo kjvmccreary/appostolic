@@ -385,7 +385,7 @@ Status
 
 - Completed: Endpoint implemented and tested; docs updated. No schema migration required (stored under `data_json`).
 
-## Notif-20 — E2E verification (outbox path)
+## ~~Notif-20 — E2E verification (outbox path)~~
 
 Summary
 
@@ -398,6 +398,10 @@ Dependencies
 Acceptance Criteria
 
 - Manual and/or automated E2E confirms DB row transitions to Sent and message present in Mailhog.
+
+Status
+
+- Completed: Added automated E2E test (`NotificationsE2E_Mailhog`) that enqueues via dev endpoint, dispatcher sends via SMTP to Mailhog, outbox transitions to Sent, and Mailhog API confirms message presence. Fixed EF InMemory transaction issue by gating transactions behind `Database.IsRelational()`. Test passed locally with Mailhog running.
 
 Tasks
 

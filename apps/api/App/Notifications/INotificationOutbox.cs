@@ -1,5 +1,6 @@
 using Appostolic.Api.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Appostolic.Api.App.Notifications;
 
@@ -100,9 +101,12 @@ public sealed class EfNotificationOutbox : INotificationOutbox
 
     public async Task<Notification?> LeaseNextDueAsync(CancellationToken ct = default)
     {
-        // Simple provider-agnostic approach: find earliest due Queued and flip to Sending within a transaction.
-        // In Npgsql we could use SKIP LOCKED for high concurrency; keeping it simple for now.
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        // Simple provider-agnostic approach: find earliest due Queued and flip to Sending.
+        // Use a transaction for real databases; EF InMemory doesn't support transactions, so skip there.
+        var useTx = _db.Database.IsRelational();
+        IDbContextTransaction? tx = null;
+        if (useTx)
+            tx = await _db.Database.BeginTransactionAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
         var item = await _db.Notifications
@@ -112,14 +116,16 @@ public sealed class EfNotificationOutbox : INotificationOutbox
 
         if (item is null)
         {
-            await tx.CommitAsync(ct);
+            if (tx is not null)
+                await tx.CommitAsync(ct);
             return null;
         }
 
         item.Status = NotificationStatus.Sending;
         item.UpdatedAt = now;
         await _db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null)
+            await tx.CommitAsync(ct);
         return item;
     }
 
