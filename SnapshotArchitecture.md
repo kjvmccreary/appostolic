@@ -2,6 +2,10 @@
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
+## What’s new
+
+- Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
+
 ## Monorepo overview
 
 - Package manager: PNPM workspaces + Turborepo
@@ -225,6 +229,14 @@ Components:
 - Template renderer: `ScribanTemplateRenderer`
 - Providers: `SmtpEmailSender` (dev), `SendGridEmailSender` (prod/real), `NoopEmailSender` fallback
 - Enqueuer: `NotificationEnqueuer` helpers for verification and invite emails
+- Resend (manual/bulk):
+  - Manual: `POST /api/notifications/{id}/resend` (also dev variant) clones and enqueues a linked child, enforcing throttle via `(to_email, kind)` within `ResendThrottleWindow`.
+  - Bulk: `POST /api/notifications/resend-bulk` filters by kind/date/recipients and enforces:
+    - Per-request cap `Notifications:BulkResendMaxPerRequest` (default 100)
+    - Per-tenant daily cap `Notifications:BulkResendPerTenantDailyCap` (default 500, rolling 24h)
+    - Tenant scoping: non‑superadmin limited to current tenant; superadmin may filter by `tenantId`.
+    - Throttle: per‑recipient pre‑check and outbox enforcement to avoid violating `ResendThrottleWindow`.
+  - JSON: API accepts enum names in request bodies (global `JsonStringEnumConverter`), e.g., `{ "kind": "Verification" }`.
 - PII hardening (Notif‑21):
   - Token hashing: verification/invite tokens are hashed (SHA‑256) and only the hash is stored on the outbox row (`TokenHash`); raw tokens are never persisted in Notification fields or `data_json`.
   - Pre‑rendered snapshots: subject/html/text may be pre‑rendered at enqueue time and stored; dispatcher reuses snapshots when present to avoid re‑render divergence.

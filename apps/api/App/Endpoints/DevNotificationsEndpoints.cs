@@ -131,5 +131,38 @@ public static class DevNotificationsEndpoints
         })
         .WithSummary("Dev: retry a failed/dead-letter notification")
         .WithDescription("Transitions Failed/DeadLetter back to Queued and nudges the dispatcher.");
+
+        // POST /api/dev/notifications/{id}/resend
+        group.MapPost("/{id:guid}/resend", async (
+            Guid id,
+            AppDbContext db,
+            INotificationOutbox outbox,
+            INotificationIdQueue idQueue,
+            HttpResponse resp,
+            CancellationToken ct) =>
+        {
+            var original = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (original is null) return Results.NotFound();
+
+            try
+            {
+                var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
+                await idQueue.EnqueueAsync(newId, ct);
+                var location = $"/api/dev/notifications/{newId}";
+                return Results.Created(location, new { id = newId });
+            }
+            catch (ResendThrottledException rte)
+            {
+                var delta = (int)Math.Ceiling((rte.RetryAfter - DateTimeOffset.UtcNow).TotalSeconds);
+                resp.Headers.Append("Retry-After", Math.Max(delta, 1).ToString());
+                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            }
+            catch (InvalidResendStateException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
+        })
+        .WithSummary("Dev: resend a notification")
+        .WithDescription("Clones the notification, links to original, applies throttle, and enqueues");
     }
 }

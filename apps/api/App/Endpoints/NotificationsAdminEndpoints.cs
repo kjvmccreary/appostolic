@@ -4,11 +4,30 @@ using Appostolic.Api.Domain.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Appostolic.Api.App.Options;
 
 namespace Appostolic.Api.App.Endpoints;
 
 public static class NotificationsAdminEndpoints
 {
+    public sealed record BulkResendRequest(
+        EmailKind? Kind,
+        Guid? TenantId,
+        List<string>? ToEmails,
+        DateTimeOffset? From,
+        DateTimeOffset? To,
+        int? Limit
+    );
+
+    public sealed record BulkResendResult(
+        int Created,
+        int SkippedThrottled,
+        int SkippedForbidden,
+        int NotFound,
+        int Errors,
+        List<Guid> Ids
+    );
     public sealed record NotificationAdminListItem(
         Guid Id,
         EmailKind Kind,
@@ -39,6 +58,8 @@ public static class NotificationsAdminEndpoints
             var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
 
             IQueryable<Notification> q = db.Notifications.AsNoTracking();
+            // Operate only on original notifications (not previously-created resends)
+            q = q.Where(n => n.ResendOfNotificationId == null);
 
             // Tenant scoping: non-superadmin must be limited to current tenant
             if (!isSuper)
@@ -136,5 +157,181 @@ public static class NotificationsAdminEndpoints
             return Results.Accepted();
         })
         .WithSummary("Retry a failed/dead-letter notification (tenant-scoped or superadmin)");
+
+        // POST /api/notifications/{id}/resend
+        group.MapPost("/{id:guid}/resend", async (
+            Guid id,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            INotificationOutbox outbox,
+            INotificationIdQueue idQueue,
+            HttpResponse resp,
+            CancellationToken ct) =>
+        {
+            var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            var original = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (original is null) return Results.NotFound();
+
+            if (!isSuper)
+            {
+                var tenantIdStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(tenantIdStr, out var tenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+                if (original.TenantId != tenantId) return Results.Forbid();
+            }
+
+            try
+            {
+                var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
+                await idQueue.EnqueueAsync(newId, ct);
+                var location = $"/api/notifications/{newId}";
+                return Results.Created(location, new { id = newId });
+            }
+            catch (ResendThrottledException rte)
+            {
+                var delta = (int)Math.Ceiling((rte.RetryAfter - DateTimeOffset.UtcNow).TotalSeconds);
+                resp.Headers.Append("Retry-After", Math.Max(delta, 1).ToString());
+                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            }
+            catch (InvalidResendStateException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
+        })
+        .WithSummary("Resend a notification (tenant-scoped or superadmin)")
+        .WithDescription("Creates a new Queued notification linked to the original, enforcing throttle policy. Returns 201 with Location or 429 with Retry-After.");
+
+        // POST /api/notifications/resend-bulk
+        group.MapPost("/resend-bulk", async (
+            ClaimsPrincipal user,
+            AppDbContext db,
+            INotificationOutbox outbox,
+            INotificationIdQueue idQueue,
+            IOptions<NotificationOptions> options,
+            BulkResendRequest body,
+            CancellationToken ct) =>
+        {
+            var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            Guid? currentTenantId = null;
+            if (!isSuper)
+            {
+                var tenantIdStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(tenantIdStr, out var t)) return Results.BadRequest(new { error = "invalid tenant" });
+                currentTenantId = t;
+            }
+
+            var reqLimit = Math.Clamp(body.Limit ?? options.Value.BulkResendMaxPerRequest, 1, options.Value.BulkResendMaxPerRequest);
+
+            // Build query of originals to resend
+            IQueryable<Notification> q = db.Notifications.AsNoTracking();
+            if (body.Kind is EmailKind k)
+            {
+                q = q.Where(n => n.Kind == k);
+            }
+            if (body.From is DateTimeOffset from)
+            {
+                q = q.Where(n => n.CreatedAt >= from);
+            }
+            if (body.To is DateTimeOffset to)
+            {
+                q = q.Where(n => n.CreatedAt <= to);
+            }
+            if (body.ToEmails is { Count: > 0 })
+            {
+                var emails = body.ToEmails.Select(e => e.Trim()).Where(e => !string.IsNullOrWhiteSpace(e)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                q = q.Where(n => emails.Contains(n.ToEmail));
+            }
+
+            // Tenant scoping
+            if (isSuper)
+            {
+                if (body.TenantId is Guid tid)
+                {
+                    q = q.Where(n => n.TenantId == tid);
+                    currentTenantId = tid; // for cap calculation if provided
+                }
+            }
+            else
+            {
+                q = q.Where(n => n.TenantId == currentTenantId);
+            }
+
+            // Order newest first to prioritize recent issues
+            q = q.OrderByDescending(n => n.CreatedAt);
+
+            var originals = await q.Take(reqLimit).Select(n => new { n.Id, n.TenantId, n.ToEmail, n.Kind }).ToListAsync(ct);
+            var now = DateTimeOffset.UtcNow;
+            var throttleWindow = options.Value.ResendThrottleWindow;
+
+            // Per-tenant daily cap check (rolling 24h)
+            if (currentTenantId is Guid capTenant)
+            {
+                var since = DateTimeOffset.UtcNow.AddDays(-1);
+                // Count resends created in the last 24h for this tenant (children with ResendOfNotificationId not null)
+                var recentResends = await db.Notifications
+                    .AsNoTracking()
+                    .Where(n => n.TenantId == capTenant && n.ResendOfNotificationId != null && n.CreatedAt >= since)
+                    .CountAsync(ct);
+                var remaining = Math.Max(0, options.Value.BulkResendPerTenantDailyCap - recentResends);
+                if (remaining == 0)
+                {
+                    return Results.Ok(new BulkResendResult(0, 0, 0, 0, 0, new()));
+                }
+                if (originals.Count > remaining)
+                {
+                    originals = originals.Take(remaining).ToList();
+                }
+            }
+
+            int created = 0, throttled = 0, forbidden = 0, notFound = 0, errors = 0;
+            var ids = new List<Guid>(originals.Count);
+
+            foreach (var o in originals)
+            {
+                // Double-check tenant scoping at item level for safety
+                if (!isSuper && o.TenantId != currentTenantId)
+                {
+                    forbidden++;
+                    continue;
+                }
+
+                // Pre-check throttle by (to_email, kind) within window to avoid unnecessary CreateResend attempts
+                var throttledRecent = await db.Notifications.AsNoTracking()
+                    .AnyAsync(n => n.ToEmail == o.ToEmail && n.Kind == o.Kind && n.CreatedAt >= now - throttleWindow, ct);
+                if (throttledRecent)
+                {
+                    throttled++;
+                    continue;
+                }
+                try
+                {
+                    var newId = await outbox.CreateResendAsync(o.Id, reason: "bulk", ct);
+                    await idQueue.EnqueueAsync(newId, ct);
+                    ids.Add(newId);
+                    created++;
+                }
+                catch (ResendThrottledException)
+                {
+                    throttled++;
+                }
+                catch (InvalidResendStateException)
+                {
+                    // Treat as error for summary visibility
+                    errors++;
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    // Original disappeared
+                    notFound++;
+                }
+                catch
+                {
+                    errors++;
+                }
+            }
+
+            return Results.Ok(new BulkResendResult(created, throttled, forbidden, notFound, errors, ids));
+        })
+        .WithSummary("Bulk resend notifications")
+        .WithDescription("Resends many notifications by filter with per-request and per-tenant caps; enforces per-recipient throttle and returns a summary.");
     }
 }

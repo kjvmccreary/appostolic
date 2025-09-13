@@ -8,6 +8,7 @@ public interface INotificationOutbox
 {
     Task<Guid> CreateQueuedAsync(EmailMessage message, CancellationToken ct = default);
     Task<Guid> CreateQueuedAsync(EmailMessage message, string? tokenHash, (string Subject, string Html, string Text)? snapshots, CancellationToken ct = default);
+    Task<Guid> CreateResendAsync(Guid originalId, string? reason, CancellationToken ct = default);
 
     // Lease the next due notification (Status=Queued and due by NextAttemptAt) and transition it to Sending atomically if possible.
     // Returns null when nothing is due.
@@ -152,6 +153,71 @@ public sealed class EfNotificationOutbox : INotificationOutbox
         return item;
     }
 
+    public async Task<Guid> CreateResendAsync(Guid originalId, string? reason, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var useTx = _db.Database.IsRelational();
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? tx = null;
+        if (useTx)
+            tx = await _db.Database.BeginTransactionAsync(ct);
+
+        var original = await _db.Notifications.FirstOrDefaultAsync(x => x.Id == originalId, ct)
+            ?? throw new InvalidOperationException($"Notification {originalId} not found");
+
+        // Disallow resend while still in-flight
+        if (original.Status == NotificationStatus.Queued || original.Status == NotificationStatus.Sending)
+        {
+            if (tx is not null) await tx.RollbackAsync(ct);
+            throw new InvalidResendStateException($"Cannot resend a notification in status {original.Status}");
+        }
+
+        // Throttle by (to_email, kind) based on latest CreatedAt
+        var latest = await _db.Notifications
+            .Where(n => n.ToEmail == original.ToEmail && n.Kind == original.Kind)
+            .OrderByDescending(n => n.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (latest is not null)
+        {
+            var nextAllowed = latest.CreatedAt.Add(_options.ResendThrottleWindow);
+            if (nextAllowed > now)
+            {
+                if (tx is not null) await tx.RollbackAsync(ct);
+                throw new ResendThrottledException(nextAllowed);
+            }
+        }
+
+        var clone = new Notification
+        {
+            Id = Guid.NewGuid(),
+            Kind = original.Kind,
+            ToEmail = original.ToEmail,
+            ToName = original.ToName,
+            DataJson = original.DataJson,
+            TokenHash = original.TokenHash,
+            TenantId = original.TenantId,
+            DedupeKey = null,
+            ResendOfNotificationId = original.Id,
+            ResendReason = reason,
+            Status = NotificationStatus.Queued,
+            AttemptCount = 0,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _db.Notifications.Add(clone);
+
+        // Update original metadata
+        original.ResendCount += 1;
+        original.LastResendAt = now;
+        original.ThrottleUntil = now.Add(_options.ResendThrottleWindow);
+        original.UpdatedAt = now;
+
+        await _db.SaveChangesAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
+        return clone.Id;
+    }
+
     public async Task MarkSentAsync(Guid id, string subject, string html, string? text, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
@@ -235,4 +301,18 @@ public sealed class EfNotificationOutbox : INotificationOutbox
 public sealed class DuplicateNotificationException : Exception
 {
     public DuplicateNotificationException(string message, Exception? inner = null) : base(message, inner) { }
+}
+
+public sealed class ResendThrottledException : Exception
+{
+    public DateTimeOffset RetryAfter { get; }
+    public ResendThrottledException(DateTimeOffset retryAfter) : base($"Resend throttled until {retryAfter:O}")
+    {
+        RetryAfter = retryAfter;
+    }
+}
+
+public sealed class InvalidResendStateException : Exception
+{
+    public InvalidResendStateException(string message) : base(message) { }
 }

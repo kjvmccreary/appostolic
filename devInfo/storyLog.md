@@ -1,3 +1,32 @@
+## Notif-29 — Bulk resend endpoint — Completed
+
+Summary
+
+- Introduced a bulk resend API `POST /api/notifications/resend-bulk` that selects original notifications by filters and creates resend children with safeguards:
+  - Per-request cap and per-tenant rolling 24h cap (configurable via `Notifications` options).
+  - Tenant scoping: non‑superadmin limited to current tenant; superadmin can specify `tenantId`.
+  - Per-recipient throttling enforced both via outbox and a pre-check to avoid unnecessary attempts.
+- Configured global JSON string↔︎enum serialization so request bodies may use enum names like `"Verification"`.
+- Tests cover limit + throttling behavior; full suite green.
+
+Files changed
+
+- apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — added `/resend-bulk` endpoint; excluded child resends; added throttle pre-check.
+- apps/api/App/Options/NotificationOptions.cs — added `BulkResendMaxPerRequest` and `BulkResendPerTenantDailyCap`.
+- apps/api/Program.cs — added `JsonStringEnumConverter` to HTTP JSON options.
+- apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — added bulk resend test and set `TenantId` on seeds.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (100/100)
+
+Requirements coverage
+
+- Bulk resend exists with caps and tenant scoping: Done.
+- Throttling reflected in summary `SkippedThrottled`: Done.
+- Enum inputs accepted as strings: Done.
+
 ## Notif-21 — PII minimization and token hashing — Completed
 
 Summary

@@ -65,4 +65,102 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         nn2!.Status.Should().Be(NotificationStatus.Queued);
         nn3!.Status.Should().Be(NotificationStatus.Queued);
     }
+
+    [Fact]
+    public async Task Resend_dev_endpoint_creates_and_throttles()
+    {
+        using var localFactory = new WebAppFactory();
+        using var app = localFactory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var original = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "a@x.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10), SentAt = now.AddMinutes(-9) };
+        db.Notifications.Add(original);
+        await db.SaveChangesAsync();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        // First resend should succeed
+        var r1 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+        r1.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await r1.Content.ReadFromJsonAsync<Dictionary<string, object>>() ?? new();
+        created.ContainsKey("id").Should().BeTrue();
+
+        // Second immediate resend should be throttled
+        var r2 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+        r2.StatusCode.Should().Be((HttpStatusCode)429);
+        r2.Headers.Contains("Retry-After").Should().BeTrue();
+
+        // Verify DB state: original updated with resend metadata; new item exists
+        using var scope2 = app.Services.CreateScope();
+        var rdb = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+        var orig = await rdb.Notifications.FindAsync(original.Id);
+        orig!.ResendCount.Should().BeGreaterThan(0);
+        orig.LastResendAt.Should().NotBeNull();
+        var child = await rdb.Notifications.AsNoTracking().OrderByDescending(n => n.CreatedAt).FirstOrDefaultAsync();
+        child!.ResendOfNotificationId.Should().Be(original.Id);
+        child.Status.Should().Be(NotificationStatus.Queued);
+    }
+
+    [Fact]
+    public async Task Bulk_resend_creates_with_limit_and_counts_throttled()
+    {
+        using var localFactory = new WebAppFactory();
+        using var app = localFactory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var originals = Enumerable.Range(0, 5).Select(i => new Notification
+        {
+            Id = Guid.NewGuid(),
+            Kind = EmailKind.Verification,
+            ToEmail = $"u{i}@x.com",
+            DataJson = "{}",
+            Status = NotificationStatus.Sent,
+            TenantId = tenantId,
+            CreatedAt = now.AddMinutes(-10 - i),
+            UpdatedAt = now.AddMinutes(-10 - i),
+            SentAt = now.AddMinutes(-9 - i)
+        }).ToList();
+        db.Notifications.AddRange(originals);
+        await db.SaveChangesAsync();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        // First bulk resend should create up to limit=3
+        var req = JsonContent.Create(new { kind = "Verification", limit = 3 });
+        var r1 = await client.PostAsync("/api/notifications/resend-bulk", req);
+        r1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary1 = await r1.Content.ReadFromJsonAsync<BulkSummary>() ?? new BulkSummary();
+        summary1.Created.Should().Be(3);
+
+        // Second bulk resend immediately will encounter throttling for same recipients
+        var r2 = await client.PostAsync("/api/notifications/resend-bulk", req);
+        r2.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary2 = await r2.Content.ReadFromJsonAsync<BulkSummary>() ?? new BulkSummary();
+        summary2.SkippedThrottled.Should().BeGreaterThan(0);
+
+        // Verify that created children link back to originals
+        using var scope2 = app.Services.CreateScope();
+        var rdb = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+        var children = await rdb.Notifications.AsNoTracking().Where(n => n.ResendOfNotificationId != null).ToListAsync();
+        children.Count.Should().BeGreaterOrEqualTo(3);
+    }
+
+    private class BulkSummary
+    {
+        public int Created { get; set; }
+        public int SkippedThrottled { get; set; }
+        public int SkippedForbidden { get; set; }
+        public int NotFound { get; set; }
+        public int Errors { get; set; }
+        public List<Guid> Ids { get; set; } = new();
+    }
 }

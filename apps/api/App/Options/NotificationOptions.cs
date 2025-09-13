@@ -32,4 +32,14 @@ public sealed class NotificationOptions
     public bool EncryptBodyHtml { get; set; } = false;
     public bool EncryptBodyText { get; set; } = false;
     public bool EncryptToName { get; set; } = false;
+
+    // Resend throttling (Notif-28)
+    // Minimum time window between resends for the same (to_email, kind)
+    public TimeSpan ResendThrottleWindow { get; set; } = TimeSpan.FromMinutes(5);
+
+    // Bulk resend caps (Notif-29)
+    // Max items processed in a single bulk request (defensive per-run cap)
+    public int BulkResendMaxPerRequest { get; set; } = 100;
+    // Per-tenant daily cap for resends (rolling 24h window)
+    public int BulkResendPerTenantDailyCap { get; set; } = 500;
 }
