@@ -255,6 +255,17 @@ Seeded defaults (via `apps/api/tools/seed`):
   - Server proxy (`buildProxyHeaders`) reads session.tenant or the cookie to forward `x-tenant` to the API in dev.
   - Auth‑10 hardening: when web auth is enabled, proxy headers now require a selected tenant for protected routes (401 if missing). A single exception exists for invite acceptance (`POST /api-proxy/invites/accept`) which allows user‑only auth and omits `x-tenant` during acceptance flow, matching the API guard.
 
+### Auth‑11 — Route protection (role-based)
+
+- Added `apps/web/src/lib/roleGuard.ts` with server-only helpers:
+  - `guardProxyRole({ tenantId, anyOf })` for API proxy routes → returns `Response(401|403)` or `null`.
+  - `pickMembership(session, { tenantId|tenantSlug })` utility for SSR contexts.
+- Enforced Owner/Admin on tenant-sensitive proxy routes:
+  - Members: list (GET), update (PUT), remove (DELETE)
+  - Invites: list/create (GET/POST), resend (POST), revoke (DELETE)
+- SSR page `/studio/admin/members` already required Owner/Admin; proxies now mirror this at the server boundary for defense-in-depth.
+- Tests under `apps/web/test/api-proxy/*guard.test.ts` verify 403 when insufficient and successful proxy when authorized.
+
 ### Endpoints
 
 Agents endpoints (in `AgentsEndpoints.cs`):

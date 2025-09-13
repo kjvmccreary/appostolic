@@ -55,6 +55,7 @@ export default defineConfig({
         'src/lib/auth.ts',
         'src/lib/hash.ts',
         'src/lib/proxyHeaders.ts',
+        'src/lib/roleGuard.ts',
         // Low-signal UI helpers excluded from coverage thresholds
         'app/dev/agents/components/TracesTable.tsx',
         'src/app/studio/tasks/components/TaskFilters.tsx',

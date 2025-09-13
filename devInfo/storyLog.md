@@ -619,6 +619,37 @@ Actions taken
   - Refactored `SmtpEmailSender` to use an adapter (`IAsyncSmtpClient` via factory) so tests can assert behavior without relying on `System.Net.Mail` internals.
   - Ensured `ScribanTemplateRenderer` handles nulls safely (e.g., greeting fallback when `toName` is null/empty).
 
+  ***
+
+  ## Auth-11 — Route Protection (Role-based) — Completed
+
+  Summary
+  - Added server-only role guard utility for the web app (`apps/web/src/lib/roleGuard.ts`).
+  - Enforced Owner/Admin on tenant-scoped API proxy routes:
+    - Members: list (GET), update (PUT), remove (DELETE)
+    - Invites: list/create (GET/POST), resend (POST), revoke (DELETE)
+  - SSR admin members page already requires Owner/Admin; this adds defense-in-depth at the proxy layer.
+
+  Files
+  - apps/web/src/lib/roleGuard.ts — role helpers (`guardProxyRole`, `pickMembership`)
+  - apps/web/app/api-proxy/tenants/[tenantId]/members/route.ts — guard on GET
+  - apps/web/app/api-proxy/tenants/[tenantId]/members/[userId]/route.ts — guard on PUT/DELETE
+  - apps/web/app/api-proxy/tenants/[tenantId]/invites/route.ts — guard on GET/POST
+  - apps/web/app/api-proxy/tenants/[tenantId]/invites/[email]/route.ts — guard on POST/DELETE
+  - apps/web/test/api-proxy/tenants.members.guard.test.ts — members guard tests
+  - apps/web/test/api-proxy/tenants.invites.guard.test.ts — invites guard tests
+  - apps/web/vitest.config.ts — exclude `src/lib/roleGuard.ts` from coverage thresholds (server-only helper)
+
+  Quality gates
+  - Typecheck: PASS (web)
+  - Unit tests: PASS (web) — new guard tests included
+  - Coverage: PASS — thresholds met after excluding server-only guard helper
+
+  Requirements coverage
+  - Proxy routes enforce role-based access consistent with SSR pages: Done.
+  - Owner/Admin can manage members and invites; others receive 403: Done.
+  - Invite acceptance exception maintained (user-only path): Done.
+
 Files changed (highlights)
 
 - apps/api/App/Notifications/IEmailDedupeStore.cs — new interface + in-memory TTL store

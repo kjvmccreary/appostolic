@@ -219,7 +219,7 @@ Key Tasks
 
 ---
 
-## Auth-10 — Proxy Header Mapping & Guards
+## ✅ (DONE) Auth-10 — Proxy Header Mapping & Guards
 
 Summary
 
