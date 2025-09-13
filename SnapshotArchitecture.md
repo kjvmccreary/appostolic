@@ -239,6 +239,11 @@ PII scrubbing (Notif‑23):
   - Per‑field toggles: `ScrubToName`, `ScrubSubject`, `ScrubBodyHtml`, `ScrubBodyText`, and `ScrubToEmail` (email off by default).
 - Observability: `NotificationsPurgeHostedService` logs `scrubbed` counts alongside purged counts each run.
 
+Further reading:
+
+- Privacy policy (engineering draft): devInfo/Sendgrid/privacyPolicy.md
+- Vendor compliance and subprocessors: devInfo/Sendgrid/vendorCompliance.md
+
 Outbox & Dispatcher (Notif‑13/14/15):
 
 - Table `app.notifications` stores durable outbox entries (kind, to_email, data_json, dedupe_key, status, attempts, errors, timestamps; snapshots subject/html/text)
@@ -346,6 +351,8 @@ Key domain tables and constraints:
 - Traces: ASP.NET Core, HTTP client, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`)
 - Metrics: ASP.NET Core, HTTP client, runtime, `Appostolic.Metrics` (e.g., email sent/failed)
 - Logs: structured logs; console exporters in Development; optional OTLP endpoint via `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+- Privacy (Notif‑25): Recipient emails are redacted across dispatcher/providers and log scopes; metrics include only non‑PII tags (e.g., kind). See devInfo/Sendgrid/privacyPolicy.md for practices and devInfo/Sendgrid/vendorCompliance.md for provider details.
 
 ---
 
