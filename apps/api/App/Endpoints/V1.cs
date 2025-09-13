@@ -111,7 +111,18 @@ public static class V1
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
 
-            return Results.Ok(new { user.Id, user.Email });
+            // Include memberships (tenant + role) to support two-stage tenant selection in web.
+            var memberships = await db.Memberships.AsNoTracking()
+                .Where(m => m.UserId == user.Id)
+                .Join(db.Tenants.AsNoTracking(), m => m.TenantId, t => t.Id, (m, t) => new
+                {
+                    tenantId = t.Id,
+                    tenantSlug = t.Name,
+                    role = m.Role.ToString()
+                })
+                .ToListAsync();
+
+            return Results.Ok(new { user.Id, user.Email, memberships });
         }).AllowAnonymous();
 
         var api = apiRoot.RequireAuthorization();

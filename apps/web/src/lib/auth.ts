@@ -1,6 +1,11 @@
-import type { NextAuthOptions, User as NextAuthUser } from 'next-auth';
+import type { NextAuthOptions, Session, User as NextAuthUser } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { API_BASE } from './serverEnv';
+import type { JWT } from 'next-auth/jwt';
+
+type MembershipDto = { tenantId: string; tenantSlug: string; role: string };
+type AppToken = JWT & { memberships?: MembershipDto[]; tenant?: string };
+type AppSession = Session & { memberships?: MembershipDto[]; tenant?: string };
 
 const AUTH_SECRET = process.env.AUTH_SECRET as string | undefined;
 
@@ -26,12 +31,20 @@ export const authOptions: NextAuthOptions & {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.email) token.email = user.email;
-      return token;
+      const t = token as AppToken;
+      if (user && (user as unknown as { memberships?: MembershipDto[] }).memberships) {
+        t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
+      }
+      if (user?.email) t.email = user.email;
+      return t;
     },
     async session({ session, token }) {
-      if (token?.email && session.user) session.user.email = token.email as string;
-      return session;
+      const s = session as AppSession;
+      const t = token as AppToken;
+      if (t?.email && s.user) s.user.email = t.email as string;
+      s.memberships = t.memberships ?? [];
+      s.tenant = t.tenant;
+      return s;
     },
   },
   authorize: async (credentials) => {
@@ -45,8 +58,18 @@ export const authOptions: NextAuthOptions & {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) return null;
-      const data = (await res.json()) as { id: string; email: string };
-      return { id: data.id, email: data.email, name: data.email } as NextAuthUser;
+      const data = (await res.json()) as {
+        id: string;
+        email: string;
+        memberships?: MembershipDto[];
+      };
+      const u: NextAuthUser & { memberships?: MembershipDto[] } = {
+        id: data.id,
+        email: data.email,
+        name: data.email,
+        ...(data.memberships ? { memberships: data.memberships } : {}),
+      } as NextAuthUser & { memberships?: MembershipDto[] };
+      return u;
     } catch (err) {
       console.error('Login error', err);
       return null;

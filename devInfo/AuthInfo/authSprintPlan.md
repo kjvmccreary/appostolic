@@ -57,7 +57,7 @@ Key Tasks
 
 ---
 
-## Auth-03 — Credentials Auth via DB (NextAuth)
+## ✅ (DONE) Auth-03 — Credentials Auth via DB (NextAuth)
 
 Summary
 

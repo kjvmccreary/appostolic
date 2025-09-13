@@ -56,7 +56,7 @@ Guidelines
 | ----------------- | --------------------------------------------------- | ---------------------------------- | ----------------------------------- |
 | ✅ (DONE) Auth‑01 | Schema & Migrations (Users/Memberships/Invitations) | devInfo/AuthInfo/authSprintPlan.md | Bootstrap roles + invites schema    |
 | ✅ (DONE) Auth‑02 | Password Hashing & Signup API                       | devInfo/AuthInfo/authSprintPlan.md | Self‑serve signup + personal tenant |
-| Auth‑03           | Credentials Auth via DB (NextAuth)                  | devInfo/AuthInfo/authSprintPlan.md | Replace env‑seed auth               |
+| ✅ (DONE) Auth‑03 | Credentials Auth via DB (NextAuth)                  | devInfo/AuthInfo/authSprintPlan.md | Replace env‑seed auth               |
 | Auth‑04           | Two‑Stage Login: /select‑tenant                     | devInfo/AuthInfo/authSprintPlan.md | Multi‑tenant selector               |
 | Auth‑05           | Header Tenant Switcher                              | devInfo/AuthInfo/authSprintPlan.md | Session/JWT refresh on switch       |
 
