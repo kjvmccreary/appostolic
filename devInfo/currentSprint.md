@@ -68,7 +68,7 @@ Seed defaults
 - ~~AC1: Visiting any page under `/studio/*` or `/dev/*` without a session redirects 302 to `/login?next=/requested/path`.~~
 - ~~AC2: Visiting `/login` while already authenticated redirects to `/studio/agents`.~~
 
-4. Session → API headers bridge
+4. ~~Session → API headers bridge~~
 
 - ~~AC1: Server-only API proxy routes under `apps/web/app/api-proxy/*` inject `x-dev-user` (session email) and `x-tenant` (selected tenant slug) instead of env defaults when a session exists.~~
   - Implemented in `src/lib/proxyHeaders.ts` using NextAuth session + `selected_tenant` cookie.
@@ -77,10 +77,12 @@ Seed defaults
 - ~~AC3: A simple tenant selector persists the chosen tenant slug in session or cookie; defaults to the first membership.~~
   - Minimal `TenantSelector` added with `/api/tenant/select` route; cookie-based persistence for now.
 
-5. Tests (minimal)
+5. ~~Tests (minimal)~~
 
-- AC1: Web unit/integration tests (Vitest + RTL + MSW) cover: valid login, invalid login, protected route redirect, and header mapping on one proxy handler.
-- AC2: Contract check: unauthenticated call to a protected proxy endpoint returns 401; same call with session returns 200.
+- ~~AC1: Web unit/integration tests (Vitest + RTL + MSW) cover: valid login, invalid login, protected route redirect, and header mapping on one proxy handler.~~
+  - Files: `apps/web/app/login/page.test.tsx`, `apps/web/test/middleware.test.ts`, `apps/web/app/api-proxy/agents/route.test.ts`.
+- ~~AC2: Contract check: unauthenticated call to a protected proxy endpoint returns 401; same call with session returns 200.~~
+  - Implemented by `apps/web/app/api-proxy/agents/route.test.ts` (401/200 with mocked headers + fetch).
 
 ## Implementation plan (by repo path)
 

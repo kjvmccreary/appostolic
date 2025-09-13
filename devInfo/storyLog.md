@@ -1,3 +1,31 @@
+## CS-05 — Web: Tests (minimal)
+
+This is story CS-05 — Web: Tests (minimal)
+
+⏱ Start Timer
+{"task":"CS-05","phase":"start","ts":"2025-09-12T20:25:00Z"}
+
+Files
+
+- apps/web/app/login/page.test.tsx — login success/failure + CSRF token presence.
+- apps/web/test/middleware.test.ts — route protection redirects (unauthenticated to /login; authenticated away from /login).
+- apps/web/app/api-proxy/agents/route.test.ts — proxy 401 unauthenticated; 200 when headers/session mocked.
+
+✅ Acceptance
+
+- AC1: Web unit/integration tests cover valid/invalid login, protected route redirect, and header mapping on one proxy handler. PASS.
+- AC2: Contract check: unauthenticated call to a protected proxy endpoint returns 401; same call with session returns 200. PASS.
+
+Wrapup
+
+- Test suite green; coverage above thresholds. Lint/typecheck pass.
+- `currentSprint.md` updated to strike #5 ACs with file references.
+- Committed and pushed.
+
+🧮 Stop/Compute
+end → compute → log JSON + Sprint bullet.
+{"task":"CS-05","manual_hours":0.9,"actual_hours":0.25,"saved_hours":0.65,"rate":72,"savings_usd":46.8,"ts":"2025-09-12T20:35:00Z"}
+
 ## A12-01 — Schema + Seed (Auth MVP)
 
 This is story A12-01 — Schema + Seed (Auth MVP)

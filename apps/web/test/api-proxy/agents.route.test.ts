@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { GET as getAgents } from '../../app/api-proxy/agents/route';
 import type { NextRequest } from 'next/server';
 import { buildProxyHeaders } from '../../src/lib/proxyHeaders';
@@ -21,12 +22,13 @@ function makeReq(url = 'http://localhost:3000/api-proxy/agents'): NextRequest {
 
 describe('api-proxy/agents GET', () => {
   const originalFetch = global.fetch;
+  let fetchMock: Mock<[RequestInfo | URL, RequestInit?], Promise<Response>>;
 
   beforeEach(() => {
     vi.resetModules();
     vi.mocked(buildProxyHeaders).mockReset();
-    const fetchMock = vi.fn();
-    (fetchMock as unknown as any).mockResolvedValue(new Response(null, { status: 200 }));
+    fetchMock = vi.fn();
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -52,7 +54,7 @@ describe('api-proxy/agents GET', () => {
       'x-tenant': 't',
       'Content-Type': 'application/json',
     } as const);
-    (global.fetch as unknown as any).mockResolvedValue(
+    fetchMock.mockResolvedValue(
       new Response('ok', { status: 200, headers: { 'content-type': 'application/json' } }),
     );
     const res = await getAgents(makeReq());
