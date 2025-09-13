@@ -340,6 +340,14 @@ Invitations (Auth‑01):
   - FKs: `tenant_id → app.tenants(id)` (CASCADE), `invited_by_user_id → app.users(id)` (SET NULL)
   - Indexes: unique on `token`; functional unique index `UX_invitations_tenant_email_ci` on `(tenant_id, lower(email))` for case-insensitive per‑tenant de‑dup; supporting index `(tenant_id, expires_at)`
 
+Auth‑02 — Passwords & Signup
+
+- Password hashing: Argon2id with per‑user random salt and a configurable pepper (`Auth:PasswordPepper`). Stored fields on `users`: `password_hash text`, `password_salt bytea`, `password_updated_at timestamptz`.
+- Anonymous signup endpoint: `POST /api/auth/signup`
+  - Input: `{ email, password, inviteToken? }`
+  - Behavior: creates `users` row with hashed password; if `inviteToken` is present and valid, creates a `memberships` row for the invite’s tenant with the invite’s role. Otherwise, ensures a personal tenant slug `{localpart}-personal` exists and creates an Owner membership there. Membership insertion is executed under tenant RLS by setting `app.tenant_id` within a transaction.
+  - Output: `201 Created` with `{ id, email, tenant: { id, name } }` where tenant reflects either the invite’s tenant or the created/ensured personal tenant.
+
 ## Agent Runtime (v1)
 
 Domain types (`apps/api/Domain/Agents/`):

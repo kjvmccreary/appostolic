@@ -2,7 +2,7 @@
 
 This plan breaks the Auth MVP design into concrete, sequential stories. Each story includes a clear outcome, acceptance criteria, and key tasks.
 
-## Auth-01 — Schema & Migrations (Users/Memberships/Invitations)
+## ✅ (DONE) Auth-01 — Schema & Migrations (Users/Memberships/Invitations)
 
 Summary
 

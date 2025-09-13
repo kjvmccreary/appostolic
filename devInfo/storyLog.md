@@ -468,6 +468,44 @@ Requirements coverage
 
 - Server page using proxy with total count: Done.
 - Filters (status, agent, date range, search) update URL and drive fetch: Done.
+
+---
+
+## Auth-02 — Password Hashing & Signup API — Completed
+
+Summary
+
+- Implemented secure password hashing using Argon2id with a configurable pepper (`Auth:PasswordPepper`) and per‑user random salt.
+- Extended `users` schema with `password_hash`, `password_salt`, and `password_updated_at` via EF migration.
+- Added anonymous `POST /api/auth/signup` endpoint.
+  - When `inviteToken` is provided and valid: attaches the new user to the invite’s tenant with the invite’s role.
+  - Otherwise: creates or reuses a personal tenant `{localpart}-personal` and adds an Owner membership.
+  - Runs membership creation under tenant RLS by setting `app.tenant_id` within a transaction.
+
+Files
+
+- apps/api/Application/Auth/PasswordHasher.cs — Argon2id hasher + DI contract
+- apps/api/App/Endpoints/V1.cs — `POST /api/auth/signup` (anonymous)
+- apps/api/Program.cs — DI registration and EF mappings for new user fields
+- apps/api/Migrations/\*\_s1_12_auth_user_password.cs — adds password fields
+
+✅ Acceptance
+
+- AC1: Passwords are hashed using Argon2id + pepper; verify method passes for the same input. PASS.
+- AC2: Signup creates user and a membership either via invite tenant/role or personal tenant creation. PASS.
+- AC3: RLS respected for membership insertions by setting `app.tenant_id` within a transaction. PASS.
+
+Quality gates
+
+- Build: PASS (API)
+- Linters/Typecheck: PASS (C# compile)
+- Migrations: Present; dev startup auto‑migrate keeps DB up to date.
+
+Requirements coverage
+
+- Secure hashing and storage: Done.
+- Signup endpoint with invite flow: Done.
+- Documentation updates (snapshot + log): Done.
 - Table columns per spec and row navigation to details: Done.
 
 How to try it

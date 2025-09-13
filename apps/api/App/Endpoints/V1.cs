@@ -10,7 +10,81 @@ public static class V1
 {
     public static IEndpointRouteBuilder MapV1Endpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api").RequireAuthorization();
+        var apiRoot = app.MapGroup("/api");
+        // Anonymous auth endpoints
+        apiRoot.MapPost("/auth/signup", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, SignupDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+                return Results.BadRequest(new { error = "email and password are required" });
+
+            var email = dto.Email.Trim();
+            var existing = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            if (existing is not null) return Results.Conflict(new { error = "email already exists" });
+
+            var (hash, salt, iterations) = hasher.HashPassword(dto.Password);
+
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                PasswordUpdatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
+
+            // Handle invite path vs. self-serve personal tenant
+            Guid tenantId;
+            MembershipRole role;
+            if (!string.IsNullOrWhiteSpace(dto.InviteToken))
+            {
+                var invite = await db.Invitations.AsNoTracking().FirstOrDefaultAsync(i => i.Token == dto.InviteToken);
+                if (invite is null || invite.ExpiresAt < DateTime.UtcNow)
+                    return Results.BadRequest(new { error = "invalid or expired invite" });
+                tenantId = invite.TenantId;
+                role = invite.Role;
+            }
+            else
+            {
+                // Create personal tenant (slug: {localpart}-personal) if not exists
+                var local = email.Split('@')[0].ToLowerInvariant();
+                var slug = $"{local}-personal";
+                var tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == slug)
+                             ?? new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = DateTime.UtcNow };
+                if (await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == tenant.Id) == false)
+                {
+                    db.Tenants.Add(tenant);
+                    await db.SaveChangesAsync();
+                }
+                tenantId = tenant.Id;
+                role = MembershipRole.Owner;
+            }
+
+            // Create membership under RLS by setting tenant context within a transaction
+            var membership = new Membership
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                UserId = user.Id,
+                Role = role,
+                Status = MembershipStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            await using (var tx = await db.Database.BeginTransactionAsync())
+            {
+                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                db.Memberships.Add(membership);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+
+            var tenantEntity = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+            return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, tenant = tenantEntity is null ? null : new { tenantEntity.Id, tenantEntity.Name } });
+    }).AllowAnonymous();
+
+        var api = apiRoot.RequireAuthorization();
 
         // GET /api/me
         api.MapGet("/me", (ClaimsPrincipal user) =>
@@ -72,4 +146,5 @@ public static class V1
     }
 
     public record NewLessonDto(string? Title);
+    public record SignupDto(string Email, string Password, string? InviteToken = null);
 }

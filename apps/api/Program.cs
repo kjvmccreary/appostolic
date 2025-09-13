@@ -147,6 +147,9 @@ builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SmtpEmailSender>(
     }
 }
 
+// Auth: password hasher
+builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, Appostolic.Api.Application.Auth.Argon2PasswordHasher>();
+
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();
 builder.Services.AddScoped<IAgentOrchestrator, Appostolic.Api.Application.Agents.Runtime.AgentOrchestrator>();
@@ -401,6 +404,9 @@ public partial class AppDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.Email).HasColumnName("email").IsRequired();
+            b.Property(x => x.PasswordHash).HasColumnName("password_hash").HasColumnType("bytea").IsRequired(false);
+            b.Property(x => x.PasswordSalt).HasColumnName("password_salt").HasColumnType("bytea").IsRequired(false);
+            b.Property(x => x.PasswordUpdatedAt).HasColumnName("password_updated_at").IsRequired(false);
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(x => x.Email).IsUnique();
         });
@@ -502,6 +508,9 @@ public record User
 {
     public Guid Id { get; init; }
     public string Email { get; init; } = string.Empty;
+    public byte[]? PasswordHash { get; init; }
+    public byte[]? PasswordSalt { get; init; }
+    public DateTime? PasswordUpdatedAt { get; init; }
     public DateTime CreatedAt { get; init; }
 }
 

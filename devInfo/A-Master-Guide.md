@@ -34,7 +34,7 @@ Guidelines
 - With each story completion, update /Users/kevinmccreary/appostolic/devInfo/storyLog.md with the exact summary that you display in the Github Copilot chat window. Updates are additive; no destruction. Include a header row for each addition showing the story ID and Name.
 - At the end of each story, update SnapshotArchitecture.md. Updates should be additive. Only destructive items allowed are instances where the item is outdated or superseded.
 - Commit w message and sync at conclusion of each story.
-- Update the story references below each time a story is complete. An emoticon or something. Be consistent.
+- Update the story references below each time a story is complete. Use ✅ (DONE).
 
 ---
 
@@ -52,13 +52,13 @@ Guidelines
 
 ## Phase 1 — Auth core (DB‑backed, two‑stage login, switcher)
 
-| Story ID | Title                                               | Source                             | Notes/Dependencies                  |
-| -------- | --------------------------------------------------- | ---------------------------------- | ----------------------------------- |
-| Auth‑01  | Schema & Migrations (Users/Memberships/Invitations) | devInfo/AuthInfo/authSprintPlan.md | Bootstrap roles + invites schema    |
-| Auth‑02  | Password Hashing & Signup API                       | devInfo/AuthInfo/authSprintPlan.md | Self‑serve signup + personal tenant |
-| Auth‑03  | Credentials Auth via DB (NextAuth)                  | devInfo/AuthInfo/authSprintPlan.md | Replace env‑seed auth               |
-| Auth‑04  | Two‑Stage Login: /select‑tenant                     | devInfo/AuthInfo/authSprintPlan.md | Multi‑tenant selector               |
-| Auth‑05  | Header Tenant Switcher                              | devInfo/AuthInfo/authSprintPlan.md | Session/JWT refresh on switch       |
+| Story ID          | Title                                               | Source                             | Notes/Dependencies                  |
+| ----------------- | --------------------------------------------------- | ---------------------------------- | ----------------------------------- |
+| ✅ (DONE) Auth‑01 | Schema & Migrations (Users/Memberships/Invitations) | devInfo/AuthInfo/authSprintPlan.md | Bootstrap roles + invites schema    |
+| Auth‑02           | Password Hashing & Signup API                       | devInfo/AuthInfo/authSprintPlan.md | Self‑serve signup + personal tenant |
+| Auth‑03           | Credentials Auth via DB (NextAuth)                  | devInfo/AuthInfo/authSprintPlan.md | Replace env‑seed auth               |
+| Auth‑04           | Two‑Stage Login: /select‑tenant                     | devInfo/AuthInfo/authSprintPlan.md | Multi‑tenant selector               |
+| Auth‑05           | Header Tenant Switcher                              | devInfo/AuthInfo/authSprintPlan.md | Session/JWT refresh on switch       |
 
 Design refs: devInfo/AuthInfo/authDesign.md
 
