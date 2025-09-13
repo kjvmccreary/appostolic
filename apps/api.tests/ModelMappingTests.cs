@@ -1,5 +1,6 @@
 using System.Linq;
 using Appostolic.Api.Domain.Agents;
+using Appostolic.Api.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -110,5 +111,26 @@ public class ModelMappingTests
         // names depend on provider conventions but unique on Name is expected
         var hasUniqueName = indexes.Any(ix => ix.IsUnique && ix.Properties.Select(p => p.Name).SequenceEqual(new[] { nameof(Agent.Name) }));
         hasUniqueName.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Notification_resend_fields_are_mapped_with_indexes()
+    {
+        using var db = CreateRelationalDbContext();
+        var et = db.Model.FindEntityType(typeof(Notification));
+        et.Should().NotBeNull();
+        var propResendOf = et!.FindProperty(nameof(Notification.ResendOfNotificationId));
+        propResendOf.Should().NotBeNull();
+
+        var ixes = et.GetIndexes().ToList();
+        // Verify resend_of index exists (by properties, not name)
+        ixes.Any(ix => ix.Properties.Select(p => p.Name).SequenceEqual(new[] { nameof(Notification.ResendOfNotificationId) })).Should().BeTrue();
+        // Verify composite (ToEmail, Kind, CreatedAt)
+        ixes.Any(ix => ix.Properties.Select(p => p.Name).SequenceEqual(new[] { nameof(Notification.ToEmail), nameof(Notification.Kind), nameof(Notification.CreatedAt) })).Should().BeTrue();
+
+        // Verify foreign key exists for ResendOfNotificationId
+        var fks = et.GetForeignKeys();
+        fks.Any(fk => fk.Properties.Select(p => p.Name).SequenceEqual(new[] { nameof(Notification.ResendOfNotificationId) })
+                    && fk.PrincipalEntityType.ClrType == typeof(Notification)).Should().BeTrue();
     }
 }

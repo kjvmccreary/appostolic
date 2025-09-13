@@ -22,6 +22,12 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
     b.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("varchar(128)");
         b.Property(x => x.TenantId).HasColumnName("tenant_id");
         b.Property(x => x.DedupeKey).HasColumnName("dedupe_key").HasMaxLength(200);
+    // Resend columns
+    b.Property(x => x.ResendOfNotificationId).HasColumnName("resend_of_notification_id");
+    b.Property(x => x.ResendReason).HasColumnName("resend_reason").HasColumnType("text");
+    b.Property(x => x.ResendCount).HasColumnName("resend_count").HasDefaultValue(0);
+    b.Property(x => x.LastResendAt).HasColumnName("last_resend_at");
+    b.Property(x => x.ThrottleUntil).HasColumnName("throttle_until");
         b.Property(x => x.Status).HasColumnName("status").HasConversion<string>();
         b.Property(x => x.AttemptCount).HasColumnName("attempt_count").HasColumnType("smallint");
         b.Property(x => x.NextAttemptAt).HasColumnName("next_attempt_at");
@@ -29,6 +35,13 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("timezone('utc', now())");
         b.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("timezone('utc', now())");
         b.Property(x => x.SentAt).HasColumnName("sent_at");
+
+        // Relationships
+        b.HasOne<Notification>()
+            .WithMany()
+            .HasForeignKey(x => x.ResendOfNotificationId)
+            .OnDelete(DeleteBehavior.NoAction)
+            .HasConstraintName("fk_notifications_resend_of");
 
         // Indexes
         b.HasIndex(x => new { x.Status, x.NextAttemptAt })
@@ -41,6 +54,14 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         b.HasIndex(x => x.CreatedAt)
             .IsDescending(true)
             .HasDatabaseName("ix_notifications_created_desc");
+
+        // Resend indexes
+        b.HasIndex(x => x.ResendOfNotificationId)
+            .HasDatabaseName("ix_notifications_resend_of");
+
+        b.HasIndex(x => new { x.ToEmail, x.Kind, x.CreatedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("ix_notifications_to_kind_created");
 
         // Partial unique index on dedupe_key for in-flight statuses only; Sent is excluded now that TTL table handles dedupe
         b.HasIndex(x => x.DedupeKey)

@@ -339,7 +339,7 @@ Provider webhooks:
 Key domain tables and constraints:
 
 - Agent runtime: `agents`, `agent_tasks`, `agent_traces` with unique index `(task_id, step_number)` and checks on step/duration
-- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data
+- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data. Resend (Notif‑27) adds metadata columns and indexes for safe resend policies: `resend_of_notification_id` (FK self‑reference, NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
 - Invitations: `invitations` with FKs to `tenants` and `users`; functional unique `(tenant_id, lower(email))` and index on `(tenant_id, expires_at)`
 - Auth/tenant integrity: unique slug `tenants(name)`; FKs cascade/set‑null as appropriate
 

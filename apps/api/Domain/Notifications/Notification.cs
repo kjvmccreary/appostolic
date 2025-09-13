@@ -40,6 +40,13 @@ public sealed record Notification
     // Dedupe key to prevent duplicates across restarts
     public string? DedupeKey { get; set; }
 
+    // Resend metadata (Notif-27)
+    public Guid? ResendOfNotificationId { get; set; }
+    public string? ResendReason { get; set; }
+    public int ResendCount { get; set; } = 0;
+    public DateTimeOffset? LastResendAt { get; set; }
+    public DateTimeOffset? ThrottleUntil { get; set; }
+
     // State machine
     public NotificationStatus Status { get; set; } = NotificationStatus.Queued;
     public short AttemptCount { get; set; } = 0;
