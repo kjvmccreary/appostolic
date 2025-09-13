@@ -81,6 +81,39 @@ public class EmailDispatcherTests
         await host.StopAsync(CancellationToken.None);
     }
 
+    [Fact]
+    public async Task Dispatcher_redacts_email_in_log_scope()
+    {
+        var sent = new TaskCompletionSource<(string To, string Subject)>();
+
+        var loggerProvider = new CapturingLoggerProvider();
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(loggerProvider));
+        services.AddSingleton<IEmailQueue, EmailQueue>();
+        services.AddSingleton<ITemplateRenderer, FakeRenderer>();
+        services.AddSingleton<IEmailSender>(sp => new CapturingSender(sent));
+        services.AddHostedService<EmailDispatcherHostedService>();
+        services.Configure<Appostolic.Api.App.Options.EmailOptions>(o => o.WebBaseUrl = "http://localhost:3000");
+
+        await using var provider = services.BuildServiceProvider();
+        var host = provider.GetRequiredService<IHostedService>();
+        var cts = new CancellationTokenSource();
+        await host.StartAsync(cts.Token);
+
+        var queue = provider.GetRequiredService<IEmailQueue>();
+        const string raw = "user@example.com";
+        await queue.EnqueueAsync(new EmailMessage(EmailKind.Verification, raw, null, new Dictionary<string, object?>()));
+
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        // Verify scope contains redacted email but not raw
+        var scopes = loggerProvider.Scopes;
+        Assert.Contains(scopes, s => s.TryGetValue("email.to", out var v) && v is string sv && sv != raw && sv.Contains("***@example.com"));
+        Assert.DoesNotContain(scopes, s => s.TryGetValue("email.to", out var v) && v is string sv2 && sv2 == raw);
+
+        await host.StopAsync(CancellationToken.None);
+    }
+
     private sealed class CapturingLoggerProvider : ILoggerProvider
     {
         private readonly List<IDictionary<string, object?>> _scopes = new();

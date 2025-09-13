@@ -51,7 +51,8 @@ public sealed class EmailDispatcherHostedService : BackgroundService
             var scopeState = new Dictionary<string, object?>
             {
                 ["email.kind"] = msg.Kind.ToString(),
-                ["email.to"] = msg.ToEmail
+                // Redact recipient address in logs/scopes (Notif-25)
+                ["email.to"] = EmailRedactor.Redact(msg.ToEmail)
             };
 
             // Optional correlation fields if provided by the producer

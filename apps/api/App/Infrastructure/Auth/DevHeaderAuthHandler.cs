@@ -10,6 +10,7 @@ namespace Appostolic.Api.Infrastructure.Auth;
 public class DevHeaderAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
 
     public const string DevScheme = "Dev";
 
@@ -17,10 +18,12 @@ public class DevHeaderAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        AppDbContext db)
+        AppDbContext db,
+        IConfiguration config)
         : base(options, logger, encoder)
     {
         _db = db;
+        _config = config;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -69,6 +72,18 @@ public class DevHeaderAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
             claims.Add(new Claim("tenant_id", tenantId.Value.ToString()));
             claims.Add(new Claim("tenant_slug", tenantSlug));
         }
+        // Superadmin detection (Development convenience header + config allowlist)
+        var superHeader = Request.Headers["x-superadmin"].FirstOrDefault();
+        var isSuperHeader = string.Equals(superHeader, "true", StringComparison.OrdinalIgnoreCase);
+        var allowlistRaw = _config["Auth:SuperAdminEmails"] ?? string.Empty; // comma/space separated
+        var allow = allowlistRaw
+            .Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(x => string.Equals(x, user.Email, StringComparison.OrdinalIgnoreCase));
+        if (isSuperHeader || allow)
+        {
+            claims.Add(new Claim("superadmin", "true"));
+        }
+
         var identity = new ClaimsIdentity(claims, DevScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DevScheme);

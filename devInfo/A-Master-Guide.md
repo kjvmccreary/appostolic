@@ -94,7 +94,8 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | ✅ (DONE) Notif‑21 | PII minimization and token hashing                      | devInfo/Sendgrid/notifSprintPlan.md | Hash tokens; redact logs                  |
 | ✅ (DONE) Notif‑22 | Field-level encryption for sensitive columns (optional) | devInfo/Sendgrid/notifSprintPlan.md |                                           |
 | ✅ (DONE) Notif‑23 | Retention policy hardening (PII‑aware)                  | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows                        |
-| Notif‑25           | Logging and telemetry privacy gates                     | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage                   |
+| ✅ (DONE) Notif‑24 | Access control for notification views (prod)            | devInfo/Sendgrid/notifSprintPlan.md |                                           |
+| ✅ (DONE) Notif‑25 | Logging and telemetry privacy gates                     | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage                   |
 | Notif‑26           | Privacy Policy and vendor compliance docs               | devInfo/Sendgrid/notifSprintPlan.md | Policy + subprocessor list                |
 
 Design refs: devInfo/Sendgrid/notifDesign.md (Outbox + PII sections)

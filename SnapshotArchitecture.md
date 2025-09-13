@@ -40,7 +40,8 @@ appostolic/
 │  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
 │  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
-│  │  │  │  ├─ DevNotificationsEndpoints.cs # GET/POST /api/dev/notifications (Development only)
+  │  │  │  │  ├─ DevNotificationsEndpoints.cs # GET/POST /api/dev/notifications (Development only)
+  │  │  │  │  ├─ NotificationsAdminEndpoints.cs # /api/notifications (prod: list/details/retry; tenant-scoped + superadmin)
 │  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
   │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list; X-Total-Count; filters: status/agentId/from/to/q)
 │  │  │  └─ Infrastructure/
@@ -181,6 +182,7 @@ appostolic/
 ### Authentication & Authorization
 
 - Dev headers (API): `x-dev-user` and `x-tenant`; emits claims `sub`, `email`, `tenant_id`, `tenant_slug`. All `/api/*` require authorization (dev headers expected). Swagger remains public.
+  - Superadmin (dev/test friendly): `DevHeaderAuthHandler` can emit a `superadmin` claim when header `x-superadmin: true` is present or the user's email is included in config allowlist `Auth:SuperAdminEmails`. Used to enable cross-tenant notification views in admin endpoints.
 - Web tenant selection/switcher:
   - Two‑stage login with `/select-tenant`; auto‑select when single membership.
   - Header `TenantSwitcher` updates session via `session.update({ tenant })` and sets `selected_tenant` cookie via `/api/tenant/select`.
@@ -253,6 +255,22 @@ Dedupe & Retention (Notif‑17/18):
 Dev endpoints:
 
 - `POST /api/dev/notifications/verification` and `/invite` enqueue test emails; requires dev headers
+
+Prod admin endpoints (Notif‑24):
+
+- `GET /api/notifications` — list notifications
+  - Non‑superadmin: tenant‑scoped using `tenant_id` claim; supports filters `status`, `kind`; paging via `take`/`skip`; `X-Total-Count` header.
+  - Superadmin: cross‑tenant view allowed and may optionally filter by `tenantId`.
+- `GET /api/notifications/{id}` — details
+  - Non‑superadmin: 403 if the notification’s `tenant_id` doesn’t match current tenant.
+  - Superadmin: allowed.
+- `POST /api/notifications/{id}/retry` — retry Failed/DeadLetter
+  - Transitions to `Queued` and nudges dispatcher; enforces same tenant/superadmin gating.
+
+Access control:
+
+- Non‑superadmin requests are auto‑scoped by current tenant (from `tenant_id` claim); cross‑tenant access is denied.
+- Superadmin requests (claim `superadmin=true`) may access across tenants and use `tenantId` filter on list.
 
 Provider webhooks:
 
@@ -391,6 +409,7 @@ Troubleshooting:
 - Notifications v1: in‑process queue + dispatcher with retry/backoff and OTEL metrics; SMTP/SendGrid/Noop providers and production guard; enqueue helpers for verification/invite with absolute links
 - Outbox (Notif‑13): durable table `app.notifications` with indexes and dedupe
 - Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
+- Notifications (Notif‑24): production admin endpoints under `/api/notifications` with tenant‑scoped access for Owner/Admin and optional cross‑tenant superadmin view; superadmin claim available via dev header or allowlist for testing and operations.
 
 ---
 
@@ -717,6 +736,7 @@ Observability:
 
 - Metrics: `email.sent.total` and `email.failed.total` counters (tagged by email kind) exposed via OTEL Meter "Appostolic.Metrics".
 - Logs: Dispatcher adds correlation fields to scopes when present on the message data: `email.userId`, `email.tenantId`, `email.inviteId` (plus `email.tenant`, `email.inviter` fallbacks). In Development, logs/metrics are also exported to console.
+- Privacy (Notif-25): Recipient emails are redacted in all logs/scopes/providers (e.g., `u***@example.com`). Metrics include only non-PII tags (kind), with no raw emails or tokens.
 
 Local dev (Mailhog):
 

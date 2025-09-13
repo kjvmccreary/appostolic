@@ -514,6 +514,15 @@ Tasks
 - Add policies/attributes; enforce in endpoints.
 - Add tests for authorization and tenant filtering.
 
+Status
+
+- Completed: Added production admin endpoints under `/api/notifications`:
+  - `GET /api/notifications` (list; tenant‑scoped by `tenant_id` claim; superadmin may view cross‑tenant and filter by `tenantId`; paging + `X-Total-Count`).
+  - `GET /api/notifications/{id}` (details; tenant‑scoped; superadmin allowed).
+  - `POST /api/notifications/{id}/retry` (retry Failed/DeadLetter; transitions to `Queued` and enqueues).
+- Access control: Non‑superadmin is auto‑scoped to current tenant; superadmin enabled via dev header `x-superadmin: true` or allowlist `Auth:SuperAdminEmails`.
+- Tests: Added integration tests covering tenant list+retry and superadmin cross‑tenant listing; full API suite green.
+
 ## Notif-25 — Logging and telemetry privacy gates
 
 Summary

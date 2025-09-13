@@ -334,6 +334,7 @@ app.MapDevAgentsEndpoints(app.Services.GetRequiredService<IHostEnvironment>());
 app.MapDevAgentsDemoEndpoints();
 app.MapDevNotificationsEndpoints();
 app.MapNotificationsWebhookEndpoints();
+app.MapNotificationsAdminEndpoints();
 app.MapAgentTasksEndpoints();
 app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();

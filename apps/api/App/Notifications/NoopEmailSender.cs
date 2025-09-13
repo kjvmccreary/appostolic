@@ -13,7 +13,7 @@ public sealed class NoopEmailSender : IEmailSender
 
     public Task SendAsync(string toEmail, string subject, string htmlBody, string? textBody = null, CancellationToken ct = default)
     {
-        _logger.LogInformation("[NoopEmailSender] Would send to {To}: {Subject}", toEmail, subject);
+        _logger.LogInformation("[NoopEmailSender] Would send to {To}: {Subject}", EmailRedactor.Redact(toEmail), subject);
         return Task.CompletedTask;
     }
 }

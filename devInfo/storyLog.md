@@ -147,6 +147,78 @@ Requirements coverage
 - Endpoint accepts events and optionally validates token: Done.
 - Provider status recorded idempotently under data_json with event timestamp: Done.
 
+## Notif-20 — E2E verification (outbox path) — Completed
+
+Summary
+
+- Automated end-to-end path in Development: enqueue via dev endpoint → DB outbox row → SMTP to Mailhog → outbox transitions to Sent. Validated the dispatcher path and integration with Mailhog.
+- Gated transactional logic in dispatcher to relational providers (`Database.IsRelational()`) to keep EF InMemory tests stable.
+
+Files changed
+
+- apps/api.tests/E2E/NotificationsE2E_Mailhog.cs (or equivalent test) — end-to-end test harness using Mailhog.
+- apps/api/App/Notifications/NotificationDispatcherHostedService.cs — transactional path guarded for InMemory.
+- infra/docker/compose.yml — ensured SMTP port exposed for Mailhog (dev).
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (E2E path and full suite in Development with Mailhog running)
+
+Requirements coverage
+
+- Verify DB-backed outbox transitions to Sent and mail is delivered to Mailhog: Done.
+
+## Notif-23 — Retention policy hardening (PII-aware) — Completed
+
+Summary
+
+- Added PII scrubbing to the purge job so sensitive fields are nulled before final deletion. Scrub windows are configurable per status and occur prior to the deletion retention windows.
+- Per-field scrub toggles control which columns are nulled; email remains off by default. Logs include scrubbed counts per run.
+
+Files changed
+
+- apps/api/App/Options/NotificationOptions.cs — scrub windows and per-field toggles.
+- apps/api/App/Notifications/INotificationsPurger.cs — scrub logic (IDs selection, relational/InMemory parity) and result shape.
+- apps/api/App/Notifications/NotificationsPurgeHostedService.cs — logs scrubbed counts alongside purged counts.
+- apps/api.tests/Notifications/NotificationsPiiScrubTests.cs — unit tests for recent/scrub-eligible/delete-eligible buckets and field nulling.
+- SnapshotArchitecture.md — added PII scrubbing section and scrub-then-delete ordering.
+- devInfo/Sendgrid/notifSprintPlan.md — marked Notif-23 completed with details.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (scrub tests + full suite)
+
+Requirements coverage
+
+- Configurable PII scrubbing prior to deletion with observability: Done.
+
+## Notif-25 — Logging and telemetry privacy gates — Completed
+
+Summary
+
+- Enforced redaction of recipient emails across all logging paths: dispatcher log scopes now store `email.to` in redacted form, and Noop/SMTP/SendGrid providers already log redacted recipients.
+- Confirmed metrics carry only non-PII tags (kind) and never include raw emails or tokens.
+- Added a unit test to assert that dispatcher scopes contain a redacted address and never the raw value.
+- Updated SnapshotArchitecture to note the privacy gate and metrics hygiene.
+
+Files changed
+
+- apps/api/App/Notifications/EmailDispatcherHostedService.cs — redacted `email.to` in log scope.
+- apps/api/App/Notifications/NoopEmailSender.cs — redacted email in informational log.
+- apps/api.tests/EmailDispatcherTests.cs — added redaction assertion test.
+- SnapshotArchitecture.md — added privacy note under Notifications observability.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (new redaction test + full suite)
+
+Requirements coverage
+
+- No raw emails in logs/metrics; consistent redaction; documentation updated: Done.
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary
@@ -397,6 +469,37 @@ Actions taken
 
 - apps/api/App/Endpoints/AgentTasksEndpoints.cs
 - dev-metrics/savings.jsonl
+
+## Notif-24 — Access control for notification views (prod) — Completed
+
+Summary
+
+- Added production notifications admin endpoints under `/api/notifications` with tenant scoping and optional cross-tenant superadmin access.
+- Endpoints:
+  - `GET /api/notifications` — lists notifications, paged with `X-Total-Count`; filters `status`, `kind`; superadmin can filter by `tenantId`.
+  - `GET /api/notifications/{id}` — details; non-superadmin must match current tenant.
+  - `POST /api/notifications/{id}/retry` — retries `Failed/DeadLetter` by transitioning to `Queued` and enqueuing id.
+- Superadmin support: `DevHeaderAuthHandler` now emits a `superadmin` claim when header `x-superadmin: true` is present or when the user email matches the allowlist `Auth:SuperAdminEmails`.
+- Dev endpoints remain development-only; prod routes provide a stable surface for admin UI/SDK.
+
+Files changed
+
+- apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — new prod endpoints (list/details/retry) with tenant/superadmin gates.
+- apps/api/App/Infrastructure/Auth/DevHeaderAuthHandler.cs — adds superadmin claim via header/allowlist.
+- apps/api/Program.cs — maps `MapNotificationsAdminEndpoints()`.
+- apps/api.tests/Api/NotificationsProdEndpointsTests.cs — verifies tenant owner list+retry and superadmin cross-tenant listing.
+- SnapshotArchitecture.md — updated with Notif-24 endpoints and access model.
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full API suite 93/93, including new tests)
+
+Requirements coverage
+
+- Authorization policies/enforcement for prod notifications endpoints: Done (claims checks with tenant scoping and superadmin override).
+- Tenant filtering for non-superadmin; cross-tenant for superadmin: Done.
+- Dev endpoints remain dev-only; prod endpoints documented: Done.
 
 Requirements coverage
 
