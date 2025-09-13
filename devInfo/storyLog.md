@@ -1,5 +1,26 @@
 ## Auth-01 — Schema & Migrations (Users/Memberships/Invitations) — Completed
 
+## Auth-05 — Header Tenant Switcher — Completed
+
+Summary
+
+- Added header TenantSwitcher component rendered from `apps/web/app/layout.tsx`.
+- Switcher reads memberships from session, shows current selection, and updates both NextAuth JWT (via `session.update`) and a secure httpOnly cookie via `/api/tenant/select`.
+- Hardened cookie settings: httpOnly=true, SameSite=Lax, Secure in production.
+- Updated NextAuth `jwt` callback to honor `trigger === 'update'` so `tenant` propagates to the token/session.
+- Removed legacy text-based `TenantSelector` usage from layout.
+
+Quality gates
+
+- Lint/Typecheck (web): PASS
+- Unit tests (web): PASS (no switcher-specific tests yet; covered by broader suites)
+- API: no changes to compiled code
+
+Requirements coverage
+
+- Header switcher with session/JWT refresh on switch: Done.
+- Secure persistence of tenant selection via cookie for server-only reads: Done.
+
 Summary
 
 - Preserved existing lite schema for Users/Tenants/Memberships and their constraints (unique `users.email`, unique `tenants.name`, FKs on memberships and lessons).

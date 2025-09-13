@@ -246,6 +246,14 @@ Seeded defaults (via `apps/api/tools/seed`):
   - If authenticated and `tenant_id` exists, begins a DB transaction and sets PostgreSQL GUC `app.tenant_id` via `set_config(...)` for tenant RLS
 - Additional header-based sample (`X-Tenant-Id`) in `Program.cs` for legacy demo endpoints (`/lessons`)
 
+### Web selector/switcher (Auth‑04/05)
+
+- Two-stage login includes `/select-tenant` page. When only one membership exists, it auto-selects and sets a `selected_tenant` cookie.
+- Header `TenantSwitcher` component (rendered in `apps/web/app/layout.tsx`) lets the user change tenants at any time:
+  - Calls `session.update({ tenant })` so NextAuth JWT/session reflect the choice.
+  - POSTs to `/api/tenant/select` to set `selected_tenant` cookie with `{ httpOnly: true, sameSite: 'lax', secure: NODE_ENV==='production' }`.
+  - Server proxy (`buildProxyHeaders`) reads session.tenant or the cookie to forward `x-tenant` to the API in dev.
+
 ### Endpoints
 
 Agents endpoints (in `AgentsEndpoints.cs`):
