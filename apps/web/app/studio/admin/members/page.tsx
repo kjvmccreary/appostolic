@@ -3,6 +3,7 @@ import { authOptions } from '../../../../src/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 
 type Membership = { tenantId: string; tenantSlug: string; role: string };
 
@@ -21,7 +22,9 @@ export default async function MembersPage() {
   if (mine.role !== 'Owner' && mine.role !== 'Admin') redirect('/');
 
   // Fetch members via proxy
-  const res = await fetch(`/api-proxy/tenants/${mine.tenantId}/members`, { cache: 'no-store' });
+  const res = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/members`, {
+    cache: 'no-store',
+  });
   if (!res.ok) {
     return <div>Failed to load members</div>;
   }
@@ -33,7 +36,7 @@ export default async function MembersPage() {
   }[];
 
   // Fetch invites
-  const invitesRes = await fetch(`/api-proxy/tenants/${mine.tenantId}/invites`, {
+  const invitesRes = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/invites`, {
     cache: 'no-store',
   });
   const invites = invitesRes.ok
@@ -54,7 +57,7 @@ export default async function MembersPage() {
     const email = String(formData.get('email') ?? '').trim();
     const role = String(formData.get('role') ?? 'Viewer');
     if (!email) return;
-    await fetch(`/api-proxy/tenants/${tenantId}/invites`, {
+    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, role }),
@@ -66,7 +69,7 @@ export default async function MembersPage() {
   async function resendInvite(formData: FormData) {
     'use server';
     const email = String(formData.get('email'));
-    await fetch(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
+    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
       method: 'POST',
       cache: 'no-store',
     });
@@ -76,7 +79,7 @@ export default async function MembersPage() {
   async function revokeInvite(formData: FormData) {
     'use server';
     const email = String(formData.get('email'));
-    await fetch(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
+    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
       method: 'DELETE',
       cache: 'no-store',
     });

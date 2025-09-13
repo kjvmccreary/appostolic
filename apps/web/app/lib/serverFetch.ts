@@ -10,11 +10,15 @@ export type ServerFetchInit = RequestInit & {
   next?: { revalidate?: number };
 };
 
-function safeGetHost(): string | null {
+function safeGetHost(): { host: string | null; proto: string | null } {
   try {
-    return headers().get('host');
+    const h = headers();
+    const xfHost = h.get('x-forwarded-host');
+    const host = xfHost ?? h.get('host');
+    const proto = h.get('x-forwarded-proto');
+    return { host, proto };
   } catch {
-    return null;
+    return { host: null, proto: null };
   }
 }
 
@@ -28,14 +32,14 @@ function safeCookieString(): string {
 
 function currentRequestBase(): string {
   const envBase = process.env.NEXT_PUBLIC_WEB_BASE;
-  const host = safeGetHost();
+  const { host, proto } = safeGetHost();
   if (envBase) {
     // Ensure no trailing slash
     return envBase.replace(/\/$/, '');
   }
   if (host) {
-    const proto = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    return `${proto}://${host}`;
+    const scheme = proto ?? (process.env.NODE_ENV === 'development' ? 'http' : 'https');
+    return `${scheme}://${host}`;
   }
   // Test or non-Next context fallback
   return 'http://localhost:3000';
