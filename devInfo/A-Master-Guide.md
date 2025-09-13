@@ -96,7 +96,7 @@ Baseline outbox and privacy-by-design before scaling email usage.
 | ✅ (DONE) Notif‑23 | Retention policy hardening (PII‑aware)                  | devInfo/Sendgrid/notifSprintPlan.md | Per‑status windows                        |
 | ✅ (DONE) Notif‑24 | Access control for notification views (prod)            | devInfo/Sendgrid/notifSprintPlan.md |                                           |
 | ✅ (DONE) Notif‑25 | Logging and telemetry privacy gates                     | devInfo/Sendgrid/notifSprintPlan.md | Redaction helpers/usage                   |
-| Notif‑26           | Privacy Policy and vendor compliance docs               | devInfo/Sendgrid/notifSprintPlan.md | Policy + subprocessor list                |
+| ✅ (DONE) Notif‑26 | Privacy Policy and vendor compliance docs               | devInfo/Sendgrid/notifSprintPlan.md | Policy + subprocessor list                |
 
 Design refs: devInfo/Sendgrid/notifDesign.md (Outbox + PII sections)
 

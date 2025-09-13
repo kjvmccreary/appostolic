@@ -158,3 +158,10 @@ The monorepo targets Node 20.x. If VS Code tasks or new shells pick up a differe
 ```
 nvm alias default 20
 ```
+
+---
+
+## Compliance & data handling
+
+- Privacy Policy (engineering draft for notifications): devInfo/Sendgrid/privacyPolicy.md
+- Vendor/Subprocessors and compliance notes: devInfo/Sendgrid/vendorCompliance.md

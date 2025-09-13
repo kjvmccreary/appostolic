@@ -174,3 +174,10 @@ curl -sS -X POST \
   http://localhost:3000/api-proxy/dev/notifications/invite \
   -d '{"toEmail":"you@example.com","toName":"You","tenant":"kevin-personal","role":"Member","inviter":"Kevin","token":"xyz789"}'
 ```
+
+---
+
+## Policies & compliance
+
+- Privacy Policy (engineering draft for notifications): devInfo/Sendgrid/privacyPolicy.md
+- Vendor/Subprocessors and compliance notes: devInfo/Sendgrid/vendorCompliance.md

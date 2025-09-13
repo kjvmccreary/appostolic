@@ -567,6 +567,10 @@ Tasks
 - RUNBOOK: data-subject request handling and incident response outline.
 - README: link to policy and subprocessor list.
 
+Status
+
+- Completed: Authored `devInfo/Sendgrid/privacyPolicy.md` and `devInfo/Sendgrid/vendorCompliance.md`. Cross-linked from `SnapshotArchitecture.md`. Will surface links in top-level `README.md` and `RUNBOOK.md` next.
+
 ## Notif-27 — Outbox schema extension for Resend
 
 Summary

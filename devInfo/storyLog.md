@@ -219,6 +219,31 @@ Requirements coverage
 
 - No raw emails in logs/metrics; consistent redaction; documentation updated: Done.
 
+## Notif-26 — Privacy Policy and vendor compliance docs — Completed
+
+Summary
+
+- Authored privacy and compliance documentation covering notifications PII handling, retention, subprocessors (SendGrid), and operator guidance.
+- Cross-linked the new docs from `SnapshotArchitecture.md` so engineers can discover them alongside system design.
+- This entry completes the documentation track for notifications Phase 3.
+
+Files changed
+
+- devInfo/Sendgrid/privacyPolicy.md — engineering draft Privacy Policy for notifications
+- devInfo/Sendgrid/vendorCompliance.md — subprocessor list, data flow, and compliance notes
+- SnapshotArchitecture.md — cross-links to policy/compliance docs from Notifications and Observability sections
+
+Quality gates
+
+- Build: N/A (docs only)
+- Tests: N/A (no code changes)
+
+Requirements coverage
+
+- Privacy Policy present in-repo and describes PII handling and retention: Done.
+- Vendor/Subprocessor compliance doc created with SendGrid listed: Done.
+- Architecture cross-links added for discoverability: Done.
+
 ## Notif-14 — Enqueue writes to DB outbox — Completed
 
 Summary
