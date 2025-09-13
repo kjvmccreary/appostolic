@@ -72,12 +72,23 @@ public static class V1
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             };
-            await using (var tx = await db.Database.BeginTransactionAsync())
+            // In tests we swap to EF InMemory which does not support transactions.
+            // Detect provider and skip explicit transaction + set_config when InMemory.
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
             {
-                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
                 db.Memberships.Add(membership);
                 await db.SaveChangesAsync();
-                await tx.CommitAsync();
+            }
+            else
+            {
+                await using (var tx = await db.Database.BeginTransactionAsync())
+                {
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                    db.Memberships.Add(membership);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
             }
 
             var tenantEntity = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
