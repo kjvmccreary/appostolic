@@ -449,6 +449,37 @@ public partial class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // Invitations (Auth-01)
+        modelBuilder.Entity<Invitation>(b =>
+        {
+            b.ToTable("invitations");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.TenantId).HasColumnName("tenant_id");
+            b.Property(x => x.Email).HasColumnName("email").IsRequired();
+            b.Property(x => x.Role).HasColumnName("role");
+            b.Property(x => x.Token).HasColumnName("token").IsRequired();
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            b.Property(x => x.InvitedByUserId).HasColumnName("invited_by_user_id");
+            b.Property(x => x.AcceptedAt).HasColumnName("accepted_at");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+
+            // Referential integrity
+            b.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.InvitedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            // Note: Case-insensitive unique index on (tenant_id, lower(email)) added via migration SQL.
+            b.HasIndex(x => x.Token).IsUnique();
+        });
+
         // Apply configurations for domain types (Agent runtime)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
@@ -457,6 +488,7 @@ public partial class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Lesson> Lessons => Set<Lesson>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
 }
 
 public record Tenant
@@ -497,6 +529,19 @@ public record Lesson
     public LessonStatus Status { get; init; }
     public LessonAudience Audience { get; init; }
     public DateTime UpdatedAt { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
+public record Invitation
+{
+    public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
+    public string Email { get; init; } = string.Empty;
+    public MembershipRole Role { get; init; }
+    public string Token { get; init; } = string.Empty;
+    public DateTime ExpiresAt { get; init; }
+    public Guid? InvitedByUserId { get; init; }
+    public DateTime? AcceptedAt { get; init; }
     public DateTime CreatedAt { get; init; }
 }
 

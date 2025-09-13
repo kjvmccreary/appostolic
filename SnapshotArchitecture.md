@@ -333,6 +333,13 @@ Auth/Multi-tenant schema updates (MVP prep):
   - `app.memberships(tenant_id) → app.tenants(id)` (cascade delete)
   - `app.lessons(tenant_id) → app.tenants(id)` (cascade delete)
 
+Invitations (Auth‑01):
+
+- Table: `app.invitations`
+  - Columns: `id uuid PK`, `tenant_id uuid NOT NULL`, `email text NOT NULL`, `role int NOT NULL`, `token text UNIQUE NOT NULL`, `expires_at timestamptz NOT NULL`, `invited_by_user_id uuid NULL`, `accepted_at timestamptz NULL`, `created_at timestamptz DEFAULT now()`
+  - FKs: `tenant_id → app.tenants(id)` (CASCADE), `invited_by_user_id → app.users(id)` (SET NULL)
+  - Indexes: unique on `token`; functional unique index `UX_invitations_tenant_email_ci` on `(tenant_id, lower(email))` for case-insensitive per‑tenant de‑dup; supporting index `(tenant_id, expires_at)`
+
 ## Agent Runtime (v1)
 
 Domain types (`apps/api/Domain/Agents/`):

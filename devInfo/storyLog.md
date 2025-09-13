@@ -1,3 +1,22 @@
+## Auth-01 — Schema & Migrations (Users/Memberships/Invitations) — Completed
+
+Summary
+
+- Preserved existing lite schema for Users/Tenants/Memberships and their constraints (unique `users.email`, unique `tenants.name`, FKs on memberships and lessons).
+- Added Invitations table and EF model with proper FKs and indexes.
+- Ensured case-insensitive uniqueness per tenant for invitation email via functional index on `(tenant_id, lower(email))`.
+- Added unique token index and a supporting `(tenant_id, expires_at)` index.
+
+Quality gates
+
+- Build: PASS (API)
+- Migrations: Up to date locally after generation of `20250912191500_s1_12_auth_invitations`.
+
+Requirements coverage
+
+- Invitations schema with integrity and uniqueness: Done.
+- Respect existing users/tenants/memberships: Done.
+
 ## CS-05 — Web: Tests (minimal)
 
 This is story CS-05 — Web: Tests (minimal)
