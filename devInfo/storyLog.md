@@ -1709,11 +1709,6 @@ Files changed
 - apps/api.tests/Security/AgentTasksAuthContractTests.cs — new test file.
 - dev-metrics/savings.jsonl — added A11-11 start entry.
 
-Quality gates
-
-- Build: PASS (API + tests)
-- Tests: PASS (security contract test)
-
 ## Notif-16 — Admin/dev endpoints: list + retry — Completed
 
 Summary
@@ -1750,3 +1745,35 @@ Files
 - apps/api/App/Notifications/INotificationOutbox.cs (and EF impl)
 - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs
 - apps/api.tests/WebAppFactory.cs
+
+## Notif-27 — Outbox schema extension for Resend — Completed
+
+Summary
+
+- Extended notifications outbox to record resend relationships and enable safe resend policies later. Added a self-referencing FK and operational fields without changing existing send flow.
+- Scaffolded proper EF migrations (with Designer files and updated model snapshot) so tooling recognizes and applies them cleanly. Converted an obsolete `token_aggregates` migration to a no-op.
+
+Files changed
+
+- apps/api/Domain/Notifications/Notification.cs — added resend metadata: `ResendOfNotificationId`, `ResendReason`, `ResendCount`, `LastResendAt`, `ThrottleUntil`
+- apps/api/Infrastructure/Configurations/NotificationConfiguration.cs — EF mapping for new columns; self-FK (NO ACTION); indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`
+- apps/api/Migrations/20250913180036_s3_27_notifications_resend.{cs,Designer.cs} — migration adding columns, FK, and indexes
+- apps/api/Migrations/20250913180219_s3_17_notification_dedupes.{cs,Designer.cs} — TTL dedupes table (scaffolded properly)
+- apps/api/Migrations/20250913180228_s3_18_adjust_dedupe_index.{cs,Designer.cs} — partial unique index narrowed to in-flight
+- apps/api/Migrations/20250911190000_s1_09_token_aggregates.cs — converted to no-op (Up/Down empty)
+- apps/api.tests/ModelMappingTests.cs — mapping/index/FK assertions updated
+- apps/api.tests/Notifications/NotificationsResendTests.cs — new tests for basic insert and defaults
+- SnapshotArchitecture.md — updated to include Notif-27 details and migrations notes
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full suite including new resend tests)
+- Migrations: Applied; EF tooling recognizes new migrations and DB is up-to-date
+
+Requirements coverage
+
+- Schema includes resend fields: `resend_of_notification_id` (self-FK, NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`: Done.
+- Indexes created on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`: Done.
+- EF migrations scaffolded with Designer + snapshot; apply cleanly in Development: Done.
+- No behavior change to dispatcher; retention/dedupe/encryption remain compatible: Done.

@@ -1,4 +1,4 @@
-# Appostolic — Architecture Snapshot (2025-09-11)
+# Appostolic — Architecture Snapshot (2025-09-13)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
@@ -417,6 +417,8 @@ Troubleshooting:
 - Outbox (Notif‑13): durable table `app.notifications` with indexes and dedupe
 - Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
 - Notifications (Notif‑24): production admin endpoints under `/api/notifications` with tenant‑scoped access for Owner/Admin and optional cross‑tenant superadmin view; superadmin claim available via dev header or allowlist for testing and operations.
+- Notifications (Notif‑27): outbox resend metadata added — self‑FK `resend_of_notification_id` (NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; supporting indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
+- Migrations hygiene: proper EF migrations were scaffolded (Designer files + updated ModelSnapshot). An obsolete `token_aggregates` migration was converted to a no‑op to avoid conflicts.
 
 ---
 
