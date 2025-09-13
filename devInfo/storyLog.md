@@ -419,6 +419,19 @@ Wrapup
 - SnapshotArchitecture updated (additive) to note new test coverage.
 - Committed and pushed.
 
+## Auth-01 — Schema & Migrations (Users/Memberships/Invitations)
+
+Kicking off Phase 1 — Auth core.
+
+⏱ Start Timer
+{"task":"Auth-01","phase":"start","ts":"${NOW_UTC}"}
+
+Plan (high level)
+
+- Introduce Users, Tenants, Memberships, Invitations tables with FKs and uniqueness (case-insensitive email, tenant slug).
+- Add initial roles bootstrap and idempotent seed alignment.
+- Prepare migrations and update SnapshotArchitecture.
+
 Files changed
 
 - apps/web/src/app/studio/tasks/page.tsx

@@ -148,7 +148,6 @@ How to use
 
 Next up (recommended)
 
-- Finish current sprint Route protection middleware.
-- Start Phase 1 Auth core (Auth‑01 → Auth‑05).
+- Phase 0 complete. Start Phase 1 Auth core (Auth‑01 → Auth‑05).
 - Then Phase 2 Members + Invites.
 - Proceed to Phase 3 outbox and PII hardening before enabling production email.
