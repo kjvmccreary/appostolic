@@ -56,6 +56,28 @@ Requirements coverage
 - Invitations schema with integrity and uniqueness: Done.
 - Respect existing users/tenants/memberships: Done.
 
+## Auth-08 — Invite Acceptance Flow — Completed
+
+Summary
+
+- API: Added `POST /api/invites/accept` for signed-in users to accept an invitation by token. Validates token/expiry and enforces email match. Creates tenant membership with the invite role under RLS and marks the invitation as accepted. Returns `{ tenantId, tenantSlug, role, membershipCreated, acceptedAt }`.
+- Auth: Relaxed Dev header auth to allow authenticating with only `x-dev-user` for this endpoint (no tenant required), while preserving tenant guards elsewhere.
+- Web: Added SSR page `/invite/accept` that handles not-signed-in redirect to `/login?next=...` and calls the accept API when signed in, then redirects to `/studio`.
+- Web: Added server proxy `POST /api-proxy/invites/accept` forwarding to the API with session headers for future client use.
+- Notifications: Updated invite email link target to `/invite/accept?token=...` and fixed unit tests accordingly.
+
+Quality gates
+
+- API build: PASS
+- Tests: PASS (added `InvitesAcceptTests` and updated `NotificationEnqueuerTests`; full suite green)
+- Web: Lint/Typecheck PASS
+
+Requirements coverage
+
+- POST /api/invites/accept exists and enforces token/expiry/email match: Done.
+- Signed-in acceptance creates membership and marks invite accepted: Done.
+- Web route orchestrates signed-in vs login path and redirects on success: Done.
+
 ## CS-05 — Web: Tests (minimal)
 
 This is story CS-05 — Web: Tests (minimal)

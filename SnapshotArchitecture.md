@@ -348,6 +348,14 @@ Invitations (Auth‑01):
   - FKs: `tenant_id → app.tenants(id)` (CASCADE), `invited_by_user_id → app.users(id)` (SET NULL)
   - Indexes: unique on `token`; functional unique index `UX_invitations_tenant_email_ci` on `(tenant_id, lower(email))` for case-insensitive per‑tenant de‑dup; supporting index `(tenant_id, expires_at)`
 
+Invite acceptance (Auth‑08):
+
+- Endpoint: `POST /api/invites/accept { token }` (authorized)
+  - Validates token and expiry; email must match the signed-in user.
+  - Creates a `memberships` row for the invite’s tenant with the invite’s role (under RLS via tenant context), idempotent if membership already exists.
+  - Marks the invitation `accepted_at`.
+- Web: `/invite/accept` SSR route handles signed-in vs. redirect-to-login and calls the API; invite emails link to this route.
+
 Auth‑02 — Passwords & Signup
 
 - Password hashing: Argon2id with per‑user random salt and a configurable pepper (`Auth:PasswordPepper`). Stored fields on `users`: `password_hash text`, `password_salt bytea`, `password_updated_at timestamptz`.

@@ -426,6 +426,97 @@ public static class V1
             return Results.NoContent();
         });
 
+        // POST /api/invites/accept — Accept an invite as the signed-in user
+        api.MapPost("/invites/accept", async (
+            ClaimsPrincipal user,
+            AppDbContext db,
+            AcceptInviteDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Token))
+                return Results.BadRequest(new { error = "token is required" });
+
+            // Must be authenticated
+            var userIdStr = user.FindFirstValue("sub");
+            var email = user.FindFirstValue("email");
+            if (!Guid.TryParse(userIdStr, out var userId) || string.IsNullOrWhiteSpace(email))
+                return Results.Unauthorized();
+
+            // Lookup invitation by token (not tenant-scoped)
+            var invite = await db.Invitations.FirstOrDefaultAsync(i => i.Token == dto.Token);
+            if (invite is null || invite.ExpiresAt < DateTime.UtcNow)
+                return Results.BadRequest(new { error = "invalid or expired invite" });
+
+            // Email must match invitee (case-insensitive)
+            if (!string.Equals(invite.Email, email, StringComparison.OrdinalIgnoreCase))
+                return Results.Forbid();
+
+            // Create membership in the inviting tenant (idempotent)
+            var tenantId = invite.TenantId;
+            var tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+            if (tenant is null) return Results.BadRequest(new { error = "invalid tenant on invite" });
+
+            var existingMembership = await db.Memberships.AsNoTracking()
+                .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
+
+            var created = false;
+
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
+            {
+                if (existingMembership is null)
+                {
+                    db.Memberships.Add(new Membership
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        UserId = userId,
+                        Role = invite.Role,
+                        Status = MembershipStatus.Active,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    created = true;
+                }
+                // Mark invite accepted (idempotent)
+                invite.AcceptedAt = invite.AcceptedAt ?? DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                // Set tenant context for RLS writes to memberships
+                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+
+                if (existingMembership is null)
+                {
+                    db.Memberships.Add(new Membership
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        UserId = userId,
+                        Role = invite.Role,
+                        Status = MembershipStatus.Active,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    created = true;
+                }
+
+                // Mark invite accepted (idempotent)
+                invite.AcceptedAt = invite.AcceptedAt ?? DateTime.UtcNow;
+
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+
+            return Results.Ok(new
+            {
+                tenantId = tenant.Id,
+                tenantSlug = tenant.Name,
+                role = invite.Role.ToString(),
+                membershipCreated = created,
+                acceptedAt = invite.AcceptedAt
+            });
+        });
+
         return app;
     }
 
@@ -433,4 +524,5 @@ public static class V1
     public record SignupDto(string Email, string Password, string? InviteToken = null);
     public record LoginDto(string Email, string Password);
     public record InviteRequest(string Email, string? Role);
+    public record AcceptInviteDto(string Token);
 }

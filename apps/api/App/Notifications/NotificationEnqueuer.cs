@@ -49,8 +49,8 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
 
         var baseUrl = _emailOptions.WebBaseUrl?.TrimEnd('/') ?? "";
         var link = string.IsNullOrEmpty(baseUrl)
-            ? $"/auth/invite/accept?token={Uri.EscapeDataString(token)}"
-            : $"{baseUrl}/auth/invite/accept?token={Uri.EscapeDataString(token)}";
+            ? $"/invite/accept?token={Uri.EscapeDataString(token)}"
+            : $"{baseUrl}/invite/accept?token={Uri.EscapeDataString(token)}";
 
         var data = new Dictionary<string, object?>
         {

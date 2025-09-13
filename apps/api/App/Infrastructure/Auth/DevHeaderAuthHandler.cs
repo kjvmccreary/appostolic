@@ -25,10 +25,13 @@ public class DevHeaderAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var path = Request.Path.ToString();
         var email = Request.Headers["x-dev-user"].FirstOrDefault();
         var slug = Request.Headers["x-tenant"].FirstOrDefault();
 
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(slug))
+        var isInviteAccept = string.Equals(path, "/api/invites/accept", StringComparison.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(email) || (!isInviteAccept && string.IsNullOrWhiteSpace(slug)))
         {
             return AuthenticateResult.Fail("Missing x-dev-user or x-tenant headers");
         }
@@ -39,26 +42,33 @@ public class DevHeaderAuthHandler : AuthenticationHandler<AuthenticationSchemeOp
             return AuthenticateResult.Fail("User not found");
         }
 
-        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == slug);
-        if (tenant is null)
+        Guid? tenantId = null;
+        string? tenantSlug = null;
+        if (!isInviteAccept)
         {
-            return AuthenticateResult.Fail("Tenant not found");
-        }
+            var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == slug);
+            if (tenant is null)
+                return AuthenticateResult.Fail("Tenant not found");
 
-        var hasMembership = await _db.Memberships.AsNoTracking()
-            .AnyAsync(m => m.UserId == user.Id && m.TenantId == tenant.Id);
-        if (!hasMembership)
-        {
-            return AuthenticateResult.Fail("No membership for tenant");
+            var hasMembership = await _db.Memberships.AsNoTracking()
+                .AnyAsync(m => m.UserId == user.Id && m.TenantId == tenant.Id);
+            if (!hasMembership)
+                return AuthenticateResult.Fail("No membership for tenant");
+
+            tenantId = tenant.Id;
+            tenantSlug = tenant.Name;
         }
 
         var claims = new List<Claim>
         {
             new("sub", user.Id.ToString()),
-            new("email", user.Email),
-            new("tenant_id", tenant.Id.ToString()),
-            new("tenant_slug", tenant.Name)
+            new("email", user.Email)
         };
+        if (tenantId.HasValue && !string.IsNullOrEmpty(tenantSlug))
+        {
+            claims.Add(new Claim("tenant_id", tenantId.Value.ToString()));
+            claims.Add(new Claim("tenant_slug", tenantSlug));
+        }
         var identity = new ClaimsIdentity(claims, DevScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, DevScheme);

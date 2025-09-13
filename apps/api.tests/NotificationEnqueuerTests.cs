@@ -89,7 +89,7 @@ public class NotificationEnqueuerTests
         Assert.Equal("Admin", msg.Data["role"]);
         Assert.Equal("Alice", msg.Data["inviter"]);
         var link = (string)msg.Data["link"]!;
-        Assert.Equal("http://localhost:3000/auth/invite/accept?token=tok-789", link);
+    Assert.Equal("http://localhost:3000/invite/accept?token=tok-789", link);
     }
 
     [Fact]
@@ -108,6 +108,6 @@ public class NotificationEnqueuerTests
 
         var msg = Assert.Single(captured);
         var link = (string)msg.Data["link"]!;
-        Assert.Equal("/auth/invite/accept?token=tok%20123", link);
+    Assert.Equal("/invite/accept?token=tok%20123", link);
     }
 }
