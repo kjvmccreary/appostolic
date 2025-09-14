@@ -1,4 +1,4 @@
-# Appostolic — Architecture Snapshot (2025-09-13)
+# Appostolic — Architecture Snapshot (2025-09-14)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
@@ -12,6 +12,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (17/17 files; 38 assertions). Coverage ~92% lines.
 - Auth‑14: Documentation updates — README gains an Authentication (dev) section; RUNBOOK adds an "Authentication flows (operations)" run guide. See README “Authentication (dev)” and RUNBOOK “Authentication flows (operations)”.
 - Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
+- Auth‑15: Signup and tenant‑selection hardening — added same‑origin proxy `POST /api-proxy/auth/signup` to avoid browser CORS; introduced `GET /api/tenant/select?tenant=...&next=...` to set the `selected_tenant` cookie and then redirect (with safe, same‑origin `next` validation and default `/studio/agents`); `/select-tenant` now supports `?next=` deep‑links and auto‑selects when a single membership exists; `/studio` now redirects to `/studio/agents`; new public `/health` and protected `/dev/health` pages aid diagnosis; API signup ensures unique personal tenant slug generation.
 
 ## Monorepo overview
 
@@ -102,6 +103,10 @@ appostolic/
 │  │  └─ app/
 │  │     ├─ layout.tsx
 │  │     ├─ page.tsx
+│  │     ├─ select-tenant/page.tsx       # Tenant selection with optional ?next=
+│  │     ├─ studio/page.tsx              # Redirects to /studio/agents
+│  │     ├─ health/page.tsx              # Public health page
+│  │     ├─ dev/health/page.tsx          # Protected health page
 │  │     ├─ dev/page.tsx
 │  │     ├─ dev/agents/page.tsx
 │  │     ├─ dev/agents/components/AgentRunForm.tsx
@@ -114,6 +119,7 @@ appostolic/
 │  │     │     ├─ AgentForm.tsx           # Create/Edit form (includes Enabled toggle)
 │  │     │     └─ AgentsTable.tsx         # List table
 │  │     └─ api-proxy/
+│  │        ├─ auth/signup/route.ts      # POST /api-proxy/auth/signup → API /api/auth/signup (anonymous proxy)
 │  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
 │  │        ├─ agents/route.ts            # GET/POST /api-proxy/agents → API /api/agents
 │  │        ├─ agents/[id]/route.ts       # GET/PUT/DELETE /api-proxy/agents/{id}
@@ -121,6 +127,8 @@ appostolic/
 │  │        └─ agent-tasks/
 │  │           ├─ route.ts                 # GET/POST /api-proxy/agent-tasks → API
 │  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
+│  │     └─ api/
+│  │        └─ tenant/select/route.ts    # GET/POST /api/tenant/select — set cookie; GET redirects with validated next
 │  ├─ mobile/
 │  │  ├─ app.json
 │  │  ├─ package.json
@@ -179,12 +187,18 @@ appostolic/
 
 - Next.js 14 (App Router); server-only proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS
 - Env validation: `src/lib/serverEnv.ts` ensures `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`
+- Client hardening: dev-only env checks for `DEV_*` are scoped to the server to avoid client runtime crashes when `WEB_AUTH_ENABLED=false`.
 - Dev pages: `/dev/agents`, Agent Studio under `/studio/agents`
 - Server fetch helper: `app/lib/serverFetch.ts` exports `fetchFromProxy()` which:
   - Builds an absolute base URL from request headers (`x-forwarded-host`/`x-forwarded-proto`) or `NEXT_PUBLIC_WEB_BASE` when provided
   - Forwards cookies so NextAuth session reaches the proxy
   - Disables cache by default (`no-store`) with `next: { revalidate: 0 }`
     Use this helper in server components and server actions to call internal `/api-proxy/*` routes. Avoid `fetch('/api-proxy/...')` directly in server code to prevent URL parse errors.
+- Signup proxy: `POST /api-proxy/auth/signup` forwards to API `/api/auth/signup` with same-origin semantics to avoid browser CORS on `/signup`.
+- Tenant selection route: `GET /api/tenant/select?tenant={slug}&next={path}` sets the `selected_tenant` cookie and redirects to `next` (must be a same-origin path beginning with `/`); defaults to `/studio/agents` when `next` is missing/invalid. `POST /api/tenant/select` sets the cookie and returns JSON for programmatic updates.
+- Select-tenant deep-linking: `/select-tenant` accepts `?next=...` and validates it server-side. If the user has exactly one membership, it auto-selects and redirects via the GET route above. Otherwise, the form includes a hidden `next` and redirects via GET after selection.
+- Health pages: `/health` (public) and `/dev/health` (protected) help verify session/tenant state and middleware behavior.
+- Studio landing: `/studio` redirects to `/studio/agents` to avoid 404s and improve deep-link resilience.
 
 ### Mobile (`apps/mobile`) and Render Worker (`apps/render-worker`)
 
@@ -203,6 +217,7 @@ appostolic/
   - Two‑stage login with `/select-tenant`; auto‑select when single membership.
   - Header `TenantSwitcher` updates session via `session.update({ tenant })` and sets `selected_tenant` cookie via `/api/tenant/select`.
   - Server proxies forward `x-tenant` based on session or cookie; when web auth is enabled, protected routes require a selected tenant (401), except invite acceptance route.
+  - Cookie vs session: `selected_tenant` is a routing hint for the web layer; authorization uses server-side session/JWT and API claims. The cookie is httpOnly, SameSite=Lax, and secure in production.
 - Role-based guards (Auth‑11): server-only helpers (`roleGuard.ts`) enforce Owner/Admin on sensitive proxy routes for defense-in-depth.
 - Security contract: a dev-mode integration test verifies unauthenticated `/api/*` calls return 401/403; the same requests succeed with dev headers.
 
@@ -703,8 +718,9 @@ Auth‑02 — Passwords & Signup
 - Password hashing: Argon2id with per‑user random salt and a configurable pepper (`Auth:PasswordPepper`). Stored fields on `users`: `password_hash text`, `password_salt bytea`, `password_updated_at timestamptz`.
 - Anonymous signup endpoint: `POST /api/auth/signup`
   - Input: `{ email, password, inviteToken? }`
-  - Behavior: creates `users` row with hashed password; if `inviteToken` is present and valid, creates a `memberships` row for the invite’s tenant with the invite’s role. Otherwise, ensures a personal tenant slug `{localpart}-personal` exists and creates an Owner membership there. Membership insertion is executed under tenant RLS by setting `app.tenant_id` within a transaction.
+  - Behavior: creates `users` row with hashed password; if `inviteToken` is present and valid, creates a `memberships` row for the invite’s tenant with the invite’s role. Otherwise, ensures a personal tenant slug `{localpart}-personal` exists (appending `-2`, `-3`, … if needed for uniqueness) and creates an Owner membership there. Membership insertion is executed under tenant RLS by setting `app.tenant_id` within a transaction.
   - Output: `201 Created` with `{ id, email, tenant: { id, name } }` where tenant reflects either the invite’s tenant or the created/ensured personal tenant.
+  - Web: `/signup` posts to the same-origin proxy `/api-proxy/auth/signup` to avoid CORS, normalizes invite token field names (`invite`, `inviteToken`, `token`), surfaces API errors clearly, then signs in via NextAuth Credentials and navigates to `/select-tenant` (or a validated `next`).
 
 ## Agent Runtime (v1)
 
@@ -885,6 +901,8 @@ Dev auth for API testing:
 - Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
 - Postgres connection errors: ensure Docker is up and port `55432` matches env
 - Next.js server error “Failed to parse URL from /api-proxy/…”: A server component used a relative fetch to a Next API route. Fix by using `fetchFromProxy('/api-proxy/...')` from `app/lib/serverFetch.ts` (which builds an absolute URL from headers), or set `NEXT_PUBLIC_WEB_BASE` and restart the web server.
+- Browser CORS on `/signup`: ensure the form posts to `/api-proxy/auth/signup` (same-origin proxy) rather than the API base URL directly.
+- “Cookies can only be modified in a Server Action or Route Handler” when selecting tenant: perform selection via `GET /api/tenant/select?tenant=...&next=...` which sets the cookie server-side and redirects.
 
 Node/pnpm engines:
 
