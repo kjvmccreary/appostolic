@@ -17,7 +17,8 @@ export async function middleware(req: NextRequest) {
   );
   const isLogin = pathname === '/login';
 
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  // Let next-auth infer the secret; passing an unset secret can break decoding in dev
+  const token = await getToken({ req });
   const isAuthed = !!token?.email;
 
   // Redirect unauthenticated users hitting protected routes → /login?next=...
@@ -38,7 +39,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(dest);
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  // Surface the current pathname to the layout via a header to selectively hide UI
+  res.headers.set('x-pathname', pathname);
+  return res;
 }
 
 // Apply only to selected paths; keep public routes untouched

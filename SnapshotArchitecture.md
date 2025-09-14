@@ -16,6 +16,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (108/108).
 - Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (17/17 files; 38 assertions). Coverage ~92% lines.
 - Auth‑14: Documentation updates — README gains an Authentication (dev) section; RUNBOOK adds an "Authentication flows (operations)" run guide. See README “Authentication (dev)” and RUNBOOK “Authentication flows (operations)”.
+- Auth‑ML: Magic Link (passwordless) — added endpoints `POST /api/auth/magic/request` and `POST /api/auth/magic/consume`; new DB table `app.login_tokens` (SHA‑256 token hashes, single‑use, 15‑minute TTL); Magic Link email templates and `NotificationEnqueuer.QueueMagicLinkAsync`; web proxy routes `/api-proxy/auth/magic/{request|consume}` and public pages `/magic/request` and `/magic/verify`. Dev email continues to use Mailhog (SMTP).
 - Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
 - Auth‑15: Signup and tenant‑selection hardening — added same‑origin proxy `POST /api-proxy/auth/signup` to avoid browser CORS; introduced `GET /api/tenant/select?tenant=...&next=...` to set the `selected_tenant` cookie and then redirect (with safe, same‑origin `next` validation and default `/studio/agents`); `/select-tenant` now supports `?next=` deep‑links and auto‑selects when a single membership exists; `/studio` now redirects to `/studio/agents`; new public `/health` and protected `/dev/health` pages aid diagnosis; API signup ensures unique personal tenant slug generation.
 - Pre‑Mig‑01: Introduced `INotificationTransport` with default `ChannelNotificationTransport` bridging to the existing in‑process ID queue. `NotificationEnqueuer` now publishes via the transport seam to prepare for external brokers without changing behavior.
@@ -239,6 +240,14 @@ appostolic/
 - Role-based guards (Auth‑11): server-only helpers (`roleGuard.ts`) enforce Owner/Admin on sensitive proxy routes for defense-in-depth.
 - Security contract: a dev-mode integration test verifies unauthenticated `/api/*` calls return 401/403; the same requests succeed with dev headers.
 
+- Magic Link (passwordless) — Auth‑ML
+  - API endpoints:
+    - `POST /api/auth/magic/request { email }` → always `202 Accepted`; creates a login token row with `token_hash` (SHA‑256) and TTL=15m, and enqueues a Magic Link email with an absolute link to `/magic/verify?token=…`. Includes basic per‑email rate limiting.
+    - `POST /api/auth/magic/consume { token }` → validates via hash+TTL, enforces single‑use (`consumed_at`), and returns minimal user payload. If the user doesn’t exist, it creates the user and a personal tenant (`{localpart}-personal`, de‑duped with `-2`, `-3`, …) and an Owner membership.
+  - Persistence: `app.login_tokens` with indexes (unique on `token_hash`; `(email, created_at DESC)`; partial on `consumed_at IS NULL`). Raw tokens are never stored.
+  - Email: `EmailKind.MagicLink` templates (Scriban) render subject/text/html; NotificationEnqueuer pre‑renders snapshots and stores only the token hash; logs avoid raw token.
+  - Web integration: public pages `/magic/request` and `/magic/verify`; same‑origin proxies `/api-proxy/auth/magic/request` and `/api-proxy/auth/magic/consume` avoid CORS. The verify page bridges into the session via NextAuth Credentials (dual‑mode) and redirects to `/select-tenant` (honors optional `?next=`).
+
 ### Multi-tenancy & RLS
 
 - `TenantScopeMiddleware` skips `/health*` and `/swagger*`; when authenticated and `tenant_id` exists, begins a DB transaction and sets `app.tenant_id` GUC for RLS.
@@ -401,6 +410,8 @@ Provider webhooks:
 - `GET /api/me` — user/tenant claims
 - `GET /api/tenants` — current tenant summary
 - `GET /api/lessons?take=&skip=` — paginated list; `POST /api/lessons` — create (uses current tenant)
+- `POST /api/auth/magic/request` — request a Magic Link (202; anonymous)
+- `POST /api/auth/magic/consume` — consume a Magic Link token (anonymous)
 
 ### Agents endpoints
 
@@ -439,6 +450,7 @@ Key domain tables and constraints:
 - Agent runtime: `agents`, `agent_tasks`, `agent_traces` with unique index `(task_id, step_number)` and checks on step/duration
 - Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data. Resend (Notif‑27) adds metadata columns and indexes for safe resend policies: `resend_of_notification_id` (FK self‑reference, NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
 - Invitations: `invitations` with FKs to `tenants` and `users`; functional unique `(tenant_id, lower(email))` and index on `(tenant_id, expires_at)`
+- Login tokens (Auth‑ML): `login_tokens` storing email (citext), token_hash (SHA‑256), purpose ('magic'), expires_at, consumed_at, created_at, optional created_ip/ua/tenant_hint; indexes: unique(token_hash), (email, created_at DESC), and partial on consumed_at IS NULL.
 - Auth/tenant integrity: unique slug `tenants(name)`; FKs cascade/set‑null as appropriate
 
 ---
@@ -878,6 +890,10 @@ Local dev (Mailhog):
   - List defaults to enabled-only agents; UI can be extended to show disabled
 - Result panel shows parsed JSON on success; error message shown on failure/cancel; recent run ids tracked client-side.
 - Depends on `@appostolic/sdk` for general types/helpers; current panel uses direct fetch via server proxies.
+
+- Magic Link (web):
+  - Public pages: `/magic/request` (email form) and `/magic/verify` (consumes token and redirects to `/select-tenant`).
+  - Proxies: `POST /api-proxy/auth/magic/request` → API `/api/auth/magic/request`; `POST /api-proxy/auth/magic/consume` → API `/api/auth/magic/consume`.
 
 ### Test coverage (Phase 0 additions)
 

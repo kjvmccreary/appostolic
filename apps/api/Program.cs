@@ -19,6 +19,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using StackExchange.Redis;
 using Appostolic.Api.App.Notifications;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -212,6 +213,28 @@ builder.Logging.AddOpenTelemetry(logOptions =>
 // builder.Services.AddScoped<TenantScopeMiddleware>();
 
 var app = builder.Build();
+
+// Startup DB guard: ensure the notification_dedupes TTL table exists (idempotent)
+// This protects against earlier empty migrations or out-of-order application.
+try
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var sql = @"CREATE SCHEMA IF NOT EXISTS app;
+CREATE TABLE IF NOT EXISTS app.notification_dedupes (
+    dedupe_key varchar(200) PRIMARY KEY,
+    expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+    updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
+);
+CREATE INDEX IF NOT EXISTS ix_notification_dedupes_expires ON app.notification_dedupes(expires_at);";
+    db.Database.ExecuteSqlRaw(sql);
+}
+catch (Exception ex)
+{
+    // In Production we still proceed; errors will surface when enqueue attempts happen.
+    Console.WriteLine($"[Startup] Warning: failed to ensure app.notification_dedupes exists: {ex.Message}");
+}
 
 // Swagger middleware
 app.UseSwagger();

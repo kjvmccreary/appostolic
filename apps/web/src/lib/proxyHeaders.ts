@@ -26,29 +26,35 @@ export async function buildProxyHeaders(options?: {
   requireTenant?: boolean;
 }): Promise<ProxyHeaders | null> {
   const requireTenant = options?.requireTenant ?? true;
-  if (WEB_AUTH_ENABLED) {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email;
-    if (!email) return null;
+
+  // Always prefer an authenticated web session if present, regardless of WEB_AUTH_ENABLED flag.
+  // This makes magic-link flows work in dev without toggling envs.
+  const session = await getServerSession(authOptions).catch(() => null);
+  const emailFromSession = session?.user?.email;
+  if (emailFromSession) {
     const hdrs: ProxyHeaders = {
-      'x-dev-user': String(email),
+      'x-dev-user': String(emailFromSession),
       'Content-Type': 'application/json',
     };
     const c = cookies();
     const cookieTenant = c.get(TENANT_COOKIE)?.value;
-    const sessionTenant = getSessionTenant(session);
+    const sessionTenant = getSessionTenant(session as Session);
     const tenant = sessionTenant || cookieTenant;
     if (tenant) {
       hdrs['x-tenant'] = String(tenant);
     } else if (requireTenant) {
-      // No tenant selected; caller expects strict 401 handling upstream
       return null;
-    } else {
-      // permissive mode: omit x-tenant (API path may allow user-only auth)
     }
     return hdrs;
   }
-  // Dev mode: rely on envs validated by serverEnv
+
+  // If no session, fall back based on mode
+  if (WEB_AUTH_ENABLED) {
+    // Auth required but no session → unauthorized
+    return null;
+  }
+
+  // Dev mode fallback: rely on envs validated by serverEnv
   return {
     'x-dev-user': String(DEV_USER ?? ''),
     'x-tenant': String(DEV_TENANT ?? ''),

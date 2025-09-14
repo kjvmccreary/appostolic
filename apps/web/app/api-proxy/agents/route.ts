@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.search || '';
   const target = `${API_BASE}/api/agents${search}`;
-  const headers = await buildProxyHeaders();
+  const headers = await buildProxyHeaders({ requireTenant: true });
   if (!headers) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const res = await fetch(target, { method: 'GET', headers });
   return new NextResponse(res.body, {

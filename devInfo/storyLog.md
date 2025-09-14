@@ -399,6 +399,126 @@ Files changed
 - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — dev resend test: 201 then 429, asserts metadata linkage.
 - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — prod resend tests: tenant success and cross‑tenant 403; 404 when missing.
 
+## Auth-ML-06 — Web: Verify Page + NextAuth integration — Completed
+
+- Summary
+  - Wired the Magic Link verify flow into NextAuth. The public page `/magic/verify` now reads `?token=...` and calls `signIn('credentials', { magicToken, redirect: false })`. The Credentials provider in `auth.ts` was extended to support a dual-mode authorize: when `magicToken` is present it posts to the API `/api/auth/magic/consume`, otherwise it falls back to password login. On success, the page redirects to `/select-tenant` and honors an optional `?next=` parameter (validated server-side on selection).
+
+- Files changed
+  - apps/web/app/magic/verify/page.tsx — consume token via NextAuth signIn, error handling, and redirect
+  - apps/web/src/lib/auth.ts — Credentials provider dual-mode authorize (magicToken or email/password)
+  - apps/web/app/select-tenant/page.tsx — minor type fix to satisfy Next.js PageProps during typecheck
+
+- Quality gates
+  - Typecheck (web): PASS after fix in select-tenant page
+  - Lint (web): No new issues observed
+
+- Requirements coverage
+  - Verify page triggers session sign-in using magic token and redirects to `/select-tenant` (honors `?next=`): Done
+  - Dual-mode authorize without requiring password in magic mode: Done
+
+## Auth-ML-01 — DB: Login Tokens — Completed
+
+- Summary
+  - Introduced single-use, expiring login tokens to support passwordless Magic Link. Added table `app.login_tokens` storing `email` (citext), `token_hash` (SHA‑256), `purpose` ('magic'), `expires_at`, `consumed_at`, timestamps, and optional `created_ip`/`created_ua`/`tenant_hint`. Raw tokens are never persisted.
+
+- Files changed
+  - apps/api/Program.cs — added EF model/DbSet for `LoginToken` and mapping registration
+  - apps/api/App/Endpoints/V1.cs — prepared usage helpers for hashing/validation
+  - apps/api/Migrations/\* — new migration creating `app.login_tokens` and indexes (unique on `token_hash`; `(email, created_at DESC)`; partial on `consumed_at IS NULL`)
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (mapping/constraints exercised via request/consume tests)
+
+- Requirements coverage
+  - Token stored as hash only; single-use and expiring: Done
+  - Indexes present and migration applies cleanly: Done
+
+## Auth-ML-02 — API: Request Magic Link — Completed
+
+- Summary
+  - Added `POST /api/auth/magic/request` that validates email, rate-limits, generates a token, stores its SHA‑256 hash in `login_tokens`, enqueues a Magic Link email via the Notifications outbox, and returns `202 Accepted` to avoid user enumeration.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — implemented request endpoint
+  - apps/api/App/Notifications/NotificationEnqueuer.cs — added `QueueMagicLinkAsync`
+  - apps/api/App/Notifications/ScribanTemplateRenderer.cs — Magic Link templates (subject/html/text)
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (request path creates `login_tokens` row and outbox entry)
+
+- Requirements coverage
+  - 202 response regardless of account existence; TTL 15m; rate limit per email: Done
+  - Outbox row enqueued with absolute verify link: Done
+
+## Auth-ML-03 — API: Consume Magic Link — Completed
+
+- Summary
+  - Added `POST /api/auth/magic/consume` to validate tokens by hash/TTL, ensure single-use (set `consumed_at`), and return a minimal user payload. If the user does not exist, the endpoint creates the user, a unique personal tenant slug, and an Owner membership.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — implemented consume endpoint
+  - apps/api/Program.cs — ensured DbContext includes `LoginToken` set
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (happy paths + invalid/expired/replay cases)
+
+- Requirements coverage
+  - Single-use enforcement: Done; Replay guarded with 400/409
+  - New user bootstrap with personal tenant: Done
+
+## Auth-ML-04 — Notifications: Magic Link Email — Completed
+
+- Summary
+  - Introduced `EmailKind.MagicLink` and added Scriban templates with a "Sign in" button linking to `/magic/verify?token=…`. Pre-rendered subject/body snapshots are stored at enqueue. Logs avoid raw tokens; only token hashes are persisted.
+
+- Files changed
+  - apps/api/App/Notifications/EmailMessage.cs — added `MagicLink` kind
+  - apps/api/App/Notifications/ScribanTemplateRenderer.cs — subject/text/html templates
+  - apps/api/App/Notifications/NotificationEnqueuer.cs — `QueueMagicLinkAsync` and privacy safeguards
+  - apps/api.tests/Notifications/MagicLinkEmailTests.cs — verifies subject/link rendering
+  - apps/api.tests/Notifications/NotificationEnqueuerMagicLinkTests.cs — asserts no raw token persisted; publish behavior
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (notifications slice green)
+
+- Requirements coverage
+  - Templates render with absolute dev link and no raw token persisted/logged: Done
+
+## Auth-ML-05 — Web: Request Page — Completed
+
+- Summary
+  - Added public page `/magic/request` with an email form that posts to the same-origin proxy `POST /api-proxy/auth/magic/request`. UX is non-enumerating: always shows "Check your email" on 202. Network errors surface a friendly message.
+
+- Files changed
+  - apps/web/app/magic/request/page.tsx — new request page
+  - apps/web/app/api-proxy/auth/magic/request/route.ts — anonymous proxy to API request endpoint
+
+- Quality gates
+  - Lint/Typecheck (web): Pending full session integration; page compiles locally
+
+- Requirements coverage
+  - Same-origin proxy; confirmation on 202; error handling on network failure: Done
+
+## Auth-ML-08 — Web: Proxy Routes — Completed
+
+- Summary
+  - Added anonymous server-side proxy routes to avoid CORS for the Magic Link flow.
+
+- Files changed
+  - apps/web/app/api-proxy/auth/magic/request/route.ts — forwards to `/api/auth/magic/request`
+  - apps/web/app/api-proxy/auth/magic/consume/route.ts — forwards to `/api/auth/magic/consume`
+
+- Quality gates
+  - Lint/Typecheck (web): PASS for routes
+
+- Requirements coverage
+  - Proxies forward body/headers as needed and allow anonymous access: Done
+
 ## Pre‑Migration — Mig08: Rollout plan and fallback — Completed
 
 - Summary

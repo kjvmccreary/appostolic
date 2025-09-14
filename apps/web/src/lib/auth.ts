@@ -25,6 +25,7 @@ export const authOptions: NextAuthOptions & {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        magicToken: { label: 'Magic Token', type: 'text' },
       },
       authorize: async (credentials) => authOptions.authorize?.(credentials) ?? null,
     }),
@@ -52,6 +53,39 @@ export const authOptions: NextAuthOptions & {
     },
   },
   authorize: async (credentials) => {
+    const magicToken = credentials?.magicToken?.toString().trim();
+    // Magic Link mode: when magicToken is provided, skip password branch
+    if (magicToken) {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/magic/consume`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token: magicToken }),
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as {
+          user?: { id: string; email: string };
+          memberships?: MembershipDto[];
+          id?: string; // backward-compat if API ever returned flat shape
+          email?: string;
+        };
+        const id = data.user?.id ?? data.id;
+        const email = data.user?.email ?? data.email;
+        if (!id || !email) return null;
+        const u: NextAuthUser & { memberships?: MembershipDto[] } = {
+          id,
+          email,
+          name: email,
+          ...(data.memberships ? { memberships: data.memberships } : {}),
+        } as NextAuthUser & { memberships?: MembershipDto[] };
+        return u;
+      } catch (err) {
+        console.error('Magic login error', err);
+        return null;
+      }
+    }
+
+    // Password mode
     const email = credentials?.email?.toLowerCase().trim();
     const password = credentials?.password ?? '';
     if (!email || !password) return null;

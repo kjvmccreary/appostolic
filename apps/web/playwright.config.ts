@@ -21,7 +21,7 @@ export default defineConfig({
     {
       command: 'dotnet run --project ../api',
       url: process.env.API_BASE ?? 'http://localhost:5198',
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         ASPNETCORE_ENVIRONMENT: 'Development',
@@ -39,6 +39,8 @@ export default defineConfig({
           env: {
             NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5198',
             NODE_ENV: 'development',
+            WEB_AUTH_ENABLED: 'true',
+            AUTH_SECRET: process.env.AUTH_SECRET ?? 'test-secret-please-change',
           },
         }
       : {

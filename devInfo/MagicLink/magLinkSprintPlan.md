@@ -17,7 +17,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
 
 ## Stories
 
-### Auth-ML-01 — DB: Login Tokens (single-use, expiring)
+### ✅ (DONE) Auth-ML-01 — DB: Login Tokens (single-use, expiring)
 
 - Create table `app.login_tokens`: `id`, `email` (citext), `token_hash` (sha256), `purpose` ('magic'), `expires_at`, `consumed_at`, `created_at`, optional `created_ip`/`created_ua`, `tenant_hint` (nullable).
 - Indexes: unique `(token_hash)`; `(email, created_at DESC)`; partial index on `consumed_at IS NULL` for cleanup.
@@ -28,7 +28,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
   - Mapping + constraints (insert/select); unique `(token_hash)` enforced.
   - (Optional) cleanup job ignores unconsumed, deletes expired.
 
-### Auth-ML-02 — API: Request Magic Link
+### ✅ (DONE) Auth-ML-02 — API: Request Magic Link
 
 - `POST /api/auth/magic/request { email }`
   - Always `202 Accepted`; regardless of user existence, enqueue email with verify link.
@@ -40,7 +40,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
   - 202 path creates `login_tokens` row (hashed) and an outbox row.
   - Respects rate-limit/coalesce behavior.
 
-### Auth-ML-03 — API: Consume Magic Link
+### ✅ (DONE) Auth-ML-03 — API: Consume Magic Link
 
 - `POST /api/auth/magic/consume { token }` (or GET `?token=…`)
   - Validate via hash; ensure not expired and not consumed; mark `consumed_at`.
@@ -54,7 +54,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
   - Happy path (new user creates tenant/membership).
   - Expired/invalid/replayed token → 400/404/409.
 
-### Auth-ML-04 — Notifications: Magic Link Email
+### ✅ (DONE) Auth-ML-04 — Notifications: Magic Link Email
 
 - Add `EmailKind: MagicLink`; template with “Sign in” button linking to verify URL.
 - Development uses SMTP (Mailhog). SendGrid templating is not required for dev.
@@ -63,7 +63,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
 - Tests:
   - Outbox render snapshot (subject/text/html) present; logging redaction verified.
 
-### Auth-ML-05 — Web: Request Page
+### ✅ (DONE) Auth-ML-05 — Web: Request Page
 
 - Route: `/login/magic` (public). Form: email → `POST /api-proxy/auth/magic/request`.
 - Confirmation screen: “Check your email.”
@@ -73,7 +73,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
 - Tests:
   - Renders form; submits; displays confirmation on 202.
 
-### Auth-ML-06 — Web: Verify Page + NextAuth integration
+### ✅ (DONE) Auth-ML-06 — Web: Verify Page + NextAuth integration
 
 - Route: `/magic/verify` (public). Reads `?token=…`; calls `signIn('credentials', { magicToken, redirect: false })`.
 - NextAuth Credentials `authorize()` posts to API `/api/auth/magic/consume` in magic-token mode.
@@ -84,7 +84,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
   - Valid token: triggers signIn and redirects.
   - Invalid/expired: shows friendly error with link back to request page.
 
-### Auth-ML-07 — Web: Credentials authorize() dual-mode
+### ✅ (DONE) Auth-ML-07 — Web: Credentials authorize() dual-mode
 
 - Extend existing Credentials provider to accept either `{ email, password }` or `{ magicToken }`.
 - Acceptance criteria:
@@ -93,7 +93,7 @@ A user can request a magic link, receive it in Mailhog, click it, and land signe
 - Tests:
   - Unit: authorize routes to proper API endpoint; handles success/failure.
 
-### Auth-ML-08 — Proxy Routes (avoid CORS)
+### ✅ (DONE) Auth-ML-08 — Proxy Routes (avoid CORS)
 
 - Add web routes:
   - `POST /api-proxy/auth/magic/request` → API `/api/auth/magic/request`
