@@ -46,6 +46,11 @@ web:
 mobile:
 	cd apps/mobile && pnpm dev -- --port 8082
 
+# Run notifications worker (dispatcher outside API)
+worker:
+	dotnet run --project apps/notifications-worker/Appostolic.Notifications.Worker.csproj
+
+
 mobile-ios:
 	cd apps/mobile && pnpm dev -- --port 8082 --open --ios
 

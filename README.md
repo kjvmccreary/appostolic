@@ -226,6 +226,20 @@ curl -sS -X POST \
 
 ---
 
+## Notifications transport (optional)
+
+The notifications dispatcher is woken by a transport signal. By default this uses an in‑process channel. You can switch to Redis Pub/Sub so multiple API instances coordinate via a shared broker.
+
+- Default: in‑process channel (no config needed)
+- Redis mode (Development example):
+  - `Notifications__Transport__Mode=redis`
+  - `Notifications__Transport__Redis__ConnectionString=127.0.0.1:6380`
+  - Optional: `Notifications__Transport__Redis__Channel=app:notifications:queued`
+
+See RUNBOOK “Notifications transport (ops)” for validation steps and options.
+
+---
+
 ## Policies & compliance
 
 - Privacy Policy (engineering draft for notifications): devInfo/Sendgrid/privacyPolicy.md

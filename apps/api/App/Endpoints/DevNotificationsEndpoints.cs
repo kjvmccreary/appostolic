@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Primitives;
+using System.Collections.Generic;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -32,6 +33,47 @@ public static class DevNotificationsEndpoints
         if (!app.Environment.IsDevelopment()) return;
 
         var group = app.MapGroup("/api/dev/notifications").RequireAuthorization().WithTags("DevNotifications");
+
+        // GET /api/dev/notifications/health — exposes transport mode and (when redis) subscriber state
+        group.MapGet("/health", (
+            Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationTransportOptions> transportOptions,
+            Appostolic.Api.App.Notifications.RedisTransportDiagnostics diag) =>
+        {
+            var mode = (transportOptions.Value.Mode ?? "channel").ToLowerInvariant();
+            object body = mode == "redis"
+                ? new
+                {
+                    mode,
+                    redis = new
+                    {
+                        enabled = diag.Enabled,
+                        subscribed = diag.Subscribed,
+                        channel = diag.Channel,
+                        lastReceivedAt = diag.LastReceivedAt,
+                        receivedCount = diag.ReceivedCount
+                    }
+                }
+                : new { mode };
+            return Results.Ok(body);
+        }).WithSummary("Dev: notifications transport health");
+
+        // POST /api/dev/notifications/ping — creates a synthetic outbox row and publishes it via the transport for E2E ping
+        group.MapPost("/ping", async (
+            INotificationOutbox outbox,
+            INotificationTransport transport,
+            CancellationToken ct) =>
+        {
+            // Create a minimal synthetic notification row (Queued) that the dispatcher will pick up.
+            var msg = new EmailMessage(
+                EmailKind.Verification,
+                "dev-ping@appostolic.local",
+                null,
+                new Dictionary<string, object?> { ["ping"] = true }
+            );
+            var id = await outbox.CreateQueuedAsync(msg, ct);
+            await transport.PublishQueuedAsync(id, ct);
+            return Results.Accepted($"/api/dev/notifications/{id}", new { id });
+        }).WithSummary("Dev: ping the notifications transport");
 
         group.MapPost("/verification", async (
             INotificationEnqueuer enqueuer,

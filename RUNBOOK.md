@@ -165,6 +165,40 @@ Quick E2E check (dev):
 
 ---
 
+## Notifications transport (ops)
+
+By default, notifications publish to the in‑process channel transport. You can optionally enable Redis Pub/Sub so multiple API instances can wake the dispatcher via a shared broker.
+
+Enable Redis mode (Development):
+
+- Ensure the dev Docker stack is up; Redis listens on localhost:6380.
+- Set the API environment (any of the following are equivalent):
+  - Using discrete fields
+    - `Notifications__Transport__Mode=redis`
+    - `Notifications__Transport__Redis__Host=127.0.0.1`
+    - `Notifications__Transport__Redis__Port=6380`
+  - Or using a single connection string
+    - `Notifications__Transport__Redis__ConnectionString=127.0.0.1:6380`
+  - Optional overrides
+    - `Notifications__Transport__Redis__Channel=app:notifications:queued`
+    - `Notifications__Transport__Redis__Ssl=false`
+
+Then restart the API process.
+
+Validate quickly:
+
+- With the API running, trigger a dev email from the web proxy (headers injected):
+  - POST `/api-proxy/dev/notifications/verification` with a test payload
+- Watch API logs; you should see a Redis subscriber notice and the dispatcher send flow.
+- Switch back to in‑process by unsetting the vars or setting `Notifications__Transport__Mode=channel` and restarting the API.
+
+Notes:
+
+- Behavior is identical between modes; Redis only changes the signal path that wakes the dispatcher.
+- In Development, the default remains the in‑process channel unless explicitly set to `redis`.
+
+---
+
 ## Terminal safety when running servers
 
 Long-running servers (API, web, mobile) should be started via VS Code background tasks so that subsequent one-off commands (curl, node, scripts) don't reuse and kill the same terminal session:

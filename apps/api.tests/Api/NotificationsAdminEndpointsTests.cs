@@ -21,7 +21,8 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task List_and_retry_notifications_work()
     {
-        using var app = _factory.WithWebHostBuilder(_ => { });
+        using var localFactory = new WebAppFactory();
+        using var app = localFactory.WithWebHostBuilder(_ => { });
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -248,6 +249,83 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         snapshot.Any(m => m.name == "email.resend.total" && m.tags.Any(t => t.Key == "mode"))
             .Should().BeTrue();
         snapshot.Any(m => m.name == "email.resend.batch.size").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Dlq_list_returns_failed_and_deadletter_with_paging()
+    {
+        using var app = _factory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var items = new[]
+        {
+            new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "d1@x.com", DataJson = "{}", Status = NotificationStatus.Failed, TenantId = tenantId, CreatedAt = now.AddMinutes(-3), UpdatedAt = now.AddMinutes(-2), LastError = "e1" },
+            new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "d2@x.com", DataJson = "{}", Status = NotificationStatus.DeadLetter, TenantId = tenantId, CreatedAt = now.AddMinutes(-4), UpdatedAt = now.AddMinutes(-3), LastError = "e2" },
+        };
+        db.Notifications.AddRange(items);
+        await db.SaveChangesAsync();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        var resp = await client.GetAsync("/api/notifications/dlq?take=10");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        resp.Headers.Contains("X-Total-Count").Should().BeTrue();
+        var list = await resp.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+        list.Count.Should().BeGreaterOrEqualTo(2);
+
+        // Filter by status
+        var failedOnly = await client.GetAsync("/api/notifications/dlq?status=Failed");
+        failedOnly.StatusCode.Should().Be(HttpStatusCode.OK);
+        var failedItems = await failedOnly.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
+        failedItems.Count.Should().BeGreaterOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task Dlq_replay_requeues_and_publishes_ids()
+    {
+        using var app = _factory.WithWebHostBuilder(_ => { });
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var f1 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "r1@x.com", DataJson = "{}", Status = NotificationStatus.Failed, TenantId = tenantId, CreatedAt = now.AddMinutes(-6), UpdatedAt = now.AddMinutes(-6), LastError = "e" };
+        var d1 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "r2@x.com", DataJson = "{}", Status = NotificationStatus.DeadLetter, TenantId = tenantId, CreatedAt = now.AddMinutes(-7), UpdatedAt = now.AddMinutes(-7), LastError = "e" };
+        db.Notifications.AddRange(f1, d1);
+        await db.SaveChangesAsync();
+
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+
+        var body = JsonContent.Create(new { ids = new[] { f1.Id, d1.Id } });
+        var resp = await client.PostAsync("/api/notifications/dlq/replay", body);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary = await resp.Content.ReadFromJsonAsync<DlqReplaySummary>() ?? new DlqReplaySummary();
+        summary.Requeued.Should().Be(2);
+        summary.Ids.Should().Contain(new[] { f1.Id, d1.Id });
+
+        using var scope2 = app.Services.CreateScope();
+        var rdb = scope2.ServiceProvider.GetRequiredService<AppDbContext>();
+        var n1 = await rdb.Notifications.FindAsync(f1.Id);
+        var n2 = await rdb.Notifications.FindAsync(d1.Id);
+        n1!.Status.Should().Be(NotificationStatus.Queued);
+        n2!.Status.Should().Be(NotificationStatus.Queued);
+    }
+
+    private class DlqReplaySummary
+    {
+        public int Requeued { get; set; }
+        public int SkippedForbidden { get; set; }
+        public int NotFound { get; set; }
+        public int SkippedInvalid { get; set; }
+        public int Errors { get; set; }
+        public List<Guid> Ids { get; set; } = new();
     }
 
     private class BulkSummary

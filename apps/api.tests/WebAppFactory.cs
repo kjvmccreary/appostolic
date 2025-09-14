@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Appostolic.Api.App.Notifications;
+using Appostolic.Api.App.Options;
 
 namespace Appostolic.Api.Tests;
 
@@ -50,6 +51,13 @@ public class WebAppFactory : WebApplicationFactory<Program>
             {
                 services.Remove(d);
             }
+
+            // Explicitly disable dispatcher hosted services registered via options-driven wrappers
+            services.PostConfigure<NotificationsRuntimeOptions>(o =>
+            {
+                o.RunDispatcher = false;
+                o.RunLegacyEmailDispatcher = false;
+            });
 
             // Ensure notification outbox/enqueuer use scoped lifetime (DbContext dependency)
             var outboxDesc = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationOutbox));

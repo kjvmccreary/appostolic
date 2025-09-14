@@ -17,6 +17,8 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using StackExchange.Redis;
+using Appostolic.Api.App.Notifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,7 +53,7 @@ var configuration = builder.Configuration;
 // Add DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    var cs = GetConnectionString(configuration);
+    var cs = Appostolic.Api.Infrastructure.Database.ConnectionStringHelper.BuildFromEnvironment(configuration);
     options.UseNpgsql(cs, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema: "app"));
 });
 
@@ -109,6 +111,7 @@ builder.Services.Configure<Appostolic.Api.App.Options.EmailOptions>(builder.Conf
 builder.Services.Configure<Appostolic.Api.App.Options.SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<Appostolic.Api.App.Options.NotificationOptions>(builder.Configuration.GetSection("Notifications"));
+builder.Services.Configure<Appostolic.Api.App.Options.NotificationTransportOptions>(builder.Configuration.GetSection("Notifications:Transport"));
 // JSON: prefer string values for enums for both input binding and output serialization
 builder.Services.ConfigureHttpJsonOptions(opts =>
 {
@@ -124,68 +127,8 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
-// Notifications registration
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailQueue, Appostolic.Api.App.Notifications.EmailQueue>();
-// Field cipher (encryption) selection
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IFieldCipher>(sp =>
-{
-    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Appostolic.Api.App.Options.NotificationOptions>>().Value;
-    if (!opts.EncryptFields || string.IsNullOrWhiteSpace(opts.EncryptionKeyBase64)) return new Appostolic.Api.App.Notifications.NullFieldCipher();
-    try
-    {
-        var key = Convert.FromBase64String(opts.EncryptionKeyBase64);
-        return new Appostolic.Api.App.Notifications.AesGcmFieldCipher(key);
-    }
-    catch
-    {
-        // Fallback to null cipher on invalid key
-        return new Appostolic.Api.App.Notifications.NullFieldCipher();
-    }
-});
-// Outbox must be scoped because it depends on AppDbContext (scoped)
-builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationTransport, Appostolic.Api.App.Notifications.ChannelNotificationTransport>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
-// Legacy in-memory email dispatcher (kept temporarily for compatibility)
-builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();
-// New DB-backed notifications dispatcher
-builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationDispatcherHostedService>();
-// Enqueuer uses the outbox; make it scoped as well
-builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationEnqueuer, Appostolic.Api.App.Notifications.NotificationEnqueuer>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailDedupeStore, Appostolic.Api.App.Notifications.InMemoryEmailDedupeStore>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationsPurger, Appostolic.Api.App.Notifications.NotificationsPurger>();
-builder.Services.AddHostedService<Appostolic.Api.App.Notifications.NotificationsPurgeHostedService>();
-// Automated resend scanner and hosted service (feature-gated via options)
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IAutoResendScanner, Appostolic.Api.App.Notifications.AutoResendScanner>();
-builder.Services.AddHostedService<Appostolic.Api.App.Notifications.AutoResendHostedService>();
-builder.Services.AddHttpClient("sendgrid");
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SendGridEmailSender>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ISmtpClientFactory, Appostolic.Api.App.Notifications.DefaultSmtpClientFactory>();
-builder.Services.AddSingleton<Appostolic.Api.App.Notifications.SmtpEmailSender>();
-
-// Provider selection: default to smtp in Development, sendgrid otherwise unless overridden by config
-{
-    var provider = builder.Configuration["Email:Provider"];
-    if (string.IsNullOrWhiteSpace(provider))
-    {
-        provider = builder.Environment.IsDevelopment() ? "smtp" : "sendgrid";
-    }
-
-    if (string.Equals(provider, "sendgrid", StringComparison.OrdinalIgnoreCase))
-    {
-        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender>(sp => sp.GetRequiredService<Appostolic.Api.App.Notifications.SendGridEmailSender>());
-    }
-    else if (string.Equals(provider, "smtp", StringComparison.OrdinalIgnoreCase))
-    {
-        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender>(sp => sp.GetRequiredService<Appostolic.Api.App.Notifications.SmtpEmailSender>());
-    }
-    else
-    {
-        // Safe fallback
-        builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IEmailSender, Appostolic.Api.App.Notifications.NoopEmailSender>();
-    }
-}
+// Notifications runtime (shared registration)
+builder.Services.AddNotificationsRuntime(builder.Configuration, builder.Environment);
 
 // Auth: password hasher
 builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, Appostolic.Api.Application.Auth.Argon2PasswordHasher>();
@@ -394,27 +337,6 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
-static string GetConnectionString(ConfigurationManager configuration)
-{
-    var host = configuration["POSTGRES_HOST"] ?? "localhost";
-    var port = configuration["POSTGRES_PORT"] ?? "55432";
-    var db = configuration["POSTGRES_DB"] ?? "appdb";
-    var user = configuration["POSTGRES_USER"] ?? "appuser";
-    var pass = configuration["POSTGRES_PASSWORD"] ?? "apppassword";
-
-    var builder = new NpgsqlConnectionStringBuilder
-    {
-        Host = host,
-        Port = int.TryParse(port, out var p) ? p : 55432,
-        Database = db,
-        Username = user,
-        Password = pass,
-        // Important for SSL-less local dev
-        SslMode = SslMode.Disable
-    };
-    return builder.ConnectionString;
-}
 
 // DTOs
 public record LessonCreate(string Title);

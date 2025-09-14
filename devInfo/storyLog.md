@@ -41,6 +41,60 @@
   - No behavior change (default channel transport bridges to in-process queue): Done
   - Tests remain green: Done
 
+### Follow-up: Transport health + ping harness
+
+- Added Development-only endpoints:
+  - `GET /api/dev/notifications/health` — reports transport mode; for Redis shows enabled/subscribed/channel/lastReceivedAt/receivedCount
+  - `POST /api/dev/notifications/ping` — creates a synthetic queued outbox item and publishes through the active transport
+- Introduced `RedisTransportDiagnostics` tracked by the Redis subscriber
+- Test suite: PASS (108/108)
+
+## Pre‑Migration — Mig03: Redis transport option — Completed
+
+- Summary
+  - Added a feature‑selectable Redis transport for notifications. When `Notifications:Transport:Mode=redis`, publishing uses `RedisNotificationTransport` (Pub/Sub) and a hosted subscriber (`RedisNotificationSubscriberHostedService`) forwards messages to the in‑process `INotificationIdQueue`, keeping the existing dispatcher unchanged. Default remains `channel` for in‑process only.
+
+- Files changed
+  - apps/api/App/Options/NotificationTransportOptions.cs — new options (Mode, Redis block)
+  - apps/api/App/Notifications/RedisNotificationTransport.cs — publisher via Redis Pub/Sub
+  - apps/api/App/Notifications/RedisNotificationSubscriberHostedService.cs — subscriber to forward to in‑process queue
+  - apps/api/Program.cs — conditional DI wiring (channel vs redis) and options binding
+  - apps/api/Appostolic.Api.csproj + Directory.Packages.props — added StackExchange.Redis
+  - SnapshotArchitecture.md — What’s new + Notifications section updated with configuration and behavior
+
+- Quality gates
+  - Build (API): PASS (warnings only — existing AES-GCM ctor and Redis channel implicit cast)
+  - Tests (API): PASS (108/108) with default Mode=channel
+
+- Requirements coverage
+  - Optional Redis transport behind config switch with rollback to channel: Done
+  - No behavior change by default; dispatcher path preserved: Done
+  - Documented configuration and flows: Done
+
+## Pre‑Migration — Mig03b: External notifications worker — Completed
+
+- Summary
+  - Added a standalone worker executable at `apps/notifications-worker` that hosts the notifications runtime outside the API. Extracted a reusable DI extension `AddNotificationsRuntime(...)` and introduced `NotificationsRuntimeOptions` to gate hosted services so the API can disable dispatchers when the worker is running. The worker shares the same EF models, options, transport selection (channel or redis), and OpenTelemetry setup as the API. No behavior change by default; tests remain green.
+
+- Files changed
+  - apps/api/App/Notifications/NotificationsServiceCollectionExtensions.cs — new: centralizes notifications DI, options binding, transports, providers, diagnostics, and hosted services with runtime gating
+  - apps/api/App/Options/NotificationsRuntimeOptions.cs — new runtime flags (RunDispatcher, RunLegacyEmailDispatcher)
+  - apps/api/Infrastructure/Database/ConnectionStringHelper.cs — shared DB connection string composition from POSTGRES\_\* env vars
+  - apps/api/Program.cs — refactored to call `AddNotificationsRuntime` and `ConnectionStringHelper`
+  - apps/notifications-worker/Appostolic.Notifications.Worker.csproj — new project
+  - apps/notifications-worker/Program.cs — host builder that wires DbContext, `AddNotificationsRuntime`, OpenTelemetry, and auto‑migrate in Dev/Test
+  - devInfo/A-Master-Guide.md — marked Mig03 (External worker) as DONE with summary and ops note
+  - SnapshotArchitecture.md — added What’s new + Notifications worker runtime section
+
+- Quality gates
+  - Build (solution): PASS
+  - Tests (API): PASS (108/108); adjusted test host to disable dispatchers to avoid status races
+
+- Requirements coverage
+  - Provide an external worker that reuses existing code and avoids duplication: Done
+  - Add runtime gating so only one process runs dispatchers: Done
+  - Keep default behavior unchanged and tests green: Done
+
 ## Notif-30 — Resend policy, throttling, and metrics (Completed)
 
 - Summary: Added resend metrics (email.resend.total, email.resend.throttled.total, email.resend.batch.size) and surfaced X-Resend-Remaining header on bulk endpoint. Instrumented manual (dev/prod) and bulk endpoints; added tests using MeterListener for metrics and header validation.
@@ -368,6 +422,30 @@ Requirements coverage
   - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs (history paging/scoping test)
   - SnapshotArchitecture.md (API surface + Notifications updates)
   - devInfo/A-Master-Guide.md (mark DONE with completion block)
+
+## Pre‑Migration — Mig05: DLQ and replay tooling — Completed
+
+- Summary
+  - Added administrative DLQ management: list Failed/DeadLetter notifications and bulk replay them back to Queued. Enforces tenant scoping and leverages existing `INotificationOutbox.TryRequeueAsync` + `INotificationTransport.PublishQueuedAsync` so reprocessing follows the normal dispatcher path (channel or redis).
+
+- Endpoints
+  - `GET /api/notifications/dlq?status=Failed|DeadLetter&kind=...&tenantId=...&take=&skip=` — paging with `X-Total-Count`.
+  - `POST /api/notifications/dlq/replay` — body `{ ids?: Guid[], status?: Failed|DeadLetter, kind?: EmailKind, tenantId?: Guid, limit?: number }` → `{ requeued, skippedForbidden, notFound, skippedInvalid, errors, ids }`.
+
+- Files changed
+  - apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — new DLQ list and replay routes
+  - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — tests for DLQ list/replay
+  - devInfo/A-Master-Guide.md — marked Mig05 DONE with summary
+  - SnapshotArchitecture.md — What’s new and DLQ section
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (108/108)
+
+- Requirements coverage
+  - List DLQ with tenant scoping and paging: Done
+  - Bulk replay with summary counters and queued transitions: Done
+  - Works with both channel and redis transports: Done
 - Quality gates: Build PASS; Tests PASS (102/102); Lint N/A.
 - Requirements coverage: history endpoint (Done), paging + X-Total-Count (Done), tenant scoping (Done), docs (Done).
 

@@ -4,6 +4,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Mig‑03b: External notifications worker — introduced `apps/notifications-worker` which hosts the notifications runtime out-of-process. Added `NotificationsRuntimeOptions` to gate hosted services (dispatchers/purge/auto‑resend) so the API can disable dispatch when the worker runs. Default behavior remains unchanged.
+- Mig‑05: DLQ and replay tooling — added admin endpoints to list DLQ (`GET /api/notifications/dlq`) and bulk replay (`POST /api/notifications/dlq/replay`) with tenant scoping and summaries.
 - Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
 - Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
 - Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
@@ -15,6 +17,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Auth‑15: Signup and tenant‑selection hardening — added same‑origin proxy `POST /api-proxy/auth/signup` to avoid browser CORS; introduced `GET /api/tenant/select?tenant=...&next=...` to set the `selected_tenant` cookie and then redirect (with safe, same‑origin `next` validation and default `/studio/agents`); `/select-tenant` now supports `?next=` deep‑links and auto‑selects when a single membership exists; `/studio` now redirects to `/studio/agents`; new public `/health` and protected `/dev/health` pages aid diagnosis; API signup ensures unique personal tenant slug generation.
 - Pre‑Mig‑01: Introduced `INotificationTransport` with default `ChannelNotificationTransport` bridging to the existing in‑process ID queue. `NotificationEnqueuer` now publishes via the transport seam to prepare for external brokers without changing behavior.
 - Pre‑Mig‑02: Outbox publisher integration — admin/dev retry/resend (incl. bulk) and the auto‑resend scanner now publish via `INotificationTransport`. The default channel transport still bridges to the in‑process `INotificationIdQueue`, so runtime behavior is unchanged. Full API suite remains green (108/108).
+- Mig‑03: Redis transport option for notifications — added `RedisNotificationTransport` (publisher) and a background `RedisNotificationSubscriberHostedService` that listens to a Redis Pub/Sub channel and forwards IDs to the in‑process dispatcher queue. Feature‑selectable via `Notifications:Transport:Mode` = `channel` (default) or `redis`; Redis settings configurable under `Notifications:Transport:Redis`.
+- Dev: Notifications transport health + ping — added `GET /api/dev/notifications/health` (reports transport mode and Redis subscriber diagnostics) and `POST /api/dev/notifications/ping` (creates a synthetic queued outbox item and publishes via transport) to make e2e checks easy in Development.
 
 ## Monorepo overview
 
@@ -207,6 +211,15 @@ appostolic/
 - Mobile: Expo/React Native (TypeScript), minimal scaffold
 - Render Worker: Node/TypeScript worker for rendering tasks (placeholder)
 
+### Notifications worker (`apps/notifications-worker`)
+
+- Entrypoint: `apps/notifications-worker/Program.cs`
+- Purpose: Run the notifications runtime (outbox dispatcher, purge, auto‑resend, optional Redis subscriber) in a separate process from the API.
+- Composition: Reuses the API’s notifications DI via `AddNotificationsRuntime(...)` and the same `AppDbContext` (PostgreSQL). Auto‑migrates in Development/Test when relational.
+- Runtime gating: `NotificationsRuntimeOptions` controls hosted services. Recommended ops setting when the worker is running: set API `Notifications:Runtime:RunDispatcher=false` so only the worker processes the outbox; the worker may keep `RunDispatcher=true`.
+- Transport: Shares the same `INotificationTransport` selection — `channel` (default) or `redis` when `Notifications:Transport:Mode=redis`.
+- Telemetry: OpenTelemetry traces/metrics with optional OTLP exporter; console exporters in Development.
+
 ---
 
 ## Cross-cutting concerns
@@ -269,11 +282,19 @@ Endpoints:
   - Configuration (NotificationOptions): `EnableAutoResend` (default false), `AutoResendScanInterval` (5m), `AutoResendNoActionWindow` (24h), `AutoResendMaxPerScan` (50), `AutoResendPerTenantDailyCap` (200).
 
 - Transport: `INotificationTransport` abstracts the "notification queued" signal. Default `ChannelNotificationTransport` bridges to the existing in‑process `INotificationIdQueue` to preserve behavior and enable future broker integration.
-  Transport: `INotificationTransport` abstracts the "notification queued" signal. Default `ChannelNotificationTransport` bridges to the existing in‑process `INotificationIdQueue` to preserve behavior and enable future broker integration. The transport is now used consistently across:
+  Transport: `INotificationTransport` abstracts the "notification queued" signal. Default `ChannelNotificationTransport` bridges to the existing in‑process `INotificationIdQueue` to preserve behavior and enable future broker integration. Optionally, set `Notifications:Transport:Mode=redis` to publish via Redis (`RedisNotificationTransport`) and enable the subscriber hosted service that forwards Pub/Sub messages to the dispatcher. The transport is now used consistently across:
   - Enqueue helpers (`NotificationEnqueuer`)
   - Admin/dev retry/resend endpoints (including bulk resend)
   - Automated resend scanner
     This ensures a single seam to swap in an external broker later without touching endpoint logic.
+
+Redis transport configuration
+
+- Options (NotificationTransportOptions):
+  - `Notifications:Transport:Mode` — `channel` (default) or `redis`.
+  - `Notifications:Transport:Redis:ConnectionString` — optional; if provided, used verbatim.
+  - `Notifications:Transport:Redis:Host` (default `127.0.0.1`), `Port` (default `6380`), `Password` (optional), `Ssl` (bool, default false), `Channel` (default `app:notifications:queued`).
+- Behavior: Publisher posts the outbox id as a GUID string to the channel; the subscriber pushes it to `INotificationIdQueue`, preserving the existing dispatcher path. When Mode=`channel`, no Redis client is created and behavior remains in‑process only.
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL
 - Template renderer: `ScribanTemplateRenderer`
@@ -349,6 +370,13 @@ Provider webhooks:
 - `POST /api/notifications/webhook/sendgrid` — receives SendGrid event webhooks; optional shared-secret via header. Normalizes and stores provider delivery status under `notifications.data_json.provider_status` along with event timestamp; designed to be idempotent for replayed events.
 
 #### Field encryption (Notif-22)
+
+#### DLQ and replay (Mig‑05)
+
+- Endpoints (tenant-scoped with superadmin override):
+  - `GET /api/notifications/dlq?status=Failed|DeadLetter&kind=...&tenantId=...&take=&skip=` — lists Failed and DeadLetter notifications (defaults to both) with paging and `X-Total-Count`.
+  - `POST /api/notifications/dlq/replay` — body `{ ids?: Guid[], status?: Failed|DeadLetter, kind?: EmailKind, tenantId?: Guid, limit?: number }`; requeues selected items and publishes them via the active transport. Responds with `{ requeued, skippedForbidden, notFound, skippedInvalid, errors, ids }`.
+- Behavior: enforces tenant scoping on both query and item level; only Failed/DeadLetter are eligible for replay. Uses `INotificationOutbox.TryRequeueAsync` and `INotificationTransport.PublishQueuedAsync` for idempotent handoff back to the dispatcher.
 
 - Optional at-rest encryption for selected outbox fields: `to_name`, `subject` (optional), `body_html`, `body_text`.
 - Format: `enc:v1:` prefix followed by Base64URL payload containing AES-GCM ciphertext + nonce + tag.

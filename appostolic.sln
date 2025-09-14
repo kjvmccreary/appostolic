@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api", "apps\api\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api.Tests", "apps\api.tests\Appostolic.Api.Tests.csproj", "{AFB9B80A-6806-45A3-AD92-87D80A5A771E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Notifications.Worker", "apps/notifications-worker/Appostolic.Notifications.Worker.csproj", "{7E2E7B7C-5F79-4B1F-9AA3-09D2D7D9E4B9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

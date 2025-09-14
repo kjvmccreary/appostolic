@@ -47,6 +47,74 @@ public static class NotificationsAdminEndpoints
     {
         var group = app.MapGroup("/api/notifications").RequireAuthorization().WithTags("Notifications");
 
+        // GET /api/notifications/dlq — list Failed/DeadLetter (tenant-scoped or superadmin)
+        group.MapGet("/dlq", async (
+            ClaimsPrincipal user,
+            AppDbContext db,
+            HttpRequest req,
+            HttpResponse resp,
+            CancellationToken ct) =>
+        {
+            var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+
+            IQueryable<Notification> q = db.Notifications.AsNoTracking();
+
+            // Tenant scoping: non-superadmin must be limited to current tenant
+            if (!isSuper)
+            {
+                var tenantIdStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(tenantIdStr, out var tenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+                q = q.Where(n => n.TenantId == tenantId);
+            }
+
+            // Status filter: default to Failed + DeadLetter; allow explicit status=Failed|DeadLetter
+            var statuses = new List<NotificationStatus>();
+            if (req.Query.TryGetValue("status", out var statusVals) && Enum.TryParse<NotificationStatus>(statusVals.ToString(), true, out var oneStatus))
+            {
+                if (oneStatus == NotificationStatus.Failed || oneStatus == NotificationStatus.DeadLetter)
+                    statuses.Add(oneStatus);
+            }
+            if (statuses.Count == 0)
+            {
+                statuses.Add(NotificationStatus.Failed);
+                statuses.Add(NotificationStatus.DeadLetter);
+            }
+            q = q.Where(n => statuses.Contains(n.Status));
+
+            // Kind filter
+            if (req.Query.TryGetValue("kind", out var kindVals) && Enum.TryParse<EmailKind>(kindVals.ToString(), true, out var kind))
+            {
+                q = q.Where(n => n.Kind == kind);
+            }
+            // Superadmin optional tenant filter
+            if (isSuper && req.Query.TryGetValue("tenantId", out var tVals) && Guid.TryParse(tVals.ToString(), out var filterTenant))
+            {
+                q = q.Where(n => n.TenantId == filterTenant);
+            }
+
+            // Order latest updated first (more relevant for DLQ)
+            q = q.OrderByDescending(n => n.UpdatedAt);
+
+            // Paging
+            int take = 50;
+            int skip = 0;
+            if (req.Query.TryGetValue("take", out var takeVals) && int.TryParse(takeVals.ToString(), out var t) && t > 0 && t <= 500)
+                take = t;
+            if (req.Query.TryGetValue("skip", out var skipVals) && int.TryParse(skipVals.ToString(), out var s) && s >= 0)
+                skip = s;
+
+            var total = await q.CountAsync(ct);
+            var items = await q.Skip(skip).Take(take)
+                .Select(n => new NotificationAdminListItem(
+                    n.Id, n.Kind, n.ToEmail, n.ToName, n.Status, n.AttemptCount, n.CreatedAt, n.SentAt, n.NextAttemptAt, n.LastError, n.TenantId, n.DedupeKey))
+                .ToListAsync(ct);
+
+            resp.Headers.Append("X-Total-Count", total.ToString());
+            return Results.Ok(items);
+        })
+        .WithSummary("List DLQ notifications (Failed/DeadLetter)")
+        .WithDescription("Lists notifications in Failed or DeadLetter status. Supports filters: status, kind, tenantId (superadmin), and paging via take/skip.");
+
         // GET /api/notifications?status=&kind=&tenantId=&take=&skip=
         group.MapGet(string.Empty, async (
             ClaimsPrincipal user,
@@ -395,5 +463,139 @@ public static class NotificationsAdminEndpoints
         })
         .WithSummary("Bulk resend notifications")
         .WithDescription("Resends many notifications by filter with per-request and per-tenant caps; enforces per-recipient throttle and returns a summary.");
+
+        // POST /api/notifications/dlq/replay — bulk requeue Failed/DeadLetter items
+        group.MapPost("/dlq/replay", async (
+            ClaimsPrincipal user,
+            AppDbContext db,
+            INotificationOutbox outbox,
+            INotificationTransport transport,
+            HttpRequest req,
+            CancellationToken ct) =>
+        {
+            var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            Guid? currentTenantId = null;
+            if (!isSuper)
+            {
+                var tenantIdStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(tenantIdStr, out var t)) return Results.BadRequest(new { error = "invalid tenant" });
+                currentTenantId = t;
+            }
+
+            // Body: { ids?: Guid[], status?: 'Failed'|'DeadLetter', kind?: EmailKind, tenantId?: Guid (superadmin), limit?: int }
+            var body = await req.ReadFromJsonAsync<ReplayDlqRequest>(cancellationToken: ct) ?? new ReplayDlqRequest(null, null, null, null, null);
+
+            // Build candidate list
+            List<Guid> targetIds = new();
+            if (body.Ids is { Count: > 0 })
+            {
+                // Explicit ids path — fetch and filter by status/tenant/kind
+                var set = body.Ids.Where(id => id != Guid.Empty).ToHashSet();
+                IQueryable<Notification> q = db.Notifications.AsNoTracking().Where(n => set.Contains(n.Id));
+                if (!isSuper)
+                {
+                    q = q.Where(n => n.TenantId == currentTenantId);
+                }
+                else if (body.TenantId is Guid tid)
+                {
+                    q = q.Where(n => n.TenantId == tid);
+                }
+                var allowedStatus = body.Status is NotificationStatus st && (st == NotificationStatus.Failed || st == NotificationStatus.DeadLetter)
+                    ? new[] { st }
+                    : new[] { NotificationStatus.Failed, NotificationStatus.DeadLetter };
+                q = q.Where(n => allowedStatus.Contains(n.Status));
+                if (body.Kind is EmailKind k)
+                {
+                    q = q.Where(n => n.Kind == k);
+                }
+                targetIds = await q.Select(n => n.Id).ToListAsync(ct);
+            }
+            else
+            {
+                // Filtered query path — select by status/kind/tenant with limit
+                IQueryable<Notification> q = db.Notifications.AsNoTracking();
+                var allowedStatus = body.Status is NotificationStatus st && (st == NotificationStatus.Failed || st == NotificationStatus.DeadLetter)
+                    ? new[] { st }
+                    : new[] { NotificationStatus.Failed, NotificationStatus.DeadLetter };
+                q = q.Where(n => allowedStatus.Contains(n.Status));
+                if (body.Kind is EmailKind k)
+                {
+                    q = q.Where(n => n.Kind == k);
+                }
+                if (isSuper)
+                {
+                    if (body.TenantId is Guid tid)
+                    {
+                        q = q.Where(n => n.TenantId == tid);
+                    }
+                }
+                else
+                {
+                    q = q.Where(n => n.TenantId == currentTenantId);
+                }
+                q = q.OrderByDescending(n => n.UpdatedAt);
+                var limit = Math.Clamp(body.Limit ?? 50, 1, 200);
+                targetIds = await q.Take(limit).Select(n => n.Id).ToListAsync(ct);
+            }
+
+            int requeued = 0, forbidden = 0, notFound = 0, invalid = 0, errors = 0;
+            var ids = new List<Guid>(targetIds.Count);
+
+            foreach (var id in targetIds)
+            {
+                try
+                {
+                    var n = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+                    if (n is null) { notFound++; continue; }
+
+                    // Tenant scoping enforcement on each item
+                    if (!isSuper)
+                    {
+                        if (n.TenantId != currentTenantId) { forbidden++; continue; }
+                    }
+
+                    if (n.Status != NotificationStatus.Failed && n.Status != NotificationStatus.DeadLetter)
+                    {
+                        invalid++;
+                        continue;
+                    }
+
+                    var ok = await outbox.TryRequeueAsync(id, ct);
+                    if (!ok) { notFound++; continue; }
+                    await transport.PublishQueuedAsync(id, ct);
+                    ids.Add(id);
+                    requeued++;
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    notFound++;
+                }
+                catch
+                {
+                    errors++;
+                }
+            }
+
+            return Results.Ok(new ReplayDlqResult(requeued, forbidden, notFound, invalid, errors, ids));
+        })
+        .WithSummary("Bulk replay DLQ notifications")
+        .WithDescription("Requeues Failed/DeadLetter notifications by ids or filters (tenant-scoped or superadmin). Returns a summary and requeued ids.");
     }
 }
+
+public sealed record ReplayDlqRequest(
+    List<Guid>? Ids,
+    NotificationStatus? Status,
+    EmailKind? Kind,
+    Guid? TenantId,
+    int? Limit
+);
+
+public sealed record ReplayDlqResult(
+    int Requeued,
+    int SkippedForbidden,
+    int NotFound,
+    int SkippedInvalid,
+    int Errors,
+    List<Guid> Ids
+);

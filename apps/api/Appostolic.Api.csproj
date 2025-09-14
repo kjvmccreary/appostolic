@@ -22,6 +22,7 @@
   <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   <PackageReference Include="OpenTelemetry.Exporter.Console" />
   <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Migrations/20240911120000_Initial.cs" />

@@ -269,20 +269,81 @@ Tasks (completed)
 
 ## Phase 5 — Pre‑migration prep (keep monolith; extraction later)
 
-| Story ID        | Title                           | Source                              | Notes                        |
-| --------------- | ------------------------------- | ----------------------------------- | ---------------------------- |
-| ✅ (DONE) Mig01 | Transport abstraction           | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now) |
-| Mig02           | Outbox publisher integration    | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs           |
-| Mig03           | External worker executable      | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional          |
-| Mig04           | Broker adapter behind flag      | devInfo/PreMigrate/migSprintPlan.md | Rabbit/SQS later             |
-| Mig05           | DLQ and replay tooling          | devInfo/PreMigrate/migSprintPlan.md | Future                       |
-| Mig06           | Broker observability            | devInfo/PreMigrate/migSprintPlan.md | Future                       |
-| Mig07           | PII hardening in transport path | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21          |
-| Mig08           | Rollout plan and fallback       | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback       |
+| Story ID        | Title                                     | Source                              | Notes                          |
+| --------------- | ----------------------------------------- | ----------------------------------- | ------------------------------ |
+| ✅ (DONE) Mig01 | Transport abstraction                     | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now)   |
+| ✅ (DONE) Mig02 | Outbox publisher integration              | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs             |
+| ✅ (DONE) Mig03 | External worker executable                | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional            |
+| ✅ (DONE) Mig04 | Broker adapter behind flag (Redis option) | devInfo/PreMigrate/migSprintPlan.md | Redis Pub/Sub; dev health/ping |
+| ✅ (DONE) Mig05 | DLQ and replay tooling                    | devInfo/PreMigrate/migSprintPlan.md | Admin endpoints + tests        |
+| Mig06           | Broker observability                      | devInfo/PreMigrate/migSprintPlan.md | Future                         |
+| Mig07           | PII hardening in transport path           | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21            |
+| Mig08           | Rollout plan and fallback                 | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback         |
 
 Design refs: devInfo/PreMigrate/migDesign.md
 
+### Mig03 — External worker executable (Completed)
+
+Summary
+
+- Introduced a standalone notifications worker (`apps/notifications-worker`) that reuses the API’s shared notifications DI via `AddNotificationsRuntime(...)`. Added `NotificationsRuntimeOptions` to gate hosted services (dispatchers, purge, auto‑resend) so the API can disable dispatch while the worker owns it.
+
+References
+
+- SnapshotArchitecture.md — What’s new and Runtime architecture → Notifications worker
+- devInfo/storyLog.md — entry: External worker + runtime gating
+
+Quality gates
+
+- Build (solution): PASS
+- Tests (API): PASS (full suite 108/108)
+
+How to use (ops)
+
+- When running the worker, set in API: `Notifications:Runtime:RunDispatcher=false` so only the worker processes the outbox.
+- Transport remains selectable: default `channel` (in‑process) or `redis` (broker) via `Notifications:Transport:Mode`.
+
+### Mig05 — DLQ and replay tooling (Completed)
+
+Summary
+
+- Added admin endpoints to manage the notifications Dead Letter Queue (DLQ): list Failed/DeadLetter items and bulk replay them back to Queued. Enforces tenant scoping and uses the existing outbox + transport path for safe, idempotent reprocessing.
+
+Endpoints
+
+- `GET /api/notifications/dlq?status=Failed|DeadLetter&kind=...&tenantId=...&take=&skip=` — lists with paging and `X-Total-Count`.
+- `POST /api/notifications/dlq/replay` — body `{ ids?: Guid[], status?: Failed|DeadLetter, kind?: EmailKind, tenantId?: Guid, limit?: number }`; returns `{ requeued, skippedForbidden, notFound, skippedInvalid, errors, ids }`.
+
+Quality gates
+
+- Build (API): PASS
+- Tests (API): PASS (full suite) — new tests for DLQ list/replay
+
+References
+
+- SnapshotArchitecture.md — DLQ and replay section
+- devInfo/storyLog.md — entry: Mig05 completed
+
 ---
+
+### Mig04 — Broker adapter behind flag (Completed)
+
+Summary
+
+- Added an optional Redis-backed transport for notifications (publish via Redis Pub/Sub; subscriber hosted service forwards IDs to the in-process dispatcher queue). Default remains the in-process Channel.
+- Development-only diagnostics: `GET /api/dev/notifications/health` exposes transport mode and Redis subscriber state; `POST /api/dev/notifications/ping` enqueues a synthetic outbox row and publishes it for an end-to-end check.
+
+References
+
+- SnapshotArchitecture.md — What’s new and Notifications → Redis transport configuration
+- RUNBOOK.md — Notifications transport (ops)
+- README.md — Notifications transport (optional)
+- devInfo/storyLog.md — entry: Transport health + ping harness
+
+Quality gates
+
+- Build (API): PASS
+- Tests: PASS (full suite)
 
 How to use
 
