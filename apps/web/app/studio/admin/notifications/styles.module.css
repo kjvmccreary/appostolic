@@ -1,0 +1,25 @@
+.actionsForm {
+  margin-bottom: 12px;
+}
+.idsInput {
+  width: 420px;
+}
+.table {
+  margin-top: 16px;
+  width: 100%;
+  border-collapse: collapse;
+}
+.row {
+  border-top: 1px solid #ddd;
+}
+.mono {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+}
+.errorCell {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
