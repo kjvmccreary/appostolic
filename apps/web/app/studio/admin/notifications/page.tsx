@@ -21,7 +21,11 @@ interface DlqItem {
   lastError?: string | null;
 }
 
-export default async function NotificationsDlqPage() {
+export default async function NotificationsDlqPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
@@ -37,13 +41,29 @@ export default async function NotificationsDlqPage() {
   if (!mine) redirect('/select-tenant');
   if (mine.role !== 'Owner' && mine.role !== 'Admin') redirect('/');
 
-  // Fetch first page of DLQ
-  const resp = await fetchFromProxy(`/api-proxy/notifications/dlq?take=50`);
+  // Parse filters/paging from URL
+  const take = Math.min(Math.max(Number(searchParams?.take ?? '50') || 50, 1), 200);
+  const skip = Math.max(Number(searchParams?.skip ?? '0') || 0, 0);
+  const status =
+    (typeof searchParams?.status === 'string' ? searchParams?.status : undefined) ?? '';
+  const kind = (typeof searchParams?.kind === 'string' ? searchParams?.kind : undefined) ?? '';
+
+  const qs = new URLSearchParams();
+  qs.set('take', String(take));
+  if (skip) qs.set('skip', String(skip));
+  if (status && status !== 'all') qs.set('status', status);
+  if (kind) qs.set('kind', kind);
+
+  // Fetch filtered/paged DLQ
+  const resp = await fetchFromProxy(`/api-proxy/notifications/dlq?${qs.toString()}`);
   if (!resp.ok) {
     return <div>Failed to load DLQ</div>;
   }
   const total = Number(resp.headers.get('x-total-count') || '0');
   const items = (await resp.json()) as DlqItem[];
+
+  // Build suggestions for kinds from current page
+  const kindSuggestions = Array.from(new Set(items.map((i) => i.kind))).sort();
 
   async function replaySelected(formData: FormData) {
     'use server';
@@ -62,14 +82,43 @@ export default async function NotificationsDlqPage() {
 
   async function replayAllFiltered() {
     'use server';
-    // Here we just ask API to take up to 50 most recent
+    // Ask API to replay using current filters, limiting by current page size
+    const body: Record<string, unknown> = { limit: take };
+    if (status && status !== 'all') body.status = status;
+    if (kind) body.kind = kind;
     await fetchFromProxy('/api-proxy/notifications/dlq', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 50 }),
+      body: JSON.stringify(body),
     });
     revalidatePath('/studio/admin/notifications');
   }
+
+  async function replayOne(formData: FormData) {
+    'use server';
+    const id = String(formData.get('id') ?? '').trim();
+    if (!id) return;
+    await fetchFromProxy('/api-proxy/notifications/dlq', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    revalidatePath('/studio/admin/notifications');
+  }
+
+  // Helpers for pagination links
+  const baseParams = new URLSearchParams();
+  baseParams.set('take', String(take));
+  if (status) baseParams.set('status', status);
+  if (kind) baseParams.set('kind', kind);
+  const showingFrom = total === 0 ? 0 : skip + 1;
+  const showingTo = Math.min(skip + items.length, total);
+  const hasPrev = skip > 0;
+  const hasNext = skip + items.length < total;
+  const prevParams = new URLSearchParams(baseParams);
+  const nextParams = new URLSearchParams(baseParams);
+  prevParams.set('skip', String(Math.max(skip - take, 0)));
+  nextParams.set('skip', String(skip + take));
 
   return (
     <div>
@@ -77,6 +126,43 @@ export default async function NotificationsDlqPage() {
       <p>
         Tenant: <strong>{mine.tenantSlug}</strong> — Total: {total}
       </p>
+
+      <form method="GET" className={styles.filtersForm}>
+        <label>
+          Status:{' '}
+          <select name="status" defaultValue={status || 'all'}>
+            <option value="all">All</option>
+            <option value="Failed">Failed</option>
+            <option value="DeadLetter">DeadLetter</option>
+          </select>
+        </label>
+        <label>
+          Kind:{' '}
+          <input
+            name="kind"
+            defaultValue={kind}
+            list="kind-suggestions"
+            placeholder="e.g. Verification"
+          />
+          <datalist id="kind-suggestions">
+            {kindSuggestions.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
+        </label>
+        <label>
+          Page size:{' '}
+          <select name="take" defaultValue={String(take)}>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+        <input type="hidden" name="skip" value={String(Math.min(skip, Math.max(total - 1, 0)))} />
+        <button type="submit">Apply</button>
+      </form>
+
       <form action={replaySelected} className={styles.actionsForm}>
         <input
           type="text"
@@ -87,8 +173,26 @@ export default async function NotificationsDlqPage() {
         <button type="submit">Replay selected</button>
       </form>
       <form action={replayAllFiltered}>
-        <button type="submit">Replay up to 50 newest</button>
+        <button type="submit">Replay up to {take} newest (filtered)</button>
       </form>
+
+      <div className={styles.pager}>
+        <span>
+          Showing {showingFrom}-{showingTo} of {total}
+        </span>
+        <span className={styles.pagerButtons}>
+          {hasPrev ? (
+            <a href={`/studio/admin/notifications?${prevParams.toString()}`}>◀ Prev</a>
+          ) : (
+            <span className={styles.disabledLink}>◀ Prev</span>
+          )}
+          {hasNext ? (
+            <a href={`/studio/admin/notifications?${nextParams.toString()}`}>Next ▶</a>
+          ) : (
+            <span className={styles.disabledLink}>Next ▶</span>
+          )}
+        </span>
+      </div>
 
       <table className={styles.table}>
         <thead>
@@ -100,6 +204,7 @@ export default async function NotificationsDlqPage() {
             <th align="right">Attempts</th>
             <th align="left">Created</th>
             <th align="left">Error</th>
+            <th align="left">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -113,6 +218,12 @@ export default async function NotificationsDlqPage() {
               <td>{new Date(n.createdAt).toLocaleString()}</td>
               <td className={styles.errorCell} title={n.lastError ?? ''}>
                 {n.lastError ?? ''}
+              </td>
+              <td>
+                <form action={replayOne}>
+                  <input type="hidden" name="id" value={n.id} />
+                  <button type="submit">Replay</button>
+                </form>
               </td>
             </tr>
           ))}

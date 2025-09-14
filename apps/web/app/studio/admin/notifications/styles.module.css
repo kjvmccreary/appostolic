@@ -4,6 +4,12 @@
 .idsInput {
   width: 420px;
 }
+.filtersForm {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0;
+}
 .table {
   margin-top: 16px;
   width: 100%;
@@ -22,4 +28,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0;
+}
+.pagerButtons {
+  display: flex;
+  gap: 12px;
+}
+.disabledLink {
+  color: #999;
 }

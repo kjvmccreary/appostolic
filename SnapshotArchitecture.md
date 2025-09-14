@@ -6,6 +6,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 - Mig‑03b: External notifications worker — introduced `apps/notifications-worker` which hosts the notifications runtime out-of-process. Added `NotificationsRuntimeOptions` to gate hosted services (dispatchers/purge/auto‑resend) so the API can disable dispatch when the worker runs. Default behavior remains unchanged.
 - Mig‑05: DLQ and replay tooling — added admin endpoints to list DLQ (`GET /api/notifications/dlq`) and bulk replay (`POST /api/notifications/dlq/replay`) with tenant scoping and summaries.
+- Mig‑06: Web DLQ admin — Studio page adds pagination, status/kind filters, and per‑row replay; proxy tests cover guard/forwarding and X‑Total‑Count propagation.
 - Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
 - Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
 - Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
@@ -858,6 +859,7 @@ Local dev (Mailhog):
     - `GET/PUT/DELETE /api-proxy/agents/{id}` ↔ API `/api/agents/{id}`
     - `GET /api-proxy/agents/tools` ↔ API `/api/agents/tools`
   - `GET /api-proxy/dev/agents` → API `/api/dev/agents`
+  - `GET /api-proxy/notifications/dlq` and `POST /api-proxy/notifications/dlq` → API `/api/notifications/dlq` and `/api/notifications/dlq/replay` (Owner/Admin)
   - `POST /api-proxy/dev/notifications/verification` → API `/api/dev/notifications/verification`
   - `POST /api-proxy/dev/notifications/invite` → API `/api/dev/notifications/invite`
   - `POST /api-proxy/agent-tasks` → API `/api/agent-tasks`

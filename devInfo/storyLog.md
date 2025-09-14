@@ -199,6 +199,27 @@ Quality gates
 - Build (API): PASS
 - Tests: PASS (full suite incl. new encryption tests)
 
+## Mig06 — Web DLQ Admin: pagination, filters, per-row replay — Completed
+
+- Summary
+  - Enhanced the Studio Admin DLQ page to support pagination, basic filters (status/kind), and per-row replay. The “Replay filtered” action now respects current filters and page size cap. URL reflects state so admins can share or reload the same query.
+
+- Files changed
+  - apps/web/app/studio/admin/notifications/page.tsx — added parsing of take/skip/status/kind, pager with Prev/Next, kind suggestions, per-row server action
+  - apps/web/app/studio/admin/notifications/styles.module.css — new styles for filters form, pager, and disabled links
+  - apps/web/app/api-proxy/notifications/dlq/route.ts — unchanged behavior; used by tests
+  - apps/web/app/api-proxy/notifications/dlq/route.test.ts — new tests covering Owner/Admin guard, parameter forwarding, and X-Total-Count propagation
+
+- Quality gates
+  - Lint/Typecheck (web): PASS
+  - Tests (web): PASS (vitest suite including new route tests)
+
+- Requirements coverage
+  - Pagination controls with Prev/Next and page size: Done
+  - Filters for status/kind with suggestions: Done
+  - Per-row replay: Done
+  - Proxy route tests for GET/POST with headers/guards: Done
+
 Requirements coverage
 
 - Encrypt at rest with AES-GCM and configurable toggles: Done.

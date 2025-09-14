@@ -276,7 +276,7 @@ Tasks (completed)
 | ✅ (DONE) Mig03 | External worker executable                | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional            |
 | ✅ (DONE) Mig04 | Broker adapter behind flag (Redis option) | devInfo/PreMigrate/migSprintPlan.md | Redis Pub/Sub; dev health/ping |
 | ✅ (DONE) Mig05 | DLQ and replay tooling                    | devInfo/PreMigrate/migSprintPlan.md | Admin endpoints + tests        |
-| Mig06           | Broker observability                      | devInfo/PreMigrate/migSprintPlan.md | Future                         |
+| ✅ (DONE) Mig06 | Web DLQ admin (paging/filters/per-row)    | devInfo/PreMigrate/migSprintPlan.md | See storyLog/Snapshot          |
 | Mig07           | PII hardening in transport path           | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21            |
 | Mig08           | Rollout plan and fallback                 | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback         |
 
