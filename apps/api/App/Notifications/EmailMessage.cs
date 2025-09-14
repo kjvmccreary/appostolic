@@ -3,7 +3,8 @@ namespace Appostolic.Api.App.Notifications;
 public enum EmailKind
 {
     Verification,
-    Invite
+    Invite,
+    MagicLink
 }
 
 public sealed record EmailMessage(

@@ -6,6 +6,7 @@ public interface INotificationEnqueuer
 {
     Task QueueVerificationAsync(string toEmail, string? toName, string token, CancellationToken ct = default);
     Task QueueInviteAsync(string toEmail, string? toName, string tenant, string role, string inviter, string token, CancellationToken ct = default);
+    Task QueueMagicLinkAsync(string toEmail, string? toName, string token, CancellationToken ct = default);
 }
 
 public sealed class NotificationEnqueuer : INotificationEnqueuer
@@ -73,6 +74,27 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
     var renderer = new ScribanTemplateRenderer(Microsoft.Extensions.Options.Options.Create(_emailOptions));
     var snapshots = await renderer.RenderAsync(msg, ct);
     var id = await _outbox.CreateQueuedAsync(msg, tokenHash, snapshots, ct);
+        await _transport.PublishQueuedAsync(id, ct);
+    }
+
+    public async Task QueueMagicLinkAsync(string toEmail, string? toName, string token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(toEmail)) throw new ArgumentException("toEmail is required", nameof(toEmail));
+        if (string.IsNullOrWhiteSpace(token)) throw new ArgumentException("token is required", nameof(token));
+
+        var tokenHash = HashToken(token);
+        var baseUrl = _emailOptions.WebBaseUrl?.TrimEnd('/') ?? "";
+        var link = string.IsNullOrEmpty(baseUrl)
+            ? $"/magic/verify?token={Uri.EscapeDataString(token)}"
+            : $"{baseUrl}/magic/verify?token={Uri.EscapeDataString(token)}";
+
+        var data = new Dictionary<string, object?> { ["link"] = link };
+        var dedupeKey = $"magiclink::{NormalizeEmail(toEmail)}::{tokenHash}";
+
+        var msg = new EmailMessage(EmailKind.MagicLink, toEmail, toName, data, dedupeKey);
+        var renderer = new ScribanTemplateRenderer(Microsoft.Extensions.Options.Options.Create(_emailOptions));
+        var snapshots = await renderer.RenderAsync(msg, ct);
+        var id = await _outbox.CreateQueuedAsync(msg, tokenHash, snapshots, ct);
         await _transport.PublishQueuedAsync(id, ct);
     }
 

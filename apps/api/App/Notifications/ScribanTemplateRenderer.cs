@@ -34,6 +34,11 @@ public sealed class ScribanTemplateRenderer : ITemplateRenderer
                 "<p>Hello,</p><p>You were invited to join <b>{{ tenant }}</b> as <b>{{ role }}</b>. Click <a href='{{ link }}'>Accept invite</a> to continue.</p><p>Invited by: {{ inviter }}</p>",
                 "You were invited to join {{ tenant }} as {{ role }}. Accept: {{ link }} (Invited by: {{ inviter }})"
             ),
+            EmailKind.MagicLink => (
+                "Sign in to Appostolic",
+                "<p>Hello {{ toName ?? 'there' }},</p><p>Use your magic link to sign in: <a href='{{ link }}'>Sign in</a>.</p><p>This link expires in 15 minutes. If you didn't request it, you can ignore this email.</p>",
+                "Hello {{ toName ?? 'there' }},\n\nSign in with your magic link: {{ link }}\n\nThis link expires in 15 minutes. If you didn't request it, you can ignore this email."
+            ),
             _ => ("Notification", "<p>Notification</p>", "Notification")
         };
 

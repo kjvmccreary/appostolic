@@ -450,6 +450,23 @@ public partial class AppDbContext : DbContext
             b.HasIndex(x => x.Token).IsUnique();
         });
 
+        // Magic Link Login Tokens (Auth-ML-01)
+        modelBuilder.Entity<LoginToken>(b =>
+        {
+            b.ToTable("login_tokens");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Email).HasColumnName("email").IsRequired().HasColumnType("citext");
+            b.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("varchar(128)").IsRequired();
+            b.Property(x => x.Purpose).HasColumnName("purpose").IsRequired();
+            b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("timezone('utc', now())");
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            b.Property(x => x.ConsumedAt).HasColumnName("consumed_at");
+            // Unique token hash; support lookups by email and created_at for rate-limiting
+            b.HasIndex(x => x.TokenHash).IsUnique();
+            b.HasIndex(x => new { x.Email, x.CreatedAt }).HasDatabaseName("ix_login_tokens_email_created");
+        });
+
         // Apply configurations for domain types (Agent runtime)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
@@ -459,6 +476,7 @@ public partial class AppDbContext : DbContext
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Lesson> Lessons => Set<Lesson>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<LoginToken> LoginTokens => Set<LoginToken>();
 }
 
 public record Tenant
@@ -516,6 +534,17 @@ public record Invitation
     public Guid? InvitedByUserId { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public record LoginToken
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string TokenHash { get; set; } = string.Empty;
+    public string Purpose { get; set; } = "magic";
+    public DateTime CreatedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? ConsumedAt { get; set; }
 }
 
 // Expose Program for WebApplicationFactory in tests

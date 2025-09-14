@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -13,6 +15,136 @@ public static class V1
     {
         var apiRoot = app.MapGroup("/api");
         // Anonymous auth endpoints
+        apiRoot.MapPost("/auth/magic/request", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
+                return Results.BadRequest(new { error = "email is required" });
+
+            var email = dto.Email.Trim();
+            var now = DateTime.UtcNow;
+            // Basic rate-limit: max 5 requests per 15 minutes per email
+            var windowStart = now.AddMinutes(-15);
+            var recentCount = await db.LoginTokens.AsNoTracking()
+                .Where(t => t.Email == email && t.CreatedAt >= windowStart)
+                .CountAsync();
+            if (recentCount >= 5)
+            {
+                // Too many requests - hide specifics
+                return Results.Accepted();
+            }
+
+            var token = Guid.NewGuid().ToString("N");
+            var tokenHash = HashToken(token);
+            var expiresAt = now.AddMinutes(15);
+
+            var loginToken = new LoginToken
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                TokenHash = tokenHash,
+                Purpose = "magic",
+                CreatedAt = now,
+                ExpiresAt = expiresAt
+            };
+            db.LoginTokens.Add(loginToken);
+            await db.SaveChangesAsync();
+
+            await enqueuer.QueueMagicLinkAsync(email, null, token);
+            return Results.Accepted();
+        }).AllowAnonymous();
+
+        apiRoot.MapPost("/auth/magic/consume", async (AppDbContext db, MagicConsumeDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Token))
+                return Results.BadRequest(new { error = "token is required" });
+
+            var tokenHash = HashToken(dto.Token.Trim());
+            var now = DateTime.UtcNow;
+            var t = await db.LoginTokens.FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.Purpose == "magic");
+            if (t is null) return Results.BadRequest(new { error = "invalid or expired token" });
+            if (t.ExpiresAt < now) return Results.BadRequest(new { error = "invalid or expired token" });
+            if (t.ConsumedAt is not null) return Results.BadRequest(new { error = "token already used" });
+
+            // Ensure user exists; if not, create a new user and personal tenant
+            var email = t.Email.Trim();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user is null)
+            {
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Email = email,
+                    CreatedAt = now
+                };
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+
+                // Create personal tenant and membership
+                var local = email.Split('@')[0].ToLowerInvariant();
+                var baseSlug = $"{local}-personal";
+                var slug = baseSlug;
+                var attempt = 1;
+                while (await db.Tenants.AsNoTracking().AnyAsync(x => x.Name == slug))
+                {
+                    attempt++;
+                    slug = $"{baseSlug}-{attempt}";
+                }
+                var tenant = new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = now };
+                db.Tenants.Add(tenant);
+                await db.SaveChangesAsync();
+
+                // Respect RLS: set tenant context when inserting membership for relational providers
+                var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+                if (isInMemory)
+                {
+                    var membership = new Membership
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenant.Id,
+                        UserId = user.Id,
+                        Role = MembershipRole.Owner,
+                        Status = MembershipStatus.Active,
+                        CreatedAt = now
+                    };
+                    db.Memberships.Add(membership);
+                    await db.SaveChangesAsync();
+                }
+                else
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenant.Id.ToString());
+                    var membership = new Membership
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenant.Id,
+                        UserId = user.Id,
+                        Role = MembershipRole.Owner,
+                        Status = MembershipStatus.Active,
+                        CreatedAt = now
+                    };
+                    db.Memberships.Add(membership);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+            }
+
+            // Mark token as consumed
+            t.ConsumedAt = now;
+            await db.SaveChangesAsync();
+
+            // Return minimal payload including memberships
+            var memberships = await db.Memberships.AsNoTracking()
+                .Where(m => m.UserId == user!.Id)
+                .Join(db.Tenants.AsNoTracking(), m => m.TenantId, tn => tn.Id, (m, tn) => new
+                {
+                    tenantId = tn.Id,
+                    tenantSlug = tn.Name,
+                    role = m.Role.ToString()
+                })
+                .ToListAsync();
+
+            return Results.Ok(new { user = new { user!.Id, user.Email }, memberships });
+        }).AllowAnonymous();
         apiRoot.MapPost("/auth/signup", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, SignupDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
@@ -676,5 +808,15 @@ public static class V1
     public record LoginDto(string Email, string Password);
     public record InviteRequest(string Email, string? Role);
     public record AcceptInviteDto(string Token);
+    public record MagicRequestDto(string Email);
+    public record MagicConsumeDto(string Token);
     public record UpdateMemberRoleDto(string Role);
+
+    private static string HashToken(string token)
+    {
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = sha.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
 }
