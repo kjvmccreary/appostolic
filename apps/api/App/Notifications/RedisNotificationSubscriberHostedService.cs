@@ -45,12 +45,18 @@ public sealed class RedisNotificationSubscriberHostedService : IHostedService
                 }
                 else
                 {
-                    _logger.LogWarning("Received non-GUID payload on Redis channel {Channel}: {Payload}", channel.ToString(), (string)message!);
+                    // Do not log raw payload contents to avoid accidental PII leakage.
+                    // Provide only channel information; include payload length for diagnostics.
+                    int len;
+                    try { len = ((string)message!).Length; }
+                    catch { len = -1; }
+                    _logger.LogWarning("Received non-GUID payload on Redis channel {Channel} (payload_length={PayloadLength})", channel.ToString(), len);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling Redis Pub/Sub message: {Payload}", (string)message!);
+                // Avoid logging message contents; include channel only.
+                _logger.LogError(ex, "Error handling Redis Pub/Sub message on channel {Channel}", channel.ToString());
             }
         }).ConfigureAwait(false);
         _diagnostics.Subscribed = true;

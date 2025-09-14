@@ -398,6 +398,23 @@ Files changed
 - apps/api/App/Endpoints/DevNotificationsEndpoints.cs — dev resend route mirroring admin behavior for local testing.
 - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — dev resend test: 201 then 429, asserts metadata linkage.
 - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — prod resend tests: tenant success and cross‑tenant 403; 404 when missing.
+
+## Mig07 — Transport PII hardening — Completed
+
+- Summary
+  - Hardened the Redis notifications transport subscriber to avoid logging raw Pub/Sub payloads on warning/error paths. Logs now include only the channel name and a payload length metric for diagnostics. Publisher/subscriber payload shape remains a GUID ID string only; no PII is carried over the transport. This aligns transport logging with our privacy guardrails.
+
+- Files changed
+  - apps/api/App/Notifications/RedisNotificationSubscriberHostedService.cs — removed raw payload from logs; added payload length; channel-only context
+  - SnapshotArchitecture.md — What’s new: noted transport privacy hardening
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (110/110)
+
+- Requirements coverage
+  - No PII in transport payloads or logs: Done
+  - Observability retained via channel context and payload length: Done
 - apps/api.tests/NotificationEnqueuerTests.cs — updated test double to implement new outbox method.
 
 Quality gates
