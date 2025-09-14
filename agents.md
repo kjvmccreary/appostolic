@@ -1,6 +1,17 @@
-# Appostolic — Architecture Snapshot (2025-09-11)
+# Appostolic — Architecture Snapshot (2025-09-13)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
+
+## What’s new
+
+- Notif‑29: Bulk resend endpoint `/api/notifications/resend-bulk` with per-request and per-tenant daily caps, tenant scoping, and per-recipient throttling. Also enabled JSON string↔︎enum serialization globally so request bodies may use enum names.
+- Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
+- Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
+- Notif‑32: Automated resend service — background scanner detects "no‑action" originals (Sent and older than a window) and creates linked resends under caps/throttle. Feature‑gated via `Notifications:EnableAutoResend`.
+- Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (108/108).
+- Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (17/17 files; 38 assertions). Coverage ~92% lines.
+- Auth‑14: Documentation updates — README gains an Authentication (dev) section; RUNBOOK adds an "Authentication flows (operations)" run guide. See README “Authentication (dev)” and RUNBOOK “Authentication flows (operations)”.
+- Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
 
 ## Monorepo overview
 
@@ -40,6 +51,8 @@ appostolic/
 │  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
 │  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
+  │  │  │  │  ├─ DevNotificationsEndpoints.cs # GET/POST /api/dev/notifications (Development only)
+  │  │  │  │  ├─ NotificationsAdminEndpoints.cs # /api/notifications (prod: list/details/retry; tenant-scoped + superadmin)
 │  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
   │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list; X-Total-Count; filters: status/agentId/from/to/q)
 │  │  │  └─ Infrastructure/
@@ -167,6 +180,11 @@ appostolic/
 - Next.js 14 (App Router); server-only proxy routes under `app/api-proxy/*` inject dev headers and avoid CORS
 - Env validation: `src/lib/serverEnv.ts` ensures `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`
 - Dev pages: `/dev/agents`, Agent Studio under `/studio/agents`
+- Server fetch helper: `app/lib/serverFetch.ts` exports `fetchFromProxy()` which:
+  - Builds an absolute base URL from request headers (`x-forwarded-host`/`x-forwarded-proto`) or `NEXT_PUBLIC_WEB_BASE` when provided
+  - Forwards cookies so NextAuth session reaches the proxy
+  - Disables cache by default (`no-store`) with `next: { revalidate: 0 }`
+    Use this helper in server components and server actions to call internal `/api-proxy/*` routes. Avoid `fetch('/api-proxy/...')` directly in server code to prevent URL parse errors.
 
 ### Mobile (`apps/mobile`) and Render Worker (`apps/render-worker`)
 
@@ -180,6 +198,7 @@ appostolic/
 ### Authentication & Authorization
 
 - Dev headers (API): `x-dev-user` and `x-tenant`; emits claims `sub`, `email`, `tenant_id`, `tenant_slug`. All `/api/*` require authorization (dev headers expected). Swagger remains public.
+  - Superadmin (dev/test friendly): `DevHeaderAuthHandler` can emit a `superadmin` claim when header `x-superadmin: true` is present or the user's email is included in config allowlist `Auth:SuperAdminEmails`. Used to enable cross-tenant notification views in admin endpoints.
 - Web tenant selection/switcher:
   - Two‑stage login with `/select-tenant`; auto‑select when single membership.
   - Header `TenantSwitcher` updates session via `session.update({ tenant })` and sets `selected_tenant` cookie via `/api/tenant/select`.
@@ -215,28 +234,109 @@ Endpoints:
 
 ### Notifications (email)
 
-Components:
+- Metrics: `email.sent.total` and `email.failed.total` counters (tagged by email kind) exposed via OTEL Meter "Appostolic.Metrics".
+- Notif-30: Resend telemetry — `email.resend.total` (tags: kind, mode=manual|bulk, tenant_scope=self|superadmin|dev, outcome),
+  `email.resend.throttled.total` (same tags), and histogram `email.resend.batch.size` (tags: tenant_scope, and kind when filtered).
+- Bulk header: `X-Resend-Remaining` on `/api/notifications/resend-bulk` reflects remaining per-tenant daily cap when tenant context is known.
+
+- Resend history (Notif‑31):
+  - `GET /api/notifications/{id}/resends` lists child resend notifications linked to the original.
+  - Paging via `take`/`skip`; sets `X‑Total‑Count` header; ordered by `CreatedAt DESC`.
+  - Tenant scoping enforced: non‑superadmin limited to current tenant; superadmin may view across tenants.
+
+- Automated resend (Notif‑32):
+  - Background scanner (`AutoResendHostedService` + `AutoResendScanner`) runs on an interval to detect "no‑action" notifications and enqueue resends with reason `auto_no_action`.
+  - Eligibility: originals only (no `ResendOfNotificationId`), `Status=Sent`, older than `AutoResendNoActionWindow`, no existing resend child, and not explicitly delivered/opened by provider webhook.
+  - Guardrails: respects `ResendThrottleWindow`, per‑scan cap `AutoResendMaxPerScan`, and per‑tenant daily cap `AutoResendPerTenantDailyCap`.
+  - Observability: reuse `email.resend.total` metrics with `mode=auto` and outcomes `created|throttled|forbidden|error`.
+  - Configuration (NotificationOptions): `EnableAutoResend` (default false), `AutoResendScanInterval` (5m), `AutoResendNoActionWindow` (24h), `AutoResendMaxPerScan` (50), `AutoResendPerTenantDailyCap` (200).
 
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL
 - Template renderer: `ScribanTemplateRenderer`
 - Providers: `SmtpEmailSender` (dev), `SendGridEmailSender` (prod/real), `NoopEmailSender` fallback
 - Enqueuer: `NotificationEnqueuer` helpers for verification and invite emails
+- Resend (manual/bulk):
+  - Manual: `POST /api/notifications/{id}/resend` (also dev variant) clones and enqueues a linked child, enforcing throttle via `(to_email, kind)` within `ResendThrottleWindow`.
+  - Bulk: `POST /api/notifications/resend-bulk` filters by kind/date/recipients and enforces:
+    - Per-request cap `Notifications:BulkResendMaxPerRequest` (default 100)
+    - Per-tenant daily cap `Notifications:BulkResendPerTenantDailyCap` (default 500, rolling 24h)
+    - Tenant scoping: non‑superadmin limited to current tenant; superadmin may filter by `tenantId`.
+    - Throttle: per‑recipient pre‑check and outbox enforcement to avoid violating `ResendThrottleWindow`.
+  - JSON: API accepts enum names in request bodies (global `JsonStringEnumConverter`), e.g., `{ "kind": "Verification" }`.
+- PII hardening (Notif‑21):
+  - Token hashing: verification/invite tokens are hashed (SHA‑256) and only the hash is stored on the outbox row (`TokenHash`); raw tokens are never persisted in Notification fields or `data_json`.
+  - Pre‑rendered snapshots: subject/html/text may be pre‑rendered at enqueue time and stored; dispatcher reuses snapshots when present to avoid re‑render divergence.
+  - Redacted logging: emails in logs are redacted (e.g., k\*\*\*@example.com) across SMTP/SendGrid providers and dispatcher paths.
+
+PII scrubbing (Notif‑23):
+
+- Early scrub of sensitive fields prior to deletion to minimize PII exposure time. A dedicated scrub pass nulls selected columns for notifications older than a scrub window but newer than the delete retention cutoff.
+- Configuration (NotificationOptions):
+  - Master switch `PiiScrubEnabled` (default true).
+  - Scrub windows: `ScrubSentAfter`, `ScrubFailedAfter`, `ScrubDeadLetterAfter`.
+  - Per‑field toggles: `ScrubToName`, `ScrubSubject`, `ScrubBodyHtml`, `ScrubBodyText`, and `ScrubToEmail` (email off by default).
+- Observability: `NotificationsPurgeHostedService` logs `scrubbed` counts alongside purged counts each run.
+
+Further reading:
+
+- Privacy policy (engineering draft): devInfo/Sendgrid/privacyPolicy.md
+- Vendor compliance and subprocessors: devInfo/Sendgrid/vendorCompliance.md
 
 Outbox & Dispatcher (Notif‑13/14/15):
 
 - Table `app.notifications` stores durable outbox entries (kind, to_email, data_json, dedupe_key, status, attempts, errors, timestamps; snapshots subject/html/text)
 - Dispatcher `NotificationDispatcherHostedService` leases (`Queued`→`Sending`), renders, sends, and updates status with jittered backoff (0.5s/2s/8s +/-20%) and terminal `DeadLetter` on exhaustion; event‑driven via ID queue with polling fallback
+- Testing note: EF InMemory provider does not support transactions; leasing logic gates transactional semantics behind `Database.IsRelational()` to keep tests stable while retaining transactions for relational providers.
 
 Dedupe & Retention (Notif‑17/18):
 
 - TTL dedupe table `app.notification_dedupes` (PK: dedupe_key, expires_at) is claimed before outbox insert; duplicate claims within TTL throw `DuplicateNotificationException`
 - Partial unique index `ux_notifications_dedupe_key_active` applies only to in‑flight statuses (`Queued`,`Sending`); `Sent` dedupe is governed by the TTL table
 - Hourly purge job removes expired dedupe claims and old notifications; retention windows configurable via `Notifications` options (e.g., Sent: 60d; Failed/Dead: 90d)
+- Scrub‑then‑delete ordering (Notif‑23): For items within the scrub window but not yet at the deletion cutoff, the job nulls configured fields first; items past the deletion cutoff are removed entirely.
 
 Dev endpoints:
 
 - `POST /api/dev/notifications/verification` and `/invite` enqueue test emails; requires dev headers
+
+Prod admin endpoints (Notif‑24):
+
+- `GET /api/notifications` — list notifications
+  - Non‑superadmin: tenant‑scoped using `tenant_id` claim; supports filters `status`, `kind`; paging via `take`/`skip`; `X-Total-Count` header.
+  - Superadmin: cross‑tenant view allowed and may optionally filter by `tenantId`.
+- `GET /api/notifications/{id}` — details
+  - Non‑superadmin: 403 if the notification’s `tenant_id` doesn’t match current tenant.
+  - Superadmin: allowed.
+- `POST /api/notifications/{id}/retry` — retry Failed/DeadLetter
+  - Transitions to `Queued` and nudges dispatcher; enforces same tenant/superadmin gating.
+
+- `GET /api/notifications/{id}/resends` (Notif‑31)
+  - Returns child resends for an original; ordered latest-first.
+  - Paging via `take`/`skip`; sets `X‑Total‑Count`.
+  - Tenant scoping as above; superadmin cross‑tenant allowed.
+
+Access control:
+
+- Non‑superadmin requests are auto‑scoped by current tenant (from `tenant_id` claim); cross‑tenant access is denied.
+- Superadmin requests (claim `superadmin=true`) may access across tenants and use `tenantId` filter on list.
+
+Provider webhooks:
+
+- `POST /api/notifications/webhook/sendgrid` — receives SendGrid event webhooks; optional shared-secret via header. Normalizes and stores provider delivery status under `notifications.data_json.provider_status` along with event timestamp; designed to be idempotent for replayed events.
+
+#### Field encryption (Notif-22)
+
+- Optional at-rest encryption for selected outbox fields: `to_name`, `subject` (optional), `body_html`, `body_text`.
+- Format: `enc:v1:` prefix followed by Base64URL payload containing AES-GCM ciphertext + nonce + tag.
+- Configuration (NotificationOptions):
+  - `EncryptFields` (bool) — master switch; default false
+  - `EncryptionKeyBase64` (string) — 256-bit key as base64; required when enabled
+  - Per-field toggles: `EncryptToName`, `EncryptSubject`, `EncryptBodyHtml`, `EncryptBodyText`
+- Runtime behavior:
+  - Encrypt on write (`CreateQueuedAsync` and `MarkSentAsync`), decrypt on lease (`LeaseNextDueAsync`).
+  - DI selects `AesGcmFieldCipher` when enabled+key is valid; otherwise `NullFieldCipher` (no-op) for backward compatibility.
+- No schema migration required; ciphertext is stored in existing text columns. Downstream services receive plaintext via the lease path.
 
 ---
 
@@ -283,7 +383,7 @@ Dev endpoints:
 Key domain tables and constraints:
 
 - Agent runtime: `agents`, `agent_tasks`, `agent_traces` with unique index `(task_id, step_number)` and checks on step/duration
-- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data
+- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data. Resend (Notif‑27) adds metadata columns and indexes for safe resend policies: `resend_of_notification_id` (FK self‑reference, NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
 - Invitations: `invitations` with FKs to `tenants` and `users`; functional unique `(tenant_id, lower(email))` and index on `(tenant_id, expires_at)`
 - Auth/tenant integrity: unique slug `tenants(name)`; FKs cascade/set‑null as appropriate
 
@@ -295,6 +395,8 @@ Key domain tables and constraints:
 - Traces: ASP.NET Core, HTTP client, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`)
 - Metrics: ASP.NET Core, HTTP client, runtime, `Appostolic.Metrics` (e.g., email sent/failed)
 - Logs: structured logs; console exporters in Development; optional OTLP endpoint via `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+- Privacy (Notif‑25): Recipient emails are redacted across dispatcher/providers and log scopes; metrics include only non‑PII tags (e.g., kind). See devInfo/Sendgrid/privacyPolicy.md for practices and devInfo/Sendgrid/vendorCompliance.md for provider details.
 
 ---
 
@@ -358,6 +460,10 @@ Troubleshooting:
 - Notifications v1: in‑process queue + dispatcher with retry/backoff and OTEL metrics; SMTP/SendGrid/Noop providers and production guard; enqueue helpers for verification/invite with absolute links
 - Outbox (Notif‑13): durable table `app.notifications` with indexes and dedupe
 - Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
+- Notifications (Notif‑24): production admin endpoints under `/api/notifications` with tenant‑scoped access for Owner/Admin and optional cross‑tenant superadmin view; superadmin claim available via dev header or allowlist for testing and operations.
+- Notifications (Notif‑27): outbox resend metadata added — self‑FK `resend_of_notification_id` (NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; supporting indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
+- Notifications (Notif‑28): manual resend endpoints — `POST /api/notifications/{id}/resend` (prod admin, tenant‑scoped with superadmin override) and `POST /api/dev/notifications/{id}/resend` (dev). Returns `201 Created` with `Location` on success; enforces resend throttling with `429 Too Many Requests` and `Retry‑After` seconds header. Throttle window configurable via `NotificationOptions.ResendThrottleWindow` (default 5m).
+- Migrations hygiene: proper EF migrations were scaffolded (Designer files + updated ModelSnapshot). An obsolete `token_aggregates` migration was converted to a no‑op to avoid conflicts.
 
 ---
 
@@ -527,6 +633,7 @@ Development-only endpoints and test hooks (mapped only when `ASPNETCORE_ENVIRONM
 - `POST /api/dev/notifications/verification` and `/invite` (in `DevNotificationsEndpoints.cs`)
   - Enqueues a verification or invite email via the notifications queue for E2E testing against Mailhog
   - Requires dev headers
+  - E2E (Notif‑20): Verified full outbox path in Development — enqueue → DB row → SMTP (Mailhog) → `Sent`. Tests gate EF transactions behind `Database.IsRelational()` to support InMemory provider.
 
 Agent task endpoints (in `AgentTasksEndpoints.cs`):
 
@@ -683,6 +790,7 @@ Observability:
 
 - Metrics: `email.sent.total` and `email.failed.total` counters (tagged by email kind) exposed via OTEL Meter "Appostolic.Metrics".
 - Logs: Dispatcher adds correlation fields to scopes when present on the message data: `email.userId`, `email.tenantId`, `email.inviteId` (plus `email.tenant`, `email.inviter` fallbacks). In Development, logs/metrics are also exported to console.
+- Privacy (Notif-25): Recipient emails are redacted in all logs/scopes/providers (e.g., `u***@example.com`). Metrics include only non-PII tags (kind), with no raw emails or tokens.
 
 Local dev (Mailhog):
 
@@ -776,6 +884,7 @@ Dev auth for API testing:
 - 401 on `/api/*`: send `x-dev-user` and `x-tenant` headers; if you haven’t seeded, run `make seed` (or `make bootstrap`)
 - Tenant scoping not applied: verify `tenant_id` claim exists (set by dev auth) or use `X-Tenant-Id` for legacy `/lessons`
 - Postgres connection errors: ensure Docker is up and port `55432` matches env
+- Next.js server error “Failed to parse URL from /api-proxy/…”: A server component used a relative fetch to a Next API route. Fix by using `fetchFromProxy('/api-proxy/...')` from `app/lib/serverFetch.ts` (which builds an absolute URL from headers), or set `NEXT_PUBLIC_WEB_BASE` and restart the web server.
 
 Node/pnpm engines:
 
