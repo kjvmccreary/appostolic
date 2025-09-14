@@ -177,7 +177,7 @@ public static class NotificationsAdminEndpoints
             ClaimsPrincipal user,
             AppDbContext db,
             INotificationOutbox outbox,
-            INotificationIdQueue idQueue,
+            INotificationTransport transport,
             CancellationToken ct) =>
         {
             var isSuper = string.Equals(user.FindFirst("superadmin")?.Value, "true", StringComparison.OrdinalIgnoreCase);
@@ -198,7 +198,7 @@ public static class NotificationsAdminEndpoints
 
             var ok = await outbox.TryRequeueAsync(id, ct);
             if (!ok) return Results.NotFound();
-            await idQueue.EnqueueAsync(id, ct);
+            await transport.PublishQueuedAsync(id, ct);
             return Results.Accepted();
         })
         .WithSummary("Retry a failed/dead-letter notification (tenant-scoped or superadmin)");
@@ -209,7 +209,7 @@ public static class NotificationsAdminEndpoints
             ClaimsPrincipal user,
             AppDbContext db,
             INotificationOutbox outbox,
-            INotificationIdQueue idQueue,
+            INotificationTransport transport,
             HttpResponse resp,
             CancellationToken ct) =>
         {
@@ -227,7 +227,7 @@ public static class NotificationsAdminEndpoints
             try
             {
                 var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
-                await idQueue.EnqueueAsync(newId, ct);
+                await transport.PublishQueuedAsync(newId, ct);
                 var location = $"/api/notifications/{newId}";
                 EmailMetrics.RecordResend(original.Kind.ToString(), mode: "manual", tenantScope: isSuper ? "superadmin" : "self", outcome: "created");
                 return Results.Created(location, new { id = newId });
@@ -253,7 +253,7 @@ public static class NotificationsAdminEndpoints
             ClaimsPrincipal user,
             AppDbContext db,
             INotificationOutbox outbox,
-            INotificationIdQueue idQueue,
+            INotificationTransport transport,
             IOptions<NotificationOptions> options,
             HttpResponse resp,
             BulkResendRequest body,
@@ -362,7 +362,7 @@ public static class NotificationsAdminEndpoints
                 try
                 {
                     var newId = await outbox.CreateResendAsync(o.Id, reason: "bulk", ct);
-                    await idQueue.EnqueueAsync(newId, ct);
+                    await transport.PublishQueuedAsync(newId, ct);
                     ids.Add(newId);
                     created++;
                     EmailMetrics.RecordResend(o.Kind.ToString(), mode: "bulk", tenantScope: isSuper ? "superadmin" : "self", outcome: "created");

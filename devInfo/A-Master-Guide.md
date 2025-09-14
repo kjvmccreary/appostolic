@@ -269,16 +269,16 @@ Tasks (completed)
 
 ## Phase 5 — Pre‑migration prep (keep monolith; extraction later)
 
-| Story ID | Title                           | Source                              | Notes                        |
-| -------- | ------------------------------- | ----------------------------------- | ---------------------------- |
-| Mig01    | Transport abstraction           | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now) |
-| Mig02    | Outbox publisher integration    | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs           |
-| Mig03    | External worker executable      | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional          |
-| Mig04    | Broker adapter behind flag      | devInfo/PreMigrate/migSprintPlan.md | Rabbit/SQS later             |
-| Mig05    | DLQ and replay tooling          | devInfo/PreMigrate/migSprintPlan.md | Future                       |
-| Mig06    | Broker observability            | devInfo/PreMigrate/migSprintPlan.md | Future                       |
-| Mig07    | PII hardening in transport path | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21          |
-| Mig08    | Rollout plan and fallback       | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback       |
+| Story ID        | Title                           | Source                              | Notes                        |
+| --------------- | ------------------------------- | ----------------------------------- | ---------------------------- |
+| ✅ (DONE) Mig01 | Transport abstraction           | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now) |
+| Mig02           | Outbox publisher integration    | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs           |
+| Mig03           | External worker executable      | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional          |
+| Mig04           | Broker adapter behind flag      | devInfo/PreMigrate/migSprintPlan.md | Rabbit/SQS later             |
+| Mig05           | DLQ and replay tooling          | devInfo/PreMigrate/migSprintPlan.md | Future                       |
+| Mig06           | Broker observability            | devInfo/PreMigrate/migSprintPlan.md | Future                       |
+| Mig07           | PII hardening in transport path | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21          |
+| Mig08           | Rollout plan and fallback       | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback       |
 
 Design refs: devInfo/PreMigrate/migDesign.md
 

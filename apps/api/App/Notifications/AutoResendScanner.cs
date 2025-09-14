@@ -106,9 +106,9 @@ public sealed class AutoResendScanner : IAutoResendScanner
                 var id = await outbox.CreateResendAsync(n.Id, reason: "auto_no_action", ct);
                 created++;
                 EmailMetrics.RecordResend(n.Kind.ToString(), mode: "auto", tenantScope: n.TenantId.HasValue ? "tenant" : "none", outcome: "created");
-                // Optionally enqueue for faster pickup
-                var idQueue = scope.ServiceProvider.GetRequiredService<INotificationIdQueue>();
-                await idQueue.EnqueueAsync(id, ct);
+                // Optionally publish for faster pickup via configured transport
+                var transport = scope.ServiceProvider.GetRequiredService<INotificationTransport>();
+                await transport.PublishQueuedAsync(id, ct);
                 // Track per-tenant increment
                 var key = n.TenantId ?? Guid.Empty;
                 perTenantScanAdds[key] = perTenantScanAdds.TryGetValue(key, out var prev) ? prev + 1 : 1;

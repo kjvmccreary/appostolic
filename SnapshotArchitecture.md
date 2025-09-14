@@ -14,6 +14,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
 - Auth‑15: Signup and tenant‑selection hardening — added same‑origin proxy `POST /api-proxy/auth/signup` to avoid browser CORS; introduced `GET /api/tenant/select?tenant=...&next=...` to set the `selected_tenant` cookie and then redirect (with safe, same‑origin `next` validation and default `/studio/agents`); `/select-tenant` now supports `?next=` deep‑links and auto‑selects when a single membership exists; `/studio` now redirects to `/studio/agents`; new public `/health` and protected `/dev/health` pages aid diagnosis; API signup ensures unique personal tenant slug generation.
 - Pre‑Mig‑01: Introduced `INotificationTransport` with default `ChannelNotificationTransport` bridging to the existing in‑process ID queue. `NotificationEnqueuer` now publishes via the transport seam to prepare for external brokers without changing behavior.
+- Pre‑Mig‑02: Outbox publisher integration — admin/dev retry/resend (incl. bulk) and the auto‑resend scanner now publish via `INotificationTransport`. The default channel transport still bridges to the in‑process `INotificationIdQueue`, so runtime behavior is unchanged. Full API suite remains green (108/108).
 
 ## Monorepo overview
 
@@ -268,6 +269,11 @@ Endpoints:
   - Configuration (NotificationOptions): `EnableAutoResend` (default false), `AutoResendScanInterval` (5m), `AutoResendNoActionWindow` (24h), `AutoResendMaxPerScan` (50), `AutoResendPerTenantDailyCap` (200).
 
 - Transport: `INotificationTransport` abstracts the "notification queued" signal. Default `ChannelNotificationTransport` bridges to the existing in‑process `INotificationIdQueue` to preserve behavior and enable future broker integration.
+  Transport: `INotificationTransport` abstracts the "notification queued" signal. Default `ChannelNotificationTransport` bridges to the existing in‑process `INotificationIdQueue` to preserve behavior and enable future broker integration. The transport is now used consistently across:
+  - Enqueue helpers (`NotificationEnqueuer`)
+  - Admin/dev retry/resend endpoints (including bulk resend)
+  - Automated resend scanner
+    This ensures a single seam to swap in an external broker later without touching endpoint logic.
 - Queue: `IEmailQueue` + `EmailQueue` (in‑memory channel used by background dispatcher)
 - Dispatcher (v1): `EmailDispatcherHostedService` renders and sends with retry/backoff; metrics/logging via OTEL
 - Template renderer: `ScribanTemplateRenderer`

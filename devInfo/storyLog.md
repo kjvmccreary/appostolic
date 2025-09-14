@@ -20,6 +20,27 @@
   - Enqueuer publishes via transport; default channel transport preserves current path: Done
   - DI wiring and tests updated: Done
 
+## Pre‑Migration — Mig02: Outbox publisher integration — Completed
+
+- Summary
+  - Propagated usage of the transport seam across all publisher call sites so that publishing notification IDs always goes through `INotificationTransport`. Updated admin/dev endpoints (retry/resend, including bulk) and the automated resend scanner to call `PublishQueuedAsync(id)` instead of directly touching `INotificationIdQueue`. Behavior remains identical via the default channel transport.
+
+- Files changed
+  - apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — publish via `INotificationTransport` for retry/resend/bulk
+  - apps/api/App/Endpoints/DevNotificationsEndpoints.cs — publish via `INotificationTransport` for dev resend
+  - apps/api/App/Notifications/AutoResendScanner.cs — publish via `INotificationTransport` after creating a resend
+  - apps/api/Program.cs — DI already wired in Mig01; no change required beyond usage
+  - SnapshotArchitecture.md — What’s new + Notifications transport usage updated
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (108/108)
+
+- Requirements coverage
+  - All publisher paths use the transport seam (retry/resend/bulk + auto-resend): Done
+  - No behavior change (default channel transport bridges to in-process queue): Done
+  - Tests remain green: Done
+
 ## Notif-30 — Resend policy, throttling, and metrics (Completed)
 
 - Summary: Added resend metrics (email.resend.total, email.resend.throttled.total, email.resend.batch.size) and surfaced X-Resend-Remaining header on bulk endpoint. Instrumented manual (dev/prod) and bulk endpoints; added tests using MeterListener for metrics and header validation.

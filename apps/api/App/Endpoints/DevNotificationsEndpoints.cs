@@ -114,7 +114,7 @@ public static class DevNotificationsEndpoints
             Guid id,
             AppDbContext db,
             INotificationOutbox outbox,
-            INotificationIdQueue idQueue,
+            INotificationTransport transport,
             CancellationToken ct) =>
         {
             var n = await db.Notifications.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -126,7 +126,7 @@ public static class DevNotificationsEndpoints
 
             var ok = await outbox.TryRequeueAsync(id, ct);
             if (!ok) return Results.NotFound();
-            await idQueue.EnqueueAsync(id, ct);
+            await transport.PublishQueuedAsync(id, ct);
             return Results.Accepted();
         })
         .WithSummary("Dev: retry a failed/dead-letter notification")
@@ -137,7 +137,7 @@ public static class DevNotificationsEndpoints
             Guid id,
             AppDbContext db,
             INotificationOutbox outbox,
-            INotificationIdQueue idQueue,
+            INotificationTransport transport,
             HttpResponse resp,
             CancellationToken ct) =>
         {
@@ -147,7 +147,7 @@ public static class DevNotificationsEndpoints
             try
             {
                 var newId = await outbox.CreateResendAsync(id, reason: "manual", ct);
-                await idQueue.EnqueueAsync(newId, ct);
+                await transport.PublishQueuedAsync(newId, ct);
                 var location = $"/api/dev/notifications/{newId}";
                 EmailMetrics.RecordResend(original.Kind.ToString(), mode: "manual", tenantScope: "dev", outcome: "created");
                 return Results.Created(location, new { id = newId });
