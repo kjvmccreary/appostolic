@@ -399,6 +399,25 @@ Files changed
 - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — dev resend test: 201 then 429, asserts metadata linkage.
 - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — prod resend tests: tenant success and cross‑tenant 403; 404 when missing.
 
+## Pre‑Migration — Mig08: Rollout plan and fallback — Completed
+
+- Summary
+  - Added operational documentation for a staged, reversible rollout of the Redis transport and external notifications worker, with an immediate rollback to Channel transport and API‑owned dispatcher. No runtime code changes were needed.
+
+- Files changed
+  - RUNBOOK.md — new section “Notifications rollout (Mig08) — Redis transport + external worker” with toggles, staged steps, verification, observability, and rollback.
+  - devInfo/A-Master-Guide.md — mark Mig08 as DONE; add summary and references.
+  - SnapshotArchitecture.md — What’s new note referencing Mig08 rollout docs (added in this story).
+
+- Acceptance criteria
+  - RUNBOOK includes step‑by‑step rollout, verification checks, and rollback instructions: Done.
+  - Feature flag toggles documented for transport mode and dispatcher ownership: Done.
+  - Smoke/verification guidance included (dev health/ping, admin DLQ, resend flows, metrics/logs): Done.
+
+- Quality gates
+  - Build: N/A (docs only)
+  - Tests: Existing suites green; no changes to runtime behavior.
+
 ## Mig07 — Transport PII hardening — Completed
 
 - Summary

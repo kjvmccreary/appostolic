@@ -86,8 +86,6 @@ curl -sS -X POST http://localhost:5198/api/auth/signup \
 
 ### 4) Invite acceptance
 
-- Open an invite link in the browser: `http://localhost:3000/invite/accept?token=...`
-- If unauthenticated, the route redirects to `/login?next=/invite/accept?token=...`. Sign in, then revisit the link.
 - On success, a membership is added for the invite’s tenant and role.
 
 Troubleshooting
@@ -102,25 +100,18 @@ Troubleshooting
   - Ensure database is migrated/seeded: `make bootstrap`.
 
 make seed
-make api # terminal 1
 make web # terminal 2
-make mobile # terminal 3
 
 ```
 
 Env vars used by seed:
 
-```
-
-PGHOST=localhost
 PGPORT=55432
 PGDATABASE=appdb
 PGUSER=<from .env>
 PGPASSWORD=<from .env>
 
 ```
-
-Note: The seed tool reuses the API `AppDbContext` and issues `SET LOCAL app.tenant_id` before RLS-protected operations so policies apply per tenant.
 
 ---
 
@@ -145,51 +136,34 @@ Troubleshooting:
 - No emails in Mailhog:
   - Confirm Mailhog UI is reachable at http://localhost:8025
   - Ensure SMTP port 1025 is exposed on the host and not blocked
-  - Verify API logs for send attempts and errors
 - SendGrid 401/403:
-  - Check that `SendGrid__ApiKey` is set for the API process
   - Ensure the key has correct permissions and is not revoked
-- Links are relative (/auth/verify...):
   - Set `Email__WebBaseUrl` (e.g., http://localhost:3000) so links are absolute
 
 Observability:
 
 - Metrics: `email.sent.total` and `email.failed.total` are exported via OTEL; check your collector or console exporter in Development.
 - Logs: the dispatcher logs per-send with correlation fields when available; use these to trace user/tenant/invite flows.
-
-Quick E2E check (dev):
+  Quick E2E check (dev):
 
 - POST `/api-proxy/dev/notifications/verification` with { toEmail, toName, token }
-- POST `/api-proxy/dev/notifications/invite` with { toEmail, toName, tenant, role, inviter, token }
-- Open http://localhost:8025 and verify messages and links.
 
 ---
 
-## Notifications transport (ops)
-
 By default, notifications publish to the in‑process channel transport. You can optionally enable Redis Pub/Sub so multiple API instances can wake the dispatcher via a shared broker.
-
-Enable Redis mode (Development):
 
 - Ensure the dev Docker stack is up; Redis listens on localhost:6380.
 - Set the API environment (any of the following are equivalent):
-  - Using discrete fields
-    - `Notifications__Transport__Mode=redis`
-    - `Notifications__Transport__Redis__Host=127.0.0.1`
-    - `Notifications__Transport__Redis__Port=6380`
+  - `Notifications__Transport__Redis__Host=127.0.0.1`
+  - `Notifications__Transport__Redis__Port=6380`
   - Or using a single connection string
     - `Notifications__Transport__Redis__ConnectionString=127.0.0.1:6380`
-  - Optional overrides
     - `Notifications__Transport__Redis__Channel=app:notifications:queued`
     - `Notifications__Transport__Redis__Ssl=false`
 
 Then restart the API process.
 
-Validate quickly:
-
 - With the API running, trigger a dev email from the web proxy (headers injected):
-  - POST `/api-proxy/dev/notifications/verification` with a test payload
-- Watch API logs; you should see a Redis subscriber notice and the dispatcher send flow.
 - Switch back to in‑process by unsetting the vars or setting `Notifications__Transport__Mode=channel` and restarting the API.
 
 Notes:
@@ -198,8 +172,6 @@ Notes:
 - In Development, the default remains the in‑process channel unless explicitly set to `redis`.
 
 ---
-
-## Terminal safety when running servers
 
 Long-running servers (API, web, mobile) should be started via VS Code background tasks so that subsequent one-off commands (curl, node, scripts) don't reuse and kill the same terminal session:
 
@@ -252,8 +224,6 @@ Tip: Next.js may choose 3001 if 3000 is occupied. You can discover the port with
 
 ```
 
-lsof -nP -iTCP -sTCP:LISTEN | grep -E ':300[0-9]'
-
 ```
 
 ### Node version note
@@ -272,4 +242,7 @@ nvm alias default 20
 
 - Privacy Policy (engineering draft for notifications): devInfo/Sendgrid/privacyPolicy.md
 - Vendor/Subprocessors and compliance notes: devInfo/Sendgrid/vendorCompliance.md
+
+```
+
 ```

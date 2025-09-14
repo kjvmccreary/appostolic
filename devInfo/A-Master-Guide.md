@@ -269,18 +269,34 @@ Tasks (completed)
 
 ## Phase 5 — Pre‑migration prep (keep monolith; extraction later)
 
-| Story ID        | Title                                     | Source                              | Notes                          |
-| --------------- | ----------------------------------------- | ----------------------------------- | ------------------------------ |
-| ✅ (DONE) Mig01 | Transport abstraction                     | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now)   |
-| ✅ (DONE) Mig02 | Outbox publisher integration              | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs             |
-| ✅ (DONE) Mig03 | External worker executable                | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional            |
-| ✅ (DONE) Mig04 | Broker adapter behind flag (Redis option) | devInfo/PreMigrate/migSprintPlan.md | Redis Pub/Sub; dev health/ping |
-| ✅ (DONE) Mig05 | DLQ and replay tooling                    | devInfo/PreMigrate/migSprintPlan.md | Admin endpoints + tests        |
-| ✅ (DONE) Mig06 | Web DLQ admin (paging/filters/per-row)    | devInfo/PreMigrate/migSprintPlan.md | See storyLog/Snapshot          |
-| Mig07           | PII hardening in transport path           | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21            |
-| Mig08           | Rollout plan and fallback                 | devInfo/PreMigrate/migSprintPlan.md | Feature flags/rollback         |
+| Story ID        | Title                                     | Source                              | Notes                              |
+| --------------- | ----------------------------------------- | ----------------------------------- | ---------------------------------- |
+| ✅ (DONE) Mig01 | Transport abstraction                     | devInfo/PreMigrate/migSprintPlan.md | Interface seam (Channel now)       |
+| ✅ (DONE) Mig02 | Outbox publisher integration              | devInfo/PreMigrate/migSprintPlan.md | Publish outbox IDs                 |
+| ✅ (DONE) Mig03 | External worker executable                | devInfo/PreMigrate/migSprintPlan.md | Same repo, optional                |
+| ✅ (DONE) Mig04 | Broker adapter behind flag (Redis option) | devInfo/PreMigrate/migSprintPlan.md | Redis Pub/Sub; dev health/ping     |
+| ✅ (DONE) Mig05 | DLQ and replay tooling                    | devInfo/PreMigrate/migSprintPlan.md | Admin endpoints + tests            |
+| ✅ (DONE) Mig06 | Web DLQ admin (paging/filters/per-row)    | devInfo/PreMigrate/migSprintPlan.md | See storyLog/Snapshot              |
+| ✅ (DONE) Mig07 | PII hardening in transport path           | devInfo/PreMigrate/migSprintPlan.md | Align with Notif‑21                |
+| ✅ (DONE) Mig08 | Rollout plan and fallback                 | devInfo/PreMigrate/migSprintPlan.md | See RUNBOOK: Notifications rollout |
 
 Design refs: devInfo/PreMigrate/migDesign.md
+
+### Mig08 — Rollout plan and fallback (Completed)
+
+Summary
+
+- Documented a safe, reversible rollout for enabling Redis transport and the external notifications worker while keeping Channel transport as an immediate fallback. No schema changes required.
+
+References
+
+- RUNBOOK.md — section “Notifications rollout (Mig08) — Redis transport + external worker” with staged steps, verification, observability, and rollback.
+- devInfo/storyLog.md — entry: Mig08 completed with acceptance criteria and files changed.
+
+Quality gates
+
+- Build: N/A (docs only)
+- Tests: Existing suites green; no runtime changes.
 
 ### Mig03 — External worker executable (Completed)
 
