@@ -31,15 +31,17 @@ export default function SignupPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        // Try to surface a useful message from JSON { error }
+        // Read body once; prefer JSON.error when available, else raw text
         let message = 'Signup failed';
-        try {
-          const data = await res.json();
-          if (data?.error && typeof data.error === 'string') message = data.error;
-          else message = JSON.stringify(data);
-        } catch {
-          const text = await res.text().catch(() => '');
-          if (text) message = text;
+        const raw = await res.text().catch(() => '');
+        if (raw) {
+          try {
+            const data = JSON.parse(raw);
+            if (data?.error && typeof data.error === 'string') message = data.error;
+            else message = typeof data === 'string' ? data : JSON.stringify(data);
+          } catch {
+            message = raw;
+          }
         }
         setError(message);
         return;

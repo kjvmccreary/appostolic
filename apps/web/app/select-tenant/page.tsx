@@ -9,11 +9,10 @@ const TENANT_COOKIE = 'selected_tenant';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export default async function SelectTenantPage({
-  searchParams,
-}: {
+export default async function SelectTenantPage(props?: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
+  const searchParams = props?.searchParams ?? {};
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     redirect('/login');

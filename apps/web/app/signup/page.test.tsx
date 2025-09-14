@@ -34,7 +34,7 @@ describe('SignupPage', () => {
 
   it('shows inline error when API returns failure', async () => {
     server.use(
-      http.post('http://localhost/api/auth/signup', () =>
+      http.post('http://localhost/api-proxy/auth/signup', () =>
         HttpResponse.text('Email in use', { status: 400 }),
       ),
     );
@@ -51,7 +51,7 @@ describe('SignupPage', () => {
 
   it('signs in after successful signup and redirects to next', async () => {
     server.use(
-      http.post('http://localhost/api/auth/signup', () =>
+      http.post('http://localhost/api-proxy/auth/signup', () =>
         HttpResponse.json({ id: 'u1', email: 'k@example.com' }, { status: 201 }),
       ),
     );
