@@ -145,6 +145,7 @@ builder.Services.AddSingleton<Appostolic.Api.App.Notifications.IFieldCipher>(sp 
 // Outbox must be scoped because it depends on AppDbContext (scoped)
 builder.Services.AddScoped<Appostolic.Api.App.Notifications.INotificationOutbox, Appostolic.Api.App.Notifications.EfNotificationOutbox>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationIdQueue, Appostolic.Api.App.Notifications.NotificationIdQueue>();
+builder.Services.AddSingleton<Appostolic.Api.App.Notifications.INotificationTransport, Appostolic.Api.App.Notifications.ChannelNotificationTransport>();
 builder.Services.AddSingleton<Appostolic.Api.App.Notifications.ITemplateRenderer, Appostolic.Api.App.Notifications.ScribanTemplateRenderer>();
 // Legacy in-memory email dispatcher (kept temporarily for compatibility)
 builder.Services.AddHostedService<Appostolic.Api.App.Notifications.EmailDispatcherHostedService>();

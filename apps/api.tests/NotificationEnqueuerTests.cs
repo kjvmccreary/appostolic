@@ -11,11 +11,11 @@ public class NotificationEnqueuerTests
     public async Task QueueVerification_enqueues_correct_message()
     {
         // Arrange
-        var capturingOutbox = new CapturingOutbox();
-        var capturingIds = new CapturingIdQueue();
+    var capturingOutbox = new CapturingOutbox();
+    var capturingTransport = new CapturingTransport();
         var services = new ServiceCollection();
         services.AddSingleton<INotificationOutbox>(capturingOutbox);
-        services.AddSingleton<INotificationIdQueue>(capturingIds);
+    services.AddSingleton<INotificationTransport>(capturingTransport);
         services.Configure<EmailOptions>(o => o.WebBaseUrl = "http://localhost:3000");
         services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
 
@@ -33,17 +33,17 @@ public class NotificationEnqueuerTests
         Assert.True(msg.Data.TryGetValue("link", out var linkObj) && linkObj is string);
         var link = (string)linkObj!;
         Assert.Equal("http://localhost:3000/auth/verify?token=tok123", link);
-        Assert.NotEqual(Guid.Empty, capturingIds.LastId);
+    Assert.NotEqual(Guid.Empty, capturingTransport.LastId);
     }
 
     [Fact]
     public async Task QueueVerification_uses_relative_when_base_missing()
     {
-        var capturingOutbox = new CapturingOutbox();
-        var capturingIds = new CapturingIdQueue();
+    var capturingOutbox = new CapturingOutbox();
+    var capturingTransport = new CapturingTransport();
         var services = new ServiceCollection();
         services.AddSingleton<INotificationOutbox>(capturingOutbox);
-        services.AddSingleton<INotificationIdQueue>(capturingIds);
+    services.AddSingleton<INotificationTransport>(capturingTransport);
         services.Configure<EmailOptions>(o => o.WebBaseUrl = "");
         services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
 
@@ -84,15 +84,13 @@ public class NotificationEnqueuerTests
         public Task UpdateProviderStatusAsync(Guid id, string provider, string status, DateTimeOffset eventAt, string? reason, CancellationToken ct = default) => Task.CompletedTask;
     }
 
-    private sealed class CapturingIdQueue : INotificationIdQueue
+    private sealed class CapturingTransport : INotificationTransport
     {
-        private readonly System.Threading.Channels.Channel<Guid> _channel = System.Threading.Channels.Channel.CreateUnbounded<Guid>();
         public Guid LastId { get; private set; }
-        public System.Threading.Channels.ChannelReader<Guid> Reader => _channel.Reader;
-        public async ValueTask EnqueueAsync(Guid notificationId, CancellationToken ct = default)
+        public async ValueTask PublishQueuedAsync(Guid notificationId, CancellationToken ct = default)
         {
             LastId = notificationId;
-            await _channel.Writer.WriteAsync(notificationId, ct);
+            await Task.Yield();
         }
     }
 
@@ -100,10 +98,10 @@ public class NotificationEnqueuerTests
     public async Task QueueInvite_enqueues_correct_message()
     {
     var capturingOutbox = new CapturingOutbox();
-    var capturingIds = new CapturingIdQueue();
+    var capturingTransport = new CapturingTransport();
         var services = new ServiceCollection();
     services.AddSingleton<INotificationOutbox>(capturingOutbox);
-    services.AddSingleton<INotificationIdQueue>(capturingIds);
+    services.AddSingleton<INotificationTransport>(capturingTransport);
         services.Configure<EmailOptions>(o => o.WebBaseUrl = "http://localhost:3000");
         services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
 
@@ -126,11 +124,11 @@ public class NotificationEnqueuerTests
     [Fact]
     public async Task QueueInvite_uses_relative_when_base_missing()
     {
-        var capturingOutbox = new CapturingOutbox();
-        var capturingIds = new CapturingIdQueue();
+    var capturingOutbox = new CapturingOutbox();
+    var capturingTransport = new CapturingTransport();
         var services = new ServiceCollection();
         services.AddSingleton<INotificationOutbox>(capturingOutbox);
-        services.AddSingleton<INotificationIdQueue>(capturingIds);
+    services.AddSingleton<INotificationTransport>(capturingTransport);
         services.Configure<EmailOptions>(o => o.WebBaseUrl = "");
         services.AddSingleton<INotificationEnqueuer, NotificationEnqueuer>();
 

@@ -1,3 +1,25 @@
+## Pre‑Migration — Mig01: Notification transport seam — Completed
+
+- Summary
+  - Introduced a non-breaking transport seam for notifications: `INotificationTransport` with a default `ChannelNotificationTransport` that bridges to the existing `INotificationIdQueue`. Refactored `NotificationEnqueuer` to publish via the transport abstraction after persisting to the outbox. This preserves current in‑process behavior while preparing for a future broker.
+
+- Files changed
+  - apps/api/App/Notifications/INotificationTransport.cs — new transport interface + channel implementation
+  - apps/api/App/Notifications/NotificationEnqueuer.cs — publish via `INotificationTransport` instead of directly queuing IDs
+  - apps/api/Program.cs — DI: register `INotificationTransport` → `ChannelNotificationTransport`
+  - apps/api.tests/NotificationEnqueuerTests.cs — updated to use a fake transport; assertions adapted
+  - SnapshotArchitecture.md — What’s new + Notifications components updated to mention the transport seam
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (108/108)
+  - Lint/Typecheck (web): N/A (no web code changes in this step)
+
+- Requirements coverage
+  - Add transport abstraction without changing runtime behavior: Done
+  - Enqueuer publishes via transport; default channel transport preserves current path: Done
+  - DI wiring and tests updated: Done
+
 ## Notif-30 — Resend policy, throttling, and metrics (Completed)
 
 - Summary: Added resend metrics (email.resend.total, email.resend.throttled.total, email.resend.batch.size) and surfaced X-Resend-Remaining header on bulk endpoint. Instrumented manual (dev/prod) and bulk endpoints; added tests using MeterListener for metrics and header validation.

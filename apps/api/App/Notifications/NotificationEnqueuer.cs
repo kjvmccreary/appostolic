@@ -11,13 +11,13 @@ public interface INotificationEnqueuer
 public sealed class NotificationEnqueuer : INotificationEnqueuer
 {
     private readonly INotificationOutbox _outbox;
-    private readonly INotificationIdQueue _idQueue;
+    private readonly INotificationTransport _transport;
     private readonly EmailOptions _emailOptions;
 
-    public NotificationEnqueuer(INotificationOutbox outbox, INotificationIdQueue idQueue, Microsoft.Extensions.Options.IOptions<EmailOptions> emailOptions)
+    public NotificationEnqueuer(INotificationOutbox outbox, INotificationTransport transport, Microsoft.Extensions.Options.IOptions<EmailOptions> emailOptions)
     {
         _outbox = outbox;
-        _idQueue = idQueue;
+        _transport = transport;
         _emailOptions = emailOptions.Value;
     }
 
@@ -43,7 +43,7 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
     var renderer = new ScribanTemplateRenderer(Microsoft.Extensions.Options.Options.Create(_emailOptions));
     var snapshots = await renderer.RenderAsync(msg, ct);
     var id = await _outbox.CreateQueuedAsync(msg, tokenHash, snapshots, ct);
-        await _idQueue.EnqueueAsync(id, ct);
+        await _transport.PublishQueuedAsync(id, ct);
     }
 
     public async Task QueueInviteAsync(string toEmail, string? toName, string tenant, string role, string inviter, string token, CancellationToken ct = default)
@@ -73,7 +73,7 @@ public sealed class NotificationEnqueuer : INotificationEnqueuer
     var renderer = new ScribanTemplateRenderer(Microsoft.Extensions.Options.Options.Create(_emailOptions));
     var snapshots = await renderer.RenderAsync(msg, ct);
     var id = await _outbox.CreateQueuedAsync(msg, tokenHash, snapshots, ct);
-        await _idQueue.EnqueueAsync(id, ct);
+        await _transport.PublishQueuedAsync(id, ct);
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
