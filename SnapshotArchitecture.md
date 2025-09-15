@@ -13,8 +13,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Notif‑30: Resend telemetry and policy surfacing — metrics `email.resend.*` and bulk header `X‑Resend‑Remaining` to expose remaining per-tenant daily cap.
 - Notif‑31: Resend history endpoint `GET /api/notifications/{id}/resends` with paging (`take`/`skip`), `X‑Total‑Count` header, and tenant/superadmin scoping.
 - Notif‑32: Automated resend service — background scanner detects "no‑action" originals (Sent and older than a window) and creates linked resends under caps/throttle. Feature‑gated via `Notifications:EnableAutoResend`.
-- Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (108/108).
-- Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (17/17 files; 38 assertions). Coverage ~92% lines.
+- Auth‑12: API integration tests expanded for core auth flows and security contracts. Added Members list tests (Admin/Owner allowed; Viewer 403; Unauth 401/403) and confirmed signup/login/invites coverage. Full suite passing (119/119).
+- Auth‑13: Web tests for Sign‑up, Invite acceptance, Two‑stage tenant selection, and Header tenant switcher added. Web suite passing (18/18 files; 45 tests). Coverage ~92% lines.
 - Auth‑14: Documentation updates — README gains an Authentication (dev) section; RUNBOOK adds an "Authentication flows (operations)" run guide. See README “Authentication (dev)” and RUNBOOK “Authentication flows (operations)”.
 - Auth‑ML: Magic Link (passwordless) — added endpoints `POST /api/auth/magic/request` and `POST /api/auth/magic/consume`; new DB table `app.login_tokens` (SHA‑256 token hashes, single‑use, 15‑minute TTL); Magic Link email templates and `NotificationEnqueuer.QueueMagicLinkAsync`; web proxy routes `/api-proxy/auth/magic/{request|consume}` and public pages `/magic/request` and `/magic/verify`. Dev email continues to use Mailhog (SMTP).
 - Web: Server-side absolute URL helper (`apps/web/app/lib/serverFetch.ts`) now uses `x-forwarded-host`/`x-forwarded-proto` (or `NEXT_PUBLIC_WEB_BASE`) to build absolute URLs for internal `/api-proxy/*` calls. Server pages were refactored to use `fetchFromProxy(...)`, fixing “Failed to parse URL from /api-proxy/…” errors in server components.
@@ -23,6 +23,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Pre‑Mig‑02: Outbox publisher integration — admin/dev retry/resend (incl. bulk) and the auto‑resend scanner now publish via `INotificationTransport`. The default channel transport still bridges to the in‑process `INotificationIdQueue`, so runtime behavior is unchanged. Full API suite remains green (108/108).
 - Mig‑03: Redis transport option for notifications — added `RedisNotificationTransport` (publisher) and a background `RedisNotificationSubscriberHostedService` that listens to a Redis Pub/Sub channel and forwards IDs to the in‑process dispatcher queue. Feature‑selectable via `Notifications:Transport:Mode` = `channel` (default) or `redis`; Redis settings configurable under `Notifications:Transport:Redis`.
 - Dev: Notifications transport health + ping — added `GET /api/dev/notifications/health` (reports transport mode and Redis subscriber diagnostics) and `POST /api/dev/notifications/ping` (creates a synthetic queued outbox item and publishes via transport) to make e2e checks easy in Development.
+- Auth‑PW: Password flows (Forgot/Reset/Change) — API endpoints added for `POST /api/auth/forgot-password` (202), `POST /api/auth/reset-password` (204), and `POST /api/auth/change-password` (204; authorized). Matching web proxy routes and minimal pages were added; Login now links to “Forgot password?” and protected layout exposes “Change password”. New unit/integration tests cover happy paths and negative cases.
+- Web‑MW: Middleware consolidation — removed legacy `middleware.js` and consolidated auth/route protection in `middleware.ts`, including safe login redirects and `x-pathname` header injection for diagnostics. Added `/api/debug/session` to inspect session/cookie/headers in dev.
 
 ## Monorepo overview
 
@@ -113,6 +115,14 @@ appostolic/
 │  │  └─ app/
 │  │     ├─ layout.tsx
 │  │     ├─ page.tsx
+│  │     ├─ login/page.tsx
+│  │     ├─ signup/page.tsx
+│  │     ├─ forgot-password/page.tsx
+│  │     ├─ reset-password/page.tsx
+│  │     ├─ change-password/page.tsx
+│  │     ├─ magic/
+│  │     │  ├─ request/page.tsx
+│  │     │  └─ verify/page.tsx
 │  │     ├─ select-tenant/page.tsx       # Tenant selection with optional ?next=
 │  │     ├─ studio/page.tsx              # Redirects to /studio/agents
 │  │     ├─ health/page.tsx              # Public health page
@@ -129,7 +139,12 @@ appostolic/
 │  │     │     ├─ AgentForm.tsx           # Create/Edit form (includes Enabled toggle)
 │  │     │     └─ AgentsTable.tsx         # List table
 │  │     └─ api-proxy/
+│  │        ├─ auth/forgot-password/route.ts # POST /api-proxy/auth/forgot-password → API /api/auth/forgot-password (anonymous)
+│  │        ├─ auth/reset-password/route.ts  # POST /api-proxy/auth/reset-password → API /api/auth/reset-password (anonymous)
+│  │        ├─ auth/change-password/route.ts # POST /api-proxy/auth/change-password → API /api/auth/change-password (authorized)
 │  │        ├─ auth/signup/route.ts      # POST /api-proxy/auth/signup → API /api/auth/signup (anonymous proxy)
+│  │        ├─ auth/magic/request/route.ts   # POST /api-proxy/auth/magic/request → API /api/auth/magic/request
+│  │        └─ auth/magic/consume/route.ts   # POST /api-proxy/auth/magic/consume → API /api/auth/magic/consume
 │  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
 │  │        ├─ agents/route.ts            # GET/POST /api-proxy/agents → API /api/agents
 │  │        ├─ agents/[id]/route.ts       # GET/PUT/DELETE /api-proxy/agents/{id}
@@ -139,6 +154,7 @@ appostolic/
 │  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
 │  │     └─ api/
 │  │        └─ tenant/select/route.ts    # GET/POST /api/tenant/select — set cookie; GET redirects with validated next
+│  │        └─ debug/session/route.ts    # GET /api/debug/session — diagnostic: session, cookie, and proxy headers
 │  ├─ mobile/
 │  │  ├─ app.json
 │  │  ├─ package.json
@@ -199,15 +215,18 @@ appostolic/
 - Env validation: `src/lib/serverEnv.ts` ensures `NEXT_PUBLIC_API_BASE`, `DEV_USER`, `DEV_TENANT`
 - Client hardening: dev-only env checks for `DEV_*` are scoped to the server to avoid client runtime crashes when `WEB_AUTH_ENABLED=false`.
 - Dev pages: `/dev/agents`, Agent Studio under `/studio/agents`
+- Middleware: consolidated into a single `middleware.ts` that protects routes (avoids login loops) and injects an `x-pathname` header for diagnostics.
 - Server fetch helper: `app/lib/serverFetch.ts` exports `fetchFromProxy()` which:
   - Builds an absolute base URL from request headers (`x-forwarded-host`/`x-forwarded-proto`) or `NEXT_PUBLIC_WEB_BASE` when provided
   - Forwards cookies so NextAuth session reaches the proxy
   - Disables cache by default (`no-store`) with `next: { revalidate: 0 }`
     Use this helper in server components and server actions to call internal `/api-proxy/*` routes. Avoid `fetch('/api-proxy/...')` directly in server code to prevent URL parse errors.
 - Signup proxy: `POST /api-proxy/auth/signup` forwards to API `/api/auth/signup` with same-origin semantics to avoid browser CORS on `/signup`.
+- Password flows (web): minimal pages `/forgot-password`, `/reset-password`, and `/change-password` call the corresponding same-origin proxies under `/api-proxy/auth/*`. The login page links to Forgot Password, and the protected layout includes a Change Password link beside the TenantSwitcher.
 - Tenant selection route: `GET /api/tenant/select?tenant={slug}&next={path}` sets the `selected_tenant` cookie and redirects to `next` (must be a same-origin path beginning with `/`); defaults to `/studio/agents` when `next` is missing/invalid. `POST /api/tenant/select` sets the cookie and returns JSON for programmatic updates.
 - Select-tenant deep-linking: `/select-tenant` accepts `?next=...` and validates it server-side. If the user has exactly one membership, it auto-selects and redirects via the GET route above. Otherwise, the form includes a hidden `next` and redirects via GET after selection.
 - Health pages: `/health` (public) and `/dev/health` (protected) help verify session/tenant state and middleware behavior.
+- Session diagnostics: `GET /api/debug/session` returns session summary, the `selected_tenant` cookie value, and computed proxy headers.
 - Studio landing: `/studio` redirects to `/studio/agents` to avoid 404s and improve deep-link resilience.
 
 ### Mobile (`apps/mobile`) and Render Worker (`apps/render-worker`)
@@ -247,6 +266,14 @@ appostolic/
   - Persistence: `app.login_tokens` with indexes (unique on `token_hash`; `(email, created_at DESC)`; partial on `consumed_at IS NULL`). Raw tokens are never stored.
   - Email: `EmailKind.MagicLink` templates (Scriban) render subject/text/html; NotificationEnqueuer pre‑renders snapshots and stores only the token hash; logs avoid raw token.
   - Web integration: public pages `/magic/request` and `/magic/verify`; same‑origin proxies `/api-proxy/auth/magic/request` and `/api-proxy/auth/magic/consume` avoid CORS. The verify page bridges into the session via NextAuth Credentials (dual‑mode) and redirects to `/select-tenant` (honors optional `?next=`).
+
+- Passwords — Auth‑PW
+  - API endpoints:
+    - `POST /api/auth/forgot-password { email }` → `202 Accepted` always; enqueues a password reset email with an absolute link to `/reset-password?token=…`. Includes basic per‑email rate limiting.
+    - `POST /api/auth/reset-password { token, newPassword }` → `204 No Content` on success; validates token by hash+TTL and enforces single‑use.
+    - `POST /api/auth/change-password { currentPassword, newPassword }` → `204 No Content` when authorized and current password matches.
+  - Email: Password reset uses Scriban templates; raw tokens are never persisted. Token hashes follow the same PII hardening pattern as verification/invite (Notif‑21) and are only stored as hashes.
+  - Web integration: minimal pages `/forgot-password`, `/reset-password`, and `/change-password` post to same-origin proxies under `/api-proxy/auth/*`. UI affordances: “Forgot password?” link on the Login page and a “Change password” link in the protected header near the TenantSwitcher. Unit tests cover happy paths and negative cases (invalid token, wrong current).
 
 ### Multi-tenancy & RLS
 
@@ -412,6 +439,9 @@ Provider webhooks:
 - `GET /api/lessons?take=&skip=` — paginated list; `POST /api/lessons` — create (uses current tenant)
 - `POST /api/auth/magic/request` — request a Magic Link (202; anonymous)
 - `POST /api/auth/magic/consume` — consume a Magic Link token (anonymous)
+- `POST /api/auth/forgot-password` — start password reset (202; anonymous)
+- `POST /api/auth/reset-password` — perform password reset (204; anonymous)
+- `POST /api/auth/change-password` — change password (204; authorized)
 
 ### Agents endpoints
 
@@ -431,6 +461,8 @@ Provider webhooks:
 - `GET /api/dev/agents` — seeded agents for UI dropdowns
 - `POST /api/dev/agents/demo` — inline agent run with traces
 - `POST /api/dev/notifications/verification` and `/invite` — enqueue test emails
+- `GET /api/dev/notifications/health` — transport diagnostics (mode, Redis subscriber status)
+- `POST /api/dev/notifications/ping` — publishes a synthetic queued outbox item through the active transport
 
 ### Swagger/OpenAPI
 
@@ -873,6 +905,10 @@ Local dev (Mailhog):
     - `GET/PUT/DELETE /api-proxy/agents/{id}` ↔ API `/api/agents/{id}`
     - `GET /api-proxy/agents/tools` ↔ API `/api/agents/tools`
   - `GET /api-proxy/dev/agents` → API `/api/dev/agents`
+  - Auth (passwords):
+    - `POST /api-proxy/auth/forgot-password` ↔ API `/api/auth/forgot-password`
+    - `POST /api-proxy/auth/reset-password` ↔ API `/api/auth/reset-password`
+    - `POST /api-proxy/auth/change-password` ↔ API `/api/auth/change-password`
   - `GET /api-proxy/notifications/dlq` and `POST /api-proxy/notifications/dlq` → API `/api/notifications/dlq` and `/api/notifications/dlq/replay` (Owner/Admin)
   - `POST /api-proxy/dev/notifications/verification` → API `/api/dev/notifications/verification`
   - `POST /api-proxy/dev/notifications/invite` → API `/api/dev/notifications/invite`
@@ -898,7 +934,9 @@ Local dev (Mailhog):
 ### Test coverage (Phase 0 additions)
 
 - Middleware gating tests ensure unauthenticated users are redirected to `/login` and authenticated users are kept away from `/login`.
-- Logout page smoke test verifies `signOut({ redirect: false })` is called and the client navigates to `/login`.
+- Logout page smoke test verifies `signOut({ redirect: false })` is called and the client navigates to `/login?loggedOut=1`.
+- Login page includes a “Forgot password?” link with the correct href.
+- Password flow tests cover forgot/reset/change (happy paths) and negative cases (invalid token, wrong current password).
 - API proxy smokes for AgentTasks:
   - `GET /api-proxy/agent-tasks` returns 401 when unauthenticated and 200 when headers are present (mocked).
   - `POST /api-proxy/agent-tasks` returns 201 and forwards the `Location` header from the API.
