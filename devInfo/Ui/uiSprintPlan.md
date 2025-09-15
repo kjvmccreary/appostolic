@@ -118,14 +118,15 @@ Story 3.2: Chip and Stepper — ✅ DONE
 
 Epic 4 — Pages Scaffolding (mocked)
 
-Story 4.1: Dashboard scaffold
+Story 4.1: Dashboard scaffold — ✅ DONE
 
 - Files/Changes:
-  - apps/web/app/page.tsx → implement Dashboard layout from spec: Quick Start, Recent, Plan & Usage, Templates, Guardrails, Marketplace
-  - Use Card/ActionTile/Chip primitives; mock recent items with chips
+  - apps/web/app/page.tsx — implemented Dashboard layout from spec: Quick Start, Recent, Plan & Usage, Templates, Guardrails, Marketplace
+  - Uses primitives: Card/ActionTile/Chip; mock recent items rendered with status chips
 - Acceptance Criteria
   - Grid responsive (mobile 1, tablet 2, desktop 3 columns)
   - Quick Start links to /wizard/step1
+  - Typecheck/tests pass; no regressions in Studio/Dev pages
 
 Story 4.2: Wizard scaffolding (5 steps)
 

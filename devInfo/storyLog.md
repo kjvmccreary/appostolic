@@ -379,6 +379,25 @@ Requirements coverage
 
 - No raw emails in logs/metrics; consistent redaction; documentation updated: Done.
 
+## UI Sprint 02 — Story 4.1: Dashboard scaffold — Completed
+
+- Summary
+  - Implemented the Dashboard page scaffold in Next.js App Router with sections: Quick Start, Recent Lessons, Plan & Usage, Templates, Guardrails, and Marketplace. Reused the new UI primitives (Card, ActionTile, Chip) and tokens-based Tailwind styles. Added responsive grid (1/2/3 columns) and ensured the primary CTA routes to the Wizard.
+
+- Files changed
+  - apps/web/app/page.tsx — replaced placeholder with Dashboard layout using primitives, mock recent items with Chip variants, and links to /wizard/step1, /editor, /studio/agents, /billing, /templates, /guardrails, /marketplace.
+  - devInfo/Ui/uiSprintPlan.md — marked Story 4.1 as DONE with details.
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (21 files, 48 tests). Existing act() and MUI X license warnings remain, but suites are green and unrelated to this change.
+
+- Requirements coverage
+  - Dashboard sections from UI Spec present: Done
+  - Quick Start CTA to /wizard/step1: Done
+  - Responsive grid at common breakpoints: Done
+  - No regressions in Studio/Dev: Done
+
 ## Notif-26 — Privacy Policy and vendor compliance docs — Completed
 
 ## Notif-28 — Manual resend endpoint with throttle — Completed
