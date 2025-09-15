@@ -90,7 +90,7 @@ try
 
         // Membership (idempotent) under RLS
         mPersonal = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == personal.Id && m.UserId == user.Id)
-                    ?? new Membership { Id = Guid.NewGuid(), TenantId = personal.Id, UserId = user.Id, Role = MembershipRole.Owner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
+                    ?? new Membership { Id = Guid.NewGuid(), TenantId = personal.Id, UserId = user.Id, Role = MembershipRole.Owner, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
         if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mPersonal.Id))
         {
             db.Memberships.Add(mPersonal);
@@ -139,7 +139,7 @@ try
 
         // Membership (idempotent) under RLS
         mOrg = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == org.Id && m.UserId == user.Id)
-               ?? new Membership { Id = Guid.NewGuid(), TenantId = org.Id, UserId = user.Id, Role = MembershipRole.Owner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
+               ?? new Membership { Id = Guid.NewGuid(), TenantId = org.Id, UserId = user.Id, Role = MembershipRole.Owner, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
         if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mOrg.Id))
         {
             db.Memberships.Add(mOrg);
@@ -149,6 +149,58 @@ try
         else
         {
             Console.WriteLine($"Membership exists(org): {mOrg.Id}");
+        }
+
+        // Baseline role-specific fixture members (idempotent) in org tenant
+        var baselineMembers = new (string Email, Roles Roles, MembershipRole Legacy)[]
+        {
+            ("admin@example.com", Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, MembershipRole.Admin),
+            ("approver@example.com", Roles.Approver | Roles.Learner, MembershipRole.Viewer),
+            ("creator@example.com", Roles.Creator | Roles.Learner, MembershipRole.Editor),
+            ("learner@example.com", Roles.Learner, MembershipRole.Viewer)
+        };
+
+        foreach (var (email, roles, legacy) in baselineMembers)
+        {
+            // User
+            var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == email)
+                    ?? new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+            if (!await db.Users.AsNoTracking().AnyAsync(x => x.Id == u.Id))
+            {
+                db.Users.Add(u);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"Created user: {u.Email}");
+            }
+            // Membership (assign explicit roles flags; legacy Role kept for backward-compat UI/tests)
+            var existing = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == org.Id && m.UserId == u.Id);
+            if (existing is null)
+            {
+                var m = new Membership
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = org.Id,
+                    UserId = u.Id,
+                    Role = legacy,
+                    Roles = roles,
+                    Status = MembershipStatus.Active,
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.Memberships.Add(m);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"Created membership(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
+            }
+            else if (existing.Roles != roles)
+            {
+                // Update roles if drifted (idempotent convergence)
+                var updated = existing with { Roles = roles };
+                db.Memberships.Update(updated);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"Updated membership(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
+            }
+            else
+            {
+                Console.WriteLine($"Membership up-to-date(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
+            }
         }
 
         await tx.CommitAsync();

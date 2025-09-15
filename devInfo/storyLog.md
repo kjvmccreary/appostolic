@@ -92,6 +92,27 @@
 
 - Commit: chore(audits-hardening): validation, role flags mapping, test fixes, pagination options, docs (hash 8b901ca)
 
+2025-09-15 — Sprint 4.1 (Seeds + dev roles utility) — ✅ DONE
+
+- Summary
+  - Seeded baseline role-distributed users and introduced a developer endpoint to grant roles quickly. The seed is idempotent and converges memberships for Admin, Approver, Creator, and Learner users, augmenting Owner composite flags when applicable. The new endpoint `POST /api/dev/grant-roles` accepts `tenantId` or `tenantSlug`, `email`, and `roles[]` (case-insensitive), auto-creates the user/membership if needed, applies role changes via `Membership.ApplyRoleChange(...)`, and persists an Audit when flags change. Removed environment-gated mapping that caused 404s in tests and cleaned up temporary endpoint enumeration diagnostics. Established the permanent “pencil” model: `Membership.Roles` is mutable with centralized audit creation.
+
+- Files changed
+  - apps/api/tools/seed/Program.cs — Seed baseline users and converge memberships with composite Owner flags augmentation.
+  - apps/api/App/Endpoints/V1.cs — Added `POST /api/dev/grant-roles`; replaced direct property set with `ApplyRoleChange(...)` and persisted audit; removed temporary diagnostic endpoint enumeration.
+  - apps/api/Program.cs — `Membership` updated to have a settable `Roles` and a new `ApplyRoleChange(...)` method that returns an `Audit` when a change occurs; XML docs added.
+  - apps/api.tests/Api/DevGrantRolesEndpointTests.cs — Tests for create, update (audit), and invalid role (400) scenarios.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — focused dev endpoint tests 3/3; full suite PASS (138/138)
+
+- Requirements coverage
+  - Seed baseline users with distinct roles: Done
+  - Dev endpoint to grant roles by email + tenant id/slug: Done
+  - Roles mutable with audit trail on change: Done
+  - Remove temporary diagnostics and ensure routes map in tests: Done
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary

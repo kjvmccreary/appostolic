@@ -4,6 +4,13 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Sprint 4.1: Seeds + dev roles utility (Completed)
+  - Seeded baseline users with distinct Roles per tenant (Admin, Approver, Creator, Learner) via an idempotent seed that converges memberships and augments Owner composite flags when needed.
+  - Added developer utility endpoint `POST /api/dev/grant-roles` that accepts `tenantId` or `tenantSlug`, `email`, and `roles[]` (case-insensitive names). It auto-creates the user if missing, ensures membership, and sets role flags.
+  - Standardized the “pencil” model for roles: `Membership.Roles` is now mutable with a new method `ApplyRoleChange(...)` that updates flags and returns an `Audit` entry when a change occurs; the dev endpoint now persists that audit.
+  - Routing reliability: removed earlier environment-gated mapping that hid dev routes under tests; temporary endpoint-enumeration diagnostics removed after validation.
+  - Verification: Full API test suite PASS (138/138) after changes.
+
 - IAM — Sprint 3.3: Audit trails for membership role changes (Completed)
   - Added `app.audits` table to persist role change events with: id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles (int), new_roles (int), changed_at (utc).
   - Endpoint `POST /api/tenants/{tenantId}/memberships/{userId}/roles` writes an audit after successful updates (works for EF InMemory and relational providers). Indexed by `(tenant_id, changed_at)` for efficient per-tenant queries.

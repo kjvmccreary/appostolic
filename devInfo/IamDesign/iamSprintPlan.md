@@ -218,6 +218,10 @@ Story 4.1 — Seeds and fixtures
 - Tests:
   - Seed smoke tests in integration harness.
 
+Status — ✅ DONE
+
+- Implemented idempotent baseline seeds with convergence and Owner composite flags augmentation. Added `POST /api/dev/grant-roles` accepting `tenantId`/`tenantSlug`, `email`, and `roles[]`; auto-creates user/membership as needed. `Membership.Roles` is now mutable with `ApplyRoleChange(...)` producing an Audit entry on change; endpoint persists the audit. Full API suite passing.
+
 Story 4.2 — Docs and SnapshotArchitecture
 
 - Scope:

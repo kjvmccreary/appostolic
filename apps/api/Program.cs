@@ -623,15 +623,44 @@ public enum Roles
     Learner     = 1 << 3,
 }
 
+/// <summary>
+/// Represents a user's membership within a tenant. Roles is intentionally mutable because role assignments evolve
+/// over time (e.g. a user may later be promoted to TenantAdmin). All role changes SHOULD produce an <see cref="Audit"/> record.
+/// </summary>
 public record Membership
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid UserId { get; init; }
     public MembershipRole Role { get; init; }
-    public Roles Roles { get; init; }
+    /// <summary>
+    /// Granular roles bitfield. Mutable by design; update through <see cref="ApplyRoleChange"/> to ensure auditing.
+    /// </summary>
+    public Roles Roles { get; set; }
     public MembershipStatus Status { get; init; }
     public DateTime CreatedAt { get; init; }
+
+    /// <summary>
+    /// Apply a roles change in-memory, returning an <see cref="Audit"/> object if a change occurred, else null.
+    /// Caller is responsible for adding the audit to the DbContext and saving changes.
+    /// </summary>
+    public Audit? ApplyRoleChange(Roles newRoles, string? changedByEmail, Guid? changedByUserId)
+    {
+        if (newRoles == Roles) return null;
+        var audit = new Audit
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            UserId = UserId,
+            ChangedByUserId = changedByUserId,
+            ChangedByEmail = changedByEmail,
+            OldRoles = Roles,
+            NewRoles = newRoles,
+            ChangedAt = DateTime.UtcNow
+        };
+        Roles = newRoles;
+        return audit;
+    }
 }
 
 public enum LessonStatus { Draft, Published, Archived }

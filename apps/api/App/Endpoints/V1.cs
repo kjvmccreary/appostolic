@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Hosting;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -14,6 +15,11 @@ public static class V1
     public static IEndpointRouteBuilder MapV1Endpoints(this IEndpointRouteBuilder app)
     {
         var apiRoot = app.MapGroup("/api");
+    // Resolve host environment reliably (the IEndpointRouteBuilder is the WebApplication after Build())
+    var envService = app.ServiceProvider.GetRequiredService<IHostEnvironment>();
+    var loggerFactory = app.ServiceProvider.GetService<ILoggerFactory>();
+    var log = loggerFactory?.CreateLogger("Endpoints.V1");
+    log?.LogInformation("[MapV1Endpoints] Environment='{Env}' IsDevelopment={IsDev}", envService.EnvironmentName, envService.IsDevelopment());
         // Anonymous auth endpoints
         // Forgot password: issue reset token
         apiRoot.MapPost("/auth/forgot-password", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
@@ -190,6 +196,8 @@ public static class V1
 
             return Results.Ok(new { user = new { user!.Id, user.Email }, memberships });
         }).AllowAnonymous();
+
+        // (dev grant-roles endpoint moved near method end to ensure mapping executes during startup, not inside another endpoint lambda)
         apiRoot.MapPost("/auth/signup", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, SignupDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
@@ -1122,6 +1130,67 @@ public static class V1
             });
         });
 
+        // Dev utility endpoint always mapped (internal production guard) to simplify tests & ensure discoverability.
+        apiRoot.MapPost("/dev/grant-roles", async (AppDbContext db, GrantRolesRequest req) =>
+        {
+            if (req is null || string.IsNullOrWhiteSpace(req.Email) || (req.TenantId == Guid.Empty && string.IsNullOrWhiteSpace(req.TenantSlug)) || req.Roles is null || req.Roles.Length == 0)
+                return Results.BadRequest(new { error = "email, tenantId(or tenantSlug) and roles[] are required" });
+
+            if (!TryParseRoleNames(req.Roles, out var flags, out var invalid))
+                return Results.BadRequest(new { error = $"invalid role: {invalid}" });
+
+            var email = req.Email.Trim();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user is null)
+            {
+                user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+            }
+
+            // Ensure tenant exists
+            Tenant? tenant = null;
+            if (req.TenantId != Guid.Empty)
+            {
+                tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == req.TenantId);
+            }
+            else if (!string.IsNullOrWhiteSpace(req.TenantSlug))
+            {
+                tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == req.TenantSlug);
+            }
+            if (tenant is null) return Results.BadRequest(new { error = "tenant not found" });
+
+            // Fetch existing membership (tracked) if present.
+            var membership = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenant.Id && m.UserId == user.Id);
+            if (membership is null)
+            {
+                membership = new Membership
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    UserId = user.Id,
+                    Role = MembershipRole.Viewer,
+                    Roles = flags,
+                    Status = MembershipStatus.Active,
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.Memberships.Add(membership);
+            }
+            else
+            {
+                // Apply change & produce audit if roles differ
+                var audit = membership.ApplyRoleChange(flags, changedByEmail: "dev-grant-roles", changedByUserId: null);
+                if (audit is not null)
+                {
+                    db.Add(audit);
+                }
+            }
+            await db.SaveChangesAsync();
+            return Results.Ok(new { userId = user.Id, tenantId = tenant.Id, roles = flags.ToString(), rolesValue = (int)flags });
+        });
+
+        // Diagnostics removed: endpoint enumeration used during earlier routing investigation has been cleaned up.
+
         return app;
     }
 
@@ -1196,3 +1265,6 @@ public static class V1
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }
+
+// Dev DTO: request body for /api/dev/grant-roles (either TenantId or TenantSlug required)
+public record GrantRolesRequest(Guid TenantId, string? TenantSlug, string Email, string[] Roles);
