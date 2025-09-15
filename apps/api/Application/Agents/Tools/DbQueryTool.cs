@@ -8,7 +8,7 @@ namespace Appostolic.Api.Application.Agents.Tools;
 
 /// <summary>
 /// Deterministic in-memory database query tool. Accepts only simple
-/// "SELECT ... FROM <fixture> [WHERE id = ?]" queries and returns rows
+/// "SELECT ... FROM &lt;fixture&gt; [WHERE id = ?]" queries and returns rows
 /// from built-in fixtures. No external DB calls.
 /// </summary>
 public sealed class DbQueryTool : ITool

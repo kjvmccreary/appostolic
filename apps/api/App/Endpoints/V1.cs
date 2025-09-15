@@ -55,7 +55,10 @@ public static class V1
             await db.SaveChangesAsync();
             return Results.NoContent();
         }).AllowAnonymous();
-        apiRoot.MapPost("/auth/magic/request", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
+    // /// <summary>
+    // /// Requests a magic sign-in link to be emailed to the user. Accepts an email and enqueues a one-time token.
+    // /// </summary>
+    apiRoot.MapPost("/auth/magic/request", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
                 return Results.BadRequest(new { error = "email is required" });
@@ -996,11 +999,25 @@ public static class V1
         return app;
     }
 
+    /// <summary>
+    /// Request payload to create a new lesson.
+    /// </summary>
+    /// <param name="Title">Optional title for the new lesson. Defaults to "Untitled" when omitted.</param>
     public record NewLessonDto(string? Title);
+    /// <summary>
+    /// Signup request to create a new user. Optionally accepts an invite token to join an existing tenant.
+    /// </summary>
+    /// <param name="Email">User's email address.</param>
+    /// <param name="Password">User's chosen password.</param>
+    /// <param name="InviteToken">Optional invite token to join a tenant during signup.</param>
     public record SignupDto(string Email, string Password, string? InviteToken = null);
     public record LoginDto(string Email, string Password);
     public record InviteRequest(string Email, string? Role);
     public record AcceptInviteDto(string Token);
+    /// <summary>
+    /// Magic-link request payload.
+    /// </summary>
+    /// <param name="Email">Destination email to receive the sign-in link.</param>
     public record MagicRequestDto(string Email);
     public record MagicConsumeDto(string Token);
     public record UpdateMemberRoleDto(string Role);

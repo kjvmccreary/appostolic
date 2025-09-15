@@ -21,6 +21,7 @@ using StackExchange.Redis;
 using Appostolic.Api.App.Notifications;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +92,18 @@ builder.Services.AddSwaggerGen(c =>
             new List<string>()
         }
     });
+
+    // Include XML comments generated from triple-slash docs (///) in Swagger descriptions
+    try
+    {
+        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+        }
+    }
+    catch { /* best-effort; ignore file resolution errors */ }
 });
 
 // AuthN/Z
