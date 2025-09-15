@@ -61,6 +61,14 @@
 - Web: Added proxy `GET /api-proxy/tenants/[tenantId]/audits` (TenantAdmin guard; preserves `X-Total-Count`).
 - Web: New page `/studio/admin/audits` showing paginated list with filter form and basic pager.
 
+2025-09-15 — Audits proxy vitest hardening
+
+- Added vitest proxy route test at `apps/web/app/api-proxy/tenants/[tenantId]/audits/route.test.ts` to:
+  - Assert TenantAdmin guard returns 403 for non-admin session.
+  - Confirm successful proxy preserves query params and forwards `X-Total-Count` header from API.
+- Purpose: Establish a clean baseline commit before further audits UI/test refinements (role flags mapping, additional validation tests).
+- Commit: feat(audits): add proxy route test for audits endpoint (hash 90a2948).
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 // no fake timers; rely on real timers to avoid MSW/fetch interference
 import { useTaskPolling, TaskDetails, TraceDto } from './useTaskPolling';
@@ -75,14 +75,18 @@ describe('useTaskPolling', () => {
     });
 
     // 2nd call - wait ~0.9s for interval
-    await new Promise((r) => setTimeout(r, 900));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 900));
+    });
     await waitFor(() => {
       expect(result.current.task?.status).toBe('Running');
       expect(result.current.traces.length).toBe(2);
     });
 
     // 3rd call → terminal
-    await new Promise((r) => setTimeout(r, 900));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 900));
+    });
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isDone).toBe(true);
@@ -91,7 +95,9 @@ describe('useTaskPolling', () => {
     });
 
     // Change task id resets state
-    rerender({ tid: null });
+    await act(async () => {
+      rerender({ tid: null });
+    });
     expect(result.current.task).toBeNull();
     expect(result.current.traces).toEqual([]);
   });

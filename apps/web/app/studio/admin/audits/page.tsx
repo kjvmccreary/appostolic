@@ -3,6 +3,7 @@ import { authOptions } from '../../../../src/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
+import { roleNamesFromFlags } from '../../../../src/lib/roles';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 
@@ -11,8 +12,8 @@ type AuditRow = {
   userId: string;
   changedByUserId: string;
   changedByEmail: string;
-  oldRoles: string;
-  newRoles: string;
+  oldRoles: number; // flags value
+  newRoles: number; // flags value
   changedAt: string;
 };
 
@@ -74,7 +75,12 @@ export default async function AuditsPage({
   const res = await fetchFromProxy(url, { cache: 'no-store' });
   if (!res.ok) return <div>Failed to load audits</div>;
   const total = Number(res.headers.get('X-Total-Count') ?? '0');
-  const rows = (await res.json()) as AuditRow[];
+  const raw = (await res.json()) as AuditRow[];
+  const rows = raw.map((r) => ({
+    ...r,
+    oldNames: roleNamesFromFlags(r.oldRoles).join(', ') || 'None',
+    newNames: roleNamesFromFlags(r.newRoles).join(', ') || 'None',
+  }));
 
   const page = Math.floor(Number(skip) / Number(take)) + 1;
   const pages = Math.max(1, Math.ceil(total / Number(take)));
@@ -100,20 +106,22 @@ export default async function AuditsPage({
             <th>When</th>
             <th>User</th>
             <th>Actor</th>
-            <th>Old</th>
-            <th>New</th>
+            <th>Old Flags</th>
+            <th>New Flags</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id}>
-              <td>{new Date(r.changedAt).toLocaleString()}</td>
-              <td>{r.userId}</td>
-              <td title={r.changedByEmail}>{r.changedByUserId}</td>
-              <td>{r.oldRoles}</td>
-              <td>{r.newRoles}</td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            return (
+              <tr key={r.id}>
+                <td>{new Date(r.changedAt).toLocaleString()}</td>
+                <td>{r.userId}</td>
+                <td title={r.changedByEmail}>{r.changedByUserId}</td>
+                <td title={String(r.oldRoles)}>{r.oldNames}</td>
+                <td title={String(r.newRoles)}>{r.newNames}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

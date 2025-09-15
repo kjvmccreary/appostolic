@@ -70,3 +70,20 @@ export function computeBooleansForTenant(
 function dedupe<T extends string>(arr: T[]): T[] {
   return Array.from(new Set(arr));
 }
+
+// Bit values must mirror API Roles enum ordering; adjust if server changes.
+// Assuming (from server context): TenantAdmin=1, Approver=2, Creator=4, Learner=8.
+const FLAG_ORDER: [FlagRole, number][] = [
+  ['TenantAdmin', 1],
+  ['Approver', 2],
+  ['Creator', 4],
+  ['Learner', 8],
+];
+
+/** Convert a numeric flags bitmask (API integer) to an ordered list of flag names. */
+export function roleNamesFromFlags(value: number): FlagRole[] {
+  if (!value) return [];
+  const names: FlagRole[] = [];
+  for (const [name, bit] of FLAG_ORDER) if ((value & bit) === bit) names.push(name);
+  return names;
+}

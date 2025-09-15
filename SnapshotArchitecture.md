@@ -1,4 +1,4 @@
-# Appostolic — Architecture Snapshot (2025-09-14)
+# Appostolic — Architecture Snapshot (2025-09-15)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
@@ -11,6 +11,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Migration `20250915145000_s4_02_membership_roles_audits` applied; database is up to date (`make migrate`).
   - Migration `20250915173000_s4_03_audits_view` creates SQL view `app.vw_audits_recent` as a convenience for reporting. Applied via `make migrate`.
   - Web surfacing: Added proxy `GET /api-proxy/tenants/{tenantId}/audits` with TenantAdmin guard and header forwarding; Studio page `/studio/admin/audits` lists audits with basic filters and paging (reads `X-Total-Count`).
+  - Hardening: Added vitest proxy route test (`apps/web/app/api-proxy/tenants/[tenantId]/audits/route.test.ts`) asserting TenantAdmin guard (403 on non-admin) and preservation of `X-Total-Count` header on success.
 
 - IAM — Sprint 2.2: Invites include Roles (Completed)
   - Invitation model now captures granular Roles flags in addition to the legacy Role. Invite creation accepts an optional array of flag names and returns both roles (string) and rolesValue (int). When omitted, flags are derived from the legacy Role for backward compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner).

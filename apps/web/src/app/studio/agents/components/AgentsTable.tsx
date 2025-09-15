@@ -108,6 +108,8 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
         rows={rows}
         getRowId={(r) => r.id}
         columns={columns}
+        initialState={{ pagination: { paginationModel: { pageSize: 20, page: 0 } } }}
+        pageSizeOptions={[10, 20, 50]}
         disableRowSelectionOnClick
       />
     </Box>

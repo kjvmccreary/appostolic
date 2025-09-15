@@ -102,4 +102,29 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         var bad = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?from={Uri.EscapeDataString(to)}&to={Uri.EscapeDataString(from)}");
         bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Returns_400_on_invalid_guid_filters()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var tenant = new Tenant { Id = Guid.NewGuid(), Name = $"t-{Guid.NewGuid():N}", CreatedAt = DateTime.UtcNow };
+        var admin = new User { Id = Guid.NewGuid(), Email = $"a-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+        db.AddRange(tenant, admin);
+        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Role = MembershipRole.Admin, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("x-dev-user", admin.Email);
+        client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+
+        // invalid userId guid format
+        var rBadUser = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?userId=not-a-guid");
+        rBadUser.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // invalid changedByUserId guid format
+        var rBadActor = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?changedByUserId=xyz");
+        rBadActor.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

@@ -835,6 +835,7 @@ public static class V1
         // Headers: X-Total-Count with total rows for the tenant.
         // Errors: 400 invalid tenant claim; 403 tenant mismatch; 401 handled by auth middleware.
         api.MapGet("/tenants/{tenantId:guid}/audits", async (
+            HttpRequest req,
             Guid tenantId,
             int? take,
             int? skip,
@@ -849,6 +850,13 @@ public static class V1
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
+
+            // Additional GUID format validation (defense-in-depth for bad query strings before EF translates)
+            var qs = req.Query;
+            if (qs.TryGetValue("userId", out var uVals) && uVals.Count > 0 && !Guid.TryParse(uVals[0], out _))
+                return Results.BadRequest(new { error = "invalid userId" });
+            if (qs.TryGetValue("changedByUserId", out var cVals) && cVals.Count > 0 && !Guid.TryParse(cVals[0], out _))
+                return Results.BadRequest(new { error = "invalid changedByUserId" });
 
             int takeVal = Math.Clamp(take.GetValueOrDefault(50), 1, 100);
             int skipVal = Math.Max(0, skip.GetValueOrDefault(0));
