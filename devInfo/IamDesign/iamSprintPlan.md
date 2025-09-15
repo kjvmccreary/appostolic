@@ -281,3 +281,24 @@ Notes
 
 - We will prioritize simplicity and stability for 1.0. The [Flags] enum gets us moving fast; we can evolve storage later without breaking the API surface.
 - All role checks are tenant-scoped. Cross-tenant actions are out of scope for 1.0.
+
+---
+
+## Quick navigation — endpoints and docs
+
+- API endpoints (roles + audits)
+  - POST `/api/dev/grant-roles` — developer utility to assign roles quickly; when `Dev:GrantRolesKey` is configured, require header `x-dev-grant-key`.
+  - GET `/api/tenants/{tenantId}/memberships` — list memberships with legacy Role and Roles flags.
+  - POST `/api/tenants/{tenantId}/memberships/{userId}/roles` — replace Roles flags (array of enum names); writes an Audit on change.
+  - GET `/api/tenants/{tenantId}/audits` — list recent role-change audits (paged; `X-Total-Count`).
+
+- Web proxy routes
+  - GET `/api-proxy/tenants/{tenantId}/memberships`
+  - POST `/api-proxy/tenants/{tenantId}/memberships/{userId}/roles`
+  - GET `/api-proxy/tenants/{tenantId}/audits`
+
+- Docs (see `SnapshotArchitecture.md`)
+  - What’s new → IAM — Sprint 4.1 (Seeds + dev roles utility)
+  - Roles → Capabilities matrix (tenant-scoped)
+  - Authentication & Authorization (dev headers, policies)
+  - Runtime architecture → API and Web
