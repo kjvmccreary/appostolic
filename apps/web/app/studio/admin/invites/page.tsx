@@ -2,8 +2,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../src/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../lib/serverFetch';
+import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,7 +18,11 @@ type Invite = {
   acceptedByEmail?: string | null;
 };
 
-export default async function InvitesAdminPage() {
+export default async function InvitesAdminPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[]>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     redirect('/login');
@@ -51,33 +55,45 @@ export default async function InvitesAdminPage() {
     const email = String(formData.get('email') ?? '').trim();
     const role = String(formData.get('role') ?? 'Viewer');
     if (!email) return;
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role }),
-    });
-    revalidatePath('/studio/admin/invites');
+    try {
+      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role }),
+      });
+      redirect('/studio/admin/invites?ok=invite-created');
+    } catch {
+      redirect('/studio/admin/invites?err=invite-failed');
+    }
   }
 
   async function resendInvite(formData: FormData) {
     'use server';
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
-    await fetchFromProxy(
-      `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}/resend`,
-      { method: 'POST' },
-    );
-    revalidatePath('/studio/admin/invites');
+    try {
+      await fetchFromProxy(
+        `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}/resend`,
+        { method: 'POST' },
+      );
+      redirect('/studio/admin/invites?ok=invite-resent');
+    } catch {
+      redirect('/studio/admin/invites?err=invite-resend-failed');
+    }
   }
 
   async function revokeInvite(formData: FormData) {
     'use server';
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-    });
-    revalidatePath('/studio/admin/invites');
+    try {
+      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
+        method: 'DELETE',
+      });
+      redirect('/studio/admin/invites?ok=invite-revoked');
+    } catch {
+      redirect('/studio/admin/invites?err=invite-revoke-failed');
+    }
   }
 
   const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
@@ -89,10 +105,31 @@ export default async function InvitesAdminPage() {
   }
   const invites = (await res.json()) as Invite[];
 
+  const ok = typeof searchParams?.ok === 'string' ? (searchParams?.ok as string) : undefined;
+  const err = typeof searchParams?.err === 'string' ? (searchParams?.err as string) : undefined;
+
   return (
     <div className="mx-auto max-w-3xl p-4">
       <h1 className="text-xl font-semibold mb-3">Invites</h1>
       <p className="text-sm text-muted mb-4">Tenant: {tenantSlug}</p>
+
+      {(ok || err) && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={
+            'mb-4 rounded-md px-3 py-2 text-sm ' +
+            (ok
+              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+              : 'bg-red-100 text-red-900 border border-red-300')
+          }
+        >
+          {ok === 'invite-created' && 'Invite created and email sent.'}
+          {ok === 'invite-resent' && 'Invite email resent.'}
+          {ok === 'invite-revoked' && 'Invite revoked.'}
+          {err && 'Something went wrong. Please try again.'}
+        </div>
+      )}
 
       <form action={createInvite} className="mb-4 flex gap-2 items-center">
         <input
@@ -137,7 +174,7 @@ export default async function InvitesAdminPage() {
           </tr>
         </thead>
         <tbody>
-          {invites.map((i) => (
+          {invites.map((i, idx) => (
             <tr key={i.email} className="border-b border-line/50">
               <td className="py-2 pr-2">{i.email}</td>
               <td className="py-2 pr-2">{i.role}</td>
@@ -151,12 +188,16 @@ export default async function InvitesAdminPage() {
                     Resend
                   </button>
                 </form>
-                <form action={revokeInvite} className="inline">
+                <form id={`revoke-form-${idx}`} action={revokeInvite} className="inline">
                   <input type="hidden" name="email" value={i.email} />
-                  <button type="submit" className="rounded border px-2 py-1 text-red-600">
-                    Revoke
-                  </button>
+                  {/* The submit is triggered via a client-side confirm button for safety */}
                 </form>
+                <ConfirmSubmitButton
+                  formId={`revoke-form-${idx}`}
+                  label="Revoke"
+                  confirmText={`Revoke invite for ${i.email}?`}
+                  className="rounded border px-2 py-1 text-red-600"
+                />
               </td>
             </tr>
           ))}
