@@ -19,7 +19,7 @@ Source of truth: `devInfo/DesignDocs/UI-Spec.md` (§13 Navigation Design) and `d
 
 ## Sprint Breakdown
 
-### Story 1 — Scaffold Navigation Components (Desktop)
+### ✅ DONE Story 1 — Scaffold Navigation Components (Desktop)
 
 - Scope:
   - Create `apps/web/app/components/nav/{TopBar,NavItem,NavSection}.tsx` per spec.
@@ -31,7 +31,7 @@ Source of truth: `devInfo/DesignDocs/UI-Spec.md` (§13 Navigation Design) and `d
 - Tests:
   - Unit: NavItem active logic; role gating on actions.
 
-### Story 2 — Mobile Nav Drawer
+### ✅ DONE Story 2 — Mobile Nav Drawer
 
 - Scope:
   - Add `NavDrawer.tsx` with grouped items; hamburger toggles drawer on mobile (<768px).
@@ -41,7 +41,17 @@ Source of truth: `devInfo/DesignDocs/UI-Spec.md` (§13 Navigation Design) and `d
 - Tests:
   - Playwright: open/close drawer; verify Admin visibility by role.
 
-### Story 3 — Profile Menu & Tenant Switcher
+Status: ✅ DONE (2025-09-15)
+
+- Implemented `src/components/NavDrawer.tsx` with dialog semantics, backdrop click to close, ESC handling, and a minimal focus trap. Drawer auto-closes on pathname changes.
+- Wired a mobile-only hamburger button in `TopBar.tsx` that toggles the drawer; desktop nav unchanged.
+- Admin section renders only when `isAdmin` is true; items currently include Members and Audits.
+- Unit tests added:
+  - `NavDrawer.test.tsx` — renders items, backdrop close, ESC close, and auto-close on route change.
+  - Extended `TopBar.test.tsx` — hamburger opens/closes drawer via mock; existing tests remain green.
+- Quality gates: typecheck PASS; full web unit tests PASS with coverage thresholds satisfied.
+
+### ✅ DONE Story 3 — Profile Menu & Tenant Switcher
 
 - Scope:
   - `ProfileMenu.tsx` with Profile, Switch tenant, Sign out; Superadmin chip when claim present.
@@ -52,7 +62,18 @@ Source of truth: `devInfo/DesignDocs/UI-Spec.md` (§13 Navigation Design) and `d
   - Unit: selection callback; modal accessibility (focus return).
   - Playwright: switch tenant end-to-end (dev headers in test harness).
 
-### Story 4 — Admin Section (Role-Gated)
+Status: ✅ DONE (2025-09-15)
+
+- Implemented `src/components/ProfileMenu.tsx` with Superadmin chip, dropdown menu, and integration with `TenantSwitcherModal`.
+- Implemented `src/components/TenantSwitcherModal.tsx` as an accessible dialog with backdrop/ESC close, focus restore, and session+cookie update: calls `update({ tenant })`, POSTs `/api/tenant/select`, then `router.refresh()`.
+- Wired `ProfileMenu` into `TopBar.tsx` alongside `ThemeToggle` and creator CTAs.
+- Unit tests added:
+  - `ProfileMenu.test.tsx` — toggles menu, shows Superadmin chip, opens switcher modal, and calls `signOut`.
+  - `TenantSwitcherModal.test.tsx` — backdrop click closes; selecting a tenant updates session, POSTs API, and closes.
+  - Updated `TopBar.test.tsx` to mock `ProfileMenu` to keep tests focused.
+- Quality gates: typecheck PASS; full web unit tests PASS (93/93) with coverage thresholds satisfied (Lines ~91%).
+
+### ✅ DONE Story 4 — Admin Section (Role-Gated)
 
 - Scope:
   - Add Admin items (Members, Invites, Audits, Notifications DLQ) and link to existing proxies/pages.
@@ -61,6 +82,16 @@ Source of truth: `devInfo/DesignDocs/UI-Spec.md` (§13 Navigation Design) and `d
   - TenantAdmin sees Admin menu and can navigate; non-admin cannot see Admin and receives 403 if directly hitting URLs.
 - Tests:
   - Playwright: confirm 403 on direct URL for non-admin; link presence/absence in nav.
+
+Status: ✅ DONE (2025-09-15)
+
+- Added new page `/studio/admin/invites` with server-first role gating (redirects unauth to `/login`, requires selected tenant, returns 403 ProblemDetails for non-admin). Lists invites via proxy and includes server actions to create, resend, and revoke invites.
+- Updated `TopBar` admin links and `NavDrawer` Admin section to include Members, Invites, Audits, and Notifications (DLQ).
+- Unit tests:
+  - `app/studio/admin/invites/page.test.tsx` — unauth redirect, 403 non-admin, and successful render for admin.
+  - Existing admin proxy/page tests remained green.
+- Fix: added early returns after `redirect(...)` in the invites page to prevent null access in tests.
+- Quality gates: web unit tests PASS (38 files, 96 tests); coverage ~91% lines.
 
 ### Story 5 — Accessibility & Theming Polish
 

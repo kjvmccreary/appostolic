@@ -4,6 +4,16 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — Navigation Sprint: Admin section (Role-gated) (Completed)
+  - Added `/studio/admin/invites` page guarded server-side: unauthenticated users redirect to `/login`, a selected tenant is required, and non-admins receive RFC7807 403. Page lists invites through the existing `/api-proxy/tenants/[tenantId]/invites` route and supports server actions to create, resend, and revoke invites.
+  - Updated nav: Admin section now includes Members, Invites, Audits, and Notifications (DLQ) in `TopBar` and `NavDrawer`. UI mirrors server roles (TenantAdmin) while authorization remains server-first.
+  - Tests: unit tests cover unauth redirect, 403 for non-admin, and admin render; full web suite passes with coverage ~91% lines.
+
+- Web — Navigation Sprint: Profile menu and tenant switching (Completed)
+  - Added a lightweight `ProfileMenu` in the web header with Superadmin chip, a Switch tenant action, and Sign out. The switch action opens `TenantSwitcherModal`, which lists memberships from the NextAuth session, updates the session via `session.update({ tenant })`, persists the `selected_tenant` cookie via `POST /api/tenant/select`, and triggers a client refresh (`router.refresh()`).
+  - Integrated `ProfileMenu` into `TopBar` alongside existing CTAs and `ThemeToggle`. The modal supports backdrop/ESC close and restores focus to the trigger.
+  - Tests cover dropdown toggle, superadmin visibility, modal open/close, and update flow; full web suite remains green with coverage >90% lines.
+
 - IAM — Sprint 4.1: Seeds + dev roles utility (Completed)
   - Seeded baseline users with distinct Roles per tenant (Admin, Approver, Creator, Learner) via an idempotent seed that converges memberships and augments Owner composite flags when needed.
   - Added developer utility endpoint `POST /api/dev/grant-roles` that accepts `tenantId` or `tenantSlug`, `email`, and `roles[]` (case-insensitive names). It auto-creates the user if missing, ensures membership, and sets role flags.

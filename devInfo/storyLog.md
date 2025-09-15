@@ -1,5 +1,65 @@
 ## Sprint 4.2 – Docs and SnapshotArchitecture (2025-09-15)
 
+2025-09-15 — Navigation — Story 4: Admin Section (role-gated) — ✅ DONE
+
+- Summary
+  - Implemented the Admin Invites page at `/studio/admin/invites` with server-first guards: unauthenticated users redirect to `/login`, tenants must be selected, and non-admins receive RFC7807 403 ProblemDetails. The page lists invites via the existing proxy and exposes server actions for create, resend, and revoke. Updated the TopBar and NavDrawer Admin section to include Members, Invites, Audits, and Notifications (DLQ).
+  - Fixed a failing unauth redirect unit test by adding early returns immediately after `redirect(...)` calls to avoid accessing a null session.
+  - Tests: `app/studio/admin/invites/page.test.tsx` covers unauth redirect, 403 non-admin, and happy path render; existing admin proxy/page tests remain green.
+  - Quality gates: Web typecheck PASS; full unit suite PASS (38 files, 96 tests); coverage ~91% lines.
+
+- Files changed
+  - apps/web/app/studio/admin/invites/page.tsx — new page with role gating, listing, and server actions; early-return fix after redirects
+  - apps/web/app/studio/admin/invites/page.test.tsx — tests for redirect/403/admin render
+  - apps/web/src/components/TopBar.tsx — Admin links updated to include Invites and Notifications
+  - apps/web/src/components/NavDrawer.tsx — Admin section includes Members, Invites, Audits, Notifications
+
+- Requirements coverage
+  - Admin menu items (Members, Invites, Audits, Notifications) present for TenantAdmin only: Done
+  - Server-first guard returns 403 for non-admin and redirects unauthenticated: Done
+  - Invites page functional with create/resend/revoke actions: Done
+
+2025-09-15 — Navigation — Story 3: Profile Menu & Tenant Switcher — ✅ DONE
+
+- Summary
+  - Added an account `ProfileMenu` with a Superadmin chip, menu items (Profile placeholder, Switch tenant…, Sign out), and integrated `TenantSwitcherModal` for selecting a tenant. The modal lists memberships from the session, updates the JWT via `update({ tenant })`, persists a secure cookie via POST `/api/tenant/select`, and refreshes the router. It supports ESC/backdrop close and restores focus to the trigger after close.
+  - Wired `ProfileMenu` into `TopBar` alongside creator CTAs and `ThemeToggle`.
+  - Tests: `ProfileMenu.test.tsx` validates menu toggle, Superadmin chip visibility, modal open, and sign-out call. `TenantSwitcherModal.test.tsx` asserts backdrop close and selection flow (session.update + API POST + close). `TopBar.test.tsx` updated to mock `ProfileMenu` to keep tests focused.
+  - Quality gates: Web typecheck PASS; full unit suite PASS (93/93); coverage thresholds satisfied (Lines ~91%).
+
+- Files changed
+  - apps/web/src/components/ProfileMenu.tsx — new dropdown with Superadmin chip and actions
+  - apps/web/src/components/TenantSwitcherModal.tsx — new accessible modal handling session/cookie updates
+  - apps/web/src/components/TopBar.tsx — integrated `ProfileMenu` into the right-side actions
+  - apps/web/src/components/ProfileMenu.test.tsx — unit tests for menu behavior
+  - apps/web/src/components/TenantSwitcherModal.test.tsx — unit tests for modal behavior
+  - apps/web/src/components/TopBar.test.tsx — mock `ProfileMenu` to keep scope isolated
+
+- Requirements coverage
+  - Account dropdown with Switch tenant and Sign out: Done
+  - Tenant selection updates session/cookie and refreshes: Done
+
+2025-09-15 — Navigation — Story 2: Mobile Nav Drawer — ✅ DONE
+
+- 2025-09-15 — Docs: Nested AGENTS.md and Copilot instructions — ✅ DONE
+  - Added a "Nested AGENTS.md" section to the root `AGENTS.md` and created scoped guides at `apps/api/AGENTS.md` and `apps/web/AGENTS.md`.
+  - Added `.github/copilot-instructions.md` to surface the core rules and link to nested scopes for broader Copilot pickup.
+  - Purpose: ensure agent tooling consistently honors repository conventions across API and Web subprojects.
+
+- Summary
+  - Implemented a mobile Nav Drawer with accessible dialog semantics: focus trap, ESC/backdrop close, and auto-close on route change. Added a mobile-only hamburger button to the Top Bar to toggle the drawer; desktop nav remains unchanged. Admin section (Members, Audits) renders only when `isAdmin` is true.
+  - Tests: `NavDrawer.test.tsx` covers backdrop/ESC close and route-change auto-close; `TopBar.test.tsx` verifies hamburger toggles open/close without regressing existing nav tests.
+  - Quality gates: Typecheck PASS; full web unit tests PASS; coverage thresholds satisfied.
+
+- Files changed
+  - apps/web/src/components/NavDrawer.tsx — New mobile drawer component with dialog semantics and focus handling
+  - apps/web/src/components/NavDrawer.test.tsx — Unit tests for close behaviors and admin visibility
+  - apps/web/src/components/TopBar.tsx — Added hamburger toggle and integrated NavDrawer
+  - apps/web/src/components/TopBar.test.tsx — Extended tests for drawer toggle and maintained existing assertions
+
+- Requirements coverage
+  - Drawer opens/closes with keyboard/mouse/touch; Admin section visible only to TenantAdmin: Done
+
 - Updated SnapshotArchitecture with roles→capabilities matrix, dev roles endpoint guard (`x-dev-grant-key` when `Dev:GrantRolesKey` is set), and clarifications on `Membership.Roles` mutability and `ApplyRoleChange` auditing.
 - Confirmed full API suite remains green; explicit audit-on-update integration test documented.
 
