@@ -4,6 +4,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — Navigation Sprint: A11y & theming polish (Completed)
+  - TopBar now gains a subtle elevation (shadow) when the page is scrolled; preserves sticky behavior and accessibility. Mobile hamburger has a clear `aria-label`; desktop nav landmark is named; `aria-expanded` values are proper booleans; dialog semantics affirmed for `NavDrawer` and `TenantSwitcherModal` with focus handling.
+  - Tests extended to validate elevation toggle and accessible labels; full web test suite remains green with coverage ~91.5% lines.
+
 - Web — Navigation Sprint: Admin section (Role-gated) (Completed)
   - Added `/studio/admin/invites` page guarded server-side: unauthenticated users redirect to `/login`, a selected tenant is required, and non-admins receive RFC7807 403. Page lists invites through the existing `/api-proxy/tenants/[tenantId]/invites` route and supports server actions to create, resend, and revoke invites.
   - Updated nav: Admin section now includes Members, Invites, Audits, and Notifications (DLQ) in `TopBar` and `NavDrawer`. UI mirrors server roles (TenantAdmin) while authorization remains server-first.

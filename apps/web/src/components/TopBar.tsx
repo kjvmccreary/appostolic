@@ -47,9 +47,27 @@ export function TopBar() {
   ] as const;
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [elevated, setElevated] = React.useState(false);
+
+  // Add a subtle elevation when the page is scrolled
+  React.useEffect(() => {
+    const onScroll = () => {
+      // Using window.scrollY is safe in client components
+      setElevated(window.scrollY > 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--color-line)] bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/60">
+    <header
+      data-elevated={elevated ? 'true' : 'false'}
+      className={cn(
+        'sticky top-0 z-40 w-full border-b border-[var(--color-line)] bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/60',
+        elevated && 'shadow-sm',
+      )}
+    >
       <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-3 px-3">
         {/* Mobile hamburger */}
         <button

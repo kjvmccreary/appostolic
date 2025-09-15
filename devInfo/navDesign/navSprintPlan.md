@@ -93,7 +93,7 @@ Status: ✅ DONE (2025-09-15)
 - Fix: added early returns after `redirect(...)` in the invites page to prevent null access in tests.
 - Quality gates: web unit tests PASS (38 files, 96 tests); coverage ~91% lines.
 
-### Story 5 — Accessibility & Theming Polish
+### ✅ DONE Story 5 — Accessibility & Theming Polish
 
 - Scope:
   - Verify ARIA roles/labels; high contrast; focus rings; sticky TopBar elevation.
@@ -102,6 +102,14 @@ Status: ✅ DONE (2025-09-15)
   - Axe/pa11y smoke passes; visual check in Light/Dark/AMOLED.
 - Tests:
   - Lint: a11y checks; snapshot for TopBar in themes.
+
+Status: ✅ DONE (2025-09-15)
+
+- Added sticky TopBar elevation on scroll (shadow when `window.scrollY > 0`), preserving accessible roles/labels. Mobile hamburger has clear `aria-label`. Desktop nav exposes `aria-label="Main navigation"` and active link `aria-current`.
+- A11y polish across nav components: ensured `aria-expanded` values are boolean strings; dialog landmarks for `NavDrawer` and `TenantSwitcherModal`; focus rings on interactive controls.
+- Tests:
+  - Extended `TopBar.test.tsx` to assert elevation toggles on scroll and presence of accessible labels/landmarks.
+  - Full suite green; coverage ~91.5% lines.
 
 ## Implementation Notes
 

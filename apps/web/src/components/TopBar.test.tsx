@@ -19,7 +19,7 @@ let mockSession: { data: unknown } = { data: null };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock('next-auth/react', () => ({ useSession: () => mockSession }) as any);
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import * as nav from 'next/navigation';
@@ -100,5 +100,28 @@ describe('TopBar', () => {
     // clicking on the drawer mock triggers onClose
     await user.click(screen.getByTestId('drawer'));
     expect(screen.getByTestId('drawer')).toHaveAttribute('data-open', 'false');
+  });
+
+  it('adds elevation on scroll', async () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/');
+    render(<TopBar />);
+    const header = screen.getByRole('banner');
+    // Initially at top
+    expect(header).toHaveAttribute('data-elevated', 'false');
+    // Simulate scroll
+    Object.defineProperty(window, 'scrollY', { value: 10, writable: true });
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await waitFor(() => expect(header).toHaveAttribute('data-elevated', 'true'));
+  });
+
+  it('exposes accessible labels for nav and hamburger', () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/');
+    render(<TopBar />);
+    // Hamburger button has clear aria-label
+    expect(screen.getByRole('button', { name: /open navigation/i })).toBeInTheDocument();
+    // Desktop nav landmark has an accessible name
+    expect(screen.getByRole('navigation', { name: /main navigation/i })).toBeInTheDocument();
   });
 });

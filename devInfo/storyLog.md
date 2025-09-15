@@ -1,5 +1,19 @@
 ## Sprint 4.2 – Docs and SnapshotArchitecture (2025-09-15)
 
+2025-09-15 — Navigation — Story 5: Accessibility & Theming Polish — ✅ DONE
+
+- Summary
+  - Implemented sticky TopBar elevation on scroll and tightened accessibility across nav: clear hamburger `aria-label`, named desktop nav landmark, consistent `aria-expanded` booleans, dialog roles for drawer/modal, and visible focus rings. Ensured active links expose `aria-current` consistently.
+  - Tests: Extended `TopBar.test.tsx` to assert elevation toggling via scroll and verify accessible labels/landmarks. Full web unit suite PASS; coverage ~91.5% lines.
+
+- Files changed
+  - apps/web/src/components/TopBar.tsx — elevation on scroll with `data-elevated` and shadow class; preserves ARIA
+  - apps/web/src/components/TopBar.test.tsx — new assertions for elevation and accessible labels
+
+- Requirements coverage
+  - ARIA roles/labels and focus rings verified in nav components: Done
+  - Sticky TopBar elevation implemented and tested: Done
+
 2025-09-15 — Navigation — Story 4: Admin Section (role-gated) — ✅ DONE
 
 - Summary
