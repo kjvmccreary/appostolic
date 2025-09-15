@@ -93,6 +93,14 @@ export function TopBar() {
               {item.label}
             </NavLink>
           ))}
+          {isAdmin ? (
+            <>
+              <span aria-hidden className="opacity-30 mx-1">
+                |
+              </span>
+              <NavLink href="/studio/admin/members">Admin</NavLink>
+            </>
+          ) : null}
         </nav>
         <div className="ml-auto flex items-center gap-2">
           {canCreate ? (

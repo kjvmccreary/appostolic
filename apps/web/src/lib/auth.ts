@@ -94,6 +94,10 @@ export const authOptions: NextAuthOptions & {
         t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
       }
       if (user?.email) t.email = user.email;
+      // If no tenant is selected and exactly one membership exists, auto-select it
+      if (!t.tenant && t.memberships && t.memberships.length === 1) {
+        t.tenant = t.memberships[0].tenantSlug;
+      }
       // Respect session.update({ tenant }) calls from the client switcher
       if (trigger === 'update' && session && (session as unknown as { tenant?: string }).tenant) {
         t.tenant = (session as unknown as { tenant?: string }).tenant;
