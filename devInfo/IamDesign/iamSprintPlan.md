@@ -153,7 +153,7 @@ Story 3.1 — Hide/show actions by role — ✅ DONE
   - TopBar render tests toggling session.canCreate to assert Create Lesson visibility.
   - AgentsTable tests assert empty-state CTA gating and row Edit/Delete behaviors by canCreate.
 
-Story 3.2 — Gate routes in Web (flags-based)
+Story 3.2 — Gate routes in Web (flags-based) — ✅ DONE
 
 - Scope:
   - Server components for protected pages check roles server-side and render 403 component if lacking permission.
@@ -162,6 +162,25 @@ Story 3.2 — Gate routes in Web (flags-based)
   - Visiting /studio/admin/members as non-admin renders AccessDenied.
 - Tests:
   - Server component tests with mocked headers/session.
+
+Implementation notes
+
+- Converted server guards to flags-based checks using session-derived booleans:
+  - Agents proxies: POST/PUT/DELETE require canCreate.
+  - Tenants admin proxies (members, memberships, invites): legacy Owner/Admin guard now maps to TenantAdmin via flags under the hood.
+  - Notifications DLQ proxy continues to allow Owner/Admin, mapped to TenantAdmin via flags.
+- Tests added/passing:
+  - app/api-proxy/agents/route.test.ts — 403 when canCreate=false.
+  - app/api-proxy/agents/[id]/route.test.ts — 403 for PUT/DELETE when canCreate=false.
+  - Existing guard tests for invites/members/memberships/DLQ remain green with flags mapping.
+- Server page (/studio/admin/members) renders a 403 component for non-admins as expected.
+
+Guard usage note (for new routes)
+
+- Prefer using session-derived flags for concision:
+  - Proxy example (Creator): use `guardByFlags({ tenantIdOrSlug: { id: tenantId }, require: 'canCreate' })`.
+  - Proxy example (Admin): for legacy Owner/Admin call sites, continue passing `anyOf: ['Owner','Admin']` to `guardProxyRole` — it maps to TenantAdmin flags under the hood.
+  - Server Page example: when asserting access, use `requirePageRole(['Admin'])` for admin-only.
 
 Story 3.3 — Audit trails for assignments (minimal)
 

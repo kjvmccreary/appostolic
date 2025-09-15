@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('next-auth', () => ({
+  getServerSession: vi.fn(async () => ({ user: { email: 't@example.com' }, canCreate: false })),
+}));
 
 // Ensure env is set before importing modules that read it
 process.env.NEXT_PUBLIC_API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5198';
@@ -57,5 +60,22 @@ describe('/api-proxy/agents', () => {
     const text = await res.text();
     expect(text).toContain('Agent A');
     spy.mockRestore();
+  });
+
+  it('POST returns 403 when session lacks canCreate', async () => {
+    const ph = await importProxyHeaders();
+    const hdrs = {
+      'x-dev-user': 'test@example.com',
+      'x-tenant': 't1',
+      'Content-Type': 'application/json',
+    } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
+    vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
+    // By default mock returns canCreate=false; no fetch should occur and 403 is expected
+    const mod = await import('./route');
+    const url = new URL('http://localhost:3000/api-proxy/agents');
+    const baseReq = new Request(url, { method: 'POST', body: JSON.stringify({ name: 'A' }) });
+    const req = new NextRequest(baseReq);
+    const res = await mod.POST(req);
+    expect(res.status).toBe(403);
   });
 });

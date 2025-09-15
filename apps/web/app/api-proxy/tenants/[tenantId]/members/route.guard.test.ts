@@ -4,10 +4,10 @@ import { GET as getMembers } from './route';
 import { PUT as putMember, DELETE as deleteMember } from './[userId]/route';
 import type { NextRequest } from 'next/server';
 import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
-import { guardProxyRole } from '../../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../../src/lib/roleGuard';
 
 vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
-vi.mock('../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
 vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
 
 function makeReq(url: string): NextRequest {
@@ -21,7 +21,7 @@ describe('tenants members proxy guards', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.mocked(buildProxyHeaders).mockReset();
-    vi.mocked(guardProxyRole).mockReset();
+    vi.mocked(requireTenantAdmin).mockReset();
     fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
@@ -31,7 +31,7 @@ describe('tenants members proxy guards', () => {
   });
 
   it('returns 403 when role guard fails for list', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await getMembers(makeReq('http://x/api-proxy/tenants/t1/members'), {
       params: { tenantId: 't1' },
     } as unknown as { params: { tenantId: string } });
@@ -40,7 +40,7 @@ describe('tenants members proxy guards', () => {
   });
 
   it('proxies when role guard passes and headers exist', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'u',
       'x-tenant': 't',
@@ -61,7 +61,7 @@ describe('tenants members proxy guards', () => {
   });
 
   it('PUT/DELETE are also guarded', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const put = await putMember(makeReq('http://x'), {
       params: { tenantId: 't1', userId: 'u1' },
     } as unknown as { params: { tenantId: string; userId: string } });

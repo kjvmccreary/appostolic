@@ -3,11 +3,11 @@ import type { Mock } from 'vitest';
 import type { NextRequest } from 'next/server';
 import { GET } from './route';
 
-vi.mock('../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
 vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
 vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api' }));
 
-import { guardProxyRole } from '../../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../../src/lib/roleGuard';
 import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
 import type { ProxyHeaders } from '../../../../../src/lib/proxyHeaders';
 
@@ -30,13 +30,13 @@ describe('proxy: memberships list', () => {
   });
 
   it('denies non-admin via guard', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await GET(makeReq(), { params: { tenantId: 't1' } });
     expect(res.status).toBe(403);
   });
 
   it('forwards to API with headers', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'dev@example.com',
       'x-tenant': 't1',

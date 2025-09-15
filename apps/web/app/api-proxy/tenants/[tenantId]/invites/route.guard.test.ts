@@ -4,10 +4,10 @@ import { GET as getInvites, POST as postInvite } from './route';
 import { POST as resendInvite, DELETE as revokeInvite } from './[email]/route';
 import type { NextRequest } from 'next/server';
 import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
-import { guardProxyRole } from '../../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../../src/lib/roleGuard';
 
 vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
-vi.mock('../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
 vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api.test' }));
 
 function makeReq(url: string): NextRequest {
@@ -21,7 +21,7 @@ describe('tenants invites proxy guards', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.mocked(buildProxyHeaders).mockReset();
-    vi.mocked(guardProxyRole).mockReset();
+    vi.mocked(requireTenantAdmin).mockReset();
     fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
@@ -31,7 +31,7 @@ describe('tenants invites proxy guards', () => {
   });
 
   it('GET/POST invite list/create are guarded', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res1 = await getInvites(makeReq('http://x/api-proxy/tenants/t1/invites'), {
       params: { tenantId: 't1' },
     } as unknown as { params: { tenantId: string } });
@@ -43,7 +43,7 @@ describe('tenants invites proxy guards', () => {
   });
 
   it('resend/revoke are guarded', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const resResend = await resendInvite(makeReq('http://x'), {
       params: { tenantId: 't1', email: 'e@example.com' },
     } as unknown as { params: { tenantId: string; email: string } });
@@ -55,7 +55,7 @@ describe('tenants invites proxy guards', () => {
   });
 
   it('proxies when guard passes and headers exist', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'u',
       'x-tenant': 't',

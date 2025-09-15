@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
 import { API_BASE } from '../../../../../src/lib/serverEnv';
 import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
-import { guardProxyRole } from '../../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../../src/lib/roleGuard';
 
 export const runtime = 'nodejs';
 
 // List memberships with roles flags (proxy to API 2.1 list)
 export async function GET(_req: NextRequest, { params }: { params: { tenantId: string } }) {
-  const guard = await guardProxyRole({ tenantId: params.tenantId, anyOf: ['Owner', 'Admin'] });
+  const guard = await requireTenantAdmin({ id: params.tenantId });
   if (guard) return guard;
   const headers = await buildProxyHeaders();
   if (!headers) return new Response('Unauthorized', { status: 401 });

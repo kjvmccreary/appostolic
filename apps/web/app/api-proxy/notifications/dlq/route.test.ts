@@ -24,17 +24,13 @@ vi.mock('next/headers', () => ({
   cookies: () => ({ get: () => ({ value: 'acme' }) }),
 }));
 vi.mock('../../../../src/lib/roleGuard', () => ({
-  pickMembership: vi.fn(),
+  requireTenantAdmin: vi.fn(),
 }));
 
 import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
 import type { ProxyHeaders } from '../../../../src/lib/proxyHeaders';
-import { getServerSession } from 'next-auth';
-import type { Session } from 'next-auth';
-import { pickMembership } from '../../../../src/lib/roleGuard';
-import type { Role } from '../../../../src/lib/roleGuard';
-
-type Membership = { tenantId: string; tenantSlug: string; role: Role };
+// no need to import next-auth here; guard is mocked via requireTenantAdmin
+import { requireTenantAdmin } from '../../../../src/lib/roleGuard';
 
 function makeReq(url = 'http://localhost:3000/api-proxy/notifications/dlq'): NextRequest {
   return { nextUrl: new URL(url) } as unknown as NextRequest;
@@ -61,35 +57,19 @@ describe('api-proxy/notifications/dlq', () => {
   });
 
   it('GET returns 401 when not signed in', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Unauthorized', { status: 401 }));
     const res = await getDlq(makeReq());
     expect(res.status).toBe(401);
   });
 
   it('GET returns 403 when role is not Owner/Admin', async () => {
-    vi.mocked(getServerSession).mockResolvedValue({
-      user: { email: 'u' },
-      memberships: [],
-    } as unknown as Session);
-    vi.mocked(pickMembership).mockReturnValue({
-      tenantId: 't',
-      tenantSlug: 'acme',
-      role: 'Viewer',
-    } as Membership);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await getDlq(makeReq());
     expect(res.status).toBe(403);
   });
 
   it('GET proxies to API with headers and forwards X-Total-Count', async () => {
-    vi.mocked(getServerSession).mockResolvedValue({
-      user: { email: 'u' },
-      memberships: [],
-    } as unknown as Session);
-    vi.mocked(pickMembership).mockReturnValue({
-      tenantId: 't',
-      tenantSlug: 'acme',
-      role: 'Admin',
-    } as Membership);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'u',
       'x-tenant': 't',
@@ -113,35 +93,19 @@ describe('api-proxy/notifications/dlq', () => {
   });
 
   it('POST returns 401 when not signed in', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Unauthorized', { status: 401 }));
     const res = await postDlqReplay(makePostReq());
     expect(res.status).toBe(401);
   });
 
   it('POST returns 403 when role is not Owner/Admin', async () => {
-    vi.mocked(getServerSession).mockResolvedValue({
-      user: { email: 'u' },
-      memberships: [],
-    } as unknown as Session);
-    vi.mocked(pickMembership).mockReturnValue({
-      tenantId: 't',
-      tenantSlug: 'acme',
-      role: 'Viewer',
-    } as Membership);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await postDlqReplay(makePostReq());
     expect(res.status).toBe(403);
   });
 
   it('POST proxies body to API replay endpoint', async () => {
-    vi.mocked(getServerSession).mockResolvedValue({
-      user: { email: 'u' },
-      memberships: [],
-    } as unknown as Session);
-    vi.mocked(pickMembership).mockReturnValue({
-      tenantId: 't',
-      tenantSlug: 'acme',
-      role: 'Owner',
-    } as Membership);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'u',
       'x-tenant': 't',

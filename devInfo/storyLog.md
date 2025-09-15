@@ -9,6 +9,19 @@
   - AgentsTable tests covering empty-state CTA visibility and row action gating.
 - All web unit tests pass locally.
 
+2025-09-15 — Sprint 3.2 (Server guards by flags) — In progress
+
+- Implemented flags-based guards on Agents proxy routes in web:
+  - POST /api-proxy/agents requires canCreate; PUT/DELETE /api-proxy/agents/[id] require canCreate.
+  - Added focused tests asserting 403 when canCreate is false; stabilized NextAuth module mocks.
+- Test suite: PASS (74/74) with new proxy tests included.
+
+2025-09-15 — Sprint 3.2 (Server guards by flags) — ✅ DONE
+
+- Refactored server guard helper to evaluate TenantAdmin via session-derived flags while keeping legacy Owner/Admin API intact for callers.
+- Agents proxies (POST/PUT/DELETE) now consistently require canCreate; existing admin proxies (members/memberships/invites, DLQ) map Owner/Admin to TenantAdmin under the hood.
+- Full web test suite passing (74/74) after guard refactor.
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary

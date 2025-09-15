@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE } from '../../../../src/lib/serverEnv';
 import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../src/lib/auth';
-import { cookies } from 'next/headers';
-import { pickMembership } from '../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../src/lib/roleGuard';
 
 export const runtime = 'nodejs';
 
 async function ensureOwnerOrAdmin(): Promise<Response | null> {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return new Response('Unauthorized', { status: 401 });
-  const slug = cookies().get('selected_tenant')?.value;
-  const mem = pickMembership(session, { tenantSlug: slug });
-  if (!mem) return new Response('Forbidden', { status: 403 });
-  if (mem.role !== 'Owner' && mem.role !== 'Admin')
-    return new Response('Forbidden', { status: 403 });
-  return null;
+  return requireTenantAdmin();
 }
 
 export async function GET(req: NextRequest) {

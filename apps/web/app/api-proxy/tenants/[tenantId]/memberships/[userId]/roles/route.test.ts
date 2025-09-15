@@ -3,11 +3,11 @@ import type { Mock } from 'vitest';
 import type { NextRequest } from 'next/server';
 import { POST } from './route';
 
-vi.mock('../../../../../../../src/lib/roleGuard', () => ({ guardProxyRole: vi.fn() }));
+vi.mock('../../../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
 vi.mock('../../../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
 vi.mock('../../../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api' }));
 
-import { guardProxyRole } from '../../../../../../../src/lib/roleGuard';
+import { requireTenantAdmin } from '../../../../../../../src/lib/roleGuard';
 import { buildProxyHeaders } from '../../../../../../../src/lib/proxyHeaders';
 import type { ProxyHeaders } from '../../../../../../../src/lib/proxyHeaders';
 
@@ -33,7 +33,7 @@ describe('proxy: memberships roles POST', () => {
   });
 
   it('denies non-admin via guard', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await POST(makeReq('{"roles":["TenantAdmin"]}'), {
       params: { tenantId: 't1', userId: 'u1' },
     });
@@ -42,7 +42,7 @@ describe('proxy: memberships roles POST', () => {
   });
 
   it('returns 401 when no headers', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue(null);
     const res = await POST(makeReq('{"roles":[]}'), { params: { tenantId: 't1', userId: 'u1' } });
     expect(res.status).toBe(401);
@@ -50,7 +50,7 @@ describe('proxy: memberships roles POST', () => {
   });
 
   it('forwards to API when authorized', async () => {
-    vi.mocked(guardProxyRole).mockResolvedValue(null);
+    vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
       'x-dev-user': 'dev@example.com',
       'x-tenant': 't1',
