@@ -421,6 +421,23 @@ Requirements coverage
   - URL param preservation between steps: Done
   - Review page links to Editor and back to Step 2: Done
 
+## UI Sprint 02 — Story 4.3: Editor scaffold (mock) — Completed
+
+- Summary
+  - Implemented an Editor page with a responsive two-column layout. Main content shows Title, Scripture blockquote, Outline, and Draft text. Sidebar displays metadata and three no-op action buttons (Save Draft, Generate Slides, Export PDF). A back link to Shepherd Step 2 is present per spec.
+
+- Files changed
+  - apps/web/app/editor/page.tsx — new page
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (existing suites remain green)
+
+- Requirements coverage
+  - Two-column responsive layout with collapsible sidebar on mobile: Done
+  - Metadata cards and no-op actions present: Done
+  - Back to Shepherd Step 2 link present: Done
+
 ## Notif-26 — Privacy Policy and vendor compliance docs — Completed
 
 ## Notif-28 — Manual resend endpoint with throttle — Completed

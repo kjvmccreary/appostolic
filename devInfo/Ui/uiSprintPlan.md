@@ -142,7 +142,7 @@ Story 4.2: Shepherd scaffolding (5 steps) — ✅ DONE
   - Back/Next nav works client-side; steps count=5; duration slider ticks match spec
   - Review aggregates selected inputs
 
-Story 4.3: Editor scaffold (mock)
+Story 4.3: Editor scaffold (mock) — ✅ DONE
 
 - Files/Changes:
   - apps/web/app/editor/page.tsx (title, metadata, outline, scripture blockquote)
