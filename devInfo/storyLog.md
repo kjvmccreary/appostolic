@@ -28,6 +28,28 @@
   - Inline validation message for email: Done
   - Empty state visuals and richer validation: Deferred
 
+2025-09-15 — Admin — Story B: Members roles UX polish — ✅ DONE
+
+- Summary
+  - Polished `/studio/admin/members` with save feedback and safety affordances. Added a small client hook `useMembersToasts` that reads `ok/err` after a roles save redirect and shows success/error toasts, then strips the params. Checkboxes now expose a `data-pending` attribute during form submission for visual pending state. The UI surfaces a clear helper message via `aria-describedby` explaining why the last remaining TenantAdmin cannot be unchecked.
+  - Stabilized tests by introducing `useToastOptional()` (a no-throw variant) and wrapping the shared test render provider with `ToastProvider` so client toast hooks can mount without requiring per-test setup.
+
+- Files changed
+  - apps/web/src/components/useMembersToasts.tsx — toast hook using window.location; now uses `useToastOptional()`
+  - apps/web/app/studio/admin/members/ClientToasts.tsx — client shim to mount the hook
+  - apps/web/app/studio/admin/members/page.tsx — wires `ClientToasts`, redirects with `ok/err` on save, adds `data-pending` and last-admin helper text
+  - apps/web/src/components/ui/Toaster.tsx — adds `useToastOptional()` helper
+  - apps/web/test/utils.tsx — wraps RTL provider tree with `ToastProvider`
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — 38 files, 101 tests; coverage acceptable (members hook lightly tested)
+
+- Requirements coverage
+  - Pending state on role toggles: Done
+  - Save success/error via toast: Done
+  - Last-admin guard surfaced with accessible messaging: Done
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 

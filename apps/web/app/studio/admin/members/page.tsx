@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 import type { FlagRole } from '../../../../src/lib/roles';
+import ClientToasts from './ClientToasts';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 type MemberRow = {
@@ -66,13 +67,18 @@ export default async function MembersPage() {
     if (approver) roles.push('Approver');
     if (creator) roles.push('Creator');
     if (learner) roles.push('Learner');
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/memberships/${userId}/roles`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roles }),
-      cache: 'no-store',
-    });
-    revalidatePath('/studio/admin/members');
+    try {
+      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/memberships/${userId}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roles }),
+        cache: 'no-store',
+      });
+      revalidatePath('/studio/admin/members');
+      redirect('/studio/admin/members?ok=roles-saved');
+    } catch {
+      redirect('/studio/admin/members?err=roles-failed');
+    }
   }
 
   // Compute last-admin counts to disable unchecking last admin in UI
@@ -83,6 +89,7 @@ export default async function MembersPage() {
 
   return (
     <div>
+      <ClientToasts />
       <h1>Members — {mine.tenantSlug}</h1>
       <table>
         <thead>
@@ -112,8 +119,15 @@ export default async function MembersPage() {
                         name="TenantAdmin"
                         defaultChecked={flags.has('TenantAdmin')}
                         disabled={lastAdmin}
+                        aria-describedby={lastAdmin ? `admin-help-${m.userId}` : undefined}
+                        data-pending
                       />
                     </label>
+                    {lastAdmin && (
+                      <p id={`admin-help-${m.userId}`} className="text-xs text-muted">
+                        You can’t remove the last TenantAdmin.
+                      </p>
+                    )}
                   </form>
                 </td>
                 <td>
@@ -125,6 +139,7 @@ export default async function MembersPage() {
                         type="checkbox"
                         name="Approver"
                         defaultChecked={flags.has('Approver')}
+                        data-pending
                       />
                     </label>
                   </form>
@@ -138,6 +153,7 @@ export default async function MembersPage() {
                         type="checkbox"
                         name="Creator"
                         defaultChecked={flags.has('Creator')}
+                        data-pending
                       />
                     </label>
                   </form>
@@ -156,6 +172,7 @@ export default async function MembersPage() {
                             !flags.has('Approver') &&
                             !flags.has('Creator'))
                         }
+                        data-pending
                       />
                     </label>
                   </form>

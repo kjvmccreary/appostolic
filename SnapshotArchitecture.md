@@ -12,6 +12,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Added a lightweight global toast system and switched `/studio/admin/invites` from SSR banners to client toasts derived from `ok/err` query parameters (then stripped from the URL). Replaced `window.confirm` with an accessible modal `ConfirmDialog` used by `ConfirmSubmitButton`.
   - Added an empty state when no invites exist and introduced a validated `EmailField` client component that announces inline errors using aria-invalid/aria-describedby and role=alert after first blur.
 
+- Web — Admin: Members roles UX polish
+  - `/studio/admin/members` now provides save feedback via client toasts triggered from `ok/err` query parameters after server action redirects. Checkboxes expose `data-pending` during submission, and the last-admin safety rule is surfaced with an accessible helper message using `aria-describedby`.
+  - Tests updated and hardened by adding `useToastOptional()` (a no-throw hook for isolated renders) and wrapping the shared test Providers with `ToastProvider`.
+
 - Docs — Frontend ↔ Backend Parity Sprint Plan (Added)
   - Introduced `devInfo/FrontendStuff/paritySprintPlan.md`, a concrete plan to align the Next.js web UI with existing backend capabilities. It inventories Admin (Members, Invites, Audits, Notifications), Studio (Agents, Agent Tasks), and Auth/Tenant flows, defines stories with acceptance criteria, quality gates (typecheck, tests, lint, a11y), and a phased timeline.
 

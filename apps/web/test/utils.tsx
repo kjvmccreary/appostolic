@@ -4,13 +4,16 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import { themeOptions } from '../src/theme/themeOptions';
+import { ToastProvider } from '../src/components/ui/Toaster';
 
 function Providers({ children }: PropsWithChildren) {
   const theme = createTheme(themeOptions);
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <LocalizationProvider dateAdapter={AdapterDateFns}>{children}</LocalizationProvider>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <ToastProvider>{children}</ToastProvider>
+      </LocalizationProvider>
     </ThemeProvider>
   );
 }

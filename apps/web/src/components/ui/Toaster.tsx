@@ -22,6 +22,12 @@ export function useToast() {
   return ctx;
 }
 
+// Optional variant for scenarios like isolated tests where the provider
+// may not be mounted. Returns undefined instead of throwing.
+export function useToastOptional() {
+  return React.useContext(ToastContext);
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const counter = React.useRef(1);
