@@ -1,7 +1,7 @@
 import './globals.css';
 import React from 'react';
 import Providers from './providers';
-import { AppHeader } from '../src/components/AppHeader';
+import { TopBar } from '../src/components/TopBar';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>
-          <AppHeader />
+          <TopBar />
           {children}
         </Providers>
       </body>
