@@ -398,6 +398,29 @@ Requirements coverage
   - Responsive grid at common breakpoints: Done
   - No regressions in Studio/Dev: Done
 
+## UI Sprint 02 — Story 4.2: Shepherd scaffolding (5 steps) — Completed
+
+- Summary
+  - Added Shepherd flow with 5 steps (Topic, Audience, Tone, Deliverables, Review). Each page includes the Stepper (aria: "Shepherd steps"), Back/Next navigation, and preserves URL parameters across steps. Step 5 links to the Editor and provides a convenience link back to Step 2.
+
+- Files changed
+  - apps/web/app/shepherd/page.tsx — redirect to /shepherd/step1
+  - apps/web/app/shepherd/step1/page.tsx
+  - apps/web/app/shepherd/step2/page.tsx
+  - apps/web/app/shepherd/step3/page.tsx
+  - apps/web/app/shepherd/step4/page.tsx
+  - apps/web/app/shepherd/step5/page.tsx
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (existing suites remain green)
+
+- Requirements coverage
+  - 5 Shepherd steps scaffolded with Back/Next: Done
+  - Stepper present with aria and active step: Done
+  - URL param preservation between steps: Done
+  - Review page links to Editor and back to Step 2: Done
+
 ## Notif-26 — Privacy Policy and vendor compliance docs — Completed
 
 ## Notif-28 — Manual resend endpoint with throttle — Completed

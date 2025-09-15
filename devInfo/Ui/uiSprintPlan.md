@@ -128,15 +128,16 @@ Story 4.1: Dashboard scaffold — ✅ DONE
   - Quick Start links to /shepherd/step1
   - Typecheck/tests pass; no regressions in Studio/Dev pages
 
-Story 4.2: Shepherd scaffolding (5 steps)
+Story 4.2: Shepherd scaffolding (5 steps) — ✅ DONE
 
 - Files/Changes:
-  - apps/web/app/wizard/step1/page.tsx
-  - apps/web/app/wizard/step2/page.tsx
-  - apps/web/app/wizard/step3/page.tsx
-  - apps/web/app/wizard/step4/page.tsx
-  - apps/web/app/wizard/step5/page.tsx (review)
-  - Local state with URL param persistence; Stepper displayed on all steps
+  - apps/web/app/shepherd/page.tsx (redirect to /shepherd/step1)
+  - apps/web/app/shepherd/step1/page.tsx
+  - apps/web/app/shepherd/step2/page.tsx
+  - apps/web/app/shepherd/step3/page.tsx
+  - apps/web/app/shepherd/step4/page.tsx
+  - apps/web/app/shepherd/step5/page.tsx (review)
+  - Preserves URL params between steps; Stepper displayed on all steps
 - Acceptance Criteria
   - Back/Next nav works client-side; steps count=5; duration slider ticks match spec
   - Review aggregates selected inputs
