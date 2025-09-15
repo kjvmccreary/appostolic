@@ -1,5 +1,25 @@
 ## Sprint 4.2 – Docs and SnapshotArchitecture (2025-09-15)
 
+2025-09-15 — Admin — Story A: Invites UX polish (phase 1) — In progress
+
+- Summary
+  - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
+
+- Files changed
+  - apps/web/app/studio/admin/invites/page.tsx — add searchParams handling, ok/err status banners, and confirm-based revoke flow
+  - apps/web/app/studio/admin/invites/page.test.tsx — tests for ok/err banners and failed fetch state
+  - apps/web/src/components/ui/ConfirmSubmitButton.tsx — new client utility for confirm→submit
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — 38 files, 101 tests; coverage ~90.6% lines
+
+- Requirements coverage
+  - Revoke confirmation added (client confirm for safety): Done
+  - Action feedback surfaced via status banners (ok/err): Done
+  - Tests for banners and error state: Done
+  - Toasts and accessible confirm dialog: Deferred to next phase
+
 2025-09-15 — Docs — Frontend ↔ Backend Parity Sprint Plan — ✅ DONE
 
 - Summary

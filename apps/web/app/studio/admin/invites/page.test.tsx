@@ -46,4 +46,54 @@ describe('InvitesAdminPage (server)', () => {
     const jsx = (await InvitesAdminPage()) as unknown as { [k: string]: unknown };
     expect(JSON.stringify(jsx)).toContain('Invites');
   });
+
+  it('renders success banner when ok flag present', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      tenant: 't1',
+    } as unknown as Parameters<typeof getServerSession>[0]);
+    vi.mocked(fetchFromProxy).mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    } as unknown as Response);
+    const jsx = (await InvitesAdminPage({
+      searchParams: { ok: 'invite-resent' },
+    } as unknown as Parameters<typeof InvitesAdminPage>[0])) as unknown as {
+      [k: string]: unknown;
+    };
+    expect(JSON.stringify(jsx)).toContain('Invite email resent.');
+  });
+
+  it('renders error banner when err flag present', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      tenant: 't1',
+    } as unknown as Parameters<typeof getServerSession>[0]);
+    vi.mocked(fetchFromProxy).mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    } as unknown as Response);
+    const jsx = (await InvitesAdminPage({
+      searchParams: { err: 'invite-failed' },
+    } as unknown as Parameters<typeof InvitesAdminPage>[0])) as unknown as {
+      [k: string]: unknown;
+    };
+    expect(JSON.stringify(jsx)).toContain('Something went wrong');
+  });
+
+  it('renders failure state when invites fetch fails', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      tenant: 't1',
+    } as unknown as Parameters<typeof getServerSession>[0]);
+    vi.mocked(fetchFromProxy).mockResolvedValue({
+      ok: false,
+      json: async () => ({ message: 'bad' }),
+    } as unknown as Response);
+    const jsx = (await InvitesAdminPage()) as unknown as { [k: string]: unknown };
+    expect(JSON.stringify(jsx)).toContain('Failed to load invites');
+  });
 });

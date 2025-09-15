@@ -4,6 +4,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — Admin: Invites UX polish (phase 1)
+  - `/studio/admin/invites` now shows status banners based on `ok`/`err` query parameters after server actions (create/resend/revoke). Revoke uses a small client helper `ConfirmSubmitButton` to ask for confirmation before submitting the server-action form, avoiding accidental revocations while keeping server-first behavior.
+  - Tests extended to cover banner rendering and error fallback when invites fetch fails. Next phase will add toast notifications, empty/validation states, and an accessible confirm dialog.
+
 - Docs — Frontend ↔ Backend Parity Sprint Plan (Added)
   - Introduced `devInfo/FrontendStuff/paritySprintPlan.md`, a concrete plan to align the Next.js web UI with existing backend capabilities. It inventories Admin (Members, Invites, Audits, Notifications), Studio (Agents, Agent Tasks), and Auth/Tenant flows, defines stories with acceptance criteria, quality gates (typecheck, tests, lint, a11y), and a phased timeline.
 
