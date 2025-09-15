@@ -535,6 +535,34 @@ public partial class AppDbContext : DbContext
             b.HasIndex(x => x.Token).IsUnique();
         });
 
+        // Audit entries for membership role changes (IAM 3.3)
+        modelBuilder.Entity<Audit>(b =>
+        {
+            b.ToTable("audits");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.TenantId).HasColumnName("tenant_id");
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.ChangedByUserId).HasColumnName("changed_by_user_id").IsRequired(false);
+            b.Property(x => x.ChangedByEmail).HasColumnName("changed_by_email").IsRequired(false);
+            b.Property(x => x.OldRoles).HasColumnName("old_roles");
+            b.Property(x => x.NewRoles).HasColumnName("new_roles");
+            b.Property(x => x.ChangedAt).HasColumnName("changed_at").HasDefaultValueSql("timezone('utc', now())");
+
+            // Helpful index for recent changes per tenant
+            b.HasIndex(x => new { x.TenantId, x.ChangedAt }).HasDatabaseName("ix_audits_tenant_changed");
+
+            // FKs (optional, not enforced to keep write path simple)
+            b.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Magic Link Login Tokens (Auth-ML-01)
         modelBuilder.Entity<LoginToken>(b =>
         {
@@ -562,6 +590,7 @@ public partial class AppDbContext : DbContext
     public DbSet<Lesson> Lessons => Set<Lesson>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<LoginToken> LoginTokens => Set<LoginToken>();
+    public DbSet<Audit> Audits => Set<Audit>();
 }
 
 public record Tenant
@@ -632,6 +661,22 @@ public record Invitation
     public Guid? InvitedByUserId { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Audit record for membership roles changes under a tenant scope.
+/// Captures target user, who performed the change, and old/new Roles bitfields.
+/// </summary>
+public record Audit
+{
+    public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
+    public Guid UserId { get; init; }
+    public Guid? ChangedByUserId { get; init; }
+    public string? ChangedByEmail { get; init; }
+    public Roles OldRoles { get; init; }
+    public Roles NewRoles { get; init; }
+    public DateTime ChangedAt { get; init; }
 }
 
 public record LoginToken

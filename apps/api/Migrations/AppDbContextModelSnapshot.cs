@@ -89,6 +89,47 @@ namespace Appostolic.Api.Migrations
                         });
                 });
 
+                    modelBuilder.Entity("Appostolic.Api.Audit", b =>
+                    {
+                        b.Property<Guid>("Id")
+                            .HasColumnType("uuid")
+                            .HasColumnName("id");
+
+                        b.Property<DateTime>("ChangedAt")
+                            .HasColumnType("timestamp with time zone")
+                            .HasColumnName("changed_at");
+
+                        b.Property<string>("ChangedByEmail")
+                            .HasColumnType("text")
+                            .HasColumnName("changed_by_email");
+
+                        b.Property<Guid?>("ChangedByUserId")
+                            .HasColumnType("uuid")
+                            .HasColumnName("changed_by_user_id");
+
+                        b.Property<int>("NewRoles")
+                            .HasColumnType("integer")
+                            .HasColumnName("new_roles");
+
+                        b.Property<int>("OldRoles")
+                            .HasColumnType("integer")
+                            .HasColumnName("old_roles");
+
+                        b.Property<Guid>("TenantId")
+                            .HasColumnType("uuid")
+                            .HasColumnName("tenant_id");
+
+                        b.Property<Guid>("UserId")
+                            .HasColumnType("uuid")
+                            .HasColumnName("user_id");
+
+                        b.HasKey("Id");
+
+                        b.HasIndex("TenantId", "ChangedAt")
+                            .HasDatabaseName("ix_audits_tenant_changed");
+
+                        b.ToTable("audits", (string)null);
+                    });
             modelBuilder.Entity("Appostolic.Api.Domain.Agents.AgentTask", b =>
                 {
                     b.Property<Guid>("Id")

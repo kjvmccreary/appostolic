@@ -22,6 +22,14 @@
 - Agents proxies (POST/PUT/DELETE) now consistently require canCreate; existing admin proxies (members/memberships/invites, DLQ) map Owner/Admin to TenantAdmin under the hood.
 - Full web test suite passing (74/74) after guard refactor.
 
+2025-09-15 — Sprint 3.3 (Audit trails for assignments) — ✅ DONE
+
+- Added an `Audit` entity and table (`app.audits`) to capture role changes: tenant, user, who changed, old/new Roles flags, and timestamp. Indexed by (tenant_id, changed_at).
+- Wired audit creation into `POST /api/tenants/{tenantId}/memberships/{userId}/roles` after successful changes in both InMemory and relational paths; caller identity gleaned from claims.
+- Added EF migration `s4_02_membership_roles_audits` and updated model snapshot.
+- Tests: `AuditTrailTests` asserts an audit row is created with correct old/new values and ChangedByEmail.
+- Quality gates: API tests PASS (focused + existing AssignmentsApiTests remain green).
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary

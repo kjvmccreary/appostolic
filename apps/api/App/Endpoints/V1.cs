@@ -897,6 +897,24 @@ public static class V1
                 await db.SaveChangesAsync();
                 db.Memberships.Add(replacement);
                 await db.SaveChangesAsync();
+
+                // Audit: record roles change
+                Guid? changedByUserId = null;
+                var changedByStr = user.FindFirstValue("sub");
+                if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
+                var changedByEmail = user.FindFirstValue("email");
+                db.Audits.Add(new Audit
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    UserId = replacement.UserId,
+                    ChangedByUserId = changedByUserId,
+                    ChangedByEmail = changedByEmail,
+                    OldRoles = target.Roles,
+                    NewRoles = newFlags,
+                    ChangedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
             }
             else
             {
@@ -915,6 +933,24 @@ public static class V1
                 db.Memberships.Remove(target);
                 await db.SaveChangesAsync();
                 db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+
+                // Audit: record roles change within same transaction
+                Guid? changedByUserId = null;
+                var changedByStr = user.FindFirstValue("sub");
+                if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
+                var changedByEmail = user.FindFirstValue("email");
+                db.Audits.Add(new Audit
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    UserId = replacement.UserId,
+                    ChangedByUserId = changedByUserId,
+                    ChangedByEmail = changedByEmail,
+                    OldRoles = target.Roles,
+                    NewRoles = newFlags,
+                    ChangedAt = DateTime.UtcNow
+                });
                 await db.SaveChangesAsync();
                 await tx.CommitAsync();
             }

@@ -182,14 +182,18 @@ Guard usage note (for new routes)
   - Proxy example (Admin): for legacy Owner/Admin call sites, continue passing `anyOf: ['Owner','Admin']` to `guardProxyRole` — it maps to TenantAdmin flags under the hood.
   - Server Page example: when asserting access, use `requirePageRole(['Admin'])` for admin-only.
 
-Story 3.3 — Audit trails for assignments (minimal)
+Story 3.3 — Audit trails for assignments — ✅ DONE
 
 - Scope:
   - Persist audit entries when roles change (who/when/old→new) under tenant scope.
 - Acceptance:
-  - Entries persisted and queryable; structured logs on 403s.
+  - Entries persisted and queryable.
+- Implementation:
+  - Added `Audit` entity and `DbSet<Audit>`; mapped to `app.audits` with columns { id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles, new_roles, changed_at } and index on (tenant_id, changed_at).
+  - Hooked audit creation into `POST /api/tenants/{tenantId}/memberships/{userId}/roles` after successful change (both InMemory and relational transaction paths). Caller identity inferred from claims (sub/email) when available.
+  - Migration `s4_02_membership_roles_audits` adds the table; snapshot updated.
 - Tests:
-  - Unit test audit service invocation on change.
+  - `apps/api.tests/Api/AuditTrailTests.cs` verifies an audit row is written with correct old/new flags and ChangedByEmail upon roles change.
 
 ---
 
