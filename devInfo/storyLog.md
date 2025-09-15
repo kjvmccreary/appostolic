@@ -398,6 +398,26 @@ Requirements coverage
   - Responsive grid at common breakpoints: Done
   - No regressions in Studio/Dev: Done
 
+## UI Sprint 02 — Epic 6: Testing & Tooling — Completed (Unit tests) / Skipped (Playwright)
+
+- Summary
+  - Strengthened unit test coverage with Vitest for the new UI scaffolds. Added Dashboard and Editor render tests (landmarks and key links) and a TopBar test verifying aria-current reflects the active path. Existing Stepper/Chip/ThemeToggle tests remain. Per team decision, Playwright E2E is skipped for this sprint.
+
+- Files changed
+  - apps/web/src/app/Dashboard.test.tsx — new
+  - apps/web/src/app/Editor.test.tsx — new
+  - apps/web/src/components/TopBar.test.tsx — new
+  - (preexisting) apps/web/src/components/ui/{Stepper.test.tsx,Chip.test.tsx}
+  - (preexisting) apps/web/src/components/ThemeToggle.test.tsx
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (Vitest suites)
+
+- Requirements coverage
+  - Unit tests for primitives/pages: Done
+  - Playwright E2E smoke: Skipped (out of scope)
+
 ## UI Sprint 02 — Story 4.2: Shepherd scaffolding (5 steps) — Completed
 
 - Summary
