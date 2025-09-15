@@ -7,7 +7,7 @@ import { roleNamesFromFlags } from '../../../../src/lib/roles';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 
-type AuditRow = {
+export type AuditRow = {
   id: string;
   userId: string;
   changedByUserId: string;
@@ -16,6 +16,18 @@ type AuditRow = {
   newRoles: number; // flags value
   changedAt: string;
 };
+
+// mapAuditRows
+// Pure helper to transform raw audit rows by expanding numeric flag bitmasks
+// into human-readable comma-separated role name lists. Exported for unit tests
+// to ensure UI stays in sync with server enum bit assignments.
+export function mapAuditRows(raw: AuditRow[]) {
+  return raw.map((r) => ({
+    ...r,
+    oldNames: roleNamesFromFlags(r.oldRoles).join(', ') || 'None',
+    newNames: roleNamesFromFlags(r.newRoles).join(', ') || 'None',
+  }));
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -76,11 +88,7 @@ export default async function AuditsPage({
   if (!res.ok) return <div>Failed to load audits</div>;
   const total = Number(res.headers.get('X-Total-Count') ?? '0');
   const raw = (await res.json()) as AuditRow[];
-  const rows = raw.map((r) => ({
-    ...r,
-    oldNames: roleNamesFromFlags(r.oldRoles).join(', ') || 'None',
-    newNames: roleNamesFromFlags(r.newRoles).join(', ') || 'None',
-  }));
+  const rows = mapAuditRows(raw);
 
   const page = Math.floor(Number(skip) / Number(take)) + 1;
   const pages = Math.max(1, Math.ceil(total / Number(take)));

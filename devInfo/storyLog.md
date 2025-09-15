@@ -69,6 +69,29 @@
 - Purpose: Establish a clean baseline commit before further audits UI/test refinements (role flags mapping, additional validation tests).
 - Commit: feat(audits): add proxy route test for audits endpoint (hash 90a2948).
 
+2025-09-15 — Audits hardening (validation + flags mapping) — ✅ DONE
+
+- Summary
+  - Added manual GUID format validation for `userId` and `changedByUserId` query parameters in `GET /api/tenants/{tenantId}/audits`; malformed GUIDs now return 400 before building EF queries.
+  - Added API test `Returns_400_on_invalid_guid_filters` to assert 400 behavior on malformed filters.
+  - Web audits page now decodes numeric role flags into human‑readable names (TenantAdmin, Approver, Creator, Learner) using new helper `roleNamesFromFlags` in `apps/web/src/lib/roles.ts`.
+  - Updated Agents table pagination to include `20` in `pageSizeOptions` (eliminated MUI warning) and set default page size to 20.
+  - Fixed React Testing Library act warnings in `useTaskPolling.test.tsx` by wrapping delayed intervals and rerenders in `act`.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — Added GUID query validation logic to audits listing endpoint.
+  - apps/api.tests/Api/AuditsListingEndpointTests.cs — Added invalid GUID 400 test.
+  - apps/web/app/studio/admin/audits/page.tsx — Mapped old/new numeric flags to readable lists.
+  - apps/web/src/lib/roles.ts — Added `roleNamesFromFlags` helper + FLAG_ORDER.
+  - apps/web/src/app/studio/agents/components/AgentsTable.tsx — Pagination options updated (10,20,50) and default 20.
+  - apps/web/src/app/dev/agents/hooks/useTaskPolling.test.tsx — Wrapped async waits/rerender in `act`.
+
+- Quality gates
+  - API tests: PASS (135/135)
+  - Web tests: PASS (81/81 files) — coverage ~91% lines.
+
+- Commit: chore(audits-hardening): validation, role flags mapping, test fixes, pagination options, docs (hash 8b901ca)
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary
