@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — IAM Sprint 2.4: Membership admin page (Completed)
+  - Added server proxies to surface assignment APIs: `GET /api-proxy/tenants/{tenantId}/memberships` and `POST /api-proxy/tenants/{tenantId}/memberships/{userId}/roles`. Both are guarded server-side (Owner/Admin) via `guardProxyRole` and forward dev headers via `buildProxyHeaders`.
+  - New page `/studio/admin/members` lists members for the selected tenant and exposes checkboxes for flags: TenantAdmin, Approver, Creator, Learner. The UI disables unchecking the last remaining TenantAdmin for safety; the API remains the source of truth and enforces the invariant.
+  - Tests cover proxy handlers (guard and forwarding); page-level render tests are planned alongside route gating in Sprint 3.
+
 - Web — IAM Sprint 2.3: Roles‑aware session (Completed)
   - NextAuth JWT/session now includes memberships with Roles flags when available and derives convenience booleans for the selected tenant: isAdmin, canApprove, canCreate, isLearner. A helpers module `apps/web/src/lib/roles.ts` normalizes flags from legacy roles when flags are absent.
   - Added a dev diagnostics endpoint `GET /api/debug/session` that returns the effective session, the `selected_tenant` cookie, and the derived booleans/roles for quick verification.

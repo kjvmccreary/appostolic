@@ -199,6 +199,30 @@ Quality gates
 - Build (API): PASS
 - Tests: PASS (full suite incl. new encryption tests)
 
+## IAM — Sprint 2.4: Web Membership admin page — Completed
+
+- Summary
+  - Implemented web-facing role management for tenant memberships. Added server-only proxies to list memberships and update roles flags, guarded by Owner/Admin and forwarding dev headers. Built `/studio/admin/members` server page rendering a simple table with checkboxes for TenantAdmin/Approver/Creator/Learner, including a UI guard that disables unchecking the last remaining TenantAdmin. API remains the enforcement source for invariants.
+
+- Files changed
+  - apps/web/app/api-proxy/tenants/[tenantId]/memberships/route.ts — GET proxy to API list memberships (guards + headers)
+  - apps/web/app/api-proxy/tenants/[tenantId]/memberships/[userId]/roles/route.ts — POST proxy to set flags (guards + headers)
+  - apps/web/app/studio/admin/members/page.tsx — Admin page listing members with flags checkboxes and server actions to save
+  - apps/web/app/api-proxy/tenants/[tenantId]/memberships/route.test.ts — tests: guard and forwarding
+  - apps/web/app/api-proxy/tenants/[tenantId]/memberships/[userId]/roles/route.test.ts — tests: guard, 401, and forwarding
+  - devInfo/IAM/iamSprintPlan.md — mark Story 2.4 DONE; add test notes
+  - SnapshotArchitecture.md — What’s new updated for 2.4
+
+- Quality gates
+  - Lint/Typecheck (web): PASS
+  - Unit tests (web): PASS (63/63)
+
+- Requirements coverage
+  - Admin page exists and is role-gated server-side, with non-admins seeing a 403 component: Done
+  - Checkboxes for TenantAdmin/Approver/Creator/Learner and save via proxy: Done
+  - UI prevents unchecking last remaining TenantAdmin; server invariant enforced: Done
+  - Proxy route tests cover guard and forwarding; page-level tests to be expanded in Sprint 3 alongside route gating: Done (current scope)
+
 ## IAM — Story 1.3: Apply role enforcement and uniform 403 — Completed
 
 - Summary

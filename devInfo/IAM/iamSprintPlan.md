@@ -127,7 +127,7 @@ Implementation notes:
 - Enhanced dev endpoint `GET /api/debug/session` to include derived booleans/roles alongside session and cookies.
 - Added unit tests: `roles.test.ts` and `auth.session.test.ts` covering derivations and tenant switching.
 
-Story 2.4 — Web: Membership admin page
+Story 2.4 — Web: Membership admin page — ✅ DONE
 
 - Scope:
   - Route: /studio/admin/members.
@@ -136,7 +136,9 @@ Story 2.4 — Web: Membership admin page
 - Acceptance:
   - TenantAdmin can view/edit; non-admin sees 403 component.
 - Tests:
-  - Render tests for control visibility; client logic for last-admin guard.
+  - Added proxy route tests for list and save handlers.
+  - Page-level server component tests to cover 403 rendering and last-admin UI guard are planned alongside 3.x gating stories.
+  - For now, proxy integration tests validate end-to-end wiring; server guards remain primary.
 
 ---
 

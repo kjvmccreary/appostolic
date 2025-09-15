@@ -4,87 +4,83 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
+import type { FlagRole } from '../../../../src/lib/roles';
 
-type Membership = { tenantId: string; tenantSlug: string; role: string };
+type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+type MemberRow = {
+  userId: string;
+  email: string;
+  role: LegacyRole;
+  roles: string; // flags string from API (e.g., "TenantAdmin,Creator")
+  rolesValue: number;
+  joinedAt: string;
+};
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+function parseRoles(flags: string): FlagRole[] {
+  return flags
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => !!s) as FlagRole[];
+}
 
 export default async function MembersPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
-  const memberships = (session as unknown as { memberships?: Membership[] }).memberships ?? [];
+  const memberships =
+    (
+      session as unknown as {
+        memberships?: { tenantId: string; tenantSlug: string; role: LegacyRole }[];
+      }
+    ).memberships ?? [];
   const currentTenant =
     (session as unknown as { tenant?: string }).tenant || cookies().get('selected_tenant')?.value;
   const mine = memberships.find((m) => m.tenantSlug === currentTenant);
   if (!mine) redirect('/select-tenant');
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') redirect('/');
-
-  // Fetch members via proxy
-  const res = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/members`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    return <div>Failed to load members</div>;
+  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
+    // Non-admin: render a simple 403 message per acceptance
+    return <div>403 — Access denied</div>;
   }
-  const members = (await res.json()) as {
-    userId: string;
-    email: string;
-    role: string;
-    joinedAt: string;
-  }[];
 
-  // Fetch invites
-  const invitesRes = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/invites`, {
+  // Fetch role-aware memberships via proxy
+  const listRes = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/memberships`, {
     cache: 'no-store',
   });
-  const invites = invitesRes.ok
-    ? ((await invitesRes.json()) as {
-        email: string;
-        role: string;
-        expiresAt: string;
-        acceptedAt?: string | null;
-        invitedByEmail?: string | null;
-        acceptedByEmail?: string | null;
-      }[])
-    : [];
+  if (!listRes.ok) return <div>Failed to load members</div>;
+  const members = (await listRes.json()) as MemberRow[];
 
   const tenantId = mine.tenantId;
 
-  async function createInvite(formData: FormData) {
+  async function saveMemberRoles(formData: FormData) {
     'use server';
-    const email = String(formData.get('email') ?? '').trim();
-    const role = String(formData.get('role') ?? 'Viewer');
-    if (!email) return;
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
+    const userId = String(formData.get('userId'));
+    const admin = formData.get('TenantAdmin') === 'on';
+    const approver = formData.get('Approver') === 'on';
+    const creator = formData.get('Creator') === 'on';
+    const learner = formData.get('Learner') === 'on';
+    const roles: FlagRole[] = [];
+    if (admin) roles.push('TenantAdmin');
+    if (approver) roles.push('Approver');
+    if (creator) roles.push('Creator');
+    if (learner) roles.push('Learner');
+    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/memberships/${userId}/roles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ roles }),
       cache: 'no-store',
     });
     revalidatePath('/studio/admin/members');
   }
 
-  async function resendInvite(formData: FormData) {
-    'use server';
-    const email = String(formData.get('email'));
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
-      method: 'POST',
-      cache: 'no-store',
-    });
-    revalidatePath('/studio/admin/members');
-  }
+  // Compute last-admin counts to disable unchecking last admin in UI
+  const currentAdmins = members
+    .filter((m) => parseRoles(m.roles).includes('TenantAdmin'))
+    .map((m) => m.userId);
+  const isLastAdmin = (userId: string) => currentAdmins.length === 1 && currentAdmins[0] === userId;
 
-  async function revokeInvite(formData: FormData) {
-    'use server';
-    const email = String(formData.get('email'));
-    await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-      cache: 'no-store',
-    });
-    revalidatePath('/studio/admin/members');
-  }
   return (
     <div>
       <h1>Members — {mine.tenantSlug}</h1>
@@ -92,72 +88,82 @@ export default async function MembersPage() {
         <thead>
           <tr>
             <th>Email</th>
-            <th>Role</th>
+            <th>Admin</th>
+            <th>Approver</th>
+            <th>Creator</th>
+            <th>Learner</th>
             <th>Joined</th>
           </tr>
         </thead>
         <tbody>
-          {members.map((m) => (
-            <tr key={m.userId}>
-              <td>{m.email}</td>
-              <td>{m.role}</td>
-              <td>{new Date(m.joinedAt).toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h2>Invite member</h2>
-      <form action={createInvite}>
-        <input name="email" type="email" placeholder="email@example.com" required />
-        <select name="role" defaultValue="Viewer" aria-label="Role">
-          <option value="Viewer">Viewer</option>
-          <option value="Editor">Editor</option>
-          <option value="Admin">Admin</option>
-        </select>
-        <button type="submit">Send invite</button>
-      </form>
-
-      <h2>Invites</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Expires</th>
-            <th>Status</th>
-            <th>Invited By</th>
-            <th>Accepted By</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invites.map((i) => (
-            <tr key={i.email}>
-              <td>{i.email}</td>
-              <td>{i.role}</td>
-              <td>{new Date(i.expiresAt).toLocaleString()}</td>
-              <td>
-                {i.acceptedAt ? `Accepted ${new Date(i.acceptedAt).toLocaleString()}` : 'Pending'}
-              </td>
-              <td>{i.invitedByEmail ?? ''}</td>
-              <td>{i.acceptedByEmail ?? ''}</td>
-              <td>
-                {!i.acceptedAt && (
-                  <span>
-                    <form action={resendInvite}>
-                      <input type="hidden" name="email" value={i.email} />
-                      <button type="submit">Resend</button>
-                    </form>
-                    <form action={revokeInvite}>
-                      <input type="hidden" name="email" value={i.email} />
-                      <button type="submit">Revoke</button>
-                    </form>
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
+          {members.map((m) => {
+            const flags = new Set(parseRoles(m.roles));
+            const lastAdmin = isLastAdmin(m.userId);
+            return (
+              <tr key={m.userId}>
+                <td>{m.email}</td>
+                <td>
+                  <form action={saveMemberRoles}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <label>
+                      <input
+                        aria-label="Admin"
+                        type="checkbox"
+                        name="TenantAdmin"
+                        defaultChecked={flags.has('TenantAdmin')}
+                        disabled={lastAdmin}
+                      />
+                    </label>
+                  </form>
+                </td>
+                <td>
+                  <form action={saveMemberRoles}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <label>
+                      <input
+                        aria-label="Approver"
+                        type="checkbox"
+                        name="Approver"
+                        defaultChecked={flags.has('Approver')}
+                      />
+                    </label>
+                  </form>
+                </td>
+                <td>
+                  <form action={saveMemberRoles}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <label>
+                      <input
+                        aria-label="Creator"
+                        type="checkbox"
+                        name="Creator"
+                        defaultChecked={flags.has('Creator')}
+                      />
+                    </label>
+                  </form>
+                </td>
+                <td>
+                  <form action={saveMemberRoles}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <label>
+                      <input
+                        aria-label="Learner"
+                        type="checkbox"
+                        name="Learner"
+                        defaultChecked={
+                          flags.has('Learner') ||
+                          (!flags.has('TenantAdmin') &&
+                            !flags.has('Approver') &&
+                            !flags.has('Creator'))
+                        }
+                      />
+                    </label>
+                  </form>
+                </td>
+                <td>{new Date(m.joinedAt).toLocaleString()}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
