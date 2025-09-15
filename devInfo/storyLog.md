@@ -176,6 +176,27 @@
 - Updated SnapshotArchitecture with roles→capabilities matrix, dev roles endpoint guard (`x-dev-grant-key` when `Dev:GrantRolesKey` is set), and clarifications on `Membership.Roles` mutability and `ApplyRoleChange` auditing.
 - Confirmed full API suite remains green; explicit audit-on-update integration test documented.
 
+2025-09-15 — Admin — Story D: Notifications DLQ polish — ✅ DONE
+
+- Summary
+  - Polished `/studio/admin/notifications` to match UX patterns used across Admin pages. Added a client toast bridge (`ClientToasts` + `useNotificationsToasts`) that reads `ok/err` from the URL, shows toasts via `ToastProvider`, then cleans the params to avoid repeats. Swapped raw replay buttons for `ConfirmSubmitButton` wired to an accessible `ConfirmDialog` for both “Replay filtered” and per-row actions. Server actions now redirect with `ok/err` after `revalidatePath`, enabling consistent success/error feedback. Added a clear empty state row when no items match filters.
+
+- Files changed
+  - apps/web/app/studio/admin/notifications/page.tsx — mount `ClientToasts`, add confirm-submit buttons, redirect with `ok/err`, empty state, 403 render for non-admins, props defaulting
+  - apps/web/app/studio/admin/notifications/page.test.tsx — tests for non-admin 403, empty state, and pager/link sync with filters
+  - apps/web/app/studio/admin/notifications/ClientToasts.tsx — client shim to invoke the toast bridge
+  - apps/web/src/components/useNotificationsToasts.tsx — hook translating URL ok/err into `{ message, kind }` toasts and cleaning params
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — DLQ page tests added; full suite green; coverage thresholds satisfied
+
+- Requirements coverage
+  - Toasts for replay outcomes (ok/err redirect): Done
+  - Confirmation for replay-all and per-row replay: Done
+  - Empty state row in table: Done
+  - Pager/link behavior tested and consistent with audits pattern: Done
+
 ## Sprint 4.1 – Seeds + Dev Roles Utility (2025-09-15)
 
 - Implemented idempotent seeding for baseline users across role-flag combinations; ensured owner composites converge.
