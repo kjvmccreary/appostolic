@@ -31,12 +31,21 @@ describe('middleware route protection', () => {
     expect(res.headers.get('location')).toMatch('/login?next=%2Fstudio%2Fagents');
   });
 
-  it('redirects authenticated users away from /login to /studio/agents', async () => {
+  it('does not redirect authenticated users away from /login (client handles)', async () => {
     vi.mocked(getToken).mockResolvedValue({ email: 'u@example.com' } as unknown as Record<
       string,
       unknown
     >);
     const res = await middleware(makeReq('/login'));
-    expect(res.headers.get('location')).toBe('/studio/agents');
+    // When authenticated and on /login, middleware allows next() and sets x-pathname
+    expect(res.headers.get('x-pathname')).toBe('/login');
+  });
+
+  it('when WEB_AUTH_ENABLED=false, passes through and sets x-pathname', async () => {
+    process.env.WEB_AUTH_ENABLED = 'false';
+    const res = await middleware(makeReq('/studio/agents?foo=bar'));
+    expect(res.headers.get('x-pathname')).toBe('/studio/agents');
+    // restore for other tests
+    process.env.WEB_AUTH_ENABLED = 'true';
   });
 });

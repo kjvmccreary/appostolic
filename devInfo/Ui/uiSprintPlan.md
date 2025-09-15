@@ -195,15 +195,15 @@ Story 6.2: ~~E2E smoke flows (Playwright)~~ — Skipped
 
 ---
 
-Epic 7 — Integration Safety
+Epic 7 — Integration Safety — ✅ DONE
 
-Story 7.1: Non-breaking integration with existing app
+Story 7.1: Non-breaking integration with existing app — ✅ DONE
 
 - Files/Changes:
-  - Verify middleware + protected route behavior with TopBar
-  - Ensure Studio/Dev pages unaffected; adjust padding wrappers
+  - Verified middleware behavior and updated tests to reflect current logic
+  - Extended TopBar tests for TenantSwitcher visibility on protected vs. public paths
 - Acceptance Criteria
-  - Studio pages render unchanged; TenantSwitcher behavior preserved
+  - Studio pages render unchanged; TenantSwitcher shows on /studio|/dev and hides on /select-tenant/public
 
 ---
 

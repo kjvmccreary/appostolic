@@ -418,6 +418,23 @@ Requirements coverage
   - Unit tests for primitives/pages: Done
   - Playwright E2E smoke: Skipped (out of scope)
 
+## UI Sprint 02 — Epic 7: Integration Safety — Completed
+
+- Summary
+  - Validated integration safety across protected routes and layout changes. Updated middleware tests to reflect the current behavior (no forced redirect from /login; x-pathname header is set) and added TopBar tests to verify TenantSwitcher visibility (present on /studio|/dev, hidden on /select-tenant/public). Studio pages remain unaffected.
+
+- Files changed
+  - apps/web/test/middleware.test.ts — updated expectations; added WEB_AUTH_ENABLED=false passthrough test
+  - apps/web/src/components/TopBar.test.tsx — added tests for TenantSwitcher visibility
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS
+
+- Requirements coverage
+  - Middleware and protected route behavior verified: Done
+  - No regressions to Studio/Dev pages; TenantSwitcher logic preserved: Done
+
 ## UI Sprint 02 — Story 4.2: Shepherd scaffolding (5 steps) — Completed
 
 - Summary

@@ -17,4 +17,16 @@ describe('TopBar', () => {
     expect(screen.getByRole('link', { name: /shepherd/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /dashboard/i })).not.toHaveAttribute('aria-current');
   });
+
+  it('shows TenantSwitcher on protected paths (/studio, /dev)', () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/studio/agents');
+    render(<TopBar />);
+    expect(screen.getByTestId('tenant')).toBeInTheDocument();
+  });
+
+  it('hides TenantSwitcher on select-tenant and public paths', () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/select-tenant');
+    render(<TopBar />);
+    expect(screen.queryByTestId('tenant')).not.toBeInTheDocument();
+  });
 });
