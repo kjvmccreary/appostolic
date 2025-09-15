@@ -12,6 +12,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Routing reliability: removed earlier environment-gated mapping that hid dev routes under tests; temporary endpoint-enumeration diagnostics removed after validation.
   - Verification: Full API test suite PASS (138/138) after changes; added an explicit test asserting that updating an existing membership’s roles writes an `Audit` with correct `OldRoles`/`NewRoles`.
 
+<a id="roles-matrix"></a>
+
 ### Roles → Capabilities matrix (tenant-scoped)
 
 - TenantAdmin:
@@ -24,6 +26,13 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Create/edit content (e.g., lessons; agents CRUD)
 - Learner:
   - Read-only access to learning content
+
+<a id="dev-grant-roles-guard"></a>
+
+### Dev grant-roles guard
+
+- Endpoint: `POST /api/dev/grant-roles`
+- Behavior: When configuration `Dev:GrantRolesKey` is present, requests must include header `x-dev-grant-key` with the same value. When not set, the endpoint is available by default in dev/test.
 
 - IAM — Sprint 3.3: Audit trails for membership role changes (Completed)
   - Added `app.audits` table to persist role change events with: id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles (int), new_roles (int), changed_at (utc).

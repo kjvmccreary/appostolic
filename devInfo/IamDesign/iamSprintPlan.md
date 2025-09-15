@@ -298,7 +298,7 @@ Notes
   - GET `/api-proxy/tenants/{tenantId}/audits`
 
 - Docs (see `SnapshotArchitecture.md`)
-  - What’s new → IAM — Sprint 4.1 (Seeds + dev roles utility)
-  - Roles → Capabilities matrix (tenant-scoped)
+  - What’s new → IAM — Sprint 4.1 (Seeds + dev roles utility) — includes <a href="../../SnapshotArchitecture.md#dev-grant-roles-guard">dev grant-roles guard</a>
+  - <a href="../../SnapshotArchitecture.md#roles-matrix">Roles → Capabilities matrix</a> (tenant-scoped)
   - Authentication & Authorization (dev headers, policies)
   - Runtime architecture → API and Web
