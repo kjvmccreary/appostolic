@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — Admin: Audits UI polish (Completed)
+  - `/studio/admin/audits` now has a more complete UX: quick date presets (Today, 7/30 days), styled filter form, formatted table with role flag decoding to names, a compact pager that reads `X-Total-Count`, and clear empty/error states.
+  - Server page accepts defaulted `searchParams` to support test invocation without args. Tests added to assert: non-admin 403 render, pager text computed from `X-Total-Count`, and Prev/Next link query sync.
+  - Navigation note: Admin links (Members, Invites, Audits, Notifications) are visible in the desktop TopBar for admins; mobile drawer remains role-aware. Existing guard logic remains server-first.
+
 - Web — Admin: Invites UX polish (phase 1)
   - `/studio/admin/invites` now shows status banners based on `ok`/`err` query parameters after server actions (create/resend/revoke). Revoke uses a small client helper `ConfirmSubmitButton` to ask for confirmation before submitting the server-action form, avoiding accidental revocations while keeping server-first behavior.
   - Tests extended to cover banner rendering and error fallback when invites fetch fails. Next phase will add toast notifications, empty/validation states, and an accessible confirm dialog.

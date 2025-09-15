@@ -50,6 +50,26 @@
   - Save success/error via toast: Done
   - Last-admin guard surfaced with accessible messaging: Done
 
+2025-09-15 — Admin — Story C: Audits UI polish — ✅ DONE
+
+- Summary
+  - Polished `/studio/admin/audits` with a complete UX: quick date presets (Today, 7d, 30d), a styled filter form, formatted table that decodes role flags into names, a compact pager driven by `X-Total-Count`, and clear empty/error states. The server component now defaults `searchParams` to support tests calling the page without args. Desktop navigation surfaces Admin links (Members, Invites, Audits, Notifications) for admins via `TopBar`.
+
+- Files changed
+  - apps/web/app/studio/admin/audits/page.tsx — UI polish, role flag decoding, defaulted params for tests
+  - apps/web/app/studio/admin/audits/page.test.tsx — added tests for 403 render, pager text, Prev/Next link sync
+  - apps/web/src/components/TopBar.tsx — expose full Admin links in desktop when `isAdmin`
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — focused audits tests plus full suite, coverage ~85.7% lines overall (toasts/dialog lightly covered)
+
+- Requirements coverage
+  - Filters with quick date presets: Done
+  - Table formatting with role names and pager based on `X-Total-Count`: Done
+  - Empty/error states: Done
+  - Role-gated navigation visibility for Admin: Done
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 

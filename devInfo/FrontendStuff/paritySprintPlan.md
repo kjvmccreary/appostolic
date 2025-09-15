@@ -66,7 +66,7 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
 
 ## Stories and Acceptance Criteria
 
-### Story A — Admin: Invites UX polish and actions
+### ✅ (DONE) Story A — Admin: Invites UX polish and actions
 
 - Scope: Style `/studio/admin/invites` with consistent table, form controls, and action buttons; add confirmation for revoke; inline validation messages; success/error toasts.
 - Acceptance:
@@ -75,7 +75,7 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - Keyboard + screen reader: form labels accessible; buttons have names; dialog semantics for confirms.
 - Tests: Unit tests for happy path and error toast; snapshot of table header; confirm revoke.
 
-### Story B — Admin: Members roles UX polish
+### ✅ (DONE) Story B — Admin: Members roles UX polish
 
 - Scope: Improve `/studio/admin/members` visuals and interactions; add loading states and save feedback; keep last-admin guard messaging.
 - Acceptance:

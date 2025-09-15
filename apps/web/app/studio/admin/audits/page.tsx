@@ -42,7 +42,7 @@ export default async function AuditsPage({
   searchParams,
 }: {
   searchParams?: Record<string, string | string[]>;
-}) {
+} = {}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
