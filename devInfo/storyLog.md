@@ -1,5 +1,22 @@
 2025-09-15 — Sprint 3.1 (Hide/show actions by role) — ✅ DONE
 
+## IAM — Story 3.3: Audit trail for membership roles changes — ✅ DONE
+
+- Summary
+  - Added an Audit entity and database table (`app.audits`) to track membership role flag changes. The POST `/api/tenants/{tenantId}/memberships/{userId}/roles` endpoint now writes an audit row on successful changes, capturing: `tenantId`, `userId`, `changedByUserId`, `changedByEmail`, `oldRoles`, `newRoles`, and `changedAt`. This works for both EF InMemory and the relational provider (inside the same tenant-scoped transaction for RLS). A migration `s4_02_membership_roles_audits` (with Designer) creates the table and index. An API test asserts an audit row is created with correct values.
+
+- Files changed
+  - apps/api/Program.cs — Added `Audit` record, DbSet, and model mapping to `audits` table.
+  - apps/api/App/Endpoints/V1.cs — Wrote audit on roles changes (InMemory + relational paths).
+  - apps/api/Migrations/20250915145000_s4_02_membership_roles_audits.cs — Migration creating `app.audits` + index.
+  - apps/api/Migrations/20250915145000_s4_02_membership_roles_audits.Designer.cs — Designer for migration.
+  - apps/api/Migrations/AppDbContextModelSnapshot.cs — Snapshot updated to include `Audit`.
+  - apps/api.tests/Api/AuditTrailTests.cs — Test verifying audit row with old/new roles and changer info.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — 132/132
+
 - Implemented UI gating using session-derived booleans (isAdmin, canApprove, canCreate, isLearner):
   - TopBar “Create Lesson” CTA shown only when canCreate.
   - Agents index: header and empty-state “New Agent” links shown only when canCreate.
@@ -29,6 +46,7 @@
 - Added EF migration `s4_02_membership_roles_audits` and updated model snapshot.
 - Tests: `AuditTrailTests` asserts an audit row is created with correct old/new values and ChangedByEmail.
 - Quality gates: API tests PASS (focused + existing AssignmentsApiTests remain green).
+- Ops: Ran `make migrate`; database reported up to date with `20250915145000_s4_02_membership_roles_audits` applied.
 
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 

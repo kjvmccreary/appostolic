@@ -86,6 +86,15 @@ Implementation notes:
 Sprint 2 — Assignment APIs and Web Admin UI
 
 Story 2.1 — Assignment APIs — ✅ DONE
+Story 3.3 — Audit trail for assignments — ✅ DONE
+
+- Scope:
+  - Persist audit entries when membership roles flags are changed by TenantAdmins.
+  - Include who changed it (userId/email), old/new flags, when, and tenant/user.
+- Implementation:
+  - Added `Audit` entity and `app.audits` table with index on (tenant_id, changed_at).
+  - Endpoint `POST /api/tenants/{tenantId}/memberships/{userId}/roles` writes audit after successful change in both InMemory and relational paths.
+  - Unit test `AuditTrailTests` verifies audit row content.
 
 - Scope:
   - GET /api/tenants/{tenantId}/memberships — list members with roles.

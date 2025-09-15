@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Sprint 3.3: Audit trails for membership role changes (Completed)
+  - Added `app.audits` table to persist role change events with: id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles (int), new_roles (int), changed_at (utc).
+  - Endpoint `POST /api/tenants/{tenantId}/memberships/{userId}/roles` writes an audit after successful updates (works for EF InMemory and relational providers). Indexed by `(tenant_id, changed_at)` for efficient per-tenant queries.
+  - Migration `20250915145000_s4_02_membership_roles_audits` applied; database is up to date (`make migrate`).
+
 - IAM — Sprint 2.2: Invites include Roles (Completed)
   - Invitation model now captures granular Roles flags in addition to the legacy Role. Invite creation accepts an optional array of flag names and returns both roles (string) and rolesValue (int). When omitted, flags are derived from the legacy Role for backward compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner).
   - Accepting an invite creates the membership with both the legacy Role and the Roles flags from the invitation. Signup flows that consume an invite token also propagate Roles; personal-tenant creation derives Owner flags by default. Last‑admin invariant enforcement remains in place.
@@ -22,6 +27,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - IAM — Sprint 2.1: Membership assignment APIs (Completed)
   - Added GET /api/tenants/{tenantId}/memberships to list memberships including legacy Role and Roles flags (names and numeric value). Requires TenantAdmin and ensures the `tenant_id` claim matches the route.
   - Added POST /api/tenants/{tenantId}/memberships/{userId}/roles to replace Roles flags using an array of enum names (case-insensitive). Returns 200 on change with a roles summary, 204 on no-op, 400 on invalid names, and 404 when membership is missing. Enforces the “at least one TenantAdmin per tenant” invariant across both legacy Role and Roles flags and returns 409 Conflict when violated.
+    - Auditability: The roles update endpoint writes an audit row capturing tenant, target user, changer identity, old/new flags, and timestamp in `app.audits`.
   - 403 responses are formatted as RFC7807 ProblemDetails via the custom authorization result handler; the RoleAuthorizationHandler maps legacy Role to flags for compatibility during transition.
 
 - IAM — Sprint 1.3: Role policies and uniform 403s (Completed)
