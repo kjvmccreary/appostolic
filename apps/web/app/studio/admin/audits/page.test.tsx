@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '../../../../test/utils';
 import type { ReactElement } from 'react';
-import { mapAuditRows, AuditRow } from './page';
+import { mapAuditRows, AuditRow } from './mapAuditRows';
 
 // Server-side mocks used by page component
 vi.mock('next-auth', () => ({ getServerSession: vi.fn() }));

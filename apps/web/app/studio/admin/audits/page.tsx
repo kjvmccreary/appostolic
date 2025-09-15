@@ -3,31 +3,11 @@ import { authOptions } from '../../../../src/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
-import { roleNamesFromFlags } from '../../../../src/lib/roles';
+import { mapAuditRows, type AuditRow } from './mapAuditRows';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 
-export type AuditRow = {
-  id: string;
-  userId: string;
-  changedByUserId: string;
-  changedByEmail: string;
-  oldRoles: number; // flags value
-  newRoles: number; // flags value
-  changedAt: string;
-};
-
-// mapAuditRows
-// Pure helper to transform raw audit rows by expanding numeric flag bitmasks
-// into human-readable comma-separated role name lists. Exported for unit tests
-// to ensure UI stays in sync with server enum bit assignments.
-export function mapAuditRows(raw: AuditRow[]) {
-  return raw.map((r) => ({
-    ...r,
-    oldNames: roleNamesFromFlags(r.oldRoles).join(', ') || 'None',
-    newNames: roleNamesFromFlags(r.newRoles).join(', ') || 'None',
-  }));
-}
+// page-only exports must be limited; mapping moved to mapAuditRows.ts
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,11 +18,10 @@ function buildQuery(params: Record<string, string | undefined>): string {
   return sp.toString();
 }
 
-export default async function AuditsPage({
-  searchParams,
-}: {
+export default async function AuditsPage(props: {
   searchParams?: Record<string, string | string[]>;
-} = {}) {
+}) {
+  const { searchParams } = props || {};
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
