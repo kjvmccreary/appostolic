@@ -96,7 +96,7 @@ Story 2.3: cn() utility and icon set — ✅ DONE
 
 Epic 3 — UI Primitives
 
-Story 3.1: Card and ActionTile
+Story 3.1: Card and ActionTile — ✅ DONE
 
 - Files/Changes:
   - apps/web/src/components/ui/Card.tsx
@@ -105,7 +105,7 @@ Story 3.1: Card and ActionTile
   - Card supports title, description, and children; respects tokens (surface/canvas, shadow, radius)
   - ActionTile variant with hover and CTA affordance
 
-Story 3.2: Chip and Stepper
+Story 3.2: Chip and Stepper — ✅ DONE
 
 - Files/Changes:
   - apps/web/src/components/ui/Chip.tsx

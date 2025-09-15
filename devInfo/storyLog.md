@@ -2389,4 +2389,40 @@ Requirements coverage
         - Requirements coverage
           - cn() utility available and used in initial components: Done
           - Icon set present and in use: Done
+
+          ## UI — Sprint 02 — Story 3.1: Card and ActionTile — Completed
+
+          - Summary
+            - Implemented reusable `Card` and `ActionTile` primitives styled with tokens and Tailwind. ActionTile includes hover elevation and a visible CTA tag.
+
+          - Files changed
+            - apps/web/src/components/ui/Card.tsx
+            - apps/web/src/components/ui/ActionTile.tsx
+
+          - Quality gates
+            - Lint/Typecheck (web): PASS
+            - Tests (web): PASS (suite)
+
+          - Requirements coverage
+            - Card supports title/description/children with tokens: Done
+            - ActionTile with hover and CTA: Done
+
+          ## UI — Sprint 02 — Story 3.2: Chip and Stepper — Completed
+
+          - Summary
+            - Added `Chip` with status variants (draft, slides, handout) and `Stepper` rendering numbered steps with active state and ARIA.
+
+          - Files changed
+            - apps/web/src/components/ui/Chip.tsx
+            - apps/web/src/components/ui/Stepper.tsx
+            - apps/web/src/components/ui/Chip.test.tsx — variant smoke test
+            - apps/web/src/components/ui/Stepper.test.tsx — 5 steps + aria-current test
+
+          - Quality gates
+            - Lint/Typecheck (web): PASS
+            - Tests (web): PASS (new tests green)
+
+          - Requirements coverage
+            - Chip variants styled via tokens: Done
+            - Stepper shows 5 steps and announces active step: Done
 ```
