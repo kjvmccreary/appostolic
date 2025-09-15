@@ -382,10 +382,10 @@ Requirements coverage
 ## UI Sprint 02 — Story 4.1: Dashboard scaffold — Completed
 
 - Summary
-  - Implemented the Dashboard page scaffold in Next.js App Router with sections: Quick Start, Recent Lessons, Plan & Usage, Templates, Guardrails, and Marketplace. Reused the new UI primitives (Card, ActionTile, Chip) and tokens-based Tailwind styles. Added responsive grid (1/2/3 columns) and ensured the primary CTA routes to the Wizard.
+  - Implemented the Dashboard page scaffold in Next.js App Router with sections: Quick Start, Recent Lessons, Plan & Usage, Templates, Guardrails, and Marketplace. Reused the new UI primitives (Card, ActionTile, Chip) and tokens-based Tailwind styles. Added responsive grid (1/2/3 columns) and ensured the primary CTA routes to the Shepherd.
 
 - Files changed
-  - apps/web/app/page.tsx — replaced placeholder with Dashboard layout using primitives, mock recent items with Chip variants, and links to /wizard/step1, /editor, /studio/agents, /billing, /templates, /guardrails, /marketplace.
+  - apps/web/app/page.tsx — replaced placeholder with Dashboard layout using primitives, mock recent items with Chip variants, and links to /shepherd/step1, /editor, /studio/agents, /billing, /templates, /guardrails, /marketplace.
   - devInfo/Ui/uiSprintPlan.md — marked Story 4.1 as DONE with details.
 
 - Quality gates
@@ -394,7 +394,7 @@ Requirements coverage
 
 - Requirements coverage
   - Dashboard sections from UI Spec present: Done
-  - Quick Start CTA to /wizard/step1: Done
+  - Quick Start CTA to /shepherd/step1: Done
   - Responsive grid at common breakpoints: Done
   - No regressions in Studio/Dev: Done
 
@@ -2362,7 +2362,7 @@ Requirements coverage
       ## UI — Sprint 02 — Story 2.1: TopBar scaffold — Completed
 
       - Summary
-        - Implemented a sticky TopBar with app title, nav (Dashboard, Wizard, Editor), Create Lesson CTA, ThemeToggle, and TenantSwitcher on protected routes. Nav indicates active route via `aria-current`.
+  - Implemented a sticky TopBar with app title, nav (Dashboard, Shepherd, Editor), Create Lesson CTA, ThemeToggle, and TenantSwitcher on protected routes. Nav indicates active route via `aria-current`.
 
       - Files changed
         - apps/web/src/components/TopBar.tsx — new component
@@ -2374,7 +2374,7 @@ Requirements coverage
       - Requirements coverage
         - Sticky, responsive, keyboard accessible: Done
         - Nav buttons and `aria-current` active state: Done
-        - Wizard and CTA point to /wizard/step1: Done
+  - Shepherd and CTA point to /shepherd/step1: Done
 
       ## UI — Sprint 02 — Story 2.2: Integrate TopBar in global layout — Completed
 

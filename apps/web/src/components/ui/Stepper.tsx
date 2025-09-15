@@ -11,7 +11,11 @@ type StepperProps = {
 
 export function Stepper({ steps, activeIndex, className }: StepperProps) {
   return (
-    <ol className={cn('flex items-center gap-3', className)} role="list" aria-label="Wizard steps">
+    <ol
+      className={cn('flex items-center gap-3', className)}
+      role="list"
+      aria-label="Shepherd steps"
+    >
       {steps.map((s, i) => {
         const active = i === activeIndex;
         return (

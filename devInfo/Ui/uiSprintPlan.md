@@ -2,7 +2,7 @@
 
 Date: 2025-09-14
 Duration: ~2 weeks
-Scope: Establish the visual foundation (tokens, themes), global layout/navigation, and scaffold key pages (Dashboard, Wizard, Editor) so we can iterate on polish and data wiring next.
+Scope: Establish the visual foundation (tokens, themes), global layout/navigation, and scaffold key pages (Dashboard, Shepherd, Editor) so we can iterate on polish and data wiring next.
 
 Sprint Goal
 
@@ -10,7 +10,7 @@ Sprint Goal
 
 Out of Scope (this sprint)
 
-- Real “Lessons” API and data wiring for Wizard/Editor
+- Real “Lessons” API and data wiring for Shepherd/Editor
 - Marketplace integration and analytics
 - Rich text editor and slides/PDF generation
 
@@ -18,7 +18,7 @@ Assumptions
 
 - We will add Tailwind CSS at apps/web only (scoped), coexisting with current MUI Material usage. We will not refactor existing Studio pages to Tailwind in this sprint.
 - New UI primitives will live under apps/web/src/components/ui to align with current repo conventions (existing components live under apps/web/src/components and app/\*/components).
-- We will use mock data/state for Wizard and Editor until backend endpoints exist.
+- We will use mock data/state for Shepherd and Editor until backend endpoints exist.
 
 Dependencies and Risks
 
@@ -71,7 +71,7 @@ Story 2.1: TopBar scaffold with navigation and Tenant pill — ✅ DONE
 - Files/Changes:
   - apps/web/src/components/TopBar.tsx (uses tokens + Tailwind; lucide icons)
   - Reuse existing <TenantSwitcher/> inside TopBar as a tenant pill
-  - Nav buttons: Dashboard (/), Wizard (/wizard/step1), Editor (/editor)
+  - Nav buttons: Dashboard (/), Shepherd (/shepherd/step1), Editor (/editor)
 - Acceptance Criteria
   - TopBar is sticky, responsive, and keyboard accessible
   - Active nav shows aria-current and visible state
@@ -125,10 +125,10 @@ Story 4.1: Dashboard scaffold — ✅ DONE
   - Uses primitives: Card/ActionTile/Chip; mock recent items rendered with status chips
 - Acceptance Criteria
   - Grid responsive (mobile 1, tablet 2, desktop 3 columns)
-  - Quick Start links to /wizard/step1
+  - Quick Start links to /shepherd/step1
   - Typecheck/tests pass; no regressions in Studio/Dev pages
 
-Story 4.2: Wizard scaffolding (5 steps)
+Story 4.2: Shepherd scaffolding (5 steps)
 
 - Files/Changes:
   - apps/web/app/wizard/step1/page.tsx
@@ -148,7 +148,7 @@ Story 4.3: Editor scaffold (mock)
   - Sidebar with metadata cards; actions: Save, Generate Slides, Export PDF (no-ops)
 - Acceptance Criteria
   - Responsive two-column layout; sidebar collapses on mobile
-  - Back to Wizard Step 2 link present
+  - Back to Shepherd Step 2 link present
 
 ---
 
@@ -184,7 +184,7 @@ Story 6.1: Unit tests for primitives and pages
 Story 6.2: E2E smoke flows (Playwright)
 
 - Files/Changes:
-  - Flows: visit Dashboard → Start Wizard → navigate steps → open Editor
+  - Flows: visit Dashboard → Start Shepherd → navigate steps → open Editor
 - Acceptance Criteria
   - Headless pass locally; CI optional if time allows
 
@@ -219,7 +219,7 @@ Definition of Done
 
 - Theming foundation in place with tokens and theme toggle
 - TopBar integrated; navigation works; no protected route regressions
-- Dashboard, Wizard (5 steps), and Editor render with mocked content
+- Dashboard, Shepherd (5 steps), and Editor render with mocked content
 - Responsive layouts pass manual checks; basic a11y verified
 - Unit tests green; at least one e2e smoke passes locally
 
@@ -227,14 +227,14 @@ Notes and File Map
 
 - Tokens: apps/web/app/styles/tokens.css (imported in layout or globals)
 - Primitives: apps/web/src/components/ui/{Card,Chip,Stepper,ActionTile,ThemeProvider,ThemeToggle}.tsx
-- Pages: apps/web/app/{page.tsx,wizard/\*/page.tsx,editor/page.tsx}
+- Pages: apps/web/app/{page.tsx,shepherd/\*/page.tsx,editor/page.tsx}
 - Utilities: apps/web/src/lib/cn.ts
 - TopBar: apps/web/src/components/TopBar.tsx (uses TenantSwitcher)
 
 Acceptance Criteria Trace to UI Spec v2.0
 
 - 9.1 Dashboard sections present (Story 4.1)
-- 9.2 Wizard 5 steps + back/next (Story 4.2)
+- 9.2 Shepherd 5 steps + back/next (Story 4.2)
 - 9.3 Editor mock with actions (Story 4.3)
 - 9.4 Responsive at 3 breakpoints (Stories 5.1/4.1/4.3)
 - 9.5 Theme follows system + toggle (Story 1.3)
@@ -244,4 +244,4 @@ Risks/Mitigations
 
 - Tailwind setup conflicts with existing CSS → Scope content paths; keep globals minimal
 - TopBar integration conflicts with layout edits → Gate behind same protected path logic; test /select-tenant
-- Timebox Wizard polish; focus on scaffolding this sprint
+- Timebox Shepherd polish; focus on scaffolding this sprint

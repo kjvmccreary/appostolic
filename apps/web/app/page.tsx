@@ -21,8 +21,8 @@ export default function DashboardPage() {
       <section aria-label="Quick Start" className="mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <ActionTile
-            href="/wizard/step1"
-            title="Start Wizard"
+            href="/shepherd/step1"
+            title="Start Shepherd"
             description="Create a new lesson with guided steps"
             cta="Create Lesson"
           />

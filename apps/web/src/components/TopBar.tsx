@@ -37,12 +37,12 @@ export function TopBar() {
         </Link>
         <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
           <NavLink href="/">Dashboard</NavLink>
-          <NavLink href="/wizard/step1">Wizard</NavLink>
+          <NavLink href="/shepherd/step1">Shepherd</NavLink>
           <NavLink href="/editor">Editor</NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <Link
-            href="/wizard/step1"
+            href="/shepherd/step1"
             className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
           >
             Create Lesson
