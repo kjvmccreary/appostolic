@@ -85,6 +85,48 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
         body!.rolesValue.Should().Be((int)(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner));
     }
 
+    // Verifies that updating roles for an existing membership creates an Audit row capturing old/new flags.
+    [Fact]
+    public async Task Updates_existing_membership_roles_writes_audit()
+    {
+        var client = Client(_factory, "kevin-personal");
+        Guid tenantId;
+        Guid userId;
+        string email;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            tenantId = db.Tenants.First(t => t.Name == "kevin-personal").Id;
+            var user = new User { Id = Guid.NewGuid(), Email = $"audit-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+            db.Users.Add(user);
+            db.Memberships.Add(new Membership
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                UserId = user.Id,
+                Role = MembershipRole.Viewer,
+                Roles = Roles.Learner,
+                Status = MembershipStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            userId = user.Id;
+            email = user.Email;
+        }
+
+        var resp = await client.PostAsJsonAsync("/api/dev/grant-roles", new { tenantId, email, roles = new[] { "Creator" } });
+        resp.EnsureSuccessStatusCode();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var audits = db.Audits.Where(a => a.TenantId == tenantId && a.UserId == userId).ToList();
+            audits.Should().NotBeEmpty();
+            audits.Last().NewRoles.Should().Be(Roles.Creator);
+            audits.Last().OldRoles.Should().Be(Roles.Learner);
+        }
+    }
+
     [Fact]
     public async Task Returns_400_for_invalid_role_name()
     {

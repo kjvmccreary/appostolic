@@ -1,3 +1,13 @@
+## Sprint 4.1 – Seeds + Dev Roles Utility (2025-09-15)
+
+- Implemented idempotent seeding for baseline users across role-flag combinations; ensured owner composites converge.
+- Added POST /api/dev/grant-roles to quickly assign granular roles by tenant (id or slug); auto-creates users/memberships when needed.
+- Fixed routing 404s by removing environment-gated mapping; later added an internal guard requiring header x-dev-grant-key when configuration Dev:GrantRolesKey is set.
+- Resolved EF tracking issues by making Membership.Roles mutable and centralizing changes via ApplyRoleChange, which emits an Audit (OldRoles/NewRoles/ChangedAt).
+- Integrated auditing into the dev endpoint; cleaned temporary diagnostics.
+- Tests: full API suite green; added explicit test validating audit write on role update.
+- Documentation updated in SnapshotArchitecture to reflect endpoint, guard, and roles/audit model.
+
 2025-09-15 — Sprint 3.1 (Hide/show actions by role) — ✅ DONE
 
 ## IAM — Story 3.3: Audit trail for membership roles changes — ✅ DONE

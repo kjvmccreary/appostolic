@@ -634,7 +634,10 @@ public record Membership
     public Guid UserId { get; init; }
     public MembershipRole Role { get; init; }
     /// <summary>
-    /// Granular roles bitfield. Mutable by design; update through <see cref="ApplyRoleChange"/> to ensure auditing.
+    /// Granular roles bitfield. Mutable by design ("pencil" model). We allow in-place updates because
+    /// role assignments change frequently and EF tracked-entity mutation avoids duplicate-tracking issues
+    /// encountered with immutable record replacement. All changes MUST flow through <see cref="ApplyRoleChange"/>
+    /// to centralize audit creation and keep a consistent trail of old→new flags.
     /// </summary>
     public Roles Roles { get; set; }
     public MembershipStatus Status { get; init; }

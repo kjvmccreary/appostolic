@@ -18,6 +18,8 @@ public static class V1
     // Resolve host environment reliably (the IEndpointRouteBuilder is the WebApplication after Build())
     var envService = app.ServiceProvider.GetRequiredService<IHostEnvironment>();
     var loggerFactory = app.ServiceProvider.GetService<ILoggerFactory>();
+    var configuration = app.ServiceProvider.GetRequiredService<IConfiguration>();
+    var devGrantKey = configuration["Dev:GrantRolesKey"]; // When set, POST /api/dev/grant-roles requires header x-dev-grant-key
     var log = loggerFactory?.CreateLogger("Endpoints.V1");
     log?.LogInformation("[MapV1Endpoints] Environment='{Env}' IsDevelopment={IsDev}", envService.EnvironmentName, envService.IsDevelopment());
         // Anonymous auth endpoints
@@ -1131,8 +1133,16 @@ public static class V1
         });
 
         // Dev utility endpoint always mapped (internal production guard) to simplify tests & ensure discoverability.
-        apiRoot.MapPost("/dev/grant-roles", async (AppDbContext db, GrantRolesRequest req) =>
+        apiRoot.MapPost("/dev/grant-roles", async (HttpContext http, AppDbContext db, GrantRolesRequest req) =>
         {
+            // Internal guard: if a key is configured, require matching x-dev-grant-key header
+            if (!string.IsNullOrEmpty(devGrantKey))
+            {
+                if (!http.Request.Headers.TryGetValue("x-dev-grant-key", out var provided) || provided.Count == 0 || !string.Equals(provided[0], devGrantKey, StringComparison.Ordinal))
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+            }
             if (req is null || string.IsNullOrWhiteSpace(req.Email) || (req.TenantId == Guid.Empty && string.IsNullOrWhiteSpace(req.TenantSlug)) || req.Roles is null || req.Roles.Length == 0)
                 return Results.BadRequest(new { error = "email, tenantId(or tenantSlug) and roles[] are required" });
 
