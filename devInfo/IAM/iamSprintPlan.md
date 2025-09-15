@@ -97,19 +97,15 @@ Story 2.1 — Assignment APIs — ✅ DONE
 - Tests:
   - Integration tests for list/set/add/remove; last-admin protection.
 
-Story 2.2 — Invites include roles — ⏳ PENDING
+Story 2.2 — Invites include roles — ✅ DONE
 
 - Scope:
-  - Extend invite DTO to include initial roles flags (default Creator).
-  - On accept, create membership with provided roles (respect invariant).
+  - Extend invite DTO to include initial Roles flags (array of enum names).
+  - On accept, create membership with provided Roles; if omitted, derive flags from the legacy Role for compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner).
 - Acceptance:
-  - Invites without roles default to Creator; with roles uses provided, blocked if it removes last admin.
+  - Invites without Roles derive flags from the legacy Role; invites with Roles use the provided flags. Operations that would leave zero TenantAdmins remain blocked (409) by invariant.
 - Tests:
-  - Invite/accept creates expected roles; invariant holds.
-
-Status note:
-
-- Backend endpoints currently return legacy roles only for invites; flags not yet implemented in invite DTO/accept path. To be implemented next.
+  - Create/List/Resend include roles string and rolesValue int; invite with invalid flag returns 400; accept sets membership.Roles correctly; invariant holds.
 
 Story 2.3 — Web: Roles-aware session — ✅ DONE
 

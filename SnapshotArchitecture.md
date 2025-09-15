@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Sprint 2.2: Invites include Roles (Completed)
+  - Invitation model now captures granular Roles flags in addition to the legacy Role. Invite creation accepts an optional array of flag names and returns both roles (string) and rolesValue (int). When omitted, flags are derived from the legacy Role for backward compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner).
+  - Accepting an invite creates the membership with both the legacy Role and the Roles flags from the invitation. Signup flows that consume an invite token also propagate Roles; personal-tenant creation derives Owner flags by default. Last‑admin invariant enforcement remains in place.
+  - Tests cover flag parsing/validation (400 on invalid), persistence/listing of roles, and acceptance behavior.
+
 - Web — IAM Sprint 2.4: Membership admin page (Completed)
   - Added server proxies to surface assignment APIs: `GET /api-proxy/tenants/{tenantId}/memberships` and `POST /api-proxy/tenants/{tenantId}/memberships/{userId}/roles`. Both are guarded server-side (Owner/Admin) via `guardProxyRole` and forward dev headers via `buildProxyHeaders`.
   - New page `/studio/admin/members` lists members for the selected tenant and exposes checkboxes for flags: TenantAdmin, Approver, Creator, Learner. The UI disables unchecking the last remaining TenantAdmin for safety; the API remains the source of truth and enforces the invariant.

@@ -511,6 +511,8 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.TenantId).HasColumnName("tenant_id");
             b.Property(x => x.Email).HasColumnName("email").IsRequired();
             b.Property(x => x.Role).HasColumnName("role");
+            // New in IAM 2.2 — granular roles flags on invitations
+            b.Property(x => x.Roles).HasColumnName("roles");
             b.Property(x => x.Token).HasColumnName("token").IsRequired();
             b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.Property(x => x.InvitedByUserId).HasColumnName("invited_by_user_id");
@@ -623,6 +625,8 @@ public record Invitation
     public Guid TenantId { get; set; }
     public string Email { get; set; } = string.Empty;
     public MembershipRole Role { get; set; }
+    // New in IAM 2.2 — granular roles flags captured at invite time
+    public Roles Roles { get; set; }
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public Guid? InvitedByUserId { get; set; }

@@ -146,6 +146,7 @@ public static class V1
                         TenantId = tenant.Id,
                         UserId = user.Id,
                         Role = MembershipRole.Owner,
+                        Roles = DeriveFlagsFromLegacy(MembershipRole.Owner),
                         Status = MembershipStatus.Active,
                         CreatedAt = now
                     };
@@ -162,6 +163,7 @@ public static class V1
                         TenantId = tenant.Id,
                         UserId = user.Id,
                         Role = MembershipRole.Owner,
+                        Roles = DeriveFlagsFromLegacy(MembershipRole.Owner),
                         Status = MembershipStatus.Active,
                         CreatedAt = now
                     };
@@ -214,6 +216,7 @@ public static class V1
             // Handle invite path vs. self-serve personal tenant
             Guid tenantId;
             MembershipRole role;
+            Roles flags;
             if (!string.IsNullOrWhiteSpace(dto.InviteToken))
             {
                 // Load tracked invitation to mark as accepted
@@ -222,6 +225,7 @@ public static class V1
                     return Results.BadRequest(new { error = "invalid or expired invite" });
                 tenantId = invite.TenantId;
                 role = invite.Role;
+                flags = invite.Roles == Roles.None ? DeriveFlagsFromLegacy(role) : invite.Roles;
                 // Mark as accepted; save within the same transaction later
                 invite.AcceptedAt = DateTime.UtcNow;
             }
@@ -250,6 +254,7 @@ public static class V1
 
                 tenantId = tenant.Id;
                 role = MembershipRole.Owner;
+                flags = DeriveFlagsFromLegacy(role);
             }
 
             // Create membership under RLS by setting tenant context within a transaction
@@ -259,6 +264,7 @@ public static class V1
                 TenantId = tenantId,
                 UserId = user.Id,
                 Role = role,
+                Roles = flags,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             };
@@ -460,6 +466,14 @@ public static class V1
                     return Results.BadRequest(new { error = "invalid role" });
             }
 
+            // IAM 2.2: Parse optional roles flags array; if omitted/null/empty, derive from legacy role for compatibility.
+            if (!TryParseRoleNames(dto.Roles, out var rolesFlags, out var invalidName))
+                return Results.BadRequest(new { error = $"invalid role flag: {invalidName}" });
+            if (rolesFlags == Roles.None)
+            {
+                rolesFlags = DeriveFlagsFromLegacy(role);
+            }
+
             // If user already exists and is a member, conflict
             var existingUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
             if (existingUser is not null)
@@ -482,6 +496,7 @@ public static class V1
                     TenantId = tenantId,
                     Email = email,
                     Role = role,
+                    Roles = rolesFlags,
                     Token = token,
                     ExpiresAt = expiresAt,
                     InvitedByUserId = userId,
@@ -493,6 +508,7 @@ public static class V1
             {
                 existingInvite.Email = email; // normalize casing
                 existingInvite.Role = role;
+                existingInvite.Roles = rolesFlags;
                 existingInvite.Token = token;
                 existingInvite.ExpiresAt = expiresAt;
                 existingInvite.InvitedByUserId = userId;
@@ -521,7 +537,7 @@ public static class V1
                 // Best-effort in dev; ignore email failures
             }
 
-            return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, role = role.ToString(), expiresAt });
+            return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, role = role.ToString(), roles = rolesFlags.ToString(), rolesValue = (int)rolesFlags, expiresAt });
         }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/invites (Admin/Owner only)
@@ -545,6 +561,8 @@ public static class V1
                 {
                     email = i.Email,
                     role = i.Role.ToString(),
+                    roles = i.Roles.ToString(),
+                    rolesValue = (int)i.Roles,
                     expiresAt = i.ExpiresAt,
                     acceptedAt = i.AcceptedAt,
                     invitedByEmail = db.Users.AsNoTracking().Where(u => u.Id == i.InvitedByUserId).Select(u => u.Email).FirstOrDefault(),
@@ -600,7 +618,7 @@ public static class V1
             }
             catch { }
 
-            return Results.Ok(new { email = invite.Email, role = invite.Role.ToString(), expiresAt = invite.ExpiresAt });
+            return Results.Ok(new { email = invite.Email, role = invite.Role.ToString(), roles = invite.Roles.ToString(), rolesValue = (int)invite.Roles, expiresAt = invite.ExpiresAt });
         }).RequireAuthorization("TenantAdmin");
 
         // DELETE /api/tenants/{tenantId}/invites/{email} (Admin/Owner only)
@@ -950,6 +968,7 @@ public static class V1
                         TenantId = tenantId,
                         UserId = userId,
                         Role = invite.Role,
+                        Roles = invite.Roles,
                         Status = MembershipStatus.Active,
                         CreatedAt = DateTime.UtcNow
                     });
@@ -973,6 +992,7 @@ public static class V1
                         TenantId = tenantId,
                         UserId = userId,
                         Role = invite.Role,
+                        Roles = invite.Roles,
                         Status = MembershipStatus.Active,
                         CreatedAt = DateTime.UtcNow
                     });
@@ -991,6 +1011,8 @@ public static class V1
                 tenantId = tenant.Id,
                 tenantSlug = tenant.Name,
                 role = invite.Role.ToString(),
+                roles = invite.Roles.ToString(),
+                rolesValue = (int)invite.Roles,
                 membershipCreated = created,
                 acceptedAt = invite.AcceptedAt
             });
@@ -1012,7 +1034,13 @@ public static class V1
     /// <param name="InviteToken">Optional invite token to join a tenant during signup.</param>
     public record SignupDto(string Email, string Password, string? InviteToken = null);
     public record LoginDto(string Email, string Password);
-    public record InviteRequest(string Email, string? Role);
+    /// <summary>
+    /// Invite request payload to invite a user by email to a tenant.
+    /// </summary>
+    /// <param name="Email">Invitee email address.</param>
+    /// <param name="Role">Legacy coarse role name (Owner/Admin/Editor/Viewer) for compatibility; used to derive flags when Roles are omitted.</param>
+    /// <param name="Roles">Optional granular role flags names (e.g., ["TenantAdmin","Creator"]). Case-insensitive; if omitted, flags are derived from Role.</param>
+    public record InviteRequest(string Email, string? Role, string[]? Roles = null);
     public record AcceptInviteDto(string Token);
     /// <summary>
     /// Magic-link request payload.
@@ -1024,6 +1052,37 @@ public static class V1
     public record SetRolesDto(string[] Roles);
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
+
+    // Helper: parse roles flag names into bitfield; invalid names result in BadRequest at call sites
+    private static bool TryParseRoleNames(string[]? names, out Roles flags, out string? invalidName)
+    {
+        flags = Roles.None;
+        invalidName = null;
+        if (names is null || names.Length == 0) return true;
+        foreach (var n in names)
+        {
+            if (string.IsNullOrWhiteSpace(n)) continue;
+            if (!Enum.TryParse<Roles>(n, ignoreCase: true, out var f))
+            {
+                invalidName = n;
+                return false;
+            }
+            flags |= f;
+        }
+        return true;
+    }
+
+    // Helper: derive default flags from legacy MembershipRole for compatibility
+    private static Roles DeriveFlagsFromLegacy(MembershipRole role)
+    {
+        return role switch
+        {
+            MembershipRole.Owner => Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
+            MembershipRole.Admin => Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
+            MembershipRole.Editor => Roles.Creator | Roles.Learner,
+            _ => Roles.Learner,
+        };
+    }
 
     private static string HashToken(string token)
     {

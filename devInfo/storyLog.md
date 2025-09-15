@@ -223,6 +223,25 @@ Quality gates
   - UI prevents unchecking last remaining TenantAdmin; server invariant enforced: Done
   - Proxy route tests cover guard and forwarding; page-level tests to be expanded in Sprint 3 alongside route gating: Done (current scope)
 
+## IAM — Sprint 2.2: Invites include Roles — Completed
+
+- Summary
+  - Extended invitations to include Roles flags end-to-end. Invite create/list/resend now include roles (flags string) and rolesValue (int). Accepting an invite sets membership.Roles accordingly; when Roles are omitted on create, flags are derived from the legacy Role for compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner). Signup via invite also propagates flags; personal tenants assign Owner-derived flags.
+
+- Files changed
+  - apps/api/Program.cs — Invitation entity gains Roles property and EF mapping to column "roles".
+  - apps/api/App/Endpoints/V1.cs — invites create/list/resend responses include roles/rolesValue; parsing/validation of Roles names; accept and signup flows set membership.Roles; helpers TryParseRoleNames and DeriveFlagsFromLegacy added; personal-tenant memberships derive Owner flags.
+  - apps/api.tests/Api/InvitesRolesFlagsTests.cs — new focused tests: flags persistence/listing; default derivation; accept sets membership.Roles; invalid flag → 400.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (full suite 131/131)
+
+- Requirements coverage
+  - Invite DTO includes Roles; default derivation from legacy Role when omitted: Done
+  - Accept/Signup set membership.Roles from invite; invariant preserved: Done
+  - Responses include roles string and rolesValue; invalid flag names return 400: Done
+
 ## IAM — Story 1.3: Apply role enforcement and uniform 403 — Completed
 
 - Summary
