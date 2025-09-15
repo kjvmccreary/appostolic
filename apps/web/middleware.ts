@@ -8,14 +8,18 @@ const WEB_AUTH_ENABLED = (process.env.WEB_AUTH_ENABLED ?? 'false').toLowerCase()
 const PROTECTED_MATCHERS = ['/studio', '/dev'];
 
 export async function middleware(req: NextRequest) {
-  // Short-circuit if auth enforcement is disabled
-  if (!WEB_AUTH_ENABLED) return NextResponse.next();
+  // If auth enforcement is disabled, still surface x-pathname for layout logic
+  if (!WEB_AUTH_ENABLED) {
+    const res = NextResponse.next();
+    res.headers.set('x-pathname', req.nextUrl.pathname);
+    return res;
+  }
 
   const { pathname, search } = req.nextUrl;
   const isProtected = PROTECTED_MATCHERS.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   );
-  const isLogin = pathname === '/login';
+  // Note: we no longer auto-redirect away from /login server-side; client handles it.
 
   // Let next-auth infer the secret; passing an unset secret can break decoding in dev
   const token = await getToken({ req });
@@ -31,13 +35,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users away from /login → default app page
-  if (isLogin && isAuthed) {
-    const dest = req.nextUrl.clone();
-    dest.pathname = '/studio/agents';
-    dest.search = '';
-    return NextResponse.redirect(dest);
-  }
+  // Do not force-redirect authenticated users away from /login; the client page will handle
+  // redirecting into the app when appropriate. This avoids bouncing immediately after logout
+  // while session cookies are still clearing.
 
   const res = NextResponse.next();
   // Surface the current pathname to the layout via a header to selectively hide UI
@@ -47,5 +47,13 @@ export async function middleware(req: NextRequest) {
 
 // Apply only to selected paths; keep public routes untouched
 export const config = {
-  matcher: ['/studio/:path*', '/dev/:path*', '/login'],
+  // Include /select-tenant so we can set x-pathname for the layout to hide the global TenantSwitcher there
+  matcher: [
+    '/studio/:path*',
+    '/dev/:path*',
+    '/login',
+    '/select-tenant',
+    '/magic/:path*',
+    '/signup',
+  ],
 };

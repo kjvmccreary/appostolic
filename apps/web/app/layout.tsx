@@ -13,7 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       return '';
     }
   })();
-  const showTenantSwitcher = !path.startsWith('/select-tenant');
+  // Show TenantSwitcher only on protected sections; hide on all non-auth routes
+  const protectedPrefixes = ['/studio', '/dev'];
+  const showTenantSwitcher = protectedPrefixes.some((p) => path === p || path.startsWith(p + '/'));
   return (
     <html lang="en">
       <body>

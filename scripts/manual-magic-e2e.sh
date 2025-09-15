@@ -12,6 +12,9 @@
 #
 set -euo pipefail
 
+# Enable extra logging with DEBUG=1
+DEBUG="${DEBUG:-0}"
+
 API_BASE="${API_BASE:-http://localhost:5198}"
 WEB_BASE="${WEB_BASE:-http://localhost:3000}"
 MAILHOG_BASE="${MAILHOG_BASE:-http://localhost:8025}"
@@ -74,6 +77,12 @@ if [[ "$STATUS" != "200" && "$STATUS" != "302" ]]; then
 fi
 ok "Signed in (status=$STATUS)"
 
+# Optional debug: show what the server sees for session and cookies
+if [[ "$DEBUG" == "1" ]]; then
+  say "Debug: session before tenant select"
+  curl -s -b "$COOKIE_JAR" "$WEB_BASE/api/debug/session" | jq . || true
+fi
+
 # 5) Select tenant (assume personal slug from localpart)
 LOCAL="${EMAIL%@*}"
 TENANT_SLUG="${LOCAL}-personal"
@@ -84,6 +93,12 @@ if [[ "$SEL_STATUS" != "200" && "$SEL_STATUS" != "302" && "$SEL_STATUS" != "303"
   err "Tenant select failed (status=$SEL_STATUS)"; exit 1
 fi
 ok "Tenant selected"
+
+# Optional debug: show what the server sees after tenant select
+if [[ "$DEBUG" == "1" ]]; then
+  say "Debug: session after tenant select"
+  curl -s -b "$COOKIE_JAR" "$WEB_BASE/api/debug/session" | jq . || true
+fi
 
 # 6) Hit Agents API via proxy and print count
 say "Fetching agents via /api-proxy/agents"

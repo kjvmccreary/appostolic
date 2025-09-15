@@ -68,10 +68,23 @@ export async function fetchFromProxy(input: string | URL, init: ServerFetchInit 
     ? { ...(init.headers || {}), cookie: cookieHeader }
     : init.headers;
 
+  // Normalize caching options to avoid specifying both `cache` and `next.revalidate`.
+  // Default to `no-store` for safety. If callers pass a specific `next.revalidate`,
+  // we'll honor it only when `cache` isn't explicitly 'no-store'.
+  const cacheMode: RequestCache = (init.cache as RequestCache) ?? 'no-store';
+  const nextOptions = cacheMode === 'no-store' ? undefined : init.next;
+
+  // Exclude original `next`/`headers` so our sanitized values win, then spread the rest.
+  // Omit fields we handle separately using typed destructuring.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { next: _omitNext, headers: _omitHeaders, ...rest } = init as ServerFetchInit;
+
   const res = await fetch(url, {
-    cache: init.cache ?? 'no-store',
-    next: init.next ?? { revalidate: 0 },
-    ...init,
+    ...rest,
+    // Default to no-store for dynamic, authed server fetches. Avoid also setting
+    // next.revalidate simultaneously, which Next.js warns about.
+    cache: cacheMode,
+    ...(nextOptions ? { next: nextOptions } : {}),
     headers: mergedHeaders,
   } as ServerFetchInit);
   return res;

@@ -10,12 +10,14 @@ export async function POST(req: NextRequest) {
   }
   const res = NextResponse.json({ ok: true });
   // Cookie for 7 days, Lax, httpOnly for security; client can use session.update to reflect selection
+  const isHttps =
+    req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:';
   res.cookies.set('selected_tenant', tenant, {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
   });
   return res;
 }
@@ -32,12 +34,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid tenant' }, { status: 400 });
   }
   const res = NextResponse.redirect(new URL(next, url.origin));
+  const isHttps =
+    req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:';
   res.cookies.set('selected_tenant', tenant, {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
   });
   return res;
 }

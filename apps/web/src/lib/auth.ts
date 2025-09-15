@@ -8,17 +8,52 @@ type AppToken = JWT & { memberships?: MembershipDto[]; tenant?: string };
 type AppSession = Session & { memberships?: MembershipDto[]; tenant?: string };
 
 const AUTH_SECRET = process.env.AUTH_SECRET as string | undefined;
+const ALLOW_INSECURE_COOKIES =
+  (process.env.ALLOW_INSECURE_COOKIES ?? 'false').toLowerCase() === 'true';
+const NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? '';
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET as string | undefined;
+const IS_LOCAL =
+  NEXTAUTH_URL.startsWith('http://localhost') ||
+  process.env.NODE_ENV !== 'production' ||
+  ALLOW_INSECURE_COOKIES;
+const RESOLVED_SECRET = AUTH_SECRET || NEXTAUTH_SECRET || (IS_LOCAL ? 'dev-secret' : undefined);
+// Decide whether cookies must be Secure. In local prod runs over http, set ALLOW_INSECURE_COOKIES=true or use http NEXTAUTH_URL.
+const COOKIE_SECURE =
+  !ALLOW_INSECURE_COOKIES &&
+  (NEXTAUTH_URL.startsWith('https://') || process.env.NODE_ENV === 'production');
 
-if (!AUTH_SECRET) {
-  console.warn('Warning: AUTH_SECRET is not set. Set it in .env.local for secure sessions.');
+if (!RESOLVED_SECRET) {
+  console.warn(
+    'Warning: NextAuth secret is not set. Set AUTH_SECRET or NEXTAUTH_SECRET in .env.local.',
+  );
 }
 
 export const authOptions: NextAuthOptions & {
   authorize?: (credentials: Record<string, string> | undefined) => Promise<NextAuthUser | null>;
 } = {
-  secret: AUTH_SECRET,
+  secret: RESOLVED_SECRET,
   session: { strategy: 'jwt', maxAge: 60 * 60 * 24 * 7 },
   pages: { signIn: '/login' },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: COOKIE_SECURE,
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/',
+        secure: COOKIE_SECURE,
+      },
+    },
+  },
   providers: [
     Credentials({
       name: 'Credentials',

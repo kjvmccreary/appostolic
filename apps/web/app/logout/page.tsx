@@ -8,7 +8,8 @@ export default function LogoutPage() {
   useEffect(() => {
     (async () => {
       await signOut({ redirect: false });
-      router.replace('/login');
+      // Include a flag so middleware doesn't bounce back to the app while cookies settle
+      router.replace('/login?loggedOut=1');
     })();
   }, [router]);
   return null;
