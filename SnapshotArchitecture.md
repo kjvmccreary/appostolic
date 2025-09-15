@@ -7,7 +7,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - IAM — Sprint 3.3: Audit trails for membership role changes (Completed)
   - Added `app.audits` table to persist role change events with: id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles (int), new_roles (int), changed_at (utc).
   - Endpoint `POST /api/tenants/{tenantId}/memberships/{userId}/roles` writes an audit after successful updates (works for EF InMemory and relational providers). Indexed by `(tenant_id, changed_at)` for efficient per-tenant queries.
+  - New admin endpoint `GET /api/tenants/{tenantId}/audits` lists recent audit entries for the tenant. Requires TenantAdmin, validates tenant claim vs. route, supports `take`/`skip` paging with `ChangedAt DESC` ordering, optional filters `userId`, `changedByUserId`, `from`, `to`, and sets `X-Total-Count` header.
   - Migration `20250915145000_s4_02_membership_roles_audits` applied; database is up to date (`make migrate`).
+  - Migration `20250915173000_s4_03_audits_view` creates SQL view `app.vw_audits_recent` as a convenience for reporting. Applied via `make migrate`.
+  - Web surfacing: Added proxy `GET /api-proxy/tenants/{tenantId}/audits` with TenantAdmin guard and header forwarding; Studio page `/studio/admin/audits` lists audits with basic filters and paging (reads `X-Total-Count`).
 
 - IAM — Sprint 2.2: Invites include Roles (Completed)
   - Invitation model now captures granular Roles flags in addition to the legacy Role. Invite creation accepts an optional array of flag names and returns both roles (string) and rolesValue (int). When omitted, flags are derived from the legacy Role for backward compatibility (Owner/Admin → Admin+Approver+Creator+Learner; Editor → Creator+Learner; Viewer → Learner).

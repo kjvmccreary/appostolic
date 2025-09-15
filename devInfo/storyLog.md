@@ -48,6 +48,19 @@
 - Quality gates: API tests PASS (focused + existing AssignmentsApiTests remain green).
 - Ops: Ran `make migrate`; database reported up to date with `20250915145000_s4_02_membership_roles_audits` applied.
 
+2025-09-15 — Audits listing + view
+
+- API: Added `GET /api/tenants/{tenantId}/audits` (TenantAdmin). Validates tenant claim vs route, supports `take`/`skip` with caps, orders by `ChangedAt DESC`, and sets `X-Total-Count`.
+- Tests: Added `AuditsListingEndpointTests` covering paging and `X-Total-Count` header.
+- Migration: `20250915173000_s4_03_audits_view` — creates SQL view `app.vw_audits_recent`. Applied successfully via `make migrate`.
+
+2025-09-15 — Audits filters + web surfacing
+
+- API: Extended audits listing to accept optional filters `userId`, `changedByUserId`, `from`, `to` with validation (`from <= to`).
+- Tests: Added coverage for filters in `AuditsListingEndpointTests` (userId, actor, date range, bad range 400).
+- Web: Added proxy `GET /api-proxy/tenants/[tenantId]/audits` (TenantAdmin guard; preserves `X-Total-Count`).
+- Web: New page `/studio/admin/audits` showing paginated list with filter form and basic pager.
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary

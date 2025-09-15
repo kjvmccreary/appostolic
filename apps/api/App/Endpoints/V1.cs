@@ -821,7 +821,67 @@ public static class V1
             return Results.Ok(list);
         }).RequireAuthorization("TenantAdmin");
 
-        // POST /api/tenants/{tenantId}/memberships/{userId}/roles — Replace roles flags for a membership (TenantAdmin only)
+        // GET /api/tenants/{tenantId}/audits — List recent audit entries for membership role changes (TenantAdmin only)
+        // Purpose: Allow admins to review who changed which roles and when for this tenant.
+        // Auth: Requires TenantAdmin for the current tenant. Validates route tenantId matches caller's tenant_id claim.
+        // Inputs: route tenantId (Guid)
+        // Optional query:
+        //   - take (default 50, max 100), skip (default 0)
+        //   - userId (Guid) — filter by target user
+        //   - changedByUserId (Guid) — filter by actor who performed the change
+        //   - from (DateTime, UTC) — inclusive lower bound on ChangedAt
+        //   - to (DateTime, UTC) — inclusive upper bound on ChangedAt
+        // Output: 200 OK with array of { id, userId, changedByUserId, changedByEmail, oldRoles, newRoles, changedAt } sorted by ChangedAt DESC.
+        // Headers: X-Total-Count with total rows for the tenant.
+        // Errors: 400 invalid tenant claim; 403 tenant mismatch; 401 handled by auth middleware.
+        api.MapGet("/tenants/{tenantId:guid}/audits", async (
+            Guid tenantId,
+            int? take,
+            int? skip,
+            Guid? userId,
+            Guid? changedByUserId,
+            DateTime? from,
+            DateTime? to,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            HttpResponse resp) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            int takeVal = Math.Clamp(take.GetValueOrDefault(50), 1, 100);
+            int skipVal = Math.Max(0, skip.GetValueOrDefault(0));
+
+            // Build query with optional filters
+            var q = db.Audits.AsNoTracking().Where(a => a.TenantId == tenantId);
+            if (userId.HasValue) q = q.Where(a => a.UserId == userId);
+            if (changedByUserId.HasValue) q = q.Where(a => a.ChangedByUserId == changedByUserId);
+            if (from.HasValue && to.HasValue && from > to)
+                return Results.BadRequest(new { error = "invalid range: from must be <= to" });
+            if (from.HasValue) q = q.Where(a => a.ChangedAt >= from.Value);
+            if (to.HasValue) q = q.Where(a => a.ChangedAt <= to.Value);
+            var total = await q.CountAsync();
+
+            var items = await q
+                .OrderByDescending(a => a.ChangedAt)
+                .Skip(skipVal)
+                .Take(takeVal)
+                .Select(a => new
+                {
+                    id = a.Id,
+                    userId = a.UserId,
+                    changedByUserId = a.ChangedByUserId,
+                    changedByEmail = a.ChangedByEmail,
+                    oldRoles = a.OldRoles,
+                    newRoles = a.NewRoles,
+                    changedAt = a.ChangedAt
+                })
+                .ToListAsync();
+
+            resp.Headers["X-Total-Count"] = total.ToString();
+            return Results.Ok(items);
+        }).RequireAuthorization("TenantAdmin");
         // Purpose: Replace the Roles flags bitfield for a member using an array of enum names; enables Admins to manage granular permissions.
         // Auth: Requires TenantAdmin for the current tenant. Also validates route tenantId matches caller's tenant_id claim.
         // Inputs: route tenantId (Guid), userId (Guid); body { roles: string[] } — case-insensitive enum names like "TenantAdmin", "Creator".
