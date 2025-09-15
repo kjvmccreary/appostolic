@@ -85,7 +85,15 @@ export default async function AuditsPage({
   const qs = buildQuery({ take, skip, userId, changedByUserId, from, to });
   const url = `/api-proxy/tenants/${mine.tenantId}/audits${qs ? `?${qs}` : ''}`;
   const res = await fetchFromProxy(url, { cache: 'no-store' });
-  if (!res.ok) return <div>Failed to load audits</div>;
+  if (!res.ok)
+    return (
+      <div className="mx-auto max-w-5xl p-4">
+        <h1 className="text-xl font-semibold mb-2">Audits</h1>
+        <div className="rounded-md border border-[var(--color-line)] bg-red-50 p-3 text-sm text-red-900">
+          Failed to load audits
+        </div>
+      </div>
+    );
   const total = Number(res.headers.get('X-Total-Count') ?? '0');
   const raw = (await res.json()) as AuditRow[];
   const rows = mapAuditRows(raw);
@@ -93,53 +101,125 @@ export default async function AuditsPage({
   const page = Math.floor(Number(skip) / Number(take)) + 1;
   const pages = Math.max(1, Math.ceil(total / Number(take)));
 
-  // Minimal UI: table + basic pager + filter form
+  // Polished UI: layout container, filters with presets, styled table and pager
   return (
-    <div>
-      <h1>Audits — {mine.tenantSlug}</h1>
-      <form action="/studio/admin/audits" method="get" className="grid gap-2 grid-cols-6 mb-3">
+    <div className="mx-auto max-w-5xl p-4">
+      <h1 className="text-xl font-semibold mb-2">Audits — {mine.tenantSlug}</h1>
+
+      <form
+        action="/studio/admin/audits"
+        method="get"
+        className="mb-3 grid grid-cols-12 gap-2 items-end"
+      >
         <input type="hidden" name="take" value={take} />
         <input type="hidden" name="skip" value={skip} />
-        <input name="userId" placeholder="User ID" defaultValue={userId ?? ''} />
-        <input name="changedByUserId" placeholder="Actor ID" defaultValue={changedByUserId ?? ''} />
-        <input name="from" placeholder="From (ISO)" defaultValue={from ?? ''} />
-        <input name="to" placeholder="To (ISO)" defaultValue={to ?? ''} />
-        <button type="submit">Apply</button>
-        <a href="/studio/admin/audits">Reset</a>
+        <div className="col-span-3">
+          <label className="block text-xs mb-1">User ID</label>
+          <input
+            name="userId"
+            placeholder="User ID"
+            defaultValue={userId ?? ''}
+            className="w-full rounded border px-2 py-1"
+          />
+        </div>
+        <div className="col-span-3">
+          <label className="block text-xs mb-1">Actor ID</label>
+          <input
+            name="changedByUserId"
+            placeholder="Actor ID"
+            defaultValue={changedByUserId ?? ''}
+            className="w-full rounded border px-2 py-1"
+          />
+        </div>
+        <div className="col-span-3">
+          <label className="block text-xs mb-1">From (ISO)</label>
+          <input
+            name="from"
+            placeholder="YYYY-MM-DD"
+            defaultValue={from ?? ''}
+            className="w-full rounded border px-2 py-1"
+          />
+        </div>
+        <div className="col-span-3">
+          <label className="block text-xs mb-1">To (ISO)</label>
+          <input
+            name="to"
+            placeholder="YYYY-MM-DD"
+            defaultValue={to ?? ''}
+            className="w-full rounded border px-2 py-1"
+          />
+        </div>
+        <div className="col-span-12 flex items-center gap-2">
+          <button
+            type="submit"
+            className="px-3 py-1 rounded bg-[var(--color-accent-600)] text-white text-sm"
+          >
+            Apply
+          </button>
+          <a className="text-sm underline" href="/studio/admin/audits">
+            Reset
+          </a>
+          <span className="ml-auto text-xs text-muted">Quick ranges:</span>
+          <a
+            className="text-xs underline"
+            href={`/studio/admin/audits?${buildQuery({ take, skip: '0', from: new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10), userId, changedByUserId })}`}
+          >
+            Last 7d
+          </a>
+          <a
+            className="text-xs underline"
+            href={`/studio/admin/audits?${buildQuery({ take, skip: '0', from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10), userId, changedByUserId })}`}
+          >
+            Last 30d
+          </a>
+        </div>
       </form>
 
-      <table>
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>User</th>
-            <th>Actor</th>
-            <th>Old Flags</th>
-            <th>New Flags</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            return (
-              <tr key={r.id}>
-                <td>{new Date(r.changedAt).toLocaleString()}</td>
-                <td>{r.userId}</td>
-                <td title={r.changedByEmail}>{r.changedByUserId}</td>
-                <td title={String(r.oldRoles)}>{r.oldNames}</td>
-                <td title={String(r.newRoles)}>{r.newNames}</td>
+      <div className="overflow-x-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface-raised)]">
+        {rows.length === 0 ? (
+          <div className="p-6 text-sm text-muted">No audits found for the selected range.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--color-surface)]">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-medium">When</th>
+                <th className="px-3 py-2 font-medium">User</th>
+                <th className="px-3 py-2 font-medium">Actor</th>
+                <th className="px-3 py-2 font-medium">Old Flags</th>
+                <th className="px-3 py-2 font-medium">New Flags</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-[var(--color-line)]">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {new Date(r.changedAt).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.userId}</td>
+                  <td className="px-3 py-2 font-mono text-xs" title={r.changedByEmail}>
+                    {r.changedByUserId}
+                  </td>
+                  <td className="px-3 py-2" title={String(r.oldRoles)}>
+                    {r.oldNames}
+                  </td>
+                  <td className="px-3 py-2" title={String(r.newRoles)}>
+                    {r.newNames}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="mt-3 flex gap-2 items-center">
-        <span>
+        <span className="text-sm">
           Page {page} of {pages} — Total {total}
         </span>
-        <nav className="flex gap-2">
+        <nav className="ml-auto flex gap-2">
           {page > 1 && (
             <a
+              className="px-3 py-1 rounded border text-sm"
               href={`/studio/admin/audits?${buildQuery({ take, skip: String((page - 2) * Number(take)), userId, changedByUserId, from, to })}`}
             >
               Prev
@@ -147,6 +227,7 @@ export default async function AuditsPage({
           )}
           {page < pages && (
             <a
+              className="px-3 py-1 rounded border text-sm"
               href={`/studio/admin/audits?${buildQuery({ take, skip: String(page * Number(take)), userId, changedByUserId, from, to })}`}
             >
               Next

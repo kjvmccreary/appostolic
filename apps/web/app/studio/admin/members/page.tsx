@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 import type { FlagRole } from '../../../../src/lib/roles';
 import ClientToasts from './ClientToasts';
+import AutoSubmitCheckbox from './AutoSubmitCheckbox';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 type MemberRow = {
@@ -88,101 +89,91 @@ export default async function MembersPage() {
   const isLastAdmin = (userId: string) => currentAdmins.length === 1 && currentAdmins[0] === userId;
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl p-4">
       <ClientToasts />
-      <h1>Members — {mine.tenantSlug}</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Admin</th>
-            <th>Approver</th>
-            <th>Creator</th>
-            <th>Learner</th>
-            <th>Joined</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => {
-            const flags = new Set(parseRoles(m.roles));
-            const lastAdmin = isLastAdmin(m.userId);
-            return (
-              <tr key={m.userId}>
-                <td>{m.email}</td>
-                <td>
-                  <form action={saveMemberRoles}>
-                    <input type="hidden" name="userId" value={m.userId} />
-                    <label>
-                      <input
-                        aria-label="Admin"
-                        type="checkbox"
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold">Members — {mine.tenantSlug}</h1>
+        <p className="text-sm text-muted">Manage tenant roles. Changes apply immediately.</p>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface-raised)]">
+        <table className="w-full text-sm">
+          <thead className="bg-[var(--color-surface)]">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium">Email</th>
+              <th className="px-3 py-2 font-medium">Admin</th>
+              <th className="px-3 py-2 font-medium">Approver</th>
+              <th className="px-3 py-2 font-medium">Creator</th>
+              <th className="px-3 py-2 font-medium">Learner</th>
+              <th className="px-3 py-2 font-medium">Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => {
+              const flags = new Set(parseRoles(m.roles));
+              const lastAdmin = isLastAdmin(m.userId);
+              return (
+                <tr key={m.userId} className="border-t border-[var(--color-line)]">
+                  <td className="px-3 py-2">{m.email}</td>
+                  <td className="px-3 py-2 align-top">
+                    <form action={saveMemberRoles} className="inline-flex items-start gap-2">
+                      <input type="hidden" name="userId" value={m.userId} />
+                      <AutoSubmitCheckbox
                         name="TenantAdmin"
+                        label="Admin"
                         defaultChecked={flags.has('TenantAdmin')}
                         disabled={lastAdmin}
-                        aria-describedby={lastAdmin ? `admin-help-${m.userId}` : undefined}
-                        data-pending
+                        describedById={lastAdmin ? `admin-help-${m.userId}` : undefined}
                       />
-                    </label>
+                    </form>
                     {lastAdmin && (
-                      <p id={`admin-help-${m.userId}`} className="text-xs text-muted">
+                      <p id={`admin-help-${m.userId}`} className="mt-1 text-xs text-muted">
                         You can’t remove the last TenantAdmin.
                       </p>
                     )}
-                  </form>
-                </td>
-                <td>
-                  <form action={saveMemberRoles}>
-                    <input type="hidden" name="userId" value={m.userId} />
-                    <label>
-                      <input
-                        aria-label="Approver"
-                        type="checkbox"
+                  </td>
+                  <td className="px-3 py-2">
+                    <form action={saveMemberRoles}>
+                      <input type="hidden" name="userId" value={m.userId} />
+                      <AutoSubmitCheckbox
                         name="Approver"
+                        label="Approver"
                         defaultChecked={flags.has('Approver')}
-                        data-pending
                       />
-                    </label>
-                  </form>
-                </td>
-                <td>
-                  <form action={saveMemberRoles}>
-                    <input type="hidden" name="userId" value={m.userId} />
-                    <label>
-                      <input
-                        aria-label="Creator"
-                        type="checkbox"
+                    </form>
+                  </td>
+                  <td className="px-3 py-2">
+                    <form action={saveMemberRoles}>
+                      <input type="hidden" name="userId" value={m.userId} />
+                      <AutoSubmitCheckbox
                         name="Creator"
+                        label="Creator"
                         defaultChecked={flags.has('Creator')}
-                        data-pending
                       />
-                    </label>
-                  </form>
-                </td>
-                <td>
-                  <form action={saveMemberRoles}>
-                    <input type="hidden" name="userId" value={m.userId} />
-                    <label>
-                      <input
-                        aria-label="Learner"
-                        type="checkbox"
+                    </form>
+                  </td>
+                  <td className="px-3 py-2">
+                    <form action={saveMemberRoles}>
+                      <input type="hidden" name="userId" value={m.userId} />
+                      <AutoSubmitCheckbox
                         name="Learner"
+                        label="Learner"
                         defaultChecked={
                           flags.has('Learner') ||
                           (!flags.has('TenantAdmin') &&
                             !flags.has('Approver') &&
                             !flags.has('Creator'))
                         }
-                        data-pending
                       />
-                    </label>
-                  </form>
-                </td>
-                <td>{new Date(m.joinedAt).toLocaleString()}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    </form>
+                  </td>
+                  <td className="px-3 py-2 text-muted">{new Date(m.joinedAt).toLocaleString()}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

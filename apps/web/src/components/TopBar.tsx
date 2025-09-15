@@ -98,7 +98,11 @@ export function TopBar() {
               <span aria-hidden className="opacity-30 mx-1">
                 |
               </span>
-              <NavLink href="/studio/admin/members">Admin</NavLink>
+              <span className="px-1 text-xs uppercase tracking-wide text-muted">Admin:</span>
+              <NavLink href="/studio/admin/members">Members</NavLink>
+              <NavLink href="/studio/admin/invites">Invites</NavLink>
+              <NavLink href="/studio/admin/audits">Audits</NavLink>
+              <NavLink href="/studio/admin/notifications">Notifications</NavLink>
             </>
           ) : null}
         </nav>
