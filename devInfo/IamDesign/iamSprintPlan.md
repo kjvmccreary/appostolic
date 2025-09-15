@@ -140,18 +140,20 @@ Story 2.4 — Web: Membership admin page — ✅ DONE
 
 Sprint 3 — Role-Aware UX and Guarding
 
-Story 3.1 — Hide/show actions by role
+Story 3.1 — Hide/show actions by role — ✅ DONE
 
 - Scope:
   - Creator-only actions (Create Lesson) shown if canCreate.
-  - Approver actions shown if canApprove.
-  - Admin-only nav visible if isAdmin.
+  - Agents index “New Agent” CTA (header + empty-state) shown if canCreate.
+  - Agents per-row: Edit shown if canCreate; Delete disabled unless canCreate; Run available to all.
+  - Admin-only nav remains visible if isAdmin (no changes required in this slice).
 - Acceptance:
-  - Dashboard/TopBar reflect effective roles; no client-only elevation.
+  - Dashboard/TopBar and Agents pages reflect effective roles; no client-only elevation.
 - Tests:
-  - Render tests toggling session booleans to assert visibility.
+  - TopBar render tests toggling session.canCreate to assert Create Lesson visibility.
+  - AgentsTable tests assert empty-state CTA gating and row Edit/Delete behaviors by canCreate.
 
-Story 3.2 — Gate routes in Web
+Story 3.2 — Gate routes in Web (flags-based)
 
 - Scope:
   - Server components for protected pages check roles server-side and render 403 component if lacking permission.

@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { fetchFromProxy } from '../../lib/serverFetch';
 import { redirect } from 'next/navigation';
 import { AgentsTable, type AgentListItem } from './components/AgentsTable';
+import { NewAgentButton } from '../../../src/components/NewAgentButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +21,8 @@ export default async function Page() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Agents</h1>
-        <Link
-          href="/studio/agents/new"
-          className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-        >
-          New Agent
-        </Link>
+        {/* New Agent button is gated in a client component by session.canCreate */}
+        <NewAgentButton />
       </div>
       <AgentsTable items={items} />
     </div>

@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { TenantSwitcher } from './TenantSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '../lib/cn';
@@ -26,6 +27,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 export function TopBar() {
   const pathname = usePathname() || '';
+  const { data: session } = useSession();
+  const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
   // Show TenantSwitcher broadly (dashboard and most app pages) and hide only on specific public/auth pages
   const hideTenantOn = ['/select-tenant', '/login', '/signup'];
   const hideTenant = hideTenantOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
@@ -43,12 +46,14 @@ export function TopBar() {
           <NavLink href="/editor">Editor</NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/shepherd/step1"
-            className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
-          >
-            Create Lesson
-          </Link>
+          {canCreate ? (
+            <Link
+              href="/shepherd/step1"
+              className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
+            >
+              Create Lesson
+            </Link>
+          ) : null}
           <ThemeToggle />
         </div>
       </div>

@@ -1,3 +1,14 @@
+2025-09-15 — Sprint 3.1 (Hide/show actions by role) — ✅ DONE
+
+- Implemented UI gating using session-derived booleans (isAdmin, canApprove, canCreate, isLearner):
+  - TopBar “Create Lesson” CTA shown only when canCreate.
+  - Agents index: header and empty-state “New Agent” links shown only when canCreate.
+  - Agents per-row actions: Edit shown only when canCreate; Delete disabled unless canCreate; Run remains visible to all.
+- Added unit tests:
+  - TopBar tests toggling canCreate to assert Create Lesson visibility.
+  - AgentsTable tests covering empty-state CTA visibility and row action gating.
+- All web unit tests pass locally.
+
 ## Pre‑Migration — Mig01: Notification transport seam — Completed
 
 - Summary
