@@ -66,7 +66,7 @@ Story 1.3: Theme provider and system theme support (Light/Dark/AMOLED) — ✅ D
 
 Epic 2 — Layout & Navigation
 
-Story 2.1: TopBar scaffold with navigation and Tenant pill
+Story 2.1: TopBar scaffold with navigation and Tenant pill — ✅ DONE
 
 - Files/Changes:
   - apps/web/src/components/TopBar.tsx (uses tokens + Tailwind; lucide icons)
@@ -76,7 +76,7 @@ Story 2.1: TopBar scaffold with navigation and Tenant pill
   - TopBar is sticky, responsive, and keyboard accessible
   - Active nav shows aria-current and visible state
 
-Story 2.2: Integrate TopBar in global layout
+Story 2.2: Integrate TopBar in global layout — ✅ DONE
 
 - Files/Changes:
   - apps/web/app/layout.tsx — replace inline TenantSwitcher row with <TopBar/>

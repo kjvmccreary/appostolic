@@ -34,14 +34,14 @@ export function TopBar() {
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>
-        <nav className="hidden sm:flex items-center gap-1">
+        <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
           <NavLink href="/">Dashboard</NavLink>
-          <NavLink href="/wizard">Wizard</NavLink>
+          <NavLink href="/wizard/step1">Wizard</NavLink>
           <NavLink href="/editor">Editor</NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <Link
-            href="/wizard"
+            href="/wizard/step1"
             className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
           >
             Create Lesson

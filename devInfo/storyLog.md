@@ -2339,4 +2339,37 @@ Requirements coverage
       - Toggling updates root class/data-theme: Done
       - Respects system theme on first render (and when system changes): Done
       - Persists user choice in localStorage: Done
+
+      ## UI — Sprint 02 — Story 2.1: TopBar scaffold — Completed
+
+      - Summary
+        - Implemented a sticky TopBar with app title, nav (Dashboard, Wizard, Editor), Create Lesson CTA, ThemeToggle, and TenantSwitcher on protected routes. Nav indicates active route via `aria-current`.
+
+      - Files changed
+        - apps/web/src/components/TopBar.tsx — new component
+
+      - Quality gates
+        - Lint/Typecheck (web): PASS
+        - Tests (web): PASS (existing suite)
+
+      - Requirements coverage
+        - Sticky, responsive, keyboard accessible: Done
+        - Nav buttons and `aria-current` active state: Done
+        - Wizard and CTA point to /wizard/step1: Done
+
+      ## UI — Sprint 02 — Story 2.2: Integrate TopBar in global layout — Completed
+
+      - Summary
+        - Replaced the simple header with TopBar in `app/layout.tsx`. TenantSwitcher is shown only on protected routes (`/studio`, `/dev`), avoiding duplication on `/select-tenant`.
+
+      - Files changed
+        - apps/web/app/layout.tsx — wired in `<TopBar />`
+
+      - Quality gates
+        - Lint/Typecheck (web): PASS
+        - Build (web): PASS
+
+      - Requirements coverage
+        - Protected pages render TenantSwitcher in TopBar only: Done
+        - No duplication on select-tenant: Done
 ```
