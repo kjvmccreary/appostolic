@@ -26,12 +26,14 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 export function TopBar() {
   const pathname = usePathname() || '';
-  const onProtected = pathname.startsWith('/studio') || pathname.startsWith('/dev');
+  // Show TenantSwitcher broadly (dashboard and most app pages) and hide only on specific public/auth pages
+  const hideTenantOn = ['/select-tenant', '/login', '/signup'];
+  const hideTenant = hideTenantOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--color-line)] bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/60">
       <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-3 px-3">
-        {onProtected ? <TenantSwitcher /> : null}
+  {!hideTenant ? <TenantSwitcher /> : null}
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>

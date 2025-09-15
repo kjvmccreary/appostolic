@@ -29,4 +29,10 @@ describe('TopBar', () => {
     render(<TopBar />);
     expect(screen.queryByTestId('tenant')).not.toBeInTheDocument();
   });
+
+  it('shows TenantSwitcher on dashboard page (/)', () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/');
+    render(<TopBar />);
+    expect(screen.getByTestId('tenant')).toBeInTheDocument();
+  });
 });
