@@ -85,7 +85,7 @@ Implementation notes:
 
 Sprint 2 — Assignment APIs and Web Admin UI
 
-Story 2.1 — Assignment APIs
+Story 2.1 — Assignment APIs — ✅ DONE
 
 - Scope:
   - GET /api/tenants/{tenantId}/memberships — list members with roles.
@@ -97,7 +97,7 @@ Story 2.1 — Assignment APIs
 - Tests:
   - Integration tests for list/set/add/remove; last-admin protection.
 
-Story 2.2 — Invites include roles
+Story 2.2 — Invites include roles — ✅ DONE
 
 - Scope:
   - Extend invite DTO to include initial roles flags (default Creator).

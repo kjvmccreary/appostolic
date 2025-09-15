@@ -771,10 +771,15 @@ public static class V1
             }
         }).RequireAuthorization("TenantAdmin");
 
-        // GET /api/tenants/{tenantId}/memberships — list memberships with roles flags (TenantAdmin only)
-        // Returns userId, email, legacy role, roles flags (string and numeric), and joinedAt for admin UI consumption.
+        // GET /api/tenants/{tenantId}/memberships — List memberships with roles flags (TenantAdmin only)
+        // Purpose: Admin surface to review all tenant memberships including both legacy Role and new Roles flags.
+        // Auth: Requires TenantAdmin for the current tenant. Additionally validates that the caller's tenant_id claim matches the route tenantId.
+        // Inputs: route tenantId (Guid)
+        // Output: 200 OK with array of { userId, email, role (legacy), roles (flags string), rolesValue (int), joinedAt } sorted by email.
+        // Errors: 400 when the caller's tenant claim is invalid; 403 when claim tenant differs from route; 401 handled by auth middleware.
         api.MapGet("/tenants/{tenantId:guid}/memberships", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
         {
+            // Validate tenant claim vs route for defense-in-depth even though policy and middleware scope the tenant context.
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
@@ -795,9 +800,13 @@ public static class V1
             return Results.Ok(list);
         }).RequireAuthorization("TenantAdmin");
 
-        // POST /api/tenants/{tenantId}/memberships/{userId}/roles — replace roles flags for a membership (TenantAdmin only)
-        // Accepts a list of role flag names (e.g., ["TenantAdmin","Creator"]) and replaces the Roles bitfield.
-        // Invariant: at least one TenantAdmin must remain across the tenant after the change; otherwise 409.
+        // POST /api/tenants/{tenantId}/memberships/{userId}/roles — Replace roles flags for a membership (TenantAdmin only)
+        // Purpose: Replace the Roles flags bitfield for a member using an array of enum names; enables Admins to manage granular permissions.
+        // Auth: Requires TenantAdmin for the current tenant. Also validates route tenantId matches caller's tenant_id claim.
+        // Inputs: route tenantId (Guid), userId (Guid); body { roles: string[] } — case-insensitive enum names like "TenantAdmin", "Creator".
+        // Behavior: Parses names → bitfield; if unchanged, returns 204 (no-op). On change, updates membership (immutable replace for InMemory provider parity).
+        // Invariant: Must not remove the last TenantAdmin for the tenant considering both legacy Role (Owner/Admin) and flags; violation → 409 Conflict.
+        // Responses: 200 with summary { userId, roles, rolesValue } on change; 204 no content on no-op; 400 invalid input; 404 membership not found; 403 tenant mismatch; 401 handled by auth.
         api.MapPost("/tenants/{tenantId:guid}/memberships/{userId:guid}/roles", async (
             Guid tenantId,
             Guid userId,
@@ -808,6 +817,7 @@ public static class V1
             if (dto is null || dto.Roles is null)
                 return Results.BadRequest(new { error = "roles are required" });
 
+            // Validate tenant claim vs route for defense-in-depth.
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
@@ -815,7 +825,8 @@ public static class V1
             var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
             if (target is null) return Results.NotFound();
 
-            // Parse flags from provided names; ignore case; invalid names -> 400
+            // Parse flags from provided names; ignore case; invalid names -> 400.
+            // Note: Using Enum.TryParse keeps accepted values aligned with the Roles enum; callers may mix case.
             Roles newFlags = Roles.None;
             foreach (var name in dto.Roles)
             {
@@ -825,15 +836,17 @@ public static class V1
                 newFlags |= flag;
             }
 
-            // If no change, return 204
+            // If no change, return 204 to indicate idempotent update without altering state.
             if (target.Roles == newFlags)
                 return Results.NoContent();
 
-            // Invariant: ensure at least one TenantAdmin remains when removing TenantAdmin from this target
+            // Invariant: ensure at least one TenantAdmin remains when removing TenantAdmin from this target.
+            // Admin status is determined by either legacy Role (Owner/Admin) OR flags including Roles.TenantAdmin.
             bool targetWasTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin;
             bool targetWillBeTenantAdmin = (newFlags & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin; // legacy role still confers admin
             if (targetWasTenantAdmin && !targetWillBeTenantAdmin)
             {
+                // Count other admins (active) across the tenant using the same hybrid definition.
                 var otherAdminsCount = await db.Memberships.AsNoTracking()
                     .Where(m => m.TenantId == tenantId && m.UserId != target.UserId && m.Status == MembershipStatus.Active)
                     .CountAsync(m => ((m.Roles & Roles.TenantAdmin) != 0) || (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin));
@@ -843,6 +856,9 @@ public static class V1
                 }
             }
 
+            // Persistence strategy note:
+            // EF InMemory provider cannot update an immutable record pattern easily, so we replace the row (remove+add)
+            // to mirror the relational provider path where we also replace under a tenant-scoped transaction to respect RLS.
             var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
             if (isInMemory)
             {
@@ -882,6 +898,7 @@ public static class V1
                 await tx.CommitAsync();
             }
 
+            // Return updated roles summary (string and numeric) for caller UI reconciliation.
             return Results.Ok(new { userId = target.UserId, roles = newFlags.ToString(), rolesValue = (int)newFlags });
         }).RequireAuthorization("TenantAdmin");
 
