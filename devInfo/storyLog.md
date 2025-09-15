@@ -2275,4 +2275,26 @@ Requirements coverage
 - Indexes created on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`: Done.
 - EF migrations scaffolded with Designer + snapshot; apply cleanly in Development: Done.
 - No behavior change to dispatcher; retention/dedupe/encryption remain compatible: Done.
+
+## UI — Sprint 02 — Story 1.1: Tailwind + PostCSS — Completed
+
+- Summary
+  - Added Tailwind CSS and PostCSS to the web app and wired Tailwind layers into `globals.css`. Scoped content paths to `app/**` and `src/**` to ensure efficient CSS output. Verified dev/prod build behavior with no regressions.
+
+- Files changed
+  - apps/web/tailwind.config.ts — Tailwind config with darkMode:'class' and content paths
+  - apps/web/postcss.config.js — PostCSS config with Tailwind + Autoprefixer
+  - apps/web/app/globals.css — prepended Tailwind layers and retained custom rules
+  - apps/web/package.json — ensured devDeps present for tailwindcss/postcss/autoprefixer
+
+- Quality gates
+  - Lint (web): PASS
+  - Typecheck (web): PASS
+  - Build (web): PASS (Next.js 14 prod build)
+  - Tests (web): PASS (existing suite)
+
+- Requirements coverage
+  - Tailwind builds in dev and prod, no regressions: Done
+  - Purge/content paths configured to avoid bloat: Done
+  - globals.css retains custom rules (tenant-switcher, page-wrap): Done
 ```

@@ -30,7 +30,7 @@ Dependencies and Risks
 
 Epic 1 — Theming Foundation (Tailwind + Tokens)
 
-Story 1.1: Add Tailwind and PostCSS to web app
+Story 1.1: Add Tailwind and PostCSS to web app — ✅ DONE
 
 - Files/Changes:
   - apps/web/tailwind.config.ts (scoped to app/**/\*.{ts,tsx} and src/**/\*.{ts,tsx})
