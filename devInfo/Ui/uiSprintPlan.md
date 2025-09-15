@@ -42,7 +42,7 @@ Story 1.1: Add Tailwind and PostCSS to web app — ✅ DONE
   - Purge/content paths configured to avoid bloated CSS
   - globals.css retains custom rules (tenant-switcher, page-wrap)
 
-Story 1.2: Introduce design tokens (tokens.css) and CSS variables
+Story 1.2: Introduce design tokens (tokens.css) and CSS variables — ✅ DONE
 
 - Files/Changes:
   - apps/web/app/styles/tokens.css with variables from UI Spec 3. Design Tokens

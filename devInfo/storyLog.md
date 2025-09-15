@@ -2297,4 +2297,24 @@ Requirements coverage
   - Tailwind builds in dev and prod, no regressions: Done
   - Purge/content paths configured to avoid bloat: Done
   - globals.css retains custom rules (tenant-switcher, page-wrap): Done
+
+  ## UI — Sprint 02 — Story 1.2: Design tokens and CSS variables — Completed
+
+  - Summary
+    - Introduced `tokens.css` with core colors, shadows, and radii. Added dark and AMOLED overrides and imported into `globals.css`. Documented variable usage and Tailwind mappings in `devInfo/Ui/README.md`.
+
+  - Files changed
+    - apps/web/app/styles/tokens.css — light, dark, AMOLED tokens
+    - apps/web/app/globals.css — imports tokens and applies base text/bg using vars
+    - devInfo/Ui/README.md — tokens documentation and usage
+
+  - Quality gates
+    - Lint/Typecheck (web): PASS
+    - Tests (web): PASS
+    - Build (web): PASS
+
+  - Requirements coverage
+    - CSS variables exposed at :root and override in dark/AMOLED: Done
+    - Example utilities resolve vars (bg/text/border): Done
+    - Documentation present (optional): Done
 ```
