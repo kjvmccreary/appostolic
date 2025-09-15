@@ -76,77 +76,8 @@ apps/web/
 
 ### TopBar
 
-- Composition (desktop ≥768px)
-  - Left: Tenant pill (selected tenant) → click opens Tenant Switcher dialog
-  - Center-left: App title + primary nav (Dashboard, Agents, Admin)
-  - Right: Contextual actions + Profile
-    - Primary CTA: **Create Lesson** (Creator only)
-    - Secondary: quick links (Agents → New, if Creator)
-    - Profile menu (avatar or initials)
-
-- Composition (mobile <768px)
-  - Left: Hamburger icon toggles a slide-out Nav Drawer
-  - Center: App title (tap returns to Dashboard/Studio home)
-  - Right: Tenant pill (compact) + Profile avatar
-
-- Behaviors
-  - Sticky TopBar; elevates on scroll
-  - Tenant pill reflects `selected_tenant`; keyboard accessible; SR label includes current tenant name
-  - CTA visibility depends on roles (see Role-based Visibility)
-
-### Primary Navigation (desktop) / Nav Drawer (mobile)
-
-- Items (grouped)
-  - Home
-    - Dashboard (/studio or /studio/agents)
-    - Agents (/studio/agents)
-  - Admin (TenantAdmin only)
-    - Members (/studio/admin/members)
-    - Invites (/studio/admin/invites)
-    - Audits (/studio/admin/audits)
-    - Notifications DLQ (/studio/admin/notifications/dlq)
-  - Dev (Development only)
-    - Agents (dev) (/dev/agents)
-    - Health (/dev/health)
-
-- Mobile Nav Drawer
-  - Full-height sheet from left, focus trapped when open
-  - Sections collapsible; Admin section shown only for TenantAdmin
-  - Close on route change, ESC, or backdrop tap
-
-### Profile Menu & Tenant Switcher
-
-- Profile menu (avatar at TopBar right)
-  - Profile (placeholder) — /studio/profile
-  - Switch tenant — opens Tenant Switcher (lists available memberships)
-  - Sign out
-  - Superadmin (dev) — badge shown if `superadmin` claim present
-
-- Tenant Switcher
-  - Reads session memberships; highlights current tenant
-  - On select: calls `/api/tenant/select` (server route) then reloads to landing page for tenant
-  - Accessible listbox pattern with keyboard support
-
-### Role-based Visibility
-
-- TenantAdmin
-  - Sees Admin menu (Members, Invites, Audits, Notifications DLQ)
-  - Can access Members list and edit roles; can view audits
-- Creator
-  - Sees Create actions (Create Lesson, New Agent)
-  - Agents menu visible
-- Approver
-  - Sees Approvals (future endpoints) when present
-- Learner
-  - Read-only; no create/admin actions; can access learning content only
-- Superadmin (dev/test)
-  - May see cross-tenant admin pages where implemented; marked with a "Superadmin" chip in Profile
-
-Implementation notes
-
-- Visibility is derived from session flags (isAdmin/canApprove/canCreate/isLearner) computed server-side.
-- Do not rely on client-only gating; API remains source of truth and enforces authorization.
-- Use `aria-current="page"` on the active nav item; add visually hidden labels for icon-only buttons.
+- Tenant pill, app title, nav buttons (Dashboard, Wizard, Editor)
+- CTA: **Create Lesson** (accent button)
 
 ### Dashboard
 
@@ -168,15 +99,6 @@ Implementation notes
 - Inputs: topic field, objectives textarea, audience cards, duration slider, tone chips, denomination profile chip
 
 ### Editor
-
-### Acceptance (Navigation)
-
-1. Desktop shows TopBar with Tenant pill, primary nav, role-gated actions, and Profile.
-2. Mobile shows Hamburger → Nav Drawer; identical items as desktop, gated by roles.
-3. TenantAdmin sees Admin section; non-admins do not see Admin.
-4. Creator sees Create lesson CTA; non-creators do not.
-5. Profile menu includes Switch tenant and Sign out; Switch tenant updates `selected_tenant` via `/api/tenant/select`.
-6. Keyboard navigation and ARIA labels verified; focus trap in Nav Drawer.
 
 - Draft: title, metadata, outline, scripture blockquote
 - Actions: Save, Generate Slides, Export PDF
@@ -256,3 +178,150 @@ Implementation notes
 - Derived from **Appostolic Ui Preview – Dashboard & Wizard (v0.4)**
 - Synced with **SnapshotArchitecture.md** (Web app section)
 - Supersedes **UI-Spec.md (v0.1)** and **Web UI Spec (v1.0)**
+
+---
+
+## 13. Navigation Design (Expanded)
+
+### 13.1 Information Architecture (Web)
+
+**Primary TopBar (always visible):**
+
+- **Logo + Tenant Pill** (click → Tenant Switcher / Tenant Home)
+- **Primary Nav:** Dashboard · Wizard · Editor
+- **Overflow Menus (right side):**
+  - **Notifications** (bell)
+  - **Help** (docs, keyboard shortcuts, contact)
+  - **Profile** (avatar) — profile & account actions
+  - **Admin** (only for Tenant Admin/Owner) — org-wide configuration
+
+**Mobile Web behavior:**
+
+- Collapse primary nav into a single **Menu** button (hamburger). Drawer reveals: Dashboard, Wizard, Editor, Admin (if authorized), Help.
+- Tenant pill remains visible; Notifications and Avatar remain as icons in the TopBar.
+
+### 13.2 Route Map
+
+```
+/                       → Dashboard
+/wizard                 → Wizard (step 1)
+/wizard/step2           → Wizard (step 2)
+/wizard/review          → Wizard (review)
+/editor                 → Editor
+/profile                → Profile & Preferences
+/profile/security       → Security (password, 2FA*)
+/profile/notifications  → Notification prefs
+/profile/keys           → API Keys (app-scoped)*
+/admin                  → Admin Landing (requires role: Admin|Owner)
+/admin/guardrails       → Guardrails (doctrine/denomination presets)
+/admin/roles            → Roles & Invites
+/admin/billing          → Billing & Plans
+/admin/usage            → Usage & Quotas
+/admin/audit            → Audit Log*
+/tenants                → Tenant Switcher
+```
+
+`*` = Post-MVP unless specifically pulled in.
+
+### 13.3 Navigation States & Access Rules
+
+- **Admin menu visibility**: only for `Owner` or `Admin` roles. Hidden (not disabled) for others.
+- **Direct access protection**: server-side check on admin routes; unauthorized → 403 page with link to Home.
+- **Active state**: TopBar buttons use `aria-current="page"` and primary bg.
+- **Breadcrumbs**: Admin sub-pages show a lightweight breadcrumb: Admin ▸ Section.
+
+### 13.4 Components (Web)
+
+- **TopBar**: `TopBar.tsx` accepts `{ user, tenant, canAdmin }` and renders the Admin dropdown if `canAdmin`.
+- **NavDrawer** (mobile): `NavDrawer.tsx` with sections: Primary, Admin (conditional), Help.
+- **TenantSwitcher**: `TenantSwitcher.tsx` modal/panel with searchable tenant list, “Create new tenant”.
+
+---
+
+## 14. Tenant Admin UX (MVP scope)
+
+> Goal: give Admin/Owner practical controls needed for Release 1.0 without overbuilding.
+
+### 14.1 Guardrails (`/admin/guardrails`) — **In MVP**
+
+- **Purpose**: Configure doctrinal boundaries & denomination profile used by generation.
+- **Sections**:
+  - **Denomination Profile**: preset picker (e.g., Mere Christianity) + editable notes.
+  - **Content Filters**: toggles/sliders (e.g., political content: restrict/allow; miracles language: neutral/affirmative, etc.).
+  - **Review Examples**: small panel that shows how prompts are adjusted.
+
+- **Actions**: Save (primary), Reset to preset, Export snapshot.
+- **Persistence**: saves a versioned policy snapshot.
+
+### 14.2 Roles & Invites (`/admin/roles`) — **In MVP**
+
+- **Table**: Member email, Role (Owner/Admin/Member), Status (Active/Pending), Last active.
+- **Actions**: Invite user (email), change role, revoke invite, remove member.
+- **Security**: role changes require Owner or Admin.
+
+### 14.3 Billing & Plans (`/admin/billing`) — **In MVP**
+
+- **Plan**: Free / Pro / Org; current cycle usage.
+- **Payment**: link to Stripe portal; show invoices.
+- **Quotas**: show jobs remaining; upgrade CTA.
+
+### 14.4 Usage & Quotas (`/admin/usage`) — **In MVP**
+
+- **Charts**: Jobs by day, costs by deliverable type.
+- **Filters**: date range, user.
+- **Export**: CSV.
+
+### 14.5 Audit Log (`/admin/audit`) — **Post-MVP**
+
+- **List**: action, actor, entity, timestamp, IP.
+
+---
+
+## 15. User Profile UX (All users)
+
+### 15.1 Profile & Preferences (`/profile`) — **In MVP**
+
+- **Profile**: Name, avatar, email (read-only if SSO later), time zone.
+- **Display**: Theme (Light/Dark/AMOLED/System), **Prefer AMOLED in dark** toggle, reduced motion toggle.
+- **Notifications**: global email toggles (product updates, job complete), per-tenant overrides (future).
+- **Tenants**: list current membership with roles; link to `/tenants`.
+- **Security (placeholder)**: link to `/profile/security` for password/2FA (post-MVP).
+
+### 15.2 API Keys (`/profile/keys`) — **Post-MVP**
+
+- Generate, revoke, and view limited-scope keys.
+
+### 15.3 Notifications Menu (TopBar)
+
+- **Bell panel**: list of latest job states (Succeeded/Failed), invites, billing warnings.
+- **Actions**: mark as read, go to item, settings link → `/profile/notifications`.
+
+---
+
+## 16. Responsive Behavior (Admin & Profile)
+
+- **Mobile web**: Admin & Profile pages use single-column flow; tables become stack cards; actions move to kebab menus.
+- **Desktop**: Admin pages use two-pane layout: left nav (section list), right content; sticky section header.
+
+---
+
+## 17. Acceptance Criteria (additions)
+
+1. **Admin menu** is visible only to Owner/Admin users; hidden otherwise.
+2. `/admin/*` routes enforce server-side authorization; non-admins receive a 403.
+3. **Guardrails page** saves a versioned snapshot and shows a confirmation toast.
+4. **Roles & Invites** supports invite, role change, revoke, remove with proper toasts and error states.
+5. **Billing** links to Stripe portal and displays current plan & invoices.
+6. **Usage** shows jobs/time chart and exports CSV.
+7. **Profile** allows theme selection + “Prefer AMOLED in dark”; persists across sessions.
+8. **Mobile web**: Admin tables render as cards; all actions reachable via touch targets ≥44px.
+
+---
+
+## 18. Dev Notes
+
+- **Authorization**: use middleware or route handlers to gate `/admin/*` on the server.
+- **Data fetching**: RSC where possible; mutate via actions/route handlers.
+- **Toasts**: headless (e.g., Radix or MUI Joy Snackbar) using tokens.
+- **Icons**: lucide-react outline set only (no colored emojis).
+- **Analytics**: page-level events for Admin actions (not PII).
