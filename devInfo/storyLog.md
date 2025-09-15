@@ -399,6 +399,35 @@ Files changed
 - apps/api.tests/Api/NotificationsAdminEndpointsTests.cs — dev resend test: 201 then 429, asserts metadata linkage.
 - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — prod resend tests: tenant success and cross‑tenant 403; 404 when missing.
 
+## Web UI — Epic 1: Theming foundation (Completed)
+
+- Summary
+  - Introduced Tailwind CSS with PostCSS and a tokens.css design system. Implemented Light/Dark/AMOLED theming via CSS variables and Tailwind dark mode. Added a client-side ColorSchemeProvider to manage theme mode and AMOLED state, wired MUI ThemeProvider to reflect palette.mode based on the current scheme, and exposed a `ThemeToggle` in a reliable client header (AppHeader) across Studio routes. Fixed MUI+Next Link typing by wrapping MUI Button with Next Link and `component="a"`. Unified React type versions via pnpm overrides to resolve ReactNode mismatches. Added a small `cn()` utility per UI spec. All web tests green.
+
+- Files changed (highlights)
+  - apps/web/tailwind.config.ts, apps/web/postcss.config.js — Tailwind + PostCSS setup
+  - apps/web/app/styles/tokens.css — design tokens + dark/AMOLED overrides
+  - apps/web/app/globals.css — Tailwind layers + token-based bg/text colors
+  - apps/web/src/theme/ColorSchemeContext.tsx — theme state + HTML class/attribute sync
+  - apps/web/src/theme/ThemeRegistry.tsx — MUI palette.mode bound to current theme
+  - apps/web/src/components/ThemeToggle.tsx — UI control for theme + AMOLED
+  - apps/web/src/components/AppHeader.tsx — reliable header with ThemeToggle (usePathname)
+  - apps/web/src/app/studio/agents/components/AgentsTable.tsx — Next Link + Button(component='a')
+  - apps/web/src/lib/cn.ts — classnames helper
+  - Root package.json — pnpm overrides for @types/react and @types/react-dom
+
+- Quality gates
+  - Lint: PASS (flat config; deprecation warning for local .eslintignore noted)
+  - Typecheck (web): PASS
+  - Tests (web): PASS (coverage above threshold); added ThemeToggle test
+
+- Requirements coverage
+  - Tailwind + PostCSS integrated: Done
+  - Tokenized theming with Light/Dark/AMOLED and toggle: Done
+  - MUI palette sync with theme mode: Done
+  - Reliable header rendering ThemeToggle on Studio routes: Done
+  - Tests updated/passing: Done
+
 ## Auth-ML-06 — Web: Verify Page + NextAuth integration — Completed
 
 - Summary
