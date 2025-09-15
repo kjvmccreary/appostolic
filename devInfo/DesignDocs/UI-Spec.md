@@ -76,8 +76,77 @@ apps/web/
 
 ### TopBar
 
-- Tenant pill, app title, nav buttons (Dashboard, Wizard, Editor)
-- CTA: **Create Lesson** (accent button)
+- Composition (desktop ≥768px)
+  - Left: Tenant pill (selected tenant) → click opens Tenant Switcher dialog
+  - Center-left: App title + primary nav (Dashboard, Agents, Admin)
+  - Right: Contextual actions + Profile
+    - Primary CTA: **Create Lesson** (Creator only)
+    - Secondary: quick links (Agents → New, if Creator)
+    - Profile menu (avatar or initials)
+
+- Composition (mobile <768px)
+  - Left: Hamburger icon toggles a slide-out Nav Drawer
+  - Center: App title (tap returns to Dashboard/Studio home)
+  - Right: Tenant pill (compact) + Profile avatar
+
+- Behaviors
+  - Sticky TopBar; elevates on scroll
+  - Tenant pill reflects `selected_tenant`; keyboard accessible; SR label includes current tenant name
+  - CTA visibility depends on roles (see Role-based Visibility)
+
+### Primary Navigation (desktop) / Nav Drawer (mobile)
+
+- Items (grouped)
+  - Home
+    - Dashboard (/studio or /studio/agents)
+    - Agents (/studio/agents)
+  - Admin (TenantAdmin only)
+    - Members (/studio/admin/members)
+    - Invites (/studio/admin/invites)
+    - Audits (/studio/admin/audits)
+    - Notifications DLQ (/studio/admin/notifications/dlq)
+  - Dev (Development only)
+    - Agents (dev) (/dev/agents)
+    - Health (/dev/health)
+
+- Mobile Nav Drawer
+  - Full-height sheet from left, focus trapped when open
+  - Sections collapsible; Admin section shown only for TenantAdmin
+  - Close on route change, ESC, or backdrop tap
+
+### Profile Menu & Tenant Switcher
+
+- Profile menu (avatar at TopBar right)
+  - Profile (placeholder) — /studio/profile
+  - Switch tenant — opens Tenant Switcher (lists available memberships)
+  - Sign out
+  - Superadmin (dev) — badge shown if `superadmin` claim present
+
+- Tenant Switcher
+  - Reads session memberships; highlights current tenant
+  - On select: calls `/api/tenant/select` (server route) then reloads to landing page for tenant
+  - Accessible listbox pattern with keyboard support
+
+### Role-based Visibility
+
+- TenantAdmin
+  - Sees Admin menu (Members, Invites, Audits, Notifications DLQ)
+  - Can access Members list and edit roles; can view audits
+- Creator
+  - Sees Create actions (Create Lesson, New Agent)
+  - Agents menu visible
+- Approver
+  - Sees Approvals (future endpoints) when present
+- Learner
+  - Read-only; no create/admin actions; can access learning content only
+- Superadmin (dev/test)
+  - May see cross-tenant admin pages where implemented; marked with a "Superadmin" chip in Profile
+
+Implementation notes
+
+- Visibility is derived from session flags (isAdmin/canApprove/canCreate/isLearner) computed server-side.
+- Do not rely on client-only gating; API remains source of truth and enforces authorization.
+- Use `aria-current="page"` on the active nav item; add visually hidden labels for icon-only buttons.
 
 ### Dashboard
 
@@ -99,6 +168,15 @@ apps/web/
 - Inputs: topic field, objectives textarea, audience cards, duration slider, tone chips, denomination profile chip
 
 ### Editor
+
+### Acceptance (Navigation)
+
+1. Desktop shows TopBar with Tenant pill, primary nav, role-gated actions, and Profile.
+2. Mobile shows Hamburger → Nav Drawer; identical items as desktop, gated by roles.
+3. TenantAdmin sees Admin section; non-admins do not see Admin.
+4. Creator sees Create lesson CTA; non-creators do not.
+5. Profile menu includes Switch tenant and Sign out; Switch tenant updates `selected_tenant` via `/api/tenant/select`.
+6. Keyboard navigation and ARIA labels verified; focus trap in Nav Drawer.
 
 - Draft: title, metadata, outline, scripture blockquote
 - Actions: Save, Generate Slides, Export PDF
