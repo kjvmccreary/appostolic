@@ -219,6 +219,23 @@ Quality gates
   - Consistent 403 ProblemDetails with tenant and required role info: Done
   - Backward-compatible role evaluation via legacy-role mapping: Done
 
+## IAM — Story 1.4: TenantAdmin invariant (last-admin protection) — Completed
+
+- Summary
+  - Implemented a hard guardrail to ensure each tenant always has at least one TenantAdmin. The membership admin endpoints now prevent operations that would leave zero TenantAdmins: demoting an Owner/Admin to a non-admin role or removing the last Owner/Admin returns 409 Conflict with a clear error. Owner-only demotion restrictions were removed; the TenantAdmin invariant governs behavior. Self-removal is still blocked with 400 when not the last admin, with invariant precedence.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — PUT members enforces 409 on last-admin demotion; DELETE members enforces 409 on last-admin removal; preserved RLS-aware writes and InMemory provider path.
+  - apps/api.tests/Api/MembersManagementTests.cs — updated expectations for last-admin demote/remove to 409; added test permitting demotion when another admin exists; ensured test isolation by setting a known Owner.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (focused members/invites + smoke): PASS
+
+- Requirements coverage
+  - Block operations that would leave zero TenantAdmins with 409 Conflict: Done
+  - Maintain clear error semantics and precedence vs. self-removal: Done
+
 ## Mig06 — Web DLQ Admin: pagination, filters, per-row replay — Completed
 
 - Summary

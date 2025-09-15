@@ -63,7 +63,7 @@ Implementation notes:
   - TenantAdmin: members and invites endpoints (list, create, resend, delete, change role, remove member).
   - Approver: no-op for now (approve/publish endpoints not yet present in V1).
 
-Story 1.4 — Seed guardrails and invariants
+Story 1.4 — Seed guardrails and invariants — ✅ DONE
 
 - Scope:
   - Invariant: at least one TenantAdmin per tenant.
@@ -72,6 +72,14 @@ Story 1.4 — Seed guardrails and invariants
   - Cannot remove last TenantAdmin; return 409 with clear message.
 - Tests:
   - Demote last admin → 409; add another admin then demote → 204.
+
+Implementation notes:
+
+- Enforced invariant in V1 endpoints:
+  - PUT /api/tenants/{tenantId}/members/{userId} blocks demotions from Owner/Admin to non-admin when it would leave zero TenantAdmins (409 Conflict).
+  - DELETE /api/tenants/{tenantId}/members/{userId} blocks removal of the last Owner/Admin (409 Conflict).
+- Removed legacy owner-only demotion logic in favor of the TenantAdmin invariant. Self-removal remains blocked with 400 when not the last admin; invariant check takes precedence.
+- Updated tests to reflect 409 semantics and added a demotion-allowed case when another admin exists.
 
 ---
 

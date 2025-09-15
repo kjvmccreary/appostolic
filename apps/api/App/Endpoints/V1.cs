@@ -663,15 +663,20 @@ public static class V1
             if (newRole == MembershipRole.Owner && !isCallerOwner)
                 return Results.Forbid();
 
-            // Cannot demote the last Owner; also prevent self-demotion from last Owner explicitly
-            if (target.Role == MembershipRole.Owner && newRole != MembershipRole.Owner)
+            // Owner-specific demotion constraints are superseded by TenantAdmin invariant in Story 1.4
+
+            // Story 1.4: Enforce invariant — at least one TenantAdmin per tenant.
+            // If this change would result in zero TenantAdmins (Owner/Admin), block with 409.
+            bool isRemovingTenantAdminRole = target.Role is MembershipRole.Owner or MembershipRole.Admin;
+            bool becomesTenantAdmin = newRole is MembershipRole.Owner or MembershipRole.Admin;
+            if (isRemovingTenantAdminRole && !becomesTenantAdmin)
             {
-                var ownerCount = await db.Memberships.AsNoTracking()
-                    .CountAsync(m => m.TenantId == tenantId && m.Role == MembershipRole.Owner && m.Status == MembershipStatus.Active);
-                if (ownerCount <= 1)
-                    return Results.BadRequest(new { error = "cannot demote the last Owner" });
-                if (target.UserId == callerId)
-                    return Results.BadRequest(new { error = "cannot change your own role when you are the last Owner" });
+                var currentAdmins = await db.Memberships.AsNoTracking()
+                    .CountAsync(m => m.TenantId == tenantId && (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin) && m.Status == MembershipStatus.Active);
+                if (currentAdmins <= 1)
+                {
+                    return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
+                }
             }
 
             var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
@@ -736,18 +741,17 @@ public static class V1
             var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
             if (target is null) return Results.NotFound();
 
-            // Forbid removing yourself
+            // Story 1.4 invariant: prevent removing the last TenantAdmin (Owner/Admin)
+            var adminCount = await db.Memberships.AsNoTracking()
+                .CountAsync(m => m.TenantId == tenantId && (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin) && m.Status == MembershipStatus.Active);
+            if ((target.Role == MembershipRole.Owner || target.Role == MembershipRole.Admin) && adminCount <= 1)
+            {
+                return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
+            }
+
+            // Forbid removing yourself (only applies when not the last TenantAdmin)
             if (target.UserId == callerId)
                 return Results.BadRequest(new { error = "cannot remove yourself" });
-
-            // Forbid removing the last Owner
-            if (target.Role == MembershipRole.Owner)
-            {
-                var ownerCount = await db.Memberships.AsNoTracking()
-                    .CountAsync(m => m.TenantId == tenantId && m.Role == MembershipRole.Owner && m.Status == MembershipStatus.Active);
-                if (ownerCount <= 1)
-                    return Results.BadRequest(new { error = "cannot remove the last Owner" });
-            }
 
             var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
             if (isInMemory)

@@ -8,6 +8,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Added policy-based authorization: TenantAdmin, Approver, Creator, Learner. Applied to critical endpoints in V1 (Creator on lesson creation; TenantAdmin on members/invites management). Legacy `MembershipRole` is mapped to `Roles` flags in the auth handler for compatibility.
   - Introduced a custom authorization result handler to return RFC7807 ProblemDetails on Forbidden, with extensions including tenantId and requiredRoles. Added a small fallback middleware to cover manual `Forbid()` responses.
 
+- IAM — Sprint 1.4: TenantAdmin invariant (Completed)
+  - Enforced invariant that every tenant must always have at least one TenantAdmin. Membership admin endpoints now return 409 Conflict when a role change or deletion would leave zero TenantAdmins (Owner/Admin). Owner-only demotion restrictions removed; invariant governs behavior. Tests updated to confirm last-admin protection and allow demotion when another admin exists.
+
 - IAM — Sprint 1.1: Membership Roles flags (Completed)
   - Added hardcoded tenant-scoped Roles as a [Flags] enum: TenantAdmin, Approver, Creator, Learner (None=0).
   - Extended `Membership` with an `roles` column (int) to store role flags per user per tenant.
