@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TenantSwitcher } from './TenantSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import { cn } from '../lib/cn';
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname() || '';
@@ -13,10 +14,10 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     <Link
       href={href}
       aria-current={isActive ? 'page' : undefined}
-      className={
-        'px-2 py-1 rounded-md text-sm hover:opacity-100 ' +
-        (isActive ? 'opacity-100' : 'opacity-75')
-      }
+      className={cn('px-2 py-1 rounded-md text-sm hover:opacity-100', {
+        'opacity-100': isActive,
+        'opacity-75': !isActive,
+      })}
     >
       {children}
     </Link>

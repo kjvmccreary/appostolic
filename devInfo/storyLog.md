@@ -2372,4 +2372,21 @@ Requirements coverage
       - Requirements coverage
         - Protected pages render TenantSwitcher in TopBar only: Done
         - No duplication on select-tenant: Done
+
+        ## UI — Sprint 02 — Story 2.3: cn() utility and icon set — Completed
+
+        - Summary
+          - Added a typed `cn()` helper based on `classnames` and refactored TopBar nav to use it for conditional classes. Icon set (`lucide-react`) already included and used by ThemeToggle.
+
+        - Files changed
+          - apps/web/src/lib/cn.ts — classnames wrapper
+          - apps/web/src/components/TopBar.tsx — use `cn()` in NavLink
+
+        - Quality gates
+          - Lint/Typecheck (web): PASS
+          - Tests (web): PASS
+
+        - Requirements coverage
+          - cn() utility available and used in initial components: Done
+          - Icon set present and in use: Done
 ```

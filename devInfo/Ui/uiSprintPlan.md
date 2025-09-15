@@ -84,7 +84,7 @@ Story 2.2: Integrate TopBar in global layout — ✅ DONE
   - Protected pages continue to render TenantSwitcher within TopBar (only on protected paths)
   - No duplication on /select-tenant
 
-Story 2.3: cn() utility and icon set
+Story 2.3: cn() utility and icon set — ✅ DONE
 
 - Files/Changes:
   - apps/web/src/lib/cn.ts (simple classnames wrapper)
