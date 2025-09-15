@@ -45,9 +45,11 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
         }}
       >
         <Box sx={{ mb: 2 }}>No agents yet.</Box>
-        <Button LinkComponent={Link} href="/studio/agents/new" variant="contained">
-          New Agent
-        </Button>
+        <Link href="/studio/agents/new" passHref legacyBehavior>
+          <Button component="a" variant="contained">
+            New Agent
+          </Button>
+        </Link>
       </Box>
     );
   }
@@ -85,17 +87,16 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
       headerAlign: 'right',
       renderCell: (p) => (
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button LinkComponent={Link} href={`/studio/agents/${p.row.id}`} size="small">
-            Edit
-          </Button>
-          <Button
-            LinkComponent={Link}
-            href={`/studio/agents/${p.row.id}/delete`}
-            size="small"
-            color="error"
-          >
-            Delete
-          </Button>
+          <Link href={`/studio/agents/${p.row.id}`} passHref legacyBehavior>
+            <Button component="a" size="small">
+              Edit
+            </Button>
+          </Link>
+          <Link href={`/studio/agents/${p.row.id}/delete`} passHref legacyBehavior>
+            <Button component="a" size="small" color="error">
+              Delete
+            </Button>
+          </Link>
         </Box>
       ),
     },

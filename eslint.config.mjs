@@ -13,6 +13,8 @@ export default [
       '**/.next/**',
       '**/bin/**',
       '**/obj/**',
+      '**/tailwind.config.*',
+      '**/postcss.config.*',
     ],
   },
   js.configs.recommended,
@@ -34,6 +36,8 @@ export default [
       '**/*.config.cjs',
       'apps/mobile/metro.config.js',
       'apps/mobile/babel.config.js',
+      'apps/web/postcss.config.js',
+      'apps/web/tailwind.config.ts',
     ],
     languageOptions: {
       sourceType: 'commonjs',
@@ -41,6 +45,10 @@ export default [
         module: 'readonly',
         require: 'readonly',
         __dirname: 'readonly',
+      },
+      parserOptions: {
+        // Avoid TypeScript project service on non-project config files
+        projectService: false,
       },
     },
     rules: {

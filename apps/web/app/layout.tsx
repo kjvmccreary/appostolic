@@ -3,6 +3,7 @@ import React from 'react';
 import Providers from './providers';
 import { TenantSwitcher } from '../src/components/TenantSwitcher';
 import { headers } from 'next/headers';
+import { ThemeToggle } from '../src/components/ThemeToggle';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Hide the global TenantSwitcher when we're on the /select-tenant page to avoid duplicate UI
@@ -21,8 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           {showTenantSwitcher && (
-            <div>
-              <TenantSwitcher /> <a href="/change-password">Change password</a>
+            <div className="flex items-center gap-3 p-2">
+              <TenantSwitcher />
+              <ThemeToggle />
+              <a href="/change-password" className="text-sm opacity-80 hover:opacity-100">
+                Change password
+              </a>
             </div>
           )}
           {children}

@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.19% </span>
+                <span class="strong">80.73% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>88/114</span>
+                <span class='fraction'>88/109</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.19% </span>
+                <span class="strong">80.73% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>88/114</span>
+                <span class='fraction'>88/109</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -172,12 +172,7 @@
 <a name='L107'></a><a href='#L107'>107</a>
 <a name='L108'></a><a href='#L108'>108</a>
 <a name='L109'></a><a href='#L109'>109</a>
-<a name='L110'></a><a href='#L110'>110</a>
-<a name='L111'></a><a href='#L111'>111</a>
-<a name='L112'></a><a href='#L112'>112</a>
-<a name='L113'></a><a href='#L113'>113</a>
-<a name='L114'></a><a href='#L114'>114</a>
-<a name='L115'></a><a href='#L115'>115</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L110'></a><a href='#L110'>110</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -263,11 +258,6 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -338,9 +328,9 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
         }}
       &gt;
         &lt;Box sx={{ mb: 2 }}&gt;No agents yet.&lt;/Box&gt;
-        &lt;Button LinkComponent={Link} href="/studio/agents/new" variant="contained"&gt;
-          New Agent
-        &lt;/Button&gt;
+        &lt;Link href="/studio/agents/new" passHref legacyBehavior&gt;
+          &lt;Button component="a" variant="contained"&gt;New Agent&lt;/Button&gt;
+        &lt;/Link&gt;
       &lt;/Box&gt;
     );
   }
@@ -378,17 +368,12 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
       headerAlign: 'right',
       renderCell: <span class="fstat-no" title="function not covered" >(p) =&gt; (</span>
 <span class="cstat-no" title="statement not covered" >        &lt;Box sx={{ display: 'flex', gap: 1 }}&gt;</span>
-<span class="cstat-no" title="statement not covered" >          &lt;Button LinkComponent={Link} href={`/studio/agents/${p.row.id}`} size="small"&gt;</span>
-<span class="cstat-no" title="statement not covered" >            Edit</span>
-<span class="cstat-no" title="statement not covered" >          &lt;/Button&gt;</span>
-<span class="cstat-no" title="statement not covered" >          &lt;Button</span>
-<span class="cstat-no" title="statement not covered" >            LinkComponent={Link}</span>
-<span class="cstat-no" title="statement not covered" >            href={`/studio/agents/${p.row.id}/delete`}</span>
-<span class="cstat-no" title="statement not covered" >            size="small"</span>
-<span class="cstat-no" title="statement not covered" >            color="error"</span>
-<span class="cstat-no" title="statement not covered" >          &gt;</span>
-<span class="cstat-no" title="statement not covered" >            Delete</span>
-<span class="cstat-no" title="statement not covered" >          &lt;/Button&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;Link href={`/studio/agents/${p.row.id}`} passHref legacyBehavior&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;Button component="a" size="small"&gt;Edit&lt;/Button&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;/Link&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;Link href={`/studio/agents/${p.row.id}/delete`} passHref legacyBehavior&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;Button component="a" size="small" color="error"&gt;Delete&lt;/Button&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;/Link&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;/Box&gt;</span>
       ),
     },
@@ -412,7 +397,7 @@ export function AgentsTable({ items }: { items: AgentListItem[] }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-09-15T00:58:07.716Z
+                at 2025-09-15T01:45:01.966Z
             </div>
         <script src="../../../../../prettify.js"></script>
         <script>

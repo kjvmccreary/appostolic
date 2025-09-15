@@ -2,6 +2,12 @@
   "name": "appostolic",
   "private": true,
   "packageManager": "pnpm@9.9.0",
+  "pnpm": {
+    "overrides": {
+      "@types/react": "18.3.24",
+      "@types/react-dom": "18.3.0"
+    }
+  },
   "scripts": {
     "dev": "concurrently --kill-others-on-fail -n web,api -c green,cyan \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\"",
     "dev:all": "concurrently --kill-others-on-fail -n web,api,info -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"node -e \"console.log('\\n============================================================\\n Mobile is interactive.\\n Open new terminal:\\n   cd apps/mobile && pnpm dev\\n============================================================\\n')\"\"",
