@@ -96,6 +96,26 @@ describe('AgentForm - create', () => {
       toolAllowlist: ['web.search'],
     });
   });
+
+  it('sends isEnabled=false when toggled off before submit', async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    server.use(
+      http.post('http://localhost/api-proxy/agents', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ id: 'created' }, { status: 201 });
+      }),
+    );
+
+    render(<AgentForm mode="create" tools={tools} />);
+    await userEvent.type(screen.getByLabelText('Name'), 'New Agent');
+    // Toggle Enabled off
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Enabled' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/studio/agents'));
+    const sent = bodies.at(-1);
+    expect(sent).toMatchObject({ isEnabled: false });
+  });
 });
 
 describe('AgentForm - edit', () => {

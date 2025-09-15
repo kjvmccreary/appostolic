@@ -46,6 +46,7 @@ type Props = {
   tools: ToolItem[];
 };
 
+// Agent form with inline validation, ARIA helper texts, and tool allowlist hints.
 export default function AgentForm({ mode, initial, tools }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<AgentUpsert>({
@@ -112,13 +113,16 @@ export default function AgentForm({ mode, initial, tools }: Props) {
         body,
       });
       if (!res.ok) {
-        const txt = await res.text();
-        setToast(`Save failed: ${res.status} ${txt}`);
+        setToast('Failed to save');
+        setSaving(false);
         return;
       }
-      setToast('Saved');
+
+      // Navigate back to agents list and refresh.
       router.push('/studio/agents');
       router.refresh();
+    } catch {
+      setToast('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -127,7 +131,10 @@ export default function AgentForm({ mode, initial, tools }: Props) {
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="rounded bg-green-50 text-green-800 px-3 py-2 text-sm" role="status">
+        <div
+          role="status"
+          className="rounded bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm"
+        >
           {toast}
         </div>
       )}
@@ -146,8 +153,17 @@ export default function AgentForm({ mode, initial, tools }: Props) {
               maxLength={120}
               placeholder="My Study Buddy"
               title="Agent name (required, up to 120 characters)"
+              {...(errors.name ? { 'aria-invalid': 'true' } : {})}
+              aria-describedby={`agent-name-help${errors.name ? ' agent-name-error' : ''}`}
             />
-            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+            <p id="agent-name-help" className="text-xs text-gray-600 mt-1">
+              Required; up to 120 characters.
+            </p>
+            {errors.name && (
+              <p className="text-xs text-red-600 mt-1" id="agent-name-error">
+                {errors.name}
+              </p>
+            )}
           </div>
 
           <div>
@@ -162,8 +178,17 @@ export default function AgentForm({ mode, initial, tools }: Props) {
               maxLength={80}
               placeholder="gpt-4o-mini"
               title="Model name (up to 80 characters)"
+              {...(errors.model ? { 'aria-invalid': 'true' } : {})}
+              aria-describedby={`agent-model-help${errors.model ? ' agent-model-error' : ''}`}
             />
-            {errors.model && <p className="text-xs text-red-600 mt-1">{errors.model}</p>}
+            <p id="agent-model-help" className="text-xs text-gray-600 mt-1">
+              Up to 80 characters.
+            </p>
+            {errors.model && (
+              <p className="text-xs text-red-600 mt-1" id="agent-model-error">
+                {errors.model}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 items-center">
@@ -181,9 +206,16 @@ export default function AgentForm({ mode, initial, tools }: Props) {
                 id="agent-temperature"
                 className="w-full"
                 title="Temperature (0 to 2)"
+                {...(errors.temperature ? { 'aria-invalid': 'true' } : {})}
+                aria-describedby={`agent-temperature-help${errors.temperature ? ' agent-temperature-error' : ''}`}
               />
+              <p id="agent-temperature-help" className="text-xs text-gray-600 mt-1">
+                Range 0–2. Lower = precise, higher = creative.
+              </p>
               {errors.temperature && (
-                <p className="text-xs text-red-600 mt-1">{errors.temperature}</p>
+                <p className="text-xs text-red-600 mt-1" id="agent-temperature-error">
+                  {errors.temperature}
+                </p>
               )}
             </div>
             <div>
@@ -199,8 +231,17 @@ export default function AgentForm({ mode, initial, tools }: Props) {
                 id="agent-maxsteps"
                 className="mt-1 w-full rounded border px-3 py-2 text-sm"
                 title="Max steps (1 to 50)"
+                {...(errors.maxSteps ? { 'aria-invalid': 'true' } : {})}
+                aria-describedby={`agent-maxsteps-help${errors.maxSteps ? ' agent-maxsteps-error' : ''}`}
               />
-              {errors.maxSteps && <p className="text-xs text-red-600 mt-1">{errors.maxSteps}</p>}
+              <p id="agent-maxsteps-help" className="text-xs text-gray-600 mt-1">
+                Range 1–50.
+              </p>
+              {errors.maxSteps && (
+                <p className="text-xs text-red-600 mt-1" id="agent-maxsteps-error">
+                  {errors.maxSteps}
+                </p>
+              )}
             </div>
           </div>
 
@@ -211,9 +252,13 @@ export default function AgentForm({ mode, initial, tools }: Props) {
                 type="checkbox"
                 checked={form.isEnabled !== false}
                 onChange={(e) => setField('isEnabled', e.target.checked)}
+                aria-label="Enabled"
               />
               <span>{form.isEnabled !== false ? 'Enabled' : 'Disabled'}</span>
             </label>
+            <p className="text-xs text-gray-600 mt-1">
+              When disabled, this agent cannot be run or used by tasks.
+            </p>
           </div>
 
           <div>
@@ -228,7 +273,11 @@ export default function AgentForm({ mode, initial, tools }: Props) {
               placeholder={'You are a helpful agent...'}
               id="agent-system-prompt"
               title="System prompt"
+              aria-describedby="agent-system-prompt-help"
             />
+            <p id="agent-system-prompt-help" className="text-xs text-gray-600 mt-1">
+              Describe the agent’s behavior and constraints. The token estimate updates as you type.
+            </p>
           </div>
         </div>
 
@@ -250,6 +299,17 @@ export default function AgentForm({ mode, initial, tools }: Props) {
 
           <div>
             <h3 className="font-medium mb-2">Tools</h3>
+            <p className="text-xs text-gray-600 mb-2">
+              Select which tools the agent is allowed to use.
+            </p>
+            {toolWarning && (
+              <div
+                role="alert"
+                className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 mb-2"
+              >
+                Your prompt suggests tool usage — consider allowing relevant tools.
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tools.map((t) => (
                 <label key={t.name} className="flex items-start gap-2 rounded border p-2 text-sm">

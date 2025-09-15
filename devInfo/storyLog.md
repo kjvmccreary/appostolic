@@ -1,3 +1,10 @@
+### 2025-09-15 — Story F: Agents editor form polish
+
+- What: Repaired and enhanced `AgentForm` with accessible labels, helper texts, inline validation, and clear `isEnabled` toggle; preserved tool allowlist hints and token estimate preview.
+- Where: `apps/web/src/app/studio/agents/components/AgentForm.tsx` (+ tests in `AgentForm.test.tsx`).
+- Why: Improve UX clarity and a11y; align with parity sprint standards.
+- Tests: Web unit suite passes; added test to verify `isEnabled` is sent when toggled off.
+
 ## Story E — Tasks: Details/export ergonomics — ✅ DONE
 
 - Added copy-to-clipboard for Task IDs:

@@ -108,12 +108,12 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - Copy-to-clipboard available for Task ID in both list and detail.
 - Tests: Unit test export link `download` attribute; tests for copy ID in detail and list.
 
-### Story F — Agents: Editor form polish
+### ✅ (DONE) Story F — Agents: Editor form polish
 
 - Scope: Improve validation feedback, tool allowlist hints, and disabled-state surfacing; add “New Agent” empty-state CTA improvements.
 - Acceptance:
   - Invalid fields show inline messages; helper text for tools; `isEnabled` toggles clearly.
-- Tests: Unit test invalid field path; isEnabled toggle behavior.
+- Tests: Unit test invalid field path; isEnabled toggle behavior (added).
 
 ### Story G — Auth/Tenant: Multi-tenant UX polish
 

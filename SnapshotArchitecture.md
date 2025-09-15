@@ -5,6 +5,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - Web — Studio: Tasks ergonomics (Completed)
+- Agents: Editor form polished (a11y helper texts, inline validation, clear isEnabled toggle) and test added for isEnabled payload.
   - Task detail and inbox now include copy-to-clipboard for Task IDs (detail header and table ID column).
   - Export action guarantees a predictable filename fallback `task-<id>.json` when Content-Disposition is absent.
   - Tests cover retry/cancel, export filename fallback, and copy actions; full web suite green.
