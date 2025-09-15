@@ -48,7 +48,13 @@ export function ColorSchemeProvider({ children }: { children: React.ReactNode })
 
   // React to system changes when in system mode
   useEffect(() => {
-    if (mode !== 'system' || typeof window === 'undefined') return;
+    if (
+      mode !== 'system' ||
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return;
+    }
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => applyHtmlAttributes(mode, amoled);
     mql.addEventListener?.('change', handler);

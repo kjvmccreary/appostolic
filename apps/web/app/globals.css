@@ -21,6 +21,8 @@ body {
     Arial,
     'Apple Color Emoji',
     'Segoe UI Emoji';
+  background: var(--color-surface);
+  color: var(--color-body);
 }
 
 .tenant-switcher {
