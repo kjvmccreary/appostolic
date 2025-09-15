@@ -2317,4 +2317,26 @@ Requirements coverage
     - CSS variables exposed at :root and override in dark/AMOLED: Done
     - Example utilities resolve vars (bg/text/border): Done
     - Documentation present (optional): Done
+
+    ## UI — Sprint 02 — Story 1.3: Theme provider and system theme (Light/Dark/AMOLED) — Completed
+
+    - Summary
+      - Implemented a theme provider with system light/dark detection, user toggles, and AMOLED variant. Syncs HTML classes/attributes (`class="dark"`, `data-theme="amoled"`) and persists choices in `localStorage`. Bound MUI palette mode and added a pre-hydration script to prevent theme flash.
+
+    - Files changed
+      - apps/web/src/theme/ColorSchemeContext.tsx — provider (mode: light/dark/system, AMOLED)
+      - apps/web/src/components/ThemeToggle.tsx — UI to toggle theme and AMOLED
+      - apps/web/tailwind.config.ts — `darkMode: 'class'`
+      - apps/web/app/layout.tsx — pre-hydration script to apply saved theme before hydration
+      - apps/web/app/globals.css — background/text use tokens for visible theme change
+
+    - Quality gates
+      - Lint/Typecheck (web): PASS
+      - Tests (web): PASS (ThemeToggle test verifies behavior)
+      - Build (web): PASS
+
+    - Requirements coverage
+      - Toggling updates root class/data-theme: Done
+      - Respects system theme on first render (and when system changes): Done
+      - Persists user choice in localStorage: Done
 ```

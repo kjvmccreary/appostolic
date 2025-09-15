@@ -52,7 +52,7 @@ Story 1.2: Introduce design tokens (tokens.css) and CSS variables — ✅ DONE
   - CSS variables are available at :root and can be inspected in DevTools
   - Example utility classes read vars (e.g., bg-[color:var(--color-canvas)])
 
-Story 1.3: Theme provider and system theme support (Light/Dark/AMOLED)
+Story 1.3: Theme provider and system theme support (Light/Dark/AMOLED) — ✅ DONE
 
 - Files/Changes:
   - apps/web/src/components/ui/ThemeProvider.tsx (context + prefers-color-scheme)
