@@ -4,6 +4,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Docs — Frontend ↔ Backend Parity Sprint Plan (Added)
+  - Introduced `devInfo/FrontendStuff/paritySprintPlan.md`, a concrete plan to align the Next.js web UI with existing backend capabilities. It inventories Admin (Members, Invites, Audits, Notifications), Studio (Agents, Agent Tasks), and Auth/Tenant flows, defines stories with acceptance criteria, quality gates (typecheck, tests, lint, a11y), and a phased timeline.
+
 - Web — Navigation Sprint: A11y & theming polish (Completed)
   - TopBar now gains a subtle elevation (shadow) when the page is scrolled; preserves sticky behavior and accessibility. Mobile hamburger has a clear `aria-label`; desktop nav landmark is named; `aria-expanded` values are proper booleans; dialog semantics affirmed for `NavDrawer` and `TenantSwitcherModal` with focus handling.
   - Tests extended to validate elevation toggle and accessible labels; full web test suite remains green with coverage ~91.5% lines.
