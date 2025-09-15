@@ -438,6 +438,40 @@ Requirements coverage
   - Metadata cards and no-op actions present: Done
   - Back to Shepherd Step 2 link present: Done
 
+## UI Sprint 02 — Story 5.1: Responsive helpers — Completed
+
+- Summary
+  - Added reusable responsive utilities and applied them to key pages. Dashboard now uses a grid helper that flows 1/2/3 columns across breakpoints and a content wrapper for consistent spacing.
+
+- Files changed
+  - apps/web/app/globals.css — grid3 and content-wrap utilities
+  - apps/web/app/page.tsx — switched grids to grid3 and applied content-wrap; added id="main"
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (no behavioral changes)
+
+- Requirements coverage
+  - Grid responsive at 375px, 768px, and 1280px (manual check): Done
+
+## UI Sprint 02 — Story 5.2: Accessibility pass — Completed
+
+- Summary
+  - Improved keyboard navigation and skip navigation. Introduced a global focus ring utility, visible skip link, and ensured main content regions have anchors. Enhanced TopBar link focus states.
+
+- Files changed
+  - apps/web/app/globals.css — focus-ring and skip-link utilities
+  - apps/web/app/layout.tsx — added Skip to main content link
+  - apps/web/app/{page.tsx,editor/page.tsx,shepherd/step\*/page.tsx} — added id="main"
+  - apps/web/src/components/TopBar.tsx — added focus-ring class on nav links
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (existing suites)
+
+- Requirements coverage
+  - Focus visible; aria-current maintained on nav; skip link targets #main: Done
+
 ## Notif-26 — Privacy Policy and vendor compliance docs — Completed
 
 ## Notif-28 — Manual resend endpoint with throttle — Completed

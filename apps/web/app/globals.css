@@ -40,3 +40,78 @@ body {
 .page-wrap {
   padding: 24px;
 }
+
+/* Responsive helpers and accessibility utilities (Sprint 02 - 5.1/5.2) */
+
+/* Grid helper: 1/2/3 columns across breakpoints */
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .grid3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .grid3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Content wrapper with standard paddings */
+.content-wrap {
+  padding: 1rem;
+}
+@media (min-width: 640px) {
+  .content-wrap {
+    padding: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .content-wrap {
+    padding: 2rem;
+  }
+}
+
+/* Focus ring utility for keyboard navigation */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: 2px;
+}
+
+/* Link styled like a small card CTA */
+.card-link {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: var(--color-accent-600);
+  color: white;
+}
+.card-link:hover {
+  filter: brightness(1.1);
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus {
+  position: fixed;
+  left: 0.75rem;
+  top: 0.75rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+  z-index: 1000;
+}

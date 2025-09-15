@@ -26,7 +26,7 @@ export default function ShepherdStep3({
   const q = preserve(searchParams);
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8 space-y-4">
+    <main id="main" className="p-4 sm:p-6 lg:p-8 space-y-4">
       <Stepper steps={steps} activeIndex={2} />
       <section className="space-y-2">
         <h1 className="text-ink text-lg font-semibold">Select Tone</h1>

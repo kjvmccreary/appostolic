@@ -12,14 +12,14 @@ export default function DashboardPage() {
   ];
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8">
+    <main id="main" className="content-wrap">
       <header className="mb-4">
         <h1 className="text-ink text-xl font-semibold">Dashboard</h1>
         <p className="text-muted text-sm">Quick start and recent activity</p>
       </header>
 
       <section aria-label="Quick Start" className="mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid3">
           <ActionTile
             href="/shepherd/step1"
             title="Start Shepherd"
@@ -71,10 +71,7 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <section
-        aria-label="Explore"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
+      <section aria-label="Explore" className="grid3">
         <Card title="Templates" description="Jump-start with ready-made lesson templates">
           <Link href="/templates" className="text-sm underline underline-offset-2">
             Browse Templates

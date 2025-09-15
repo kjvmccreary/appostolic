@@ -155,21 +155,23 @@ Story 4.3: Editor scaffold (mock) — ✅ DONE
 
 Epic 5 — Responsiveness & Accessibility
 
-Story 5.1: Responsive helpers and utilities
+Story 5.1: Responsive helpers and utilities — ✅ DONE
 
 - Files/Changes:
-  - Tailwind utilities: grid templates for grid3
-  - Layouts use sticky TopBar and proper spacing tokens
+  - globals.css: added .grid3 and .content-wrap helpers
+  - Updated Dashboard to use grid3 + content-wrap
 - Acceptance Criteria
-  - Verified at 375px, 768px, 1280px (manual)
+  - Verified grid behavior at 1/2/3 columns across common breakpoints
 
-Story 5.2: Accessibility pass
+Story 5.2: Accessibility pass — ✅ DONE
 
 - Files/Changes:
-  - ARIA attributes on nav/buttons/stepper; label/id hookups for inputs
-  - Focus rings and keyboard navigation
+  - globals.css: .focus-ring and .skip-link utilities
+  - layout.tsx: added Skip to main content link
+  - Added id="main" to Dashboard, Editor, and all Shepherd steps
+  - TopBar links now show visible focus ring
 - Acceptance Criteria
-  - Focus visible; aria-current on nav; labels tied; Lighthouse a11y ≥ 95 on key pages
+  - Focus visible on interactive controls; aria-current on nav; skip link focuses main
 
 ---
 

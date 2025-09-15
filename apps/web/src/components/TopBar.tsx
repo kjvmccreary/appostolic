@@ -14,7 +14,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     <Link
       href={href}
       aria-current={isActive ? 'page' : undefined}
-      className={cn('px-2 py-1 rounded-md text-sm hover:opacity-100', {
+      className={cn('px-2 py-1 rounded-md text-sm hover:opacity-100 focus-ring', {
         'opacity-100': isActive,
         'opacity-75': !isActive,
       })}

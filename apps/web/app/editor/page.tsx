@@ -4,7 +4,7 @@ import { Card } from '../../src/components/ui/Card';
 
 export default function EditorPage() {
   return (
-    <main className="mx-auto max-w-screen-2xl px-3 py-4">
+    <main id="main" className="mx-auto max-w-screen-2xl px-3 py-4">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-ink">Lesson Editor</h1>
         <Link href="/shepherd/step2" className="text-sm text-accent-700 hover:underline">
@@ -54,13 +54,22 @@ export default function EditorPage() {
           </Card>
           <Card title="Actions" description="No-ops for now">
             <div className="flex flex-col gap-2">
-              <button className="px-3 py-2 rounded-md bg-[var(--color-surface-raised)] border border-line text-sm hover:brightness-110">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-[var(--color-surface-raised)] border border-line text-sm hover:brightness-110 focus-ring"
+              >
                 Save Draft
               </button>
-              <button className="px-3 py-2 rounded-md bg-[var(--color-accent-600)] text-white text-sm hover:brightness-110">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-[var(--color-accent-600)] text-white text-sm hover:brightness-110 focus-ring"
+              >
                 Generate Slides
               </button>
-              <button className="px-3 py-2 rounded-md bg-[var(--color-surface-raised)] border border-line text-sm hover:brightness-110">
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-[var(--color-surface-raised)] border border-line text-sm hover:brightness-110 focus-ring"
+              >
                 Export PDF
               </button>
             </div>

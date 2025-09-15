@@ -23,6 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <a href="#main" className="skip-link">
+          Skip to main content
+        </a>
         <Providers>
           <TopBar />
           {children}
