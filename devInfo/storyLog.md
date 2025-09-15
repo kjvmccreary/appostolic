@@ -258,6 +258,26 @@ Quality gates
   - Enforce last-admin invariant across legacy+flags with 409 Conflict: Done
   - Uniform 403 ProblemDetails and tenant claim matching: Done
 
+  ## IAM — Story 2.3: Web roles‑aware session — Completed
+  - Summary
+    - Augmented the web session to be roles-aware. NextAuth JWT/session now carries memberships with Roles flags (when provided) and derives convenience booleans for the selected tenant: isAdmin, canApprove, canCreate, isLearner. A roles helper module normalizes flags from legacy role values until the API emits flags everywhere. Added a dev diagnostics route to visualize the effective session.
+
+  - Files changed
+    - apps/web/src/lib/roles.ts — new helpers: deriveFlagsFromLegacy, getFlagRoles, computeBooleansForTenant
+    - apps/web/src/lib/auth.ts — extended JWT/session callbacks to derive and surface booleans + rolesForTenant
+    - apps/web/app/api/debug/session/route.ts — now includes derived booleans/roles in output
+    - apps/web/src/lib/roles.test.ts — unit tests for roles helpers
+    - apps/web/src/lib/auth.session.test.ts — unit test for session derivation and tenant switching
+
+  - Quality gates
+    - Lint/Typecheck (web): PASS
+    - Tests (web): PASS (entire suite inc. new tests)
+
+  - Requirements coverage
+    - Session includes roles and booleans for current tenant: Done
+    - Debug endpoint reflects derived values: Done
+    - Tests for callbacks and helpers: Done
+
 ## Mig06 — Web DLQ Admin: pagination, filters, per-row replay — Completed
 
 - Summary

@@ -2,10 +2,32 @@ import type { NextAuthOptions, Session, User as NextAuthUser } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { API_BASE } from './serverEnv';
 import type { JWT } from 'next-auth/jwt';
+import {
+  computeBooleansForTenant,
+  type FlagRole,
+  type Membership as RolesMembership,
+} from './roles';
 
-type MembershipDto = { tenantId: string; tenantSlug: string; role: string };
-type AppToken = JWT & { memberships?: MembershipDto[]; tenant?: string };
-type AppSession = Session & { memberships?: MembershipDto[]; tenant?: string };
+type MembershipDto = { tenantId: string; tenantSlug: string; role: string; roles?: FlagRole[] };
+type AppToken = JWT & {
+  memberships?: MembershipDto[];
+  tenant?: string;
+  // Derived booleans for convenience (current tenant only)
+  isAdmin?: boolean;
+  canApprove?: boolean;
+  canCreate?: boolean;
+  isLearner?: boolean;
+  rolesForTenant?: FlagRole[];
+};
+type AppSession = Session & {
+  memberships?: MembershipDto[];
+  tenant?: string;
+  isAdmin?: boolean;
+  canApprove?: boolean;
+  canCreate?: boolean;
+  isLearner?: boolean;
+  rolesForTenant?: FlagRole[];
+};
 
 const AUTH_SECRET = process.env.AUTH_SECRET as string | undefined;
 const ALLOW_INSECURE_COOKIES =
@@ -76,6 +98,17 @@ export const authOptions: NextAuthOptions & {
       if (trigger === 'update' && session && (session as unknown as { tenant?: string }).tenant) {
         t.tenant = (session as unknown as { tenant?: string }).tenant;
       }
+      // Derive booleans on each JWT calc to keep them consistent with tenant selection
+      const currentTenant = t.tenant ?? null;
+      const { isAdmin, canApprove, canCreate, isLearner, roles } = computeBooleansForTenant(
+        (t.memberships as unknown as RolesMembership[]) ?? [],
+        currentTenant,
+      );
+      t.isAdmin = isAdmin;
+      t.canApprove = canApprove;
+      t.canCreate = canCreate;
+      t.isLearner = isLearner;
+      t.rolesForTenant = roles;
       return t;
     },
     async session({ session, token }) {
@@ -84,6 +117,11 @@ export const authOptions: NextAuthOptions & {
       if (t?.email && s.user) s.user.email = t.email as string;
       s.memberships = t.memberships ?? [];
       s.tenant = t.tenant;
+      s.isAdmin = t.isAdmin;
+      s.canApprove = t.canApprove;
+      s.canCreate = t.canCreate;
+      s.isLearner = t.isLearner;
+      s.rolesForTenant = t.rolesForTenant;
       return s;
     },
   },

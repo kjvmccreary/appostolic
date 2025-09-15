@@ -97,7 +97,7 @@ Story 2.1 — Assignment APIs — ✅ DONE
 - Tests:
   - Integration tests for list/set/add/remove; last-admin protection.
 
-Story 2.2 — Invites include roles — ✅ DONE
+Story 2.2 — Invites include roles — ⏳ PENDING
 
 - Scope:
   - Extend invite DTO to include initial roles flags (default Creator).
@@ -107,7 +107,11 @@ Story 2.2 — Invites include roles — ✅ DONE
 - Tests:
   - Invite/accept creates expected roles; invariant holds.
 
-Story 2.3 — Web: Roles-aware session
+Status note:
+
+- Backend endpoints currently return legacy roles only for invites; flags not yet implemented in invite DTO/accept path. To be implemented next.
+
+Story 2.3 — Web: Roles-aware session — ✅ DONE
 
 - Scope:
   - NextAuth JWT/session: include memberships[].roles and booleans for current tenant: isAdmin, canApprove, canCreate, isLearner.
@@ -115,6 +119,13 @@ Story 2.3 — Web: Roles-aware session
   - /api/debug/session (or equivalent) reflects flags + booleans for selected tenant.
 - Tests:
   - Session callback unit tests for role flags and derived booleans.
+
+Implementation notes:
+
+- Added `apps/web/src/lib/roles.ts` with helpers to derive flags from legacy and compute booleans for a selected tenant.
+- Extended NextAuth callbacks in `apps/web/src/lib/auth.ts` to carry memberships[].roles and derive booleans + rolesForTenant on each JWT calc; surfaced in session.
+- Enhanced dev endpoint `GET /api/debug/session` to include derived booleans/roles alongside session and cookies.
+- Added unit tests: `roles.test.ts` and `auth.session.test.ts` covering derivations and tenant switching.
 
 Story 2.4 — Web: Membership admin page
 

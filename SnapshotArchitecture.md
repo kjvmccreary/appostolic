@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — IAM Sprint 2.3: Roles‑aware session (Completed)
+  - NextAuth JWT/session now includes memberships with Roles flags when available and derives convenience booleans for the selected tenant: isAdmin, canApprove, canCreate, isLearner. A helpers module `apps/web/src/lib/roles.ts` normalizes flags from legacy roles when flags are absent.
+  - Added a dev diagnostics endpoint `GET /api/debug/session` that returns the effective session, the `selected_tenant` cookie, and the derived booleans/roles for quick verification.
+  - Unit tests cover the roles helpers and the session callback derivation, including tenant switching via `session.update({ tenant })`.
+
 - IAM — Sprint 2.1: Membership assignment APIs (Completed)
   - Added GET /api/tenants/{tenantId}/memberships to list memberships including legacy Role and Roles flags (names and numeric value). Requires TenantAdmin and ensures the `tenant_id` claim matches the route.
   - Added POST /api/tenants/{tenantId}/memberships/{userId}/roles to replace Roles flags using an array of enum names (case-insensitive). Returns 200 on change with a roles summary, 204 on no-op, 400 on invalid names, and 404 when membership is missing. Enforces the “at least one TenantAdmin per tenant” invariant across both legacy Role and Roles flags and returns 409 Conflict when violated.
