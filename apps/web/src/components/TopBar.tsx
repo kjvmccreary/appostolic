@@ -2,10 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { TenantSwitcher } from './TenantSwitcher';
-import { ThemeToggle } from './ThemeToggle';
+// TenantSwitcher intentionally omitted from TopBar to free space; switching lives in ProfileMenu
 import { NewAgentButton } from './NewAgentButton';
 import { NavDrawer } from './NavDrawer';
 import { ProfileMenu } from './ProfileMenu';
@@ -29,13 +28,11 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 export function TopBar() {
-  const pathname = usePathname() || '';
+  // const pathname = usePathname() || '';
   const { data: session } = useSession();
   const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
   const isAdmin = Boolean((session as unknown as { isAdmin?: boolean } | null)?.isAdmin);
-  // Show TenantSwitcher broadly (dashboard and most app pages) and hide only on specific public/auth pages
-  const hideTenantOn = ['/select-tenant', '/login', '/signup'];
-  const hideTenant = hideTenantOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
   // Centralized primary nav items for desktop. Agents is now a first-class entry.
   const navItems = [
@@ -83,7 +80,6 @@ export function TopBar() {
             <span className="mt-1 block h-0.5 w-full bg-ink"></span>
           </span>
         </button>
-        {!hideTenant ? <TenantSwitcher /> : null}
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>
@@ -93,18 +89,7 @@ export function TopBar() {
               {item.label}
             </NavLink>
           ))}
-          {isAdmin ? (
-            <>
-              <span aria-hidden className="opacity-30 mx-1">
-                |
-              </span>
-              <span className="px-1 text-xs uppercase tracking-wide text-muted">Admin:</span>
-              <NavLink href="/studio/admin/members">Members</NavLink>
-              <NavLink href="/studio/admin/invites">Invites</NavLink>
-              <NavLink href="/studio/admin/audits">Audits</NavLink>
-              <NavLink href="/studio/admin/notifications">Notifications</NavLink>
-            </>
-          ) : null}
+          {isAdmin ? <AdminDropdown /> : null}
         </nav>
         <div className="ml-auto flex items-center gap-2">
           {canCreate ? (
@@ -117,7 +102,6 @@ export function TopBar() {
           ) : null}
           {/* Creator-only CTA to quickly add an Agent */}
           {canCreate ? <NewAgentButton /> : null}
-          <ThemeToggle />
           <ProfileMenu />
         </div>
         {/* Mobile Nav Drawer */}
@@ -135,5 +119,70 @@ export function TopBar() {
         />
       </div>
     </header>
+  );
+}
+
+function AdminDropdown() {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLButtonElement | null>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!btnRef.current) return;
+      if (!btnRef.current.contains(target)) setOpen(false);
+    };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        className="px-2 py-1 rounded-md text-sm opacity-75 hover:opacity-100 focus-ring"
+        aria-haspopup="menu"
+        onClick={() => setOpen((v) => !v)}
+      >
+        Admin
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute left-0 mt-2 w-44 rounded-md border border-line bg-[var(--color-surface)] p-1 shadow-lg"
+        >
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/admin/members')}
+          >
+            Members
+          </button>
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/admin/invites')}
+          >
+            Invites
+          </button>
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/admin/audits')}
+          >
+            Audits
+          </button>
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/admin/notifications')}
+          >
+            Notifications
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }

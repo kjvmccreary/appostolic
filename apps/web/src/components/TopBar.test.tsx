@@ -1,6 +1,7 @@
 // Mocks must be declared before imports
 vi.mock('next/navigation');
 vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => <div data-testid="theme-toggle" /> }));
+// TenantSwitcher is no longer rendered in TopBar; keep mock but tests no longer expect it present
 vi.mock('./TenantSwitcher', () => ({ TenantSwitcher: () => <div data-testid="tenant" /> }));
 vi.mock('./NewAgentButton', () => ({
   NewAgentButton: () => (
@@ -44,22 +45,10 @@ describe('TopBar', () => {
     expect(screen.getByRole('link', { name: /agents/i })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('shows TenantSwitcher on protected paths (/studio, /dev)', () => {
+  it('does not render TenantSwitcher in TopBar anymore (moved to Account menu)', () => {
     vi.spyOn(nav, 'usePathname').mockReturnValue('/studio/agents');
     render(<TopBar />);
-    expect(screen.getByTestId('tenant')).toBeInTheDocument();
-  });
-
-  it('hides TenantSwitcher on select-tenant and public paths', () => {
-    vi.spyOn(nav, 'usePathname').mockReturnValue('/select-tenant');
-    render(<TopBar />);
     expect(screen.queryByTestId('tenant')).not.toBeInTheDocument();
-  });
-
-  it('shows TenantSwitcher on dashboard page (/)', () => {
-    vi.spyOn(nav, 'usePathname').mockReturnValue('/');
-    render(<TopBar />);
-    expect(screen.getByTestId('tenant')).toBeInTheDocument();
   });
 
   it('does not render Create Lesson without canCreate', () => {
