@@ -229,6 +229,14 @@ Story 4.2 — Docs and SnapshotArchitecture
 - Acceptance:
   - SnapshotArchitecture updated; role matrix included.
 
+Status — ✅ DONE (2025-09-15)
+
+- SnapshotArchitecture updated with:
+  - Roles model summary and the header guard for `POST /api/dev/grant-roles` via `x-dev-grant-key` when `Dev:GrantRolesKey` is set.
+  - Explicit note on mutable `Membership.Roles` with `ApplyRoleChange(...)` and auditing semantics.
+  - Verification note that full API tests are green and an explicit audit-on-update test exists.
+  - Concise roles→capabilities matrix included.
+
 Story 4.3 — QA checklist and polish
 
 - Scope:

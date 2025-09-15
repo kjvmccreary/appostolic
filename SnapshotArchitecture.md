@@ -12,6 +12,19 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Routing reliability: removed earlier environment-gated mapping that hid dev routes under tests; temporary endpoint-enumeration diagnostics removed after validation.
   - Verification: Full API test suite PASS (138/138) after changes; added an explicit test asserting that updating an existing membership’s roles writes an `Audit` with correct `OldRoles`/`NewRoles`.
 
+### Roles → Capabilities matrix (tenant-scoped)
+
+- TenantAdmin:
+  - Manage memberships (list, invite, resend, delete, set roles)
+  - Access audits listing for the tenant
+  - Access admin pages in web (e.g., Studio members)
+- Approver:
+  - Approve/publish content (future endpoints; policy present)
+- Creator:
+  - Create/edit content (e.g., lessons; agents CRUD)
+- Learner:
+  - Read-only access to learning content
+
 - IAM — Sprint 3.3: Audit trails for membership role changes (Completed)
   - Added `app.audits` table to persist role change events with: id, tenant_id, user_id, changed_by_user_id, changed_by_email, old_roles (int), new_roles (int), changed_at (utc).
   - Endpoint `POST /api/tenants/{tenantId}/memberships/{userId}/roles` writes an audit after successful updates (works for EF InMemory and relational providers). Indexed by `(tenant_id, changed_at)` for efficient per-tenant queries.

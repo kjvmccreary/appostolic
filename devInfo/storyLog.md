@@ -1,3 +1,8 @@
+## Sprint 4.2 – Docs and SnapshotArchitecture (2025-09-15)
+
+- Updated SnapshotArchitecture with roles→capabilities matrix, dev roles endpoint guard (`x-dev-grant-key` when `Dev:GrantRolesKey` is set), and clarifications on `Membership.Roles` mutability and `ApplyRoleChange` auditing.
+- Confirmed full API suite remains green; explicit audit-on-update integration test documented.
+
 ## Sprint 4.1 – Seeds + Dev Roles Utility (2025-09-15)
 
 - Implemented idempotent seeding for baseline users across role-flag combinations; ensured owner composites converge.
