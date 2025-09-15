@@ -22,3 +22,13 @@ body {
   gap: 8px;
   align-items: center;
 }
+
+.tenant-switcher__msg {
+  margin-left: 8px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.page-wrap {
+  padding: 24px;
+}

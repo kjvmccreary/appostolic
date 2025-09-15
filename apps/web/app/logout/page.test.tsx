@@ -24,7 +24,7 @@ describe('/logout page', () => {
     });
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('/login');
+      expect(replaceMock).toHaveBeenCalledWith('/login?loggedOut=1');
     });
   });
 });

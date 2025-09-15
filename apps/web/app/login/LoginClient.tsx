@@ -87,6 +87,9 @@ export default function LoginClient() {
         />
         {error && <p className={styles.error}>{error}</p>}
         <button type="submit">Sign in</button>
+        <p className={styles.forgotLink}>
+          <a href="/forgot-password">Forgot password?</a>
+        </p>
       </form>
     </main>
   );

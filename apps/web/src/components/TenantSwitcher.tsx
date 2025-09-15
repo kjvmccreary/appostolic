@@ -13,6 +13,7 @@ export function TenantSwitcher() {
   const current = (session as unknown as { tenant?: string })?.tenant ?? '';
   const [value, setValue] = React.useState<string>(current);
   const [saving, setSaving] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     // Keep local state in sync if session changes elsewhere
@@ -25,15 +26,20 @@ export function TenantSwitcher() {
     if (!slug) return;
     setSaving(true);
     try {
-      // Persist selection in both JWT (session.update) and secure cookie for server-only reads
-      await Promise.all([
-        update({ tenant: slug }),
-        fetch('/api/tenant/select', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenant: slug }),
-        }),
-      ]);
+      // 1) Update JWT via next-auth; returns the updated session
+      await update({ tenant: slug });
+      // 2) Provide feedback (console + transient on-screen message)
+      console.info('[TenantSwitcher] Tenant updated in JWT', { tenant: slug });
+      setMsg(`Switched to tenant "${slug}"`);
+      // Auto-clear message after a short delay
+      setTimeout(() => setMsg(null), 2500);
+
+      // 3) Persist secure cookie for server-only reads
+      await fetch('/api/tenant/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant: slug }),
+      });
       router.refresh();
     } finally {
       setSaving(false);
@@ -53,6 +59,11 @@ export function TenantSwitcher() {
           </option>
         ))}
       </select>
+      {msg ? (
+        <span role="status" aria-live="polite" className="tenant-switcher__msg">
+          {msg}
+        </span>
+      ) : null}
     </div>
   );
 }

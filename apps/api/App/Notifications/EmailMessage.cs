@@ -4,7 +4,8 @@ public enum EmailKind
 {
     Verification,
     Invite,
-    MagicLink
+    MagicLink,
+    PasswordReset
 }
 
 public sealed record EmailMessage(

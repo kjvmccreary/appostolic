@@ -39,6 +39,11 @@ public sealed class ScribanTemplateRenderer : ITemplateRenderer
                 "<p>Hello {{ toName ?? 'there' }},</p><p>Use your magic link to sign in: <a href='{{ link }}'>Sign in</a>.</p><p>This link expires in 15 minutes. If you didn't request it, you can ignore this email.</p>",
                 "Hello {{ toName ?? 'there' }},\n\nSign in with your magic link: {{ link }}\n\nThis link expires in 15 minutes. If you didn't request it, you can ignore this email."
             ),
+            EmailKind.PasswordReset => (
+                "Reset your Appostolic password",
+                "<p>Hello {{ toName ?? 'there' }},</p><p>Reset your password by clicking <a href='{{ link }}'>this link</a>.</p><p>This link expires in 30 minutes. If you didn't request it, you can ignore this email.</p>",
+                "Hello {{ toName ?? 'there' }},\n\nReset your password: {{ link }}\n\nThis link expires in 30 minutes. If you didn't request it, you can ignore this email."
+            ),
             _ => ("Notification", "<p>Notification</p>", "Notification")
         };
 

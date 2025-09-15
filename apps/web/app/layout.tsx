@@ -20,7 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Providers>
-          {showTenantSwitcher && <TenantSwitcher />}
+          {showTenantSwitcher && (
+            <div>
+              <TenantSwitcher /> <a href="/change-password">Change password</a>
+            </div>
+          )}
           {children}
         </Providers>
       </body>

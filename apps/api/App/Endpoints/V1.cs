@@ -15,6 +15,46 @@ public static class V1
     {
         var apiRoot = app.MapGroup("/api");
         // Anonymous auth endpoints
+        // Forgot password: issue reset token
+        apiRoot.MapPost("/auth/forgot-password", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
+                return Results.BadRequest(new { error = "email is required" });
+            var email = dto.Email.Trim();
+            var exists = await db.Users.AsNoTracking().AnyAsync(u => u.Email == email);
+            // Always accept to avoid user enumeration
+            var now = DateTime.UtcNow;
+            var token = Guid.NewGuid().ToString("N");
+            var tokenHash = HashToken(token);
+            var expiresAt = now.AddMinutes(30);
+            var reset = new LoginToken { Id = Guid.NewGuid(), Email = email, TokenHash = tokenHash, Purpose = "pwreset", CreatedAt = now, ExpiresAt = expiresAt };
+            db.LoginTokens.Add(reset);
+            await db.SaveChangesAsync();
+            if (exists)
+            {
+                await enqueuer.QueuePasswordResetAsync(email, null, token);
+            }
+            return Results.Accepted();
+        }).AllowAnonymous();
+
+        // Reset password: consume token and set new password
+        apiRoot.MapPost("/auth/reset-password", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ResetPasswordDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.Token) || string.IsNullOrWhiteSpace(dto.NewPassword))
+                return Results.BadRequest(new { error = "token and newPassword are required" });
+            var tokenHash = HashToken(dto.Token.Trim());
+            var now = DateTime.UtcNow;
+            var t = await db.LoginTokens.FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.Purpose == "pwreset");
+            if (t is null || t.ExpiresAt < now || t.ConsumedAt is not null) return Results.BadRequest(new { error = "invalid or expired token" });
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == t.Email);
+            if (user is null) return Results.BadRequest(new { error = "invalid token" });
+            var (hash, salt, iterations) = hasher.HashPassword(dto.NewPassword);
+            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = now };
+            db.Users.Update(updated);
+            t.ConsumedAt = now;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        }).AllowAnonymous();
         apiRoot.MapPost("/auth/magic/request", async (AppDbContext db, Appostolic.Api.App.Notifications.INotificationEnqueuer enqueuer, MagicRequestDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
@@ -283,6 +323,24 @@ public static class V1
         }).AllowAnonymous();
 
         var api = apiRoot.RequireAuthorization();
+        // Change password (authenticated)
+        api.MapPost("/auth/change-password", async (ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ChangePasswordDto dto) =>
+        {
+            if (dto is null || string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
+                return Results.BadRequest(new { error = "currentPassword and newPassword are required" });
+            var email = principal.FindFirstValue("email");
+            if (string.IsNullOrWhiteSpace(email)) return Results.Unauthorized();
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
+                return Results.Unauthorized();
+            var ok = hasher.Verify(dto.CurrentPassword, user.PasswordHash!, user.PasswordSalt!, 0);
+            if (!ok) return Results.Unauthorized();
+            var (hash, salt, iterations) = hasher.HashPassword(dto.NewPassword);
+            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+            db.Users.Update(updated);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
 
         // GET /api/me
         api.MapGet("/me", (ClaimsPrincipal user) =>
@@ -811,6 +869,8 @@ public static class V1
     public record MagicRequestDto(string Email);
     public record MagicConsumeDto(string Token);
     public record UpdateMemberRoleDto(string Role);
+    public record ResetPasswordDto(string Token, string NewPassword);
+    public record ChangePasswordDto(string CurrentPassword, string NewPassword);
 
     private static string HashToken(string token)
     {

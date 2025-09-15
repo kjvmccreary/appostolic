@@ -89,4 +89,10 @@ describe('LoginPage', () => {
       expect(replaceMock).toHaveBeenCalledWith('/studio/agents');
     });
   });
+
+  it('renders a link to forgot-password', async () => {
+    render(<LoginPage />);
+    const link = await screen.findByRole('link', { name: /forgot password/i });
+    expect(link).toHaveAttribute('href', '/forgot-password');
+  });
 });
