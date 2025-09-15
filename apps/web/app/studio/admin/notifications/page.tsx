@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../lib/serverFetch';
 import styles from './styles.module.css';
+import ClientToasts from './ClientToasts';
+import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,11 +23,10 @@ interface DlqItem {
   lastError?: string | null;
 }
 
-export default async function NotificationsDlqPage({
-  searchParams,
-}: {
+export default async function NotificationsDlqPage(props: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
+  const { searchParams } = props || {};
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect('/login');
 
@@ -39,7 +40,10 @@ export default async function NotificationsDlqPage({
     (session as unknown as { tenant?: string }).tenant || cookies().get('selected_tenant')?.value;
   const mine = memberships.find((m) => m.tenantSlug === currentTenant);
   if (!mine) redirect('/select-tenant');
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') redirect('/');
+  // Enforce admin in UI: render 403 message rather than redirecting.
+  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
+    return <div>403 — Access denied</div>;
+  }
 
   // Parse filters/paging from URL
   const take = Math.min(Math.max(Number(searchParams?.take ?? '50') || 50, 1), 200);
@@ -71,13 +75,20 @@ export default async function NotificationsDlqPage({
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    if (ids.length === 0) return;
-    await fetchFromProxy('/api-proxy/notifications/dlq', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids }),
-    });
-    revalidatePath('/studio/admin/notifications');
+    if (ids.length === 0) {
+      redirect('/studio/admin/notifications?err=Enter one or more ids');
+    }
+    try {
+      await fetchFromProxy('/api-proxy/notifications/dlq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      revalidatePath('/studio/admin/notifications');
+      redirect('/studio/admin/notifications?ok=Requeued selected');
+    } catch {
+      redirect('/studio/admin/notifications?err=Replay failed');
+    }
   }
 
   async function replayAllFiltered() {
@@ -86,24 +97,34 @@ export default async function NotificationsDlqPage({
     const body: Record<string, unknown> = { limit: take };
     if (status && status !== 'all') body.status = status;
     if (kind) body.kind = kind;
-    await fetchFromProxy('/api-proxy/notifications/dlq', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    revalidatePath('/studio/admin/notifications');
+    try {
+      await fetchFromProxy('/api-proxy/notifications/dlq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      revalidatePath('/studio/admin/notifications');
+      redirect('/studio/admin/notifications?ok=Requeued filtered');
+    } catch {
+      redirect('/studio/admin/notifications?err=Replay failed');
+    }
   }
 
   async function replayOne(formData: FormData) {
     'use server';
     const id = String(formData.get('id') ?? '').trim();
     if (!id) return;
-    await fetchFromProxy('/api-proxy/notifications/dlq', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: [id] }),
-    });
-    revalidatePath('/studio/admin/notifications');
+    try {
+      await fetchFromProxy('/api-proxy/notifications/dlq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      revalidatePath('/studio/admin/notifications');
+      redirect('/studio/admin/notifications?ok=Requeued 1');
+    } catch {
+      redirect('/studio/admin/notifications?err=Replay failed');
+    }
   }
 
   // Helpers for pagination links
@@ -122,6 +143,7 @@ export default async function NotificationsDlqPage({
 
   return (
     <div>
+      <ClientToasts />
       <h1>Notifications DLQ</h1>
       <p>
         Tenant: <strong>{mine.tenantSlug}</strong> — Total: {total}
@@ -172,8 +194,13 @@ export default async function NotificationsDlqPage({
         />
         <button type="submit">Replay selected</button>
       </form>
-      <form action={replayAllFiltered}>
-        <button type="submit">Replay up to {take} newest (filtered)</button>
+      <form id="replay-all" action={replayAllFiltered}>
+        <ConfirmSubmitButton
+          formId="replay-all"
+          label={`Replay up to ${take} newest (filtered)`}
+          confirmText={`Requeue up to ${take} notifications matching current filters?`}
+          className="inline-block"
+        />
       </form>
 
       <div className={styles.pager}>
@@ -208,25 +235,38 @@ export default async function NotificationsDlqPage({
           </tr>
         </thead>
         <tbody>
-          {items.map((n) => (
-            <tr key={n.id} className={styles.row}>
-              <td className={styles.mono}>{n.id}</td>
-              <td>{n.kind}</td>
-              <td>{n.toEmail}</td>
-              <td>{n.status}</td>
-              <td align="right">{n.attemptCount}</td>
-              <td>{new Date(n.createdAt).toLocaleString()}</td>
-              <td className={styles.errorCell} title={n.lastError ?? ''}>
-                {n.lastError ?? ''}
-              </td>
-              <td>
-                <form action={replayOne}>
-                  <input type="hidden" name="id" value={n.id} />
-                  <button type="submit">Replay</button>
-                </form>
+          {items.length === 0 ? (
+            <tr>
+              <td colSpan={8} className={styles.errorCell}>
+                No items found for the selected filters.
               </td>
             </tr>
-          ))}
+          ) : (
+            items.map((n) => (
+              <tr key={n.id} className={styles.row}>
+                <td className={styles.mono}>{n.id}</td>
+                <td>{n.kind}</td>
+                <td>{n.toEmail}</td>
+                <td>{n.status}</td>
+                <td align="right">{n.attemptCount}</td>
+                <td>{new Date(n.createdAt).toLocaleString()}</td>
+                <td className={styles.errorCell} title={n.lastError ?? ''}>
+                  {n.lastError ?? ''}
+                </td>
+                <td>
+                  <form id={`replay-${n.id}`} action={replayOne}>
+                    <input type="hidden" name="id" value={n.id} />
+                    <ConfirmSubmitButton
+                      formId={`replay-${n.id}`}
+                      label="Replay"
+                      confirmText="Requeue this notification?"
+                      className="inline-block"
+                    />
+                  </form>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

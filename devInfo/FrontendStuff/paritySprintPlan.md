@@ -83,7 +83,7 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - Accessible checkbox labels; disable states explained via aria-describedby.
 - Tests: Unit test last-admin UI guard; save success path; error surface.
 
-### Story C — Admin: Audits table and filters refinement
+### ✅ (DONE) Story C — Admin: Audits table and filters refinement
 
 - Scope: Enhance `/studio/admin/audits` with quick filters (date range presets, user selectors), column formatting (role names, timestamps), and pager controls.
 - Acceptance:
