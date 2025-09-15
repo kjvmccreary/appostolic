@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../lib/serverFetch';
 import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
 import ClientToasts from './ClientToasts';
+import EmailField from './EmailField';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -111,17 +112,8 @@ export default async function InvitesAdminPage() {
 
       <ClientToasts />
 
-      <form action={createInvite} className="mb-4 flex gap-2 items-center">
-        <input
-          type="email"
-          name="email"
-          placeholder="email@example.com"
-          required
-          className="h-8 flex-1 rounded-md border border-line bg-[var(--color-surface-raised)] px-2 text-sm"
-        />
-        <span className="sr-only" aria-live="polite">
-          Please enter a valid email address.
-        </span>
+      <form action={createInvite} className="mb-4 flex gap-2 items-start">
+        <EmailField name="email" placeholder="email@example.com" />
         <label htmlFor="invite-role" className="text-sm text-muted sr-only">
           Role
         </label>
@@ -145,47 +137,53 @@ export default async function InvitesAdminPage() {
         </button>
       </form>
 
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="text-left border-b border-line">
-            <th className="py-2 pr-2">Email</th>
-            <th className="py-2 pr-2">Role</th>
-            <th className="py-2 pr-2">Invited By</th>
-            <th className="py-2 pr-2">Accepted By</th>
-            <th className="py-2 pr-2">Expires</th>
-            <th className="py-2 pr-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invites.map((i, idx) => (
-            <tr key={i.email} className="border-b border-line/50">
-              <td className="py-2 pr-2">{i.email}</td>
-              <td className="py-2 pr-2">{i.role}</td>
-              <td className="py-2 pr-2">{i.invitedByEmail ?? '—'}</td>
-              <td className="py-2 pr-2">{i.acceptedByEmail ?? '—'}</td>
-              <td className="py-2 pr-2">{new Date(i.expiresAt).toLocaleString()}</td>
-              <td className="py-2 pr-2">
-                <form action={resendInvite} className="inline">
-                  <input type="hidden" name="email" value={i.email} />
-                  <button type="submit" className="rounded border px-2 py-1 mr-2">
-                    Resend
-                  </button>
-                </form>
-                <form id={`revoke-form-${idx}`} action={revokeInvite} className="inline">
-                  <input type="hidden" name="email" value={i.email} />
-                  {/* The submit is triggered via a client-side confirm button for safety */}
-                </form>
-                <ConfirmSubmitButton
-                  formId={`revoke-form-${idx}`}
-                  label="Revoke"
-                  confirmText={`Revoke invite for ${i.email}?`}
-                  className="rounded border px-2 py-1 text-red-600"
-                />
-              </td>
+      {invites.length === 0 ? (
+        <div className="rounded-md border border-dashed border-line p-4 text-sm text-muted">
+          No pending invites. Use the form above to invite someone to this tenant.
+        </div>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-left border-b border-line">
+              <th className="py-2 pr-2">Email</th>
+              <th className="py-2 pr-2">Role</th>
+              <th className="py-2 pr-2">Invited By</th>
+              <th className="py-2 pr-2">Accepted By</th>
+              <th className="py-2 pr-2">Expires</th>
+              <th className="py-2 pr-2">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {invites.map((i, idx) => (
+              <tr key={i.email} className="border-b border-line/50">
+                <td className="py-2 pr-2">{i.email}</td>
+                <td className="py-2 pr-2">{i.role}</td>
+                <td className="py-2 pr-2">{i.invitedByEmail ?? '—'}</td>
+                <td className="py-2 pr-2">{i.acceptedByEmail ?? '—'}</td>
+                <td className="py-2 pr-2">{new Date(i.expiresAt).toLocaleString()}</td>
+                <td className="py-2 pr-2">
+                  <form action={resendInvite} className="inline">
+                    <input type="hidden" name="email" value={i.email} />
+                    <button type="submit" className="rounded border px-2 py-1 mr-2">
+                      Resend
+                    </button>
+                  </form>
+                  <form id={`revoke-form-${idx}`} action={revokeInvite} className="inline">
+                    <input type="hidden" name="email" value={i.email} />
+                    {/* The submit is triggered via a client-side confirm button for safety */}
+                  </form>
+                  <ConfirmSubmitButton
+                    formId={`revoke-form-${idx}`}
+                    label="Revoke"
+                    confirmText={`Revoke invite for ${i.email}?`}
+                    className="rounded border px-2 py-1 text-red-600"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@
 
 - Summary
   - Introduced a lightweight toast system (`ToastProvider` + `useToast`) and wired to `/studio/admin/invites` via a small client hook that reads `ok/err` query params and shows contextual toasts, then clears the params. Replaced the `window.confirm` usage with an accessible `ConfirmDialog` component used by `ConfirmSubmitButton`. Added a minimal inline validation announcement for the email field.
+  - Added an explicit empty state when there are zero invites, and replaced the raw email input with a client `EmailField` component that surfaces inline validation (aria-invalid/aria-describedby, role=alert) after touch.
 
 - Files changed
   - apps/web/src/components/ui/Toaster.tsx — toast context and portal renderer
@@ -15,6 +16,7 @@
   - apps/web/src/components/ui/ConfirmDialog.tsx — accessible confirm dialog
   - apps/web/src/components/ui/ConfirmSubmitButton.tsx — now uses `ConfirmDialog`
   - apps/web/app/studio/admin/invites/page.tsx — mount ClientToasts; remove SSR banners; keep server actions
+  - apps/web/app/studio/admin/invites/EmailField.tsx — client email input with inline validation
 
 - Quality gates
   - Typecheck (web): PASS
