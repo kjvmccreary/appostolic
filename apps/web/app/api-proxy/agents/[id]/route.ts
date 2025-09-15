@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE } from '../../../../src/lib/serverEnv';
 import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../src/lib/auth';
+import { requireCanCreate } from '../../../../src/lib/roleGuard';
 
 export const runtime = 'nodejs';
 
@@ -24,9 +23,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const body = await req.text();
   const headers = await buildProxyHeaders();
   if (!headers) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const session = await getServerSession(authOptions).catch(() => null);
-  const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
-  if (!canCreate) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const guard = await requireCanCreate();
+  if (guard) return guard;
   const res = await fetch(target, { method: 'PUT', headers, body });
   return new NextResponse(res.body, {
     status: res.status,
@@ -38,9 +36,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const target = `${API_BASE}/api/agents/${encodeURIComponent(params.id)}`;
   const headers = await buildProxyHeaders();
   if (!headers) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const session = await getServerSession(authOptions).catch(() => null);
-  const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
-  if (!canCreate) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const guard = await requireCanCreate();
+  if (guard) return guard;
   const res = await fetch(target, { method: 'DELETE', headers });
   return new NextResponse(null, { status: res.status });
 }

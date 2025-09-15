@@ -1,8 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-vi.mock('next-auth', () => ({
-  getServerSession: vi.fn(async () => ({ user: { email: 't@example.com' }, canCreate: false })),
-}));
+vi.mock('../../../src/lib/roleGuard', () => ({ requireCanCreate: vi.fn() }));
 
 // Ensure env is set before importing modules that read it
 process.env.NEXT_PUBLIC_API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5198';
@@ -70,7 +68,9 @@ describe('/api-proxy/agents', () => {
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
-    // By default mock returns canCreate=false; no fetch should occur and 403 is expected
+    // Guard denies
+    const rg = await import('../../../src/lib/roleGuard');
+    vi.mocked(rg.requireCanCreate).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const mod = await import('./route');
     const url = new URL('http://localhost:3000/api-proxy/agents');
     const baseReq = new Request(url, { method: 'POST', body: JSON.stringify({ name: 'A' }) });

@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-vi.mock('next-auth', () => ({
-  getServerSession: vi.fn(async () => ({ user: { email: 't@example.com' }, canCreate: false })),
-}));
+vi.mock('../../../../src/lib/roleGuard', () => ({ requireCanCreate: vi.fn() }));
 import { NextRequest } from 'next/server';
 
 // Ensure env is set before importing modules that read it
@@ -31,8 +29,8 @@ describe('/api-proxy/agents/[id]', () => {
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
-
-    // Module mock already returns canCreate=false
+    const rg = await import('../../../../src/lib/roleGuard');
+    vi.mocked(rg.requireCanCreate).mockResolvedValue(new Response('Forbidden', { status: 403 }));
 
     const url = new URL('http://localhost:3000/api-proxy/agents/abc');
     const baseReq = new Request(url, { method: 'PUT', body: JSON.stringify({ name: 'A' }) });
@@ -50,8 +48,8 @@ describe('/api-proxy/agents/[id]', () => {
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
-
-    // Module mock already returns canCreate=false
+    const rg = await import('../../../../src/lib/roleGuard');
+    vi.mocked(rg.requireCanCreate).mockResolvedValue(new Response('Forbidden', { status: 403 }));
 
     const url = new URL('http://localhost:3000/api-proxy/agents/abc');
     const baseReq = new Request(url, { method: 'DELETE' });
