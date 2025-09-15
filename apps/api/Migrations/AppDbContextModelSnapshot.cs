@@ -558,6 +558,10 @@ namespace Appostolic.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("role");
 
+                    b.Property<int>("Roles")
+                        .HasColumnType("integer")
+                        .HasColumnName("roles");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");

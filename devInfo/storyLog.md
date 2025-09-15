@@ -199,6 +199,26 @@ Quality gates
 - Build (API): PASS
 - Tests: PASS (full suite incl. new encryption tests)
 
+## IAM — Story 1.3: Apply role enforcement and uniform 403 — Completed
+
+- Summary
+  - Enforced role policies on critical endpoints and standardized 403 responses. Added a custom policy result handler that returns RFC7807 ProblemDetails for Forbidden with extensions { tenantId, requiredRoles }. Implemented compatibility mapping from legacy `MembershipRole` to new `Roles` flags inside the authorization handler so existing memberships behave correctly without immediate data backfill.
+
+- Files changed
+  - apps/api/App/Infrastructure/Auth/ProblemDetailsAuthorizationResultHandler.cs — new handler to format 403 as problem+json, including context.
+  - apps/api/App/Infrastructure/Auth/RoleAuthorization.cs — map legacy `MembershipRole` to `Roles` flags; record required role in HttpContext for error detail.
+  - apps/api/Program.cs — DI registration for the result handler; uniform 403 fallback middleware for manual forbids.
+  - apps/api/App/Endpoints/V1.cs — applied policies: Creator on POST /api/lessons; TenantAdmin on members/invites endpoints.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (focused auth + invites/members + smoke): PASS
+
+- Requirements coverage
+  - Role policies enforced on critical endpoints: Done
+  - Consistent 403 ProblemDetails with tenant and required role info: Done
+  - Backward-compatible role evaluation via legacy-role mapping: Done
+
 ## Mig06 — Web DLQ Admin: pagination, filters, per-row replay — Completed
 
 - Summary

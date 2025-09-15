@@ -376,7 +376,7 @@ public static class V1
         });
 
         // POST /api/lessons (tenant-scoped)
-        api.MapPost("/lessons", async (ClaimsPrincipal user, AppDbContext db, NewLessonDto dto) =>
+    api.MapPost("/lessons", async (ClaimsPrincipal user, AppDbContext db, NewLessonDto dto) =>
         {
             var tenantIdStr = user.FindFirstValue("tenant_id");
             var userIdStr = user.FindFirstValue("sub");
@@ -396,10 +396,10 @@ public static class V1
             db.Lessons.Add(lesson);
             await db.SaveChangesAsync();
             return Results.Created($"/api/lessons/{lesson.Id}", lesson);
-        });
+        }).RequireAuthorization("Creator");
 
         // GET /api/tenants/{tenantId}/members (Admin/Owner only)
-        api.MapGet("/tenants/{tenantId:guid}/members", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
+    api.MapGet("/tenants/{tenantId:guid}/members", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
         {
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
@@ -424,7 +424,7 @@ public static class V1
                 .OrderBy(x => x.email)
                 .ToListAsync();
             return Results.Ok(members);
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // POST /api/tenants/{tenantId}/invites (Admin/Owner only)
         api.MapPost("/tenants/{tenantId:guid}/invites", async (
@@ -519,10 +519,10 @@ public static class V1
             }
 
             return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, role = role.ToString(), expiresAt });
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/invites (Admin/Owner only)
-        api.MapGet("/tenants/{tenantId:guid}/invites", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
+    api.MapGet("/tenants/{tenantId:guid}/invites", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
         {
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
@@ -549,7 +549,7 @@ public static class V1
                 })
                 .ToListAsync();
             return Results.Ok(invites);
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // POST /api/tenants/{tenantId}/invites/{email}/resend (Admin/Owner only)
         api.MapPost("/tenants/{tenantId:guid}/invites/{email}/resend", async (
@@ -598,7 +598,7 @@ public static class V1
             catch { }
 
             return Results.Ok(new { email = invite.Email, role = invite.Role.ToString(), expiresAt = invite.ExpiresAt });
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // DELETE /api/tenants/{tenantId}/invites/{email} (Admin/Owner only)
         api.MapDelete("/tenants/{tenantId:guid}/invites/{email}", async (
@@ -625,7 +625,7 @@ public static class V1
             db.Invitations.Remove(invite);
             await db.SaveChangesAsync();
             return Results.NoContent();
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // PUT /api/tenants/{tenantId}/members/{userId} — change member role (Admin/Owner only)
         api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}", async (
@@ -713,7 +713,7 @@ public static class V1
                 await tx.CommitAsync();
                 return Results.NoContent();
             }
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // DELETE /api/tenants/{tenantId}/members/{userId} — remove member (Admin/Owner only)
         api.MapDelete("/tenants/{tenantId:guid}/members/{userId:guid}", async (
@@ -765,7 +765,7 @@ public static class V1
                 await tx.CommitAsync();
                 return Results.NoContent();
             }
-        });
+        }).RequireAuthorization("TenantAdmin");
 
         // POST /api/invites/accept — Accept an invite as the signed-in user
         api.MapPost("/invites/accept", async (

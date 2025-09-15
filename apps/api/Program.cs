@@ -19,6 +19,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using StackExchange.Redis;
 using Appostolic.Api.App.Notifications;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -97,6 +98,16 @@ builder.Services
     .AddAuthentication(DevHeaderAuthHandler.DevScheme)
     .AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
 builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuthorizationHandler, Appostolic.Api.Infrastructure.Auth.RoleAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Appostolic.Api.Infrastructure.Auth.ProblemDetailsAuthorizationResultHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("TenantAdmin", p => p.AddRequirements(new Appostolic.Api.Infrastructure.Auth.RoleRequirement(Roles.TenantAdmin)));
+    options.AddPolicy("Approver",     p => p.AddRequirements(new Appostolic.Api.Infrastructure.Auth.RoleRequirement(Roles.Approver)));
+    options.AddPolicy("Creator",      p => p.AddRequirements(new Appostolic.Api.Infrastructure.Auth.RoleRequirement(Roles.Creator)));
+    options.AddPolicy("Learner",      p => p.AddRequirements(new Appostolic.Api.Infrastructure.Auth.RoleRequirement(Roles.Learner)));
+});
 
 // Agent Tools
 builder.Services.AddSingleton<ITool, WebSearchTool>();
@@ -280,6 +291,41 @@ app.Use(async (context, next) =>
     }
 
     await next();
+});
+
+// Uniform 403 responses (both policy and manual Results.Forbid) as RFC7807 problem+json
+app.Use(async (context, next) =>
+{
+    await next();
+    if (context.Response.StatusCode == StatusCodes.Status403Forbidden && !context.Response.HasStarted)
+    {
+        // If an explicit problem+json was already written (from policy handler), do nothing
+        if (!string.IsNullOrWhiteSpace(context.Response.ContentType) && context.Response.ContentType.Contains("application/problem+json", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Build minimal problem details
+        string? tenantIdStr = null;
+        if (context.Items.TryGetValue("TenantId", out var tid) && tid is Guid gid)
+            tenantIdStr = gid.ToString();
+        else if (Guid.TryParse(context.User.FindFirst("tenant_id")?.Value, out var claimTid))
+            tenantIdStr = claimTid.ToString();
+        else if (Guid.TryParse(context.Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var headerTid))
+            tenantIdStr = headerTid.ToString();
+
+        var requiredRoles = context.Items.TryGetValue("AuthRequiredRoles", out var rr) ? rr?.ToString() : null;
+
+        var payload = new
+        {
+            type = "https://httpstatuses.com/403",
+            title = "Forbidden",
+            status = 403,
+            detail = string.IsNullOrWhiteSpace(requiredRoles) ? "You do not have permission to perform this action." : $"Missing required role: {requiredRoles}",
+            extensions = new { tenantId = tenantIdStr, requiredRoles }
+        };
+
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(payload);
+    }
 });
 
 // Middleware to set tenant from X-Tenant-Id header and set PostgreSQL local setting

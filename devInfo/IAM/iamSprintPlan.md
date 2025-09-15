@@ -32,7 +32,7 @@ Story 1.1 — Add Roles enum and migration — ✅ DONE
 - Tests:
   - Mapping roundtrip (enum <-> int); migration smoke.
 
-Story 1.2 — Role enforcement primitives
+Story 1.2 — Role enforcement primitives — ✅ DONE
 
 - Scope:
   - Authorization helpers: RequireTenantAdmin, RequireApprover, RequireCreator, RequireLearner.
@@ -42,7 +42,7 @@ Story 1.2 — Role enforcement primitives
 - Tests:
   - Unit tests per role check (allow/deny).
 
-Story 1.3 — Apply enforcement to critical endpoints
+Story 1.3 — Apply enforcement to critical endpoints — ✅ DONE
 
 - Scope:
   - Creator: lesson create/draft endpoints.
@@ -53,6 +53,15 @@ Story 1.3 — Apply enforcement to critical endpoints
   - 403 for insufficient role; happy-path remains 2xx.
 - Tests:
   - Integration tests per endpoint (200 allowed, 403 denied).
+
+Implementation notes:
+
+- Added uniform 403 ProblemDetails via a custom IAuthorizationMiddlewareResultHandler and a small fallback middleware for manual forbids (content-type application/problem+json with extensions { tenantId, requiredRoles }).
+- Implemented RoleRequirement/Handler mapping legacy MembershipRole to new Roles flags for compatibility.
+- Applied policies:
+  - Creator: POST /api/lessons.
+  - TenantAdmin: members and invites endpoints (list, create, resend, delete, change role, remove member).
+  - Approver: no-op for now (approve/publish endpoints not yet present in V1).
 
 Story 1.4 — Seed guardrails and invariants
 
