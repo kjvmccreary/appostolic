@@ -4,6 +4,13 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Sprint 1.1: Membership Roles flags (Completed)
+  - Added hardcoded tenant-scoped Roles as a [Flags] enum: TenantAdmin, Approver, Creator, Learner (None=0).
+  - Extended `Membership` with an `roles` column (int) to store role flags per user per tenant.
+  - EF Core migration: `20250915130937_s4_01_membership_roles_flags` adds `roles integer not null default 0` to `app.memberships`.
+  - Existing `MembershipRole` enum (Owner/Admin/Editor/Viewer) remains for legacy compatibility; new authorization will use `Roles` going forward.
+  - No behavior change yet; enforcement and APIs will land in subsequent stories.
+
 - Mig‑07: Transport privacy hardening — Redis subscriber no longer logs raw Pub/Sub payloads on warning/error paths; logs include channel and payload length only. Publisher and subscriber continue to send/accept GUID IDs only; no PII is present in transport payloads.
 - Mig‑03b: External notifications worker — introduced `apps/notifications-worker` which hosts the notifications runtime out-of-process. Added `NotificationsRuntimeOptions` to gate hosted services (dispatchers/purge/auto‑resend) so the API can disable dispatch when the worker runs. Default behavior remains unchanged.
 - Mig‑05: DLQ and replay tooling — added admin endpoints to list DLQ (`GET /api/notifications/dlq`) and bulk replay (`POST /api/notifications/dlq/replay`) with tenant scoping and summaries.

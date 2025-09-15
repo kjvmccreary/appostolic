@@ -406,6 +406,7 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.TenantId).HasColumnName("tenant_id");
             b.Property(x => x.UserId).HasColumnName("user_id");
             b.Property(x => x.Role).HasColumnName("role");
+            b.Property(x => x.Roles).HasColumnName("roles");
             b.Property(x => x.Status).HasColumnName("status");
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
@@ -522,12 +523,23 @@ public record User
 public enum MembershipRole { Owner, Admin, Editor, Viewer }
 public enum MembershipStatus { Active, Invited, Suspended, Revoked }
 
+[Flags]
+public enum Roles
+{
+    None = 0,
+    TenantAdmin = 1 << 0,
+    Approver    = 1 << 1,
+    Creator     = 1 << 2,
+    Learner     = 1 << 3,
+}
+
 public record Membership
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid UserId { get; init; }
     public MembershipRole Role { get; init; }
+    public Roles Roles { get; init; }
     public MembershipStatus Status { get; init; }
     public DateTime CreatedAt { get; init; }
 }

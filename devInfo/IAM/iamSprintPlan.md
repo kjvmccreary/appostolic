@@ -21,7 +21,7 @@ Deliverables and documentation cadence
 
 Sprint 1 — Backend Roles Core
 
-Story 1.1 — Add Roles enum and migration
+Story 1.1 — Add Roles enum and migration — ✅ DONE
 
 - Scope:
   - Define enum Roles: None=0, TenantAdmin=1, Approver=2, Creator=4, Learner=8 with [Flags].

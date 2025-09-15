@@ -419,6 +419,26 @@ Requirements coverage
   - Accessibility improvements (`label`, role/combobox, `aria-busy`): Done
   - Tests updated and passing: Done
 
+## IAM — Story 1.1: Roles flags and migration — Completed
+
+- Summary
+  - Introduced hardcoded tenant-scoped `Roles` as a [Flags] enum (TenantAdmin, Approver, Creator, Learner) and added an `roles` column on `memberships` to persist role flags per user per tenant. This sets the foundation for policy-based authorization and role assignment in upcoming stories.
+
+- Files changed
+  - apps/api/Program.cs — added `Roles` enum and `Membership.Roles` property; EF mapping to `roles`
+  - apps/api/Migrations/20250915130937_s4_01_membership_roles_flags.cs — migration adding `roles` column with default 0
+  - apps/api/Migrations/20250915130937_s4_01_membership_roles_flags.Designer.cs — snapshot update
+  - SnapshotArchitecture.md — What’s new entry documenting the change
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS (119/119)
+
+- Requirements coverage
+  - Add [Flags] Roles enum: Done
+  - Persist role flags on membership with default 0: Done
+  - Document change and keep behavior unchanged for now: Done
+
 ## UI Sprint 02 — Epic 6: Testing & Tooling — Completed (Unit tests) / Skipped (Playwright)
 
 - Summary
