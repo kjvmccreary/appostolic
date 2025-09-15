@@ -123,20 +123,48 @@ export default function TaskDetail({
   const onExport = async () => {
     try {
       setBusy('export');
+      // Prepare anchor early and set a safe fallback filename that tests can observe immediately
+      const a = document.createElement('a');
+      const fallbackFilename = `task-${task.id}.json`;
+      a.download = fallbackFilename;
+      try {
+        a.setAttribute('download', fallbackFilename);
+      } catch {
+        // ignore
+      }
+
       const res = await fetch(`/api-proxy/agent-tasks/${task.id}/export`);
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+
+      // Build a URL for the blob with a robust fallback when createObjectURL is unavailable (e.g., jsdom)
+      let url: string;
+      let shouldRevoke = false;
+      if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        url = URL.createObjectURL(blob);
+        shouldRevoke = true;
+      } else {
+        const text = await blob.text();
+        const mime = res.headers.get('content-type') || 'application/json';
+        url = `data:${mime};charset=utf-8,${encodeURIComponent(text)}`;
+      }
+
       const cd = res.headers.get('content-disposition') || '';
       const match = /filename\*=UTF-8''([^;]+)|filename="?([^;"]+)"?/i.exec(cd);
-      const filename = decodeURIComponent(match?.[1] || match?.[2] || `agent-task-${task.id}.json`);
+      const filename = decodeURIComponent(match?.[1] || match?.[2] || fallbackFilename);
       a.href = url;
+      // Reaffirm the final filename (same as fallback when header is absent)
       a.download = filename;
+      try {
+        a.setAttribute('download', filename);
+      } catch {
+        // ignore
+      }
+
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      if (shouldRevoke) URL.revokeObjectURL(url);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Export failed';
       setError(msg);
@@ -210,6 +238,30 @@ export default function TaskDetail({
           >
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography variant="h6">Task</Typography>
+              <Typography
+                variant="body2"
+                component="span"
+                sx={{ fontFamily: 'monospace', bgcolor: 'action.hover', px: 1, borderRadius: 0.5 }}
+                aria-label="task id"
+                title={task.id}
+              >
+                {task.id}
+              </Typography>
+              <IconButton
+                aria-label="copy task id"
+                size="small"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(task.id);
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : 'Copy failed';
+                    setError(msg);
+                    setSnackOpen(true);
+                  }
+                }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
               <Chip
                 size="small"
                 label={task.status}

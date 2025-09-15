@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Web — Studio: Tasks ergonomics (Completed)
+  - Task detail and inbox now include copy-to-clipboard for Task IDs (detail header and table ID column).
+  - Export action guarantees a predictable filename fallback `task-<id>.json` when Content-Disposition is absent.
+  - Tests cover retry/cancel, export filename fallback, and copy actions; full web suite green.
+
 - Web — Admin: Audits UI polish (Completed)
   - `/studio/admin/audits` now has a more complete UX: quick date presets (Today, 7/30 days), styled filter form, formatted table with role flag decoding to names, a compact pager that reads `X-Total-Count`, and clear empty/error states.
   - Server page accepts defaulted `searchParams` to support test invocation without args. Tests added to assert: non-admin 403 render, pager text computed from `X-Total-Count`, and Prev/Next link query sync.

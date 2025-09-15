@@ -61,7 +61,14 @@ export default async function NotificationsDlqPage(props: {
   // Fetch filtered/paged DLQ
   const resp = await fetchFromProxy(`/api-proxy/notifications/dlq?${qs.toString()}`);
   if (!resp.ok) {
-    return <div>Failed to load DLQ</div>;
+    return (
+      <div className="mx-auto max-w-5xl p-4">
+        <h1 className="text-xl font-semibold mb-2">Notifications DLQ</h1>
+        <div className="rounded-md border border-[var(--color-line)] bg-red-50 p-3 text-sm text-red-900">
+          Failed to load DLQ
+        </div>
+      </div>
+    );
   }
   const total = Number(resp.headers.get('x-total-count') || '0');
   const items = (await resp.json()) as DlqItem[];
@@ -132,27 +139,31 @@ export default async function NotificationsDlqPage(props: {
   baseParams.set('take', String(take));
   if (status) baseParams.set('status', status);
   if (kind) baseParams.set('kind', kind);
-  const showingFrom = total === 0 ? 0 : skip + 1;
-  const showingTo = Math.min(skip + items.length, total);
   const hasPrev = skip > 0;
   const hasNext = skip + items.length < total;
   const prevParams = new URLSearchParams(baseParams);
   const nextParams = new URLSearchParams(baseParams);
   prevParams.set('skip', String(Math.max(skip - take, 0)));
   nextParams.set('skip', String(skip + take));
+  const page = Math.floor(skip / take) + 1;
+  const pages = Math.max(1, Math.ceil(total / take));
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl p-4">
       <ClientToasts />
-      <h1>Notifications DLQ</h1>
-      <p>
+      <h1 className="text-xl font-semibold mb-2">Notifications DLQ</h1>
+      <p className="text-sm text-muted mb-2">
         Tenant: <strong>{mine.tenantSlug}</strong> — Total: {total}
       </p>
 
-      <form method="GET" className={styles.filtersForm}>
+      <form method="GET" className={`${styles.filtersForm} flex flex-wrap gap-3 items-end mb-3`}>
         <label>
           Status:{' '}
-          <select name="status" defaultValue={status || 'all'}>
+          <select
+            name="status"
+            defaultValue={status || 'all'}
+            className="rounded border px-2 py-1 text-sm"
+          >
             <option value="all">All</option>
             <option value="Failed">Failed</option>
             <option value="DeadLetter">DeadLetter</option>
@@ -165,6 +176,7 @@ export default async function NotificationsDlqPage(props: {
             defaultValue={kind}
             list="kind-suggestions"
             placeholder="e.g. Verification"
+            className="rounded border px-2 py-1 text-sm"
           />
           <datalist id="kind-suggestions">
             {kindSuggestions.map((k) => (
@@ -174,7 +186,11 @@ export default async function NotificationsDlqPage(props: {
         </label>
         <label>
           Page size:{' '}
-          <select name="take" defaultValue={String(take)}>
+          <select
+            name="take"
+            defaultValue={String(take)}
+            className="rounded border px-2 py-1 text-sm"
+          >
             <option value="10">10</option>
             <option value="25">25</option>
             <option value="50">50</option>
@@ -182,32 +198,42 @@ export default async function NotificationsDlqPage(props: {
           </select>
         </label>
         <input type="hidden" name="skip" value={String(Math.min(skip, Math.max(total - 1, 0)))} />
-        <button type="submit">Apply</button>
+        <button
+          type="submit"
+          className="px-3 py-1 rounded bg-[var(--color-accent-600)] text-white text-sm"
+        >
+          Apply
+        </button>
       </form>
 
-      <form action={replaySelected} className={styles.actionsForm}>
+      <form action={replaySelected} className={`${styles.actionsForm} flex items-center gap-2`}>
         <input
           type="text"
           name="ids"
           placeholder="comma-separated ids"
-          className={styles.idsInput}
+          className={`${styles.idsInput} rounded border px-2 py-1 text-sm`}
         />
-        <button type="submit">Replay selected</button>
+        <button
+          type="submit"
+          className="px-3 py-1 rounded bg-[var(--color-accent-600)] text-white text-sm"
+        >
+          Replay selected
+        </button>
       </form>
       <form id="replay-all" action={replayAllFiltered}>
         <ConfirmSubmitButton
           formId="replay-all"
           label={`Replay up to ${take} newest (filtered)`}
           confirmText={`Requeue up to ${take} notifications matching current filters?`}
-          className="inline-block"
+          className="inline-block px-3 py-1 rounded bg-[var(--color-accent-600)] text-white text-sm"
         />
       </form>
 
-      <div className={styles.pager}>
-        <span>
-          Showing {showingFrom}-{showingTo} of {total}
+      <div className="mt-3 flex gap-2 items-center">
+        <span className="text-sm">
+          Page {page} of {pages} — Total {total}
         </span>
-        <span className={styles.pagerButtons}>
+        <nav className="ml-auto flex gap-2">
           {hasPrev ? (
             <a href={`/studio/admin/notifications?${prevParams.toString()}`}>◀ Prev</a>
           ) : (
@@ -218,57 +244,77 @@ export default async function NotificationsDlqPage(props: {
           ) : (
             <span className={styles.disabledLink}>Next ▶</span>
           )}
-        </span>
+        </nav>
       </div>
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th align="left">Id</th>
-            <th align="left">Kind</th>
-            <th align="left">To</th>
-            <th align="left">Status</th>
-            <th align="right">Attempts</th>
-            <th align="left">Created</th>
-            <th align="left">Error</th>
-            <th align="left">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.length === 0 ? (
-            <tr>
-              <td colSpan={8} className={styles.errorCell}>
-                No items found for the selected filters.
-              </td>
+      <div className="overflow-x-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface-raised)]">
+        <table className={`${styles.table} w-full text-sm`}>
+          <thead className="bg-[var(--color-surface)]">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium" align="left">
+                Id
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                Kind
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                To
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                Status
+              </th>
+              <th className="px-3 py-2 font-medium" align="right">
+                Attempts
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                Created
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                Error
+              </th>
+              <th className="px-3 py-2 font-medium" align="left">
+                Actions
+              </th>
             </tr>
-          ) : (
-            items.map((n) => (
-              <tr key={n.id} className={styles.row}>
-                <td className={styles.mono}>{n.id}</td>
-                <td>{n.kind}</td>
-                <td>{n.toEmail}</td>
-                <td>{n.status}</td>
-                <td align="right">{n.attemptCount}</td>
-                <td>{new Date(n.createdAt).toLocaleString()}</td>
-                <td className={styles.errorCell} title={n.lastError ?? ''}>
-                  {n.lastError ?? ''}
-                </td>
-                <td>
-                  <form id={`replay-${n.id}`} action={replayOne}>
-                    <input type="hidden" name="id" value={n.id} />
-                    <ConfirmSubmitButton
-                      formId={`replay-${n.id}`}
-                      label="Replay"
-                      confirmText="Requeue this notification?"
-                      className="inline-block"
-                    />
-                  </form>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={8} className={`${styles.errorCell} px-3 py-4`}>
+                  No items found for the selected filters.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              items.map((n) => (
+                <tr key={n.id} className={styles.row}>
+                  <td className={`${styles.mono} px-3 py-2`}>{n.id}</td>
+                  <td className="px-3 py-2">{n.kind}</td>
+                  <td className="px-3 py-2">{n.toEmail}</td>
+                  <td className="px-3 py-2">{n.status}</td>
+                  <td className="px-3 py-2" align="right">
+                    {n.attemptCount}
+                  </td>
+                  <td className="px-3 py-2">{new Date(n.createdAt).toLocaleString()}</td>
+                  <td className={`${styles.errorCell} px-3 py-2`} title={n.lastError ?? ''}>
+                    {n.lastError ?? ''}
+                  </td>
+                  <td className="px-3 py-2">
+                    <form id={`replay-${n.id}`} action={replayOne}>
+                      <input type="hidden" name="id" value={n.id} />
+                      <ConfirmSubmitButton
+                        formId={`replay-${n.id}`}
+                        label="Replay"
+                        confirmText="Requeue this notification?"
+                        className="inline-block px-3 py-1 rounded bg-[var(--color-accent-600)] text-white text-sm"
+                      />
+                    </form>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

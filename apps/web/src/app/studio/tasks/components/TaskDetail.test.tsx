@@ -95,6 +95,22 @@ describe('TaskDetail actions', () => {
         HttpResponse.json({ ok: true }, { status: 200 }),
       ),
     );
+    const origCreate = document.createElement.bind(document);
+    let recordedFilename: string | null = null;
+    const spy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const el = origCreate(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        // capture when setting the download attribute
+        const origSetAttr = (el as HTMLElement).setAttribute.bind(el);
+        (el as HTMLElement).setAttribute = (name: string, value: string) => {
+          if (name.toLowerCase() === 'download') recordedFilename = value;
+          return origSetAttr(name, value);
+        };
+        // avoid actual navigation
+        (el as HTMLAnchorElement).click = vi.fn();
+      }
+      return el as HTMLElement;
+    });
     render(
       <TaskDetail
         task={{ id: 'e1', agentId: 'a', status: 'Succeeded', createdAt: new Date().toISOString() }}
@@ -103,5 +119,29 @@ describe('TaskDetail actions', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /export/i }));
     expect(screen.getByRole('button', { name: /export/i })).toBeEnabled();
+    expect(recordedFilename).toBe('task-e1.json');
+    spy.mockRestore();
+  });
+
+  it('Copy Task ID writes to clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText } as unknown as Clipboard,
+    });
+    render(
+      <TaskDetail
+        task={{
+          id: 'xyz123',
+          agentId: 'a',
+          status: 'Succeeded',
+          createdAt: new Date().toISOString(),
+        }}
+        traces={traces}
+      />,
+    );
+    const copyBtn = await screen.findByRole('button', { name: /copy task id/i });
+    await userEvent.click(copyBtn);
+    expect(writeText).toHaveBeenCalledWith('xyz123');
   });
 });

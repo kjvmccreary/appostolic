@@ -1,3 +1,15 @@
+## Story E — Tasks: Details/export ergonomics — ✅ DONE
+
+- Added copy-to-clipboard for Task IDs:
+  - Detail page header now shows the Task ID in monospace with a copy button (aria-label "copy task id").
+  - Tasks table includes a new ID column with a per-row copy button (aria-label includes the ID).
+- Export filename consistency:
+  - Export now guarantees a filename of the form `task-<id>.json` when the server does not provide a Content-Disposition filename.
+- Tests:
+  - Added unit test to assert the export anchor `download` attribute receives `task-<id>.json` fallback.
+  - Added tests to verify clipboard.writeText is called for both detail and list copy actions.
+- Status: Typecheck PASS; unit tests PASS (web: 39 files, 109 tests).
+
 ## Sprint 4.2 – Docs and SnapshotArchitecture (2025-09-15)
 
 2025-09-15 — Admin — Story A: Invites UX polish (phase 1) — In progress

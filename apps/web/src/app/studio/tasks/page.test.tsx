@@ -107,4 +107,21 @@ describe('Inbox page (/studio/tasks)', () => {
     expect(url).toMatch(/take=20/);
     expect(url).toMatch(/skip=20/);
   });
+
+  it('copies ID from table row', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText } as unknown as Clipboard,
+    });
+    type PageFn = (args: {
+      searchParams: Record<string, string | string[] | undefined>;
+    }) => Promise<React.ReactElement>;
+    const ui = await (Page as unknown as PageFn)({ searchParams: { take: '20', skip: '0' } });
+    render(ui);
+    // Button label includes the id
+    const btn = await screen.findByRole('button', { name: /copy task id t1/i });
+    await userEvent.click(btn);
+    expect(writeText).toHaveBeenCalledWith('t1');
+  });
 });

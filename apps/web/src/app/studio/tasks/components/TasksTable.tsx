@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useCallback } from 'react';
 import { DataGridPremium, GridColDef, GridPaginationModel } from '@mui/x-data-grid-premium';
-import { Chip, Box } from '@mui/material';
+import { Chip, Box, IconButton, Tooltip } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 export type TaskSummary = {
@@ -41,6 +42,41 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
 
   const columns = useMemo<GridColDef<TaskSummary>[]>(
     () => [
+      {
+        field: 'id',
+        headerName: 'ID',
+        minWidth: 220,
+        renderCell: (p) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Link href={`/studio/tasks/${(p.row as TaskSummary).id}`}>
+              <Box
+                component="span"
+                sx={{ fontFamily: 'monospace', bgcolor: 'action.hover', px: 1, borderRadius: 0.5 }}
+                title={String(p.value ?? '')}
+              >
+                {String(p.value ?? '')}
+              </Box>
+            </Link>
+            <Tooltip title="Copy Task ID">
+              <IconButton
+                size="small"
+                aria-label={`copy task id ${(p.row as TaskSummary).id}`}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    await navigator.clipboard.writeText(String(p.value ?? ''));
+                  } catch {
+                    // ignore in grid context
+                  }
+                }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ),
+      },
       {
         field: 'status',
         headerName: 'Status',

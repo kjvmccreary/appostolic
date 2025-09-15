@@ -91,7 +91,7 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - Timezone-aware formatting; role flags decoded; table keyboard nav intact.
 - Tests: Proxy route already covered; add page unit test for filter->URL query sync.
 
-### Story D — Admin: Notifications DLQ + bulk actions
+### ✅ (DONE) Story D — Admin: Notifications DLQ + bulk actions
 
 - Scope: Extend `/studio/admin/notifications` to expose bulk replay (with caps), per-row replay, and filter presets (status/kind); show remaining cap when returned via headers.
 - Acceptance:
@@ -99,13 +99,14 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - DLQ list paginated; empty state and warning banner.
 - Tests: Unit tests for header propagation and confirm flow; route tests for guard remain green.
 
-### Story E — Tasks: Details/export ergonomics
+### ✅ (DONE) Story E — Tasks: Details/export ergonomics
 
 - Scope: Refine `/studio/tasks` and `/studio/tasks/[id]` visuals; add copy-to-clipboard for IDs; expose Export as download link with proper filename.
 - Acceptance:
   - Export triggers browser download with filename `task-<id>.json`.
   - Details view shows trace kinds clearly; badges styled per status.
-- Tests: Unit test export link `download` attribute; basic rendering asserts remain.
+  - Copy-to-clipboard available for Task ID in both list and detail.
+- Tests: Unit test export link `download` attribute; tests for copy ID in detail and list.
 
 ### Story F — Agents: Editor form polish
 

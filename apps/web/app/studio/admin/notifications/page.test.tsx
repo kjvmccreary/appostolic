@@ -63,7 +63,7 @@ describe('notifications DLQ page (server)', () => {
     const ui = await Comp();
     render(ui);
     expect(await screen.findByText(/No items found/i)).toBeInTheDocument();
-    expect(await screen.findByText(/Showing 0-0 of 0/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Page 1 of 1 — Total 0/i)).toBeInTheDocument();
   });
 
   it('Prev/Next links preserve filters and compute skip', async () => {
