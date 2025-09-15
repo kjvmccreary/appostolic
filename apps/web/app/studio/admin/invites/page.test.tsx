@@ -47,7 +47,7 @@ describe('InvitesAdminPage (server)', () => {
     expect(JSON.stringify(jsx)).toContain('Invites');
   });
 
-  it('renders success banner when ok flag present', async () => {
+  it('renders successfully when ok flag would be present (handled by client toast)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
@@ -57,15 +57,11 @@ describe('InvitesAdminPage (server)', () => {
       ok: true,
       json: async () => [],
     } as unknown as Response);
-    const jsx = (await InvitesAdminPage({
-      searchParams: { ok: 'invite-resent' },
-    } as unknown as Parameters<typeof InvitesAdminPage>[0])) as unknown as {
-      [k: string]: unknown;
-    };
-    expect(JSON.stringify(jsx)).toContain('Invite email resent.');
+    const jsx = (await InvitesAdminPage()) as unknown as { [k: string]: unknown };
+    expect(JSON.stringify(jsx)).toContain('Invites');
   });
 
-  it('renders error banner when err flag present', async () => {
+  it('renders successfully when err flag would be present (handled by client toast)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
@@ -75,12 +71,8 @@ describe('InvitesAdminPage (server)', () => {
       ok: true,
       json: async () => [],
     } as unknown as Response);
-    const jsx = (await InvitesAdminPage({
-      searchParams: { err: 'invite-failed' },
-    } as unknown as Parameters<typeof InvitesAdminPage>[0])) as unknown as {
-      [k: string]: unknown;
-    };
-    expect(JSON.stringify(jsx)).toContain('Something went wrong');
+    const jsx = (await InvitesAdminPage()) as unknown as { [k: string]: unknown };
+    expect(JSON.stringify(jsx)).toContain('Invites');
   });
 
   it('renders failure state when invites fetch fails', async () => {

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../lib/serverFetch';
 import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
+import ClientToasts from './ClientToasts';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,11 +19,7 @@ type Invite = {
   acceptedByEmail?: string | null;
 };
 
-export default async function InvitesAdminPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[]>;
-} = {}) {
+export default async function InvitesAdminPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     redirect('/login');
@@ -105,31 +102,14 @@ export default async function InvitesAdminPage({
   }
   const invites = (await res.json()) as Invite[];
 
-  const ok = typeof searchParams?.ok === 'string' ? (searchParams?.ok as string) : undefined;
-  const err = typeof searchParams?.err === 'string' ? (searchParams?.err as string) : undefined;
+  // ok/err handled by client-side toasts; keep SSR stable
 
   return (
     <div className="mx-auto max-w-3xl p-4">
       <h1 className="text-xl font-semibold mb-3">Invites</h1>
       <p className="text-sm text-muted mb-4">Tenant: {tenantSlug}</p>
 
-      {(ok || err) && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={
-            'mb-4 rounded-md px-3 py-2 text-sm ' +
-            (ok
-              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-              : 'bg-red-100 text-red-900 border border-red-300')
-          }
-        >
-          {ok === 'invite-created' && 'Invite created and email sent.'}
-          {ok === 'invite-resent' && 'Invite email resent.'}
-          {ok === 'invite-revoked' && 'Invite revoked.'}
-          {err && 'Something went wrong. Please try again.'}
-        </div>
-      )}
+      <ClientToasts />
 
       <form action={createInvite} className="mb-4 flex gap-2 items-center">
         <input
@@ -139,6 +119,9 @@ export default async function InvitesAdminPage({
           required
           className="h-8 flex-1 rounded-md border border-line bg-[var(--color-surface-raised)] px-2 text-sm"
         />
+        <span className="sr-only" aria-live="polite">
+          Please enter a valid email address.
+        </span>
         <label htmlFor="invite-role" className="text-sm text-muted sr-only">
           Role
         </label>

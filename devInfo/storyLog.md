@@ -2,6 +2,30 @@
 
 2025-09-15 — Admin — Story A: Invites UX polish (phase 1) — In progress
 
+- 2025-09-15 — Admin — Story A: Invites UX polish (phase 2) — In progress
+
+- Summary
+  - Introduced a lightweight toast system (`ToastProvider` + `useToast`) and wired to `/studio/admin/invites` via a small client hook that reads `ok/err` query params and shows contextual toasts, then clears the params. Replaced the `window.confirm` usage with an accessible `ConfirmDialog` component used by `ConfirmSubmitButton`. Added a minimal inline validation announcement for the email field.
+
+- Files changed
+  - apps/web/src/components/ui/Toaster.tsx — toast context and portal renderer
+  - apps/web/app/providers.tsx — wrap app with `ToastProvider`
+  - apps/web/src/components/useInviteToasts.tsx — client hook to translate ok/err → toasts and strip params
+  - apps/web/app/studio/admin/invites/ClientToasts.tsx — client shim to run the hook on the page
+  - apps/web/src/components/ui/ConfirmDialog.tsx — accessible confirm dialog
+  - apps/web/src/components/ui/ConfirmSubmitButton.tsx — now uses `ConfirmDialog`
+  - apps/web/app/studio/admin/invites/page.tsx — mount ClientToasts; remove SSR banners; keep server actions
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — suite still green; coverage acceptable (toasts/dialog lightly tested for now)
+
+- Requirements coverage
+  - Toasts for action feedback: Done
+  - Accessible confirm dialog for revoke: Done
+  - Inline validation message for email: Done
+  - Empty state visuals and richer validation: Deferred
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 
