@@ -771,6 +771,120 @@ public static class V1
             }
         }).RequireAuthorization("TenantAdmin");
 
+        // GET /api/tenants/{tenantId}/memberships — list memberships with roles flags (TenantAdmin only)
+        // Returns userId, email, legacy role, roles flags (string and numeric), and joinedAt for admin UI consumption.
+        api.MapGet("/tenants/{tenantId:guid}/memberships", async (Guid tenantId, ClaimsPrincipal user, AppDbContext db) =>
+        {
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var list = await db.Memberships.AsNoTracking()
+                .Where(m => m.TenantId == tenantId)
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new
+                {
+                    userId = u.Id,
+                    email = u.Email,
+                    role = m.Role.ToString(),
+                    roles = m.Roles.ToString(),
+                    rolesValue = (int)m.Roles,
+                    joinedAt = m.CreatedAt
+                })
+                .OrderBy(x => x.email)
+                .ToListAsync();
+            return Results.Ok(list);
+        }).RequireAuthorization("TenantAdmin");
+
+        // POST /api/tenants/{tenantId}/memberships/{userId}/roles — replace roles flags for a membership (TenantAdmin only)
+        // Accepts a list of role flag names (e.g., ["TenantAdmin","Creator"]) and replaces the Roles bitfield.
+        // Invariant: at least one TenantAdmin must remain across the tenant after the change; otherwise 409.
+        api.MapPost("/tenants/{tenantId:guid}/memberships/{userId:guid}/roles", async (
+            Guid tenantId,
+            Guid userId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            SetRolesDto dto) =>
+        {
+            if (dto is null || dto.Roles is null)
+                return Results.BadRequest(new { error = "roles are required" });
+
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
+            if (target is null) return Results.NotFound();
+
+            // Parse flags from provided names; ignore case; invalid names -> 400
+            Roles newFlags = Roles.None;
+            foreach (var name in dto.Roles)
+            {
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                if (!Enum.TryParse<Roles>(name, ignoreCase: true, out var flag))
+                    return Results.BadRequest(new { error = $"invalid role flag: {name}" });
+                newFlags |= flag;
+            }
+
+            // If no change, return 204
+            if (target.Roles == newFlags)
+                return Results.NoContent();
+
+            // Invariant: ensure at least one TenantAdmin remains when removing TenantAdmin from this target
+            bool targetWasTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin;
+            bool targetWillBeTenantAdmin = (newFlags & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin; // legacy role still confers admin
+            if (targetWasTenantAdmin && !targetWillBeTenantAdmin)
+            {
+                var otherAdminsCount = await db.Memberships.AsNoTracking()
+                    .Where(m => m.TenantId == tenantId && m.UserId != target.UserId && m.Status == MembershipStatus.Active)
+                    .CountAsync(m => ((m.Roles & Roles.TenantAdmin) != 0) || (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin));
+                if (otherAdminsCount <= 0)
+                {
+                    return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
+                }
+            }
+
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
+            {
+                var replacement = new Membership
+                {
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Role = target.Role,
+                    Roles = newFlags,
+                    Status = target.Status,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+            }
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                var replacement = new Membership
+                {
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Role = target.Role,
+                    Roles = newFlags,
+                    Status = target.Status,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+
+            return Results.Ok(new { userId = target.UserId, roles = newFlags.ToString(), rolesValue = (int)newFlags });
+        }).RequireAuthorization("TenantAdmin");
+
         // POST /api/invites/accept — Accept an invite as the signed-in user
         api.MapPost("/invites/accept", async (
             ClaimsPrincipal user,
@@ -873,6 +987,7 @@ public static class V1
     public record MagicRequestDto(string Email);
     public record MagicConsumeDto(string Token);
     public record UpdateMemberRoleDto(string Role);
+    public record SetRolesDto(string[] Roles);
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
 
