@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 
 type Membership = { tenantId: string; tenantSlug: string; role: string };
 
@@ -49,18 +50,34 @@ export function TenantSwitcher() {
   if (!memberships?.length) return null;
 
   return (
-    <div aria-label="Tenant switcher" className="tenant-switcher">
-      <label htmlFor="tenant-switcher-select">Tenant:</label>
-      <select id="tenant-switcher-select" value={value} onChange={onChange} disabled={saving}>
-        <option value="">Select…</option>
-        {memberships.map((m) => (
-          <option key={m.tenantId} value={m.tenantSlug}>
-            {m.tenantSlug} — {m.role}
-          </option>
-        ))}
-      </select>
+    <div aria-label="Tenant switcher" className="tenant-switcher inline-flex items-center gap-2">
+      <label htmlFor="tenant-switcher-select" className="text-xs text-muted">
+        Tenant
+      </label>
+      <div className="relative">
+        <select
+          id="tenant-switcher-select"
+          value={value}
+          onChange={onChange}
+          disabled={saving}
+          aria-busy={saving ? 'true' : undefined}
+          className="h-8 min-w-[10rem] rounded-md border border-line bg-[var(--color-surface-raised)] pl-2 pr-7 text-sm text-ink focus-ring disabled:opacity-60 appearance-none"
+        >
+          <option value="">Select…</option>
+          {memberships.map((m) => (
+            <option key={m.tenantId} value={m.tenantSlug}>
+              {m.tenantSlug} — {m.role}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={14}
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted"
+          aria-hidden
+        />
+      </div>
       {msg ? (
-        <span role="status" aria-live="polite" className="tenant-switcher__msg">
+        <span role="status" aria-live="polite" className="text-xs text-muted">
           {msg}
         </span>
       ) : null}

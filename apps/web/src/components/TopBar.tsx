@@ -33,7 +33,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--color-line)] bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/60">
       <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-3 px-3">
-  {!hideTenant ? <TenantSwitcher /> : null}
+        {!hideTenant ? <TenantSwitcher /> : null}
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>

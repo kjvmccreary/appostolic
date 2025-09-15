@@ -398,6 +398,27 @@ Requirements coverage
   - Responsive grid at common breakpoints: Done
   - No regressions in Studio/Dev: Done
 
+## UI Sprint 02 — TenantSwitcher visibility + styling — Completed
+
+- Summary
+  - Made the TenantSwitcher visible on the Dashboard and most app pages, hiding it only on `/select-tenant`, `/login`, and `/signup`. Styled the switcher with Tailwind to match the TopBar, added a chevron icon, and improved accessibility (explicit label, role-based query compatibility, and `aria-busy` during saves). Updated unit tests for TopBar and TenantSwitcher accordingly.
+
+- Files changed
+  - apps/web/src/components/TopBar.tsx — show TenantSwitcher broadly; hide only on auth/select pages
+  - apps/web/src/components/TenantSwitcher.tsx — Tailwind styling, chevron icon, `aria-busy` when saving
+  - apps/web/src/components/TenantSwitcher.test.tsx — role-based query for the combobox; asserts session update and API POST
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests (web): PASS (vitest suites green)
+
+- Requirements coverage
+  - Show TenantSwitcher on Dashboard and most pages: Done
+  - Hide on /select-tenant, /login, /signup: Done
+  - Styled switcher to match TopBar with chevron icon: Done
+  - Accessibility improvements (`label`, role/combobox, `aria-busy`): Done
+  - Tests updated and passing: Done
+
 ## UI Sprint 02 — Epic 6: Testing & Tooling — Completed (Unit tests) / Skipped (Playwright)
 
 - Summary

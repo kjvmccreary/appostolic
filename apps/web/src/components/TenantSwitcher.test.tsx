@@ -33,7 +33,7 @@ describe('TenantSwitcher', () => {
 
     render(<TenantSwitcher />);
 
-    const select = screen.getByLabelText(/tenant:/i) as HTMLSelectElement;
+    const select = screen.getByRole('combobox', { name: /tenant/i }) as HTMLSelectElement;
     await userEvent.selectOptions(select, 't2');
 
     await waitFor(() => {
