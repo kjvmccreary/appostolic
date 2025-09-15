@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Sprint 2.1: Membership assignment APIs (Completed)
+  - Added GET /api/tenants/{tenantId}/memberships to list memberships including legacy Role and Roles flags (names and numeric value). Requires TenantAdmin and ensures the `tenant_id` claim matches the route.
+  - Added POST /api/tenants/{tenantId}/memberships/{userId}/roles to replace Roles flags using an array of enum names (case-insensitive). Returns 200 on change with a roles summary, 204 on no-op, 400 on invalid names, and 404 when membership is missing. Enforces the “at least one TenantAdmin per tenant” invariant across both legacy Role and Roles flags and returns 409 Conflict when violated.
+  - 403 responses are formatted as RFC7807 ProblemDetails via the custom authorization result handler; the RoleAuthorizationHandler maps legacy Role to flags for compatibility during transition.
+
 - IAM — Sprint 1.3: Role policies and uniform 403s (Completed)
   - Added policy-based authorization: TenantAdmin, Approver, Creator, Learner. Applied to critical endpoints in V1 (Creator on lesson creation; TenantAdmin on members/invites management). Legacy `MembershipRole` is mapped to `Roles` flags in the auth handler for compatibility.
   - Introduced a custom authorization result handler to return RFC7807 ProblemDetails on Forbidden, with extensions including tenantId and requiredRoles. Added a small fallback middleware to cover manual `Forbid()` responses.

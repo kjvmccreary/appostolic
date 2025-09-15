@@ -236,6 +236,28 @@ Quality gates
   - Block operations that would leave zero TenantAdmins with 409 Conflict: Done
   - Maintain clear error semantics and precedence vs. self-removal: Done
 
+## IAM — Story 2.1: Membership assignment APIs (list/set flags) — Completed
+
+- Summary
+  - Introduced membership assignment APIs for roles flags. Added:
+    - GET /api/tenants/{tenantId}/memberships — returns memberships including legacy Role and new Roles flags (names and numeric value). Requires TenantAdmin and enforces route tenant vs claim tenant.
+    - POST /api/tenants/{tenantId}/memberships/{userId}/roles — replaces the Roles flags by array of enum names; parses case-insensitively; returns 200 with summary on change, 204 when no-op. Enforces the last-admin invariant across both legacy Role (Owner/Admin) and Roles flags, returning 409 Conflict when the change would leave zero TenantAdmins.
+  - Authorization continues to be policy-based via RoleAuthorizationHandler which maps legacy Role to flags for compatibility. 403s are formatted as RFC7807 via the custom result handler.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — added endpoints to list memberships and set Roles flags; includes tenant claim vs route validation, parsing/validation for role names, last-admin invariant enforcement, and immutable record replacement for InMemory provider.
+  - apps/api.tests/Api/AssignmentsApiTests.cs — new focused tests covering: 403 for non-admin access, 404 for missing membership, 400 for invalid role string, 409 for last-admin removal via flags, 200 on update and 204 on no-op.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — focused tests green; full suite passing (127/127 at time of commit)
+
+- Requirements coverage
+  - List memberships with legacy Role and Roles flags for a tenant, gated by TenantAdmin: Done
+  - Replace Roles flags via array of names with validation, no-op 204 semantics: Done
+  - Enforce last-admin invariant across legacy+flags with 409 Conflict: Done
+  - Uniform 403 ProblemDetails and tenant claim matching: Done
+
 ## Mig06 — Web DLQ Admin: pagination, filters, per-row replay — Completed
 
 - Summary
