@@ -62,12 +62,22 @@ export default async function SelectTenantPage(props: {
   }
 
   return (
-    <div>
-      <h1>Select a tenant</h1>
+    <div aria-labelledby="select-tenant-heading" className="mx-auto mt-8 max-w-md p-4">
+      <h1 id="select-tenant-heading" className="mb-4 text-xl font-semibold">
+        Select a tenant
+      </h1>
       <form action={chooseTenant}>
         <input type="hidden" name="next" value={next} />
-        <label htmlFor="tenant-select">Tenant</label>
-        <select id="tenant-select" name="tenant" defaultValue={cookieTenant ?? ''} required>
+        <label htmlFor="tenant-select" className="block text-sm mb-1">
+          Tenant
+        </label>
+        <select
+          id="tenant-select"
+          name="tenant"
+          defaultValue={cookieTenant ?? ''}
+          required
+          className="mb-3 w-full rounded border border-line bg-[var(--color-surface)] p-2 text-sm focus-ring"
+        >
           <option value="" disabled>
             Select…
           </option>
@@ -77,7 +87,9 @@ export default async function SelectTenantPage(props: {
             </option>
           ))}
         </select>
-        <button type="submit">Continue</button>
+        <button type="submit" className="inline-flex rounded border border-line px-3 py-1">
+          Continue
+        </button>
       </form>
     </div>
   );

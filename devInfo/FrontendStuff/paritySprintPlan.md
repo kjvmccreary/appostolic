@@ -115,12 +115,12 @@ Scope: Ensure that every existing backend capability with public/admin endpoints
   - Invalid fields show inline messages; helper text for tools; `isEnabled` toggles clearly.
 - Tests: Unit test invalid field path; isEnabled toggle behavior (added).
 
-### Story G — Auth/Tenant: Multi-tenant UX polish
+### ✅ (DONE) Story G — Auth/Tenant: Multi-tenant UX polish
 
 - Scope: For users with multiple memberships, enhance `/select-tenant` to show roles badges and remember last choice; ensure return to deep links via `next` param.
 - Acceptance:
   - List shows role badges; once selected, next visits default to last tenant unless overridden.
-- Tests: Unit test that `next` is respected and only same-origin absolute paths are allowed.
+- Tests: Unit test that `next` is respected and only same-origin absolute paths are allowed. (Added)
 
 ## Delivery Phases and Milestones
 

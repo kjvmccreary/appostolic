@@ -51,12 +51,18 @@ export function ProfileMenu() {
 
   return (
     <div className="relative">
+      {isSuper ? (
+        <span className="mr-2 rounded bg-amber-600/20 px-1.5 py-0.5 text-xs text-amber-500">
+          Superadmin
+        </span>
+      ) : null}
       <button
         ref={btnRef}
         type="button"
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-[var(--color-surface-raised)] focus-ring"
         aria-label="Account"
         aria-haspopup="menu"
+        aria-expanded={open}
         onClick={onToggle}
         title="Account"
       >

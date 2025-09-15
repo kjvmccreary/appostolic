@@ -44,6 +44,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Integrated `ProfileMenu` into `TopBar` alongside existing CTAs and `ThemeToggle`. The modal supports backdrop/ESC close and restores focus to the trigger.
   - Tests cover dropdown toggle, superadmin visibility, modal open/close, and update flow; full web suite remains green with coverage >90% lines.
 
+- Web — Auth/Tenant: Multi-tenant UX polish (Completed)
+  - `/select-tenant` now validates same-origin `next` and auto-selects when a single membership exists; added tests for safe/unsafe `next` values.
+  - Tenant switcher modal shows role badges and hints the last selected tenant from localStorage for quick re-selection; cookie remains authoritative for server reads.
+
 - IAM — Sprint 4.1: Seeds + dev roles utility (Completed)
   - Seeded baseline users with distinct Roles per tenant (Admin, Approver, Creator, Learner) via an idempotent seed that converges memberships and augments Owner composite flags when needed.
   - Added developer utility endpoint `POST /api/dev/grant-roles` that accepts `tenantId` or `tenantSlug`, `email`, and `roles[]` (case-insensitive names). It auto-creates the user if missing, ensures membership, and sets role flags.

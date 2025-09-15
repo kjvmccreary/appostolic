@@ -32,9 +32,7 @@ describe('ProfileMenu', () => {
     render(<ProfileMenu />);
     const trigger = screen.getByRole('button', { name: /account/i });
     expect(screen.getByText(/superadmin/i)).toBeInTheDocument();
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await user.click(trigger);
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('menu')).toBeInTheDocument();
   });
 

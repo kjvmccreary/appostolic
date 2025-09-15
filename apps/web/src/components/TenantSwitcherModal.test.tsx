@@ -61,4 +61,27 @@ describe('TenantSwitcherModal', () => {
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
+
+  it('renders role badges and marks current', () => {
+    const { container } = render(<TenantSwitcherModal open onClose={() => {}} />);
+    const badges = container.querySelectorAll('[data-testid="role-badge"]');
+    expect(badges.length).toBeGreaterThan(0);
+    const roles = Array.from(badges).map((b) => b.getAttribute('data-role'));
+    expect(roles).toContain('Current');
+    expect(roles).toContain('Creator');
+  });
+
+  it('remembers last selected tenant in localStorage', async () => {
+    const onClose = vi.fn();
+    const update = vi.fn().mockResolvedValue(undefined);
+    mockSession.update = update;
+    // Ensure clean state
+    window.localStorage.removeItem('last_selected_tenant');
+    render(<TenantSwitcherModal open onClose={onClose} />);
+    // Click the second membership (t2)
+    const btn = screen.getByRole('button', { name: /t2/i });
+    btn.click();
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(window.localStorage.getItem('last_selected_tenant')).toBe('t2');
+  });
 });

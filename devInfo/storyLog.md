@@ -1,3 +1,11 @@
+## 2025-09-15 — Story G: Auth/Tenant Multi-tenant UX polish
+
+- Centralized tenant switching to Account menu (ProfileMenu) and removed TopBar selector. Admin links are now a dropdown.
+- Enhanced `/select-tenant` to validate `next` for same-origin paths and auto-select single membership; added unit tests for safe/unsafe next.
+- Tenant switcher modal: added role badges and remembers last selected tenant (localStorage) with a subtle hint outline.
+- API route `/api/tenant/select` already validates next and sets `selected_tenant` cookie; no changes required beyond tests.
+- Tests: Added cases for safe/unsafe next, ensured modal interaction still posts and updates session.
+
 ### 2025-09-15 — Story F: Agents editor form polish
 
 - What: Repaired and enhanced `AgentForm` with accessible labels, helper texts, inline validation, and clear `isEnabled` toggle; preserved tool allowlist hints and token estimate preview.

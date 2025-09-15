@@ -66,4 +66,42 @@ describe('/select-tenant page', () => {
     expect(dest).toContain('tenant=t1-personal');
     expect(dest).toContain('next=%2Fstudio%2Fagents');
   });
+
+  it('respects a safe next path when provided', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+
+    let dest = '';
+    try {
+      await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+        searchParams: { next: '/studio/tasks?status=open' },
+      });
+    } catch (e) {
+      const err = e as RedirectError;
+      if (err.message === 'REDIRECT') dest = err.destination ?? '';
+      else throw e;
+    }
+    expect(dest).toContain('next=%2Fstudio%2Ftasks%3Fstatus%3Dopen');
+  });
+
+  it('defaults next when provided value is unsafe (external)', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+
+    let dest = '';
+    try {
+      await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+        searchParams: { next: 'https://evil.example.com' },
+      });
+    } catch (e) {
+      const err = e as RedirectError;
+      if (err.message === 'REDIRECT') dest = err.destination ?? '';
+      else throw e;
+    }
+    expect(dest).toContain('next=%2Fstudio%2Fagents');
+  });
 });
