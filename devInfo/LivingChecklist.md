@@ -53,6 +53,7 @@ How to use
 - [ ] Evaluator + preflight API (allow/deny with “why”)
 - [ ] Admin UI to view/edit policies and apply presets
 - [ ] Versioned policy snapshots (object storage)
+- [x] Denomination presets metadata endpoint + profile multi-select UI (UPROF-11)
 
 ### Lesson Generation Pipeline
 
@@ -133,4 +134,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑16 (Added UPROF-05/06 profile & guardrails forms, UPROF-08 change password UI; prior: TEN-01/TEN-02, UPROF-07, UPROF-09, Node 20 testing)
+- Last updated: 2025‑09‑16 (Added denomination presets endpoint + multi-select UI UPROF-11; earlier: UPROF-05/06 profile & guardrails forms, UPROF-08 change password UI; prior: TEN-01/TEN-02, UPROF-07, UPROF-09, Node 20 testing)
