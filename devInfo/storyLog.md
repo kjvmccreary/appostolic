@@ -73,6 +73,19 @@
 - Notes
   - Old avatar files are not deleted in MVP; replacement updates the profile reference only. Dimensions are deferred; lightweight metadata extraction can be added later without breaking the contract.
 
+## 2025-09-16 — Tooling — Web Vitest Node 20 requirement — ✅ DONE
+
+- Summary
+  - Documented mandatory use of Node 20.x LTS for running the web unit test suite (Vitest) and dev scripts. Node 19 triggered a Corepack crash (`TypeError: URL.canParse is not a function`) before any tests executed when invoking `pnpm test` with workspace filters. Added a Runtime & Testing Environment section to `apps/web/AGENTS.md` with nvm workflow, PATH override example, CI pinning note, and failure symptom checklist.
+- Files changed
+  - apps/web/AGENTS.md — added Runtime & Testing Environment section
+  - SnapshotArchitecture.md — “What’s new” entry documenting the requirement
+- Quality gates
+  - Web tests: PASS under Node 20 (118/118) after enforcing version
+  - Coverage: thresholds still satisfied post adjustments
+- Notes
+  - Future improvement: add an `.nvmrc` or Volta pin to enforce version automatically; optionally fail early in a pretest script if `process.version` < 20.
+
 ## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
 
 - Summary

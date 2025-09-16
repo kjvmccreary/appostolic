@@ -23,7 +23,7 @@ How to use
 ## Global quality gates (always on)
 
 - [x] API build green; tests passing (unit/integration); EF migrations applied
-- [ ] Web typecheck/lint green; tests passing; coverage thresholds satisfied
+- [x] Web typecheck/lint green; tests passing; coverage thresholds satisfied
 - [ ] Accessibility basics upheld (labels, focus, aria-current/expanded, color contrast)
 - [ ] Server‑first auth/role guards for any new routes (avoid client-only gating)
 - [x] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
@@ -125,4 +125,4 @@ How to use
 - UI Builder / Dynamic Forms
 - Advanced compliance & policy (exports/erasure)
 
-— Last updated: 2025‑09‑16 (post UPROF‑04)
+— Last updated: 2025‑09‑16 (web vitest Node 20 requirement documented)
