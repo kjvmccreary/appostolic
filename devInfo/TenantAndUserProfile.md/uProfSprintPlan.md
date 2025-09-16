@@ -186,6 +186,24 @@ Stories & acceptance criteria
 - Update logging/tracing filters to redact raw PII; include only hashed derivatives when necessary.
 - Tests: verification of hashing determinism and redaction in representative log entries.
 
+### Sub-stories & checklist
+
+- [ ] UPROF-12A: Privacy options & configuration (`Privacy:PIIHashPepper`, `Privacy:PIIHashingEnabled`)
+- [ ] UPROF-12B: Core `IPIIHasher` + `Sha256PIIHasher` (email/phone normalization + peppered hash)
+- [ ] UPROF-12C: `PIIRedactor` (email + phone) replacing/augmenting existing `EmailRedactor`
+- [ ] UPROF-12D: Logging scope/enricher utilities (adds redacted + hashed fields; respects toggle)
+- [ ] UPROF-12E: Refactor duplicated token/email hash helpers (consolidate `HashToken` usages or document exception)
+- [ ] UPROF-12F: Integration of redaction & hashing in auth/profile/tenant settings endpoints (no raw emails in logs)
+- [ ] UPROF-12G: Tests — hasher determinism, pepper variance, redaction edge cases, log capture (no raw PII)
+- [ ] UPROF-12H: Documentation updates (SnapshotArchitecture section, storyLog entry, LivingChecklist tick)
+- [ ] UPROF-12I: Optional OTEL/metrics enrichment (hashed identifiers only when justified) — can defer if time constrained
+
+Deferred / Post‑1.0 candidates
+
+- ➕ Phone number canonicalization via libphonenumber for international format
+- ➕ Automatic span processor for on-the-fly PII scrubbing (cross-cutting) if future services expand
+- ➕ Historical log backfill/analyzer to validate absence of PII retroactively
+
 Perf & a11y tasks
 
 - Avoid large image payloads; cap to 2MB and render 256px thumbnail in UI.
