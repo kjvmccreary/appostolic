@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Auth — Root route auth gate (2025-09-16)
+  - Web: The root page (`/app/page.tsx`) is now a server-only redirector. Unauthenticated users are redirected to `/login`; authenticated users are redirected to `/studio` (which further redirects to `/studio/agents`). This prevents the dashboard UI from rendering to unauthenticated users. A unit test was updated to assert redirect behavior by mocking `next-auth` and `next/navigation`.
+- Auth — Signup page styling (2025-09-16)
+  - Web: `/signup` received a CSS module with consistent layout, accessible labels/helper text, an invite-aware banner that links to Login (`/login?next=/invite/accept?token=...`) when an invite token is present, and a clear primary action. ARIA warnings were resolved in the client form.
+
 - Admin UX — Tenant switcher centering + Invites Accepted state (2025-09-16)
   - Web: Centered `TenantSwitcherModal` and prevented cut‑off by using a full‑screen flex container with `items-center justify-center` and making the dialog panel scrollable via `max-h` + `overflow-auto`.
 - Web — Dev logs cleanup (2025-09-16)

@@ -11,6 +11,23 @@
   - Typecheck (workspace): PASS
   - Smoke: Resend should now succeed and Mailhog should receive the message in dev.
 
+## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
+
+- Summary
+  - Root route `/` no longer renders the dashboard to unauthenticated users. The page is now a server-only redirector: unauthenticated → `/login`; authenticated → `/studio` (which further redirects to `/studio/agents`).
+  - Styled `/signup` with a CSS module and accessibility improvements (labels, helper text, inline error role). When an invite token is present, shows a banner that links to `/login?next=/invite/accept?token=...` so existing users follow the accept flow.
+  - Updated the previous dashboard render test to assert redirect behavior by mocking `next-auth` and `next/navigation`.
+
+- Files changed
+  - apps/web/app/page.tsx — replace dashboard render with server redirects based on `getServerSession`.
+  - apps/web/src/app/Dashboard.test.tsx — update to mock `getServerSession` + `redirect` and assert `/login` vs `/studio`.
+  - apps/web/app/signup/SignupClient.tsx — style tweaks and a11y; invite-aware banner.
+  - apps/web/app/signup/styles.module.css — new CSS module for layout/buttons/messages.
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): Local runner currently blocked by Node mismatch; updated test compiles under typecheck. Will re-run vitest when Node >= 20 is active.
+
 ## 2025-09-16 — Auth — Fix: occasional login loop on invite → login — ✅ DONE
 
 ## 2025-09-16 — Web — Logs cleanup: Toaster SSR + duplicate middleware — ✅ DONE
