@@ -526,7 +526,7 @@ public static class V1
             }
             await db.SaveChangesAsync();
 
-            // Send dev email via SMTP (Mailhog)
+            // Send dev email via SMTP (Mailhog) with a simple HTML body
             try
             {
                 var host = config["Smtp:Host"] ?? "localhost";
@@ -539,7 +539,8 @@ public static class V1
                 msg.To.Add(new MailAddress(email));
                 msg.Subject = $"You're invited to join tenant {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
                 var signupUrl = $"http://localhost:3000/signup?invite={token}";
-                msg.Body = $"You've been invited as {role}.\n\nUse this invite token during signup: {token}\n\nOr open: {signupUrl}\n\nThis invite expires at {expiresAt:u}.";
+                msg.IsBodyHtml = true;
+                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{role}</b>.</p><p>Click <a href='{signupUrl}'>Accept invite</a> to continue.</p><p>This invite expires at {expiresAt:u}.</p>";
                 await client.SendMailAsync(msg);
             }
             catch
@@ -623,7 +624,8 @@ public static class V1
                 msg.To.Add(new MailAddress(invite.Email));
                 msg.Subject = $"Your invite was re-sent for {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
                 var signupUrl = $"http://localhost:3000/signup?invite={invite.Token}";
-                msg.Body = $"You've been invited as {invite.Role}.\n\nUse this invite token during signup: {invite.Token}\n\nOr open: {signupUrl}\n\nThis invite expires at {invite.ExpiresAt:u}.";
+                msg.IsBodyHtml = true;
+                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{invite.Role}</b>.</p><p>Click <a href='{signupUrl}'>Accept invite</a> to continue.</p><p>This invite expires at {invite.ExpiresAt:u}.</p>";
                 await client.SendMailAsync(msg);
             }
             catch { }

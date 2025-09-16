@@ -398,6 +398,27 @@
   - Tests (API): PASS (108/108)
   - Lint/Typecheck (web): N/A (no web code changes in this step)
 
+## 2025-09-16 — Invites: Roles flags + correct toasts + HTML email
+
+- Summary
+  - Web: Updated `/studio/admin/invites` to use the granular role flags model. The dropdown now offers Admin (TenantAdmin), Approver, Creator, and Learner; default is Learner. Create action sends `{ email, roles: [selected] }` to align with API `invitations.roles`.
+  - Web: Fixed false error toasts for create/resend/revoke by checking `res.ok` and placing the success `redirect(...?ok=...)` outside of try/catch; only error paths redirect with `?err=...`.
+  - API: Improved invite emails sent in dev via SMTP (Mailhog) to use a small HTML body with an Accept link, tenant reference, selected role, and expiry. This keeps content readable in Mailhog and closer to production formatting.
+
+- Files changed
+  - apps/web/app/studio/admin/invites/page.tsx — roles dropdown updated, payload sends roles[], success redirect moved outside catch for actions
+  - apps/api/App/Endpoints/V1.cs — invite create/resend now set `IsBodyHtml = true` and send a simple HTML body with Accept link
+
+- Quality gates
+  - Build (API): PASS
+  - Typecheck (web): PASS
+  - Tests: Deferred for web pending Node 20.x local run; manual smoke via UI confirmed success toast appears and Mailhog shows HTML invite.
+
+- Requirements coverage
+  - Invites roles should be Admin/Approver/Creator/Learner: Done
+  - No false error toast after successful invite actions: Done
+  - Email content not ugly/plaintext in dev: Improved (HTML body with Accept link)
+
 - Requirements coverage
   - Add transport abstraction without changing runtime behavior: Done
   - Enqueuer publishes via transport; default channel transport preserves current path: Done

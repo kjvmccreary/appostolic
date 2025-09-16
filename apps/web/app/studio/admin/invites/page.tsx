@@ -56,16 +56,17 @@ export default async function InvitesAdminPage() {
     const selected = String(formData.get('role') ?? 'Learner') as FlagRole;
     if (!email) return;
     try {
-      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
+      const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Send as roles flags array to align with IAM 2.2 invitations.roles
         body: JSON.stringify({ email, roles: [selected] }),
       });
-      redirect('/studio/admin/invites?ok=invite-created');
+      if (!res.ok) redirect('/studio/admin/invites?err=invite-failed');
     } catch {
       redirect('/studio/admin/invites?err=invite-failed');
     }
+    redirect('/studio/admin/invites?ok=invite-created');
   }
 
   async function resendInvite(formData: FormData) {
@@ -73,14 +74,15 @@ export default async function InvitesAdminPage() {
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
     try {
-      await fetchFromProxy(
+      const res = await fetchFromProxy(
         `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}/resend`,
         { method: 'POST' },
       );
-      redirect('/studio/admin/invites?ok=invite-resent');
+      if (!res.ok) redirect('/studio/admin/invites?err=invite-resend-failed');
     } catch {
       redirect('/studio/admin/invites?err=invite-resend-failed');
     }
+    redirect('/studio/admin/invites?ok=invite-resent');
   }
 
   async function revokeInvite(formData: FormData) {
@@ -88,13 +90,17 @@ export default async function InvitesAdminPage() {
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
     try {
-      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`, {
-        method: 'DELETE',
-      });
-      redirect('/studio/admin/invites?ok=invite-revoked');
+      const res = await fetchFromProxy(
+        `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      if (!res.ok) redirect('/studio/admin/invites?err=invite-revoke-failed');
     } catch {
       redirect('/studio/admin/invites?err=invite-revoke-failed');
     }
+    redirect('/studio/admin/invites?ok=invite-revoked');
   }
 
   const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
