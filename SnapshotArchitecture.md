@@ -6,6 +6,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 - Admin UX — Tenant switcher centering + Invites Accepted state (2025-09-16)
   - Web: Centered `TenantSwitcherModal` and prevented cut‑off by using a full‑screen flex container with `items-center justify-center` and making the dialog panel scrollable via `max-h` + `overflow-auto`.
+- Auth Flows: Forgot Password styled with accessible form and status messaging; Reset Password now reads token from URL (hidden field), adds confirm password with validation, and provides clear success/error feedback.
   - Web: `/studio/admin/invites` now surfaces acceptance state from the API. The table shows a Status chip: Accepted (green) when `acceptedAt` is set, Pending (amber) otherwise. When an invite has been accepted, the Resend/Revoke actions are hidden to avoid invalid operations. Also fixed a broken `ConfirmSubmitButton` import and restored the Expires column cell to match the header.
 
 - Admin Invites — roles flags + HTML email (2025-09-16)

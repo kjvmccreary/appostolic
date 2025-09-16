@@ -3142,4 +3142,24 @@ Requirements coverage
           - Requirements coverage
             - Chip variants styled via tokens: Done
             - Stepper shows 5 steps and announces active step: Done
+
+## 2025-09-16 — Auth flows polish: Forgot/Reset Password — ✅ DONE
+
+- Summary
+  - Forgot Password page restyled for clarity and accessibility: heading, helper text, labeled email input with proper aria attributes, pending state, inline status messaging, and a back-to-login link. Continues to POST to `/api-proxy/auth/forgot-password` and surfaces success/error to the user.
+  - Reset Password page refactored to remove the visible token field. The token is now read from the URL on mount and kept in a hidden input. Added New Password and Confirm Password fields with client-side validation (min length + match). Improved layout with clear helper text and pending/inline success or error feedback, including a link to sign in on success. Submits JSON to `/api-proxy/auth/reset-password`.
+  - Updated SnapshotArchitecture with an entry under What's New to reflect these changes.
+
+- Files changed
+  - apps/web/app/forgot-password/page.tsx — styling and status UX improvements
+  - apps/web/app/reset-password/page.tsx — token-from-URL, hidden field, confirm input, validation, styled form
+  - SnapshotArchitecture.md — Added What's New bullet for auth flows
+
+- Quality gates
+  - Typecheck (web): PASS (workspace typecheck green)
+  - Tests: Deferred locally due to Node version mismatch (vitest requires Node >=20). Functional smoke via UI pattern alignment.
+
+- Requirements coverage
+  - Forgot Password page styled and accessible: Done
+  - Reset Password uses token from URL, not user input; adds confirm field and validation: Done
 ```
