@@ -111,7 +111,7 @@ How to use
 
 ## Process & docs (keep in sync)
 
-- [ ] After each story: append `devInfo/storyLog.md` (same summary as PR/assistant), update `SnapshotArchitecture.md`, and tick items here
+- [x] After each story: append `devInfo/storyLog.md` (same summary as PR/assistant), update `SnapshotArchitecture.md`, and tick items here
 - [ ] At sprint close: review gaps, move deferrals to Post‑1.0, and ensure this checklist reflects reality
 
 ## Post‑1.0 candidates (parking lot)

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Appostolic.Api.Application.Auth;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -74,6 +75,40 @@ public static class UserProfileEndpoints
         })
         .WithSummary("Update current user profile (merge)");
 
+        // POST /api/users/me/password — change password
+        group.MapPost("me/password", async (ClaimsPrincipal user, AppDbContext db, IPasswordHasher hasher, HttpRequest req, CancellationToken ct) =>
+        {
+            if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+                return Results.Unauthorized();
+
+            var dto = await req.ReadFromJsonAsync<PasswordChangeDto>(cancellationToken: ct);
+            if (dto is null || string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
+                return Results.BadRequest(new { error = "currentPassword and newPassword are required" });
+
+            // Basic strength policy: length >= 8, contains letter and digit
+            if (!IsStrongPassword(dto.NewPassword))
+                return Results.UnprocessableEntity(new { error = "Weak password: min 8 chars with letters and digits required" });
+
+            var entity = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+            if (entity is null) return Results.NotFound();
+
+            var hasExisting = entity.PasswordHash is not null && entity.PasswordSalt is not null;
+            var valid = hasExisting && hasher.Verify(dto.CurrentPassword, entity.PasswordHash!, entity.PasswordSalt!, iterations: 0);
+            if (!valid)
+                return Results.BadRequest(new { error = "Invalid current password" });
+
+            var (hash, salt, _) = hasher.HashPassword(dto.NewPassword);
+            var updated = entity with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+            db.Users.Attach(updated);
+            var entry = db.Entry(updated);
+            entry.Property(u => u.PasswordHash).IsModified = true;
+            entry.Property(u => u.PasswordSalt).IsModified = true;
+            entry.Property(u => u.PasswordUpdatedAt).IsModified = true;
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        })
+        .WithSummary("Change current user password");
+
         return app;
     }
 
@@ -134,6 +169,17 @@ public static class UserProfileEndpoints
     }
 
     /// <summary>
+    /// Basic password strength check: at least 8 chars, must include a letter and a digit.
+    /// </summary>
+    private static bool IsStrongPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8) return false;
+        bool hasLetter = password.Any(char.IsLetter);
+        bool hasDigit = password.Any(char.IsDigit);
+        return hasLetter && hasDigit;
+    }
+
+    /// <summary>
     /// Deep merges patch into target:
     /// - JsonObjects are merged recursively
     /// - Arrays and primitive values from the patch replace existing values
@@ -180,3 +226,5 @@ public static class UserProfileEndpoints
         }
     }
 }
+
+internal sealed record PasswordChangeDto(string CurrentPassword, string NewPassword);

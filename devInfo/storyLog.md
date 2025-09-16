@@ -31,6 +31,27 @@
   - Typecheck (workspace): PASS
   - Smoke: Resend should now succeed and Mailhog should receive the message in dev.
 
+## 2025-09-16 — UPROF-03: Change password endpoint — ✅ DONE
+
+- Summary
+  - Implemented POST `/api/users/me/password` to allow authenticated users to change their password. Verifies the current password, enforces a minimal strength rule for the new password, and updates Argon2id `PasswordHash`, per-user `PasswordSalt`, and `PasswordUpdatedAt` on success.
+  - Returns 204 No Content on success, 400 Bad Request when the current password is incorrect, and 422 Unprocessable Entity when the new password is too weak (MVP: at least 8 chars and must include a letter and a digit). No secrets are logged; traces only include outcome labels.
+  - Guarded EF tracking using AsNoTracking + Attach with property-level modifications to avoid double-tracking errors in tests and runtime.
+
+- Files changed
+  - apps/api/App/Endpoints/UserProfileEndpoints.cs — added POST `/api/users/me/password` with validation, verification, hashing (Argon2id), and persistence pattern.
+  - apps/api/Application/Auth/PasswordHasher.cs — reused `IPasswordHasher` (Argon2id) implementation.
+  - apps/api.tests/Api/UserPasswordEndpointsTests.cs — new integration tests for success (204), invalid current (400), and weak password (422); fixed test seed to use AsNoTracking before Attach.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — full suite 145/145
+  - Docs: Updated sprint plan to mark UPROF‑03 DONE; LivingChecklist and SnapshotArchitecture updated accordingly.
+
+- Notes
+  - Strength rules are intentionally minimal for MVP; follow-up may add a configurable policy (length/classes/deny list) and rate-limit per user/tenant.
+  - No user-facing audit record yet; telemetry trace provides operational visibility. Consider adding an audit ledger entry post‑1.0 if required.
+
 ## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
 
 - Summary

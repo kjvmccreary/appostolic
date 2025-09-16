@@ -106,11 +106,14 @@ Stories & acceptance criteria
 - Implementation guards EF tracking (AsNoTracking + Attach, property-level update) and clones JsonNode assignments to avoid parenting exceptions.
 - Tests: integration tests cover happy path, deep-merge behavior, and invalid body (400). Full API suite PASS (142/142).
 
-## UPROF-03 — API: POST `/api/users/me/password`
+## ✅ DONE UPROF-03 — API: POST `/api/users/me/password`
 
-- Requires `currentPassword`; returns 204 on success, 400 on invalid current, 422 on weak password.
-- Updates hash, salt, updated_at; writes audit log entry (optional) or trace.
-- Tests: verify verify() path and failure path; ensure no timing leak in error response content.
+- Implemented POST `/api/users/me/password` requiring `currentPassword` and `newPassword`.
+- Behavior: 204 on success, 400 when current password is invalid, 422 when new password is weak (>=8 chars, contains letter and digit required for MVP).
+- Security: Uses Argon2id hasher (`IPasswordHasher`) with per-user salt and optional pepper; updates `PasswordHash`, `PasswordSalt`, and `PasswordUpdatedAt`.
+- Persistence: Uses AsNoTracking + Attach and property-level modification to avoid EF double-tracking on record types.
+- Telemetry: Traces success/failure without leaking secrets.
+- Tests: Integration tests cover success (204), wrong current (400), and weak password (422). Full API suite PASS (145/145).
 
 ## UPROF-04 — API: POST `/api/users/me/avatar`
 

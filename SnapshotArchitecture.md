@@ -8,6 +8,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - API: Implemented current user profile endpoints. PUT performs a server-side deep merge into `users.profile` (objects merged; arrays/scalars replace) with normalization (trim strings) and basic social URL validation (invalid URLs dropped). EF update uses AsNoTracking + Attach with property-level modification to avoid double-tracking record types. Tests added; full API suite PASS (142/142).
   - Testing: Introduced provider-aware `JsonDocument` converters for EF InMemory in Program startup to enable reliable JsonB-like behavior under tests.
 
+- User Profile — UPROF‑03: POST /api/users/me/password (2025-09-16)
+  - API: Added change-password endpoint that verifies the current password and updates the hash/salt using Argon2id. Returns 204 on success, 400 on invalid current, and 422 on weak password (MVP strength: >=8 chars, includes letter+digit). EF update uses AsNoTracking + Attach with property-level modification. Integration tests added; full API suite PASS (145/145).
+
 - Auth — Root route auth gate (2025-09-16)
   - Web: The root page (`/app/page.tsx`) is now a server-only redirector. Unauthenticated users are redirected to `/login`; authenticated users are redirected to `/studio` (which further redirects to `/studio/agents`). This prevents the dashboard UI from rendering to unauthenticated users. A unit test was updated to assert redirect behavior by mocking `next-auth` and `next/navigation`.
 - Auth — Signup page styling (2025-09-16)
