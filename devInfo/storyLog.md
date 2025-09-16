@@ -1,3 +1,12 @@
+## 2025-09-16 — UPROF-01: EF model & migration for profiles — ✅ DONE
+
+- Added JSONB columns:
+  - `app.users.profile jsonb` for user-level profile (name/contact/social/avatar/bio/guardrails/preferences)
+  - `app.tenants.settings jsonb` for tenant settings (branding/contact/social/privacy)
+- Updated EF model in `apps/api/Program.cs` with `JsonDocument? Profile` and `JsonDocument? Settings` and mapped to `jsonb`.
+- Generated migration `s5_01_user_profile_tenant_settings` and applied via `make migrate`.
+- Next: Implement `/api/users/me` and `/api/tenants/settings` endpoints (UPROF-02, TEN-01).
+
 ### 2025-09-16 — Sprint Plan: User & Tenant Profile
 
 - Added `devInfo/TenantAndUserProfile.md/uProfSprintPlan.md` detailing stories UPROF‑01..08 and TEN‑01..04 to deliver User Profile (info, social, guardrails, avatar, password) and Tenant Settings (org info, social, logo), with UI alignment to `devInfo/DesignDocs/UI-Spec.md` and server‑first guards.

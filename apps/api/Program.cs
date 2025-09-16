@@ -17,6 +17,7 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using StackExchange.Redis;
 using Appostolic.Api.App.Notifications;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -453,6 +454,8 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.Name).HasColumnName("name").IsRequired();
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // JSONB settings blob for org-level configuration (branding, contact, social, privacy toggles)
+            b.Property(x => x.Settings).HasColumnName("settings").HasColumnType("jsonb").IsRequired(false);
             // Treat Name as a slug; enforce uniqueness to support natural-key lookups
             b.HasIndex(x => x.Name).IsUnique();
         });
@@ -467,6 +470,8 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.PasswordSalt).HasColumnName("password_salt").HasColumnType("bytea").IsRequired(false);
             b.Property(x => x.PasswordUpdatedAt).HasColumnName("password_updated_at").IsRequired(false);
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // JSONB profile blob (name/contact/social/avatar/bio/guardrails/preferences)
+            b.Property(x => x.Profile).HasColumnName("profile").HasColumnType("jsonb").IsRequired(false);
             b.HasIndex(x => x.Email).IsUnique();
         });
 
@@ -611,6 +616,7 @@ public record Tenant
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
+    public JsonDocument? Settings { get; init; }
 }
 
 public record User
@@ -621,6 +627,7 @@ public record User
     public byte[]? PasswordSalt { get; init; }
     public DateTime? PasswordUpdatedAt { get; init; }
     public DateTime CreatedAt { get; init; }
+    public JsonDocument? Profile { get; init; }
 }
 
 public enum MembershipRole { Owner, Admin, Editor, Viewer }
