@@ -198,6 +198,20 @@
 
 - Quality gates
   - Typecheck (web): PASS
+
+## 2025-09-16 — TEN-02 Fix: Corrupt tenant logo PNG test fixture — ✅ DONE
+
+- Summary
+  - Resolved two failing tenant logo tests (`Upload_Logo_Succeeds_And_Stores_Metadata`, `Delete_Logo_Removes_Metadata`) that began returning 400 BadRequest after avatar fixture remediation. Root cause: tenant logo tests used an unvalidated 1x1 PNG base64 string (different from the validated avatar/MinimalPngDecode fixture) which ImageSharp rejected as invalid. Replaced with the known-good 1x1 PNG already covered by `MinimalPngDecodeTests`, centralizing it as a private const inside the test class.
+  - Restored the full API test suite to green (179/179). Added guard rationale to comments; deferred extracting a shared `TestImageFixtures` helper until another binary fixture is needed.
+- Files changed
+  - `apps/api.tests/Api/TenantSettingsEndpointsTests.cs` — swap corrupt base64 for validated PNG; factor into `ValidMinimalPngBase64` const.
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — full suite 179/179
+- Follow-up
+  - Optional: introduce `TestImageFixtures` static class if additional image fixtures emerge (kept small for now).
+
   - Smoke: Dev server should no longer log “document is not defined” errors or duplicate middleware warnings.
 
 ## 2025-09-15 — Auth — Style: Magic Link request page — ✅ DONE
