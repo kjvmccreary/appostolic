@@ -2,6 +2,7 @@
 import React, { useState, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import styles from './styles.module.css';
 
 export default function SignupClient() {
   const router = useRouter();
@@ -64,10 +65,10 @@ export default function SignupClient() {
   }
 
   return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-semibold mb-4">Create your account</h1>
+    <main className={styles.container}>
+      <h1 className={styles.title}>Create your account</h1>
       {inviteToken && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+        <div className={styles.banner}>
           Already have an account?{' '}
           <a
             className="underline"
@@ -78,7 +79,11 @@ export default function SignupClient() {
           to accept your invite.
         </div>
       )}
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <form
+        onSubmit={onSubmit}
+        className={styles.form}
+        aria-describedby={error ? 'signup-error' : undefined}
+      >
         <label htmlFor="email">Email</label>
         <input
           id="email"
@@ -89,6 +94,9 @@ export default function SignupClient() {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
+        <p className={styles.helper} id="password-hint">
+          Use a strong password; you can change it later in Account settings.
+        </p>
         <label htmlFor="password">Password</label>
         <input
           id="password"
@@ -98,15 +106,21 @@ export default function SignupClient() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          aria-describedby="password-hint"
         />
         {error && (
-          <p role="alert" className="text-red-600 text-sm">
+          <p role="alert" id="signup-error" className={styles.error}>
             {error}
           </p>
         )}
-        <button type="submit" disabled={loading}>
+        <button type="submit" className={styles.primaryButton} disabled={loading}>
           {loading ? 'Creating…' : 'Sign up'}
         </button>
+        <p className={styles.linksRow}>
+          <a href={`/login?next=${encodeURIComponent(next)}`}>Have an account? Sign in</a>
+          <span aria-hidden>·</span>
+          <a href={`/magic/request?next=${encodeURIComponent(next)}`}>Use Magic Link</a>
+        </p>
       </form>
     </main>
   );

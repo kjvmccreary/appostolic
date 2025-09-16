@@ -179,7 +179,9 @@ builder.Services.AddOpenTelemetry()
          .AddSource("Appostolic.AgentRuntime", "Appostolic.Tools");
 
         var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
-        if (builder.Environment.IsDevelopment())
+        // Allow disabling noisy console exporters in Development with QUIET_CONSOLE_TELEMETRY=true
+        var quietConsole = (builder.Configuration["QUIET_CONSOLE_TELEMETRY"] ?? Environment.GetEnvironmentVariable("QUIET_CONSOLE_TELEMETRY") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (builder.Environment.IsDevelopment() && !quietConsole)
         {
             t.AddConsoleExporter();
         }
@@ -199,7 +201,8 @@ builder.Services.AddOpenTelemetry()
          .AddMeter("Appostolic.Metrics");
 
         var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
-        if (builder.Environment.IsDevelopment())
+        var quietConsole = (builder.Configuration["QUIET_CONSOLE_TELEMETRY"] ?? Environment.GetEnvironmentVariable("QUIET_CONSOLE_TELEMETRY") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (builder.Environment.IsDevelopment() && !quietConsole)
         {
             m.AddConsoleExporter();
         }
@@ -220,7 +223,8 @@ builder.Logging.AddOpenTelemetry(logOptions =>
     logOptions.ParseStateValues = true;
     logOptions.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("Appostolic.Api"));
 
-    if (builder.Environment.IsDevelopment())
+    var quietConsole = (builder.Configuration["QUIET_CONSOLE_TELEMETRY"] ?? Environment.GetEnvironmentVariable("QUIET_CONSOLE_TELEMETRY") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+    if (builder.Environment.IsDevelopment() && !quietConsole)
     {
         logOptions.AddConsoleExporter();
     }
@@ -232,6 +236,15 @@ builder.Logging.AddOpenTelemetry(logOptions =>
         });
     }
 });
+
+// Reduce noisy category logging in Development (Kestrel routing/matching spam, EF Core info)
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
+    builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting", LogLevel.Warning);
+    builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+}
 
 // Remove scoped registration for TenantScopeMiddleware (not needed with UseMiddleware)
 // builder.Services.AddScoped<TenantScopeMiddleware>();
