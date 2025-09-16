@@ -398,6 +398,49 @@
 - Files changed
   - apps/web/app/studio/admin/invites/page.tsx — add searchParams handling, ok/err status banners, and confirm-based revoke flow
   - apps/web/app/studio/admin/invites/page.test.tsx — tests for ok/err banners and failed fetch state
+
+## 2025-09-16 — UPROF-05: Profile page (personal & social) — ✅ DONE
+
+- Summary
+  - Introduced the `/profile` page as a server component that fetches the authenticated user's profile via internal proxy (`GET /api-proxy/users/me`) and renders a read-only header plus an editable personal & social information form. The form builds a minimal JSON merge patch (omitting untouched fields) and submits with `PUT /api-proxy/users/me`, leveraging server-side deep merge semantics (objects merge; arrays/scalars replace; null clears). Provides optimistic UI state with accessible status region and inline validation (basic URL trimming and normalization handled server-side).
+- Files changed
+  - apps/web/app/profile/page.tsx — server page wiring fetch + composition
+  - apps/web/src/components/profile/ProfileView.tsx — presentational read-only view (name/email/avatar link)
+  - apps/web/src/components/profile/ProfileEditForm.tsx — controlled inputs, minimal patch construction, submit & pending states
+  - apps/web/src/components/profile/ProfileEditForm.test.tsx — tests for untouched field omission, successful submit status, and error mapping
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — new profile form tests included in suite
+- Deferred
+  - Rich field validation (phone, structured social handles) and timezone selection (tracked for later)
+
+## 2025-09-16 — UPROF-06: Guardrails & preferences form — ✅ DONE
+
+- Summary
+  - Added `ProfileGuardrailsForm` to `/profile` capturing authors/books allowlists, instructional notes, and preferred lesson format. Chip-style multi-value inputs replace arrays wholesale (aligned with server array replacement semantics). Includes accessible add/remove buttons with aria labels and an inline helper text. Submits via `PUT /api-proxy/users/me` with a focused JSON patch containing only changed guardrails/preferences paths.
+- Files changed
+  - apps/web/src/components/profile/ProfileGuardrailsForm.tsx — new form component and chip input helpers
+  - apps/web/src/components/profile/ProfileGuardrailsForm.test.tsx — tests for add/remove chip behaviors, empty submission no-op, and successful submit path
+  - apps/web/app/profile/page.tsx — integrated new form below personal/social section
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — guardrails form tests green
+- Deferred
+  - Policy presets (denomination) and advanced validation to be implemented in UPROF-11
+
+## 2025-09-16 — UPROF-08: Change password UI enhancements — ✅ DONE
+
+- Summary
+  - Upgraded the change password flow to align with API endpoint `POST /api/users/me/password` (proxy: `/api-proxy/users/me/password`). Added confirm new password field, client-side strength meter (length + character class heuristic, advisory only), inline mismatch prevention, and accessible live region feedback. Error statuses mapped: 400 (incorrect current) → inline message; 422 (weak new password) → strength guidance; other 5xx → generic retry message. Preserves server authority on strength while giving immediate user feedback.
+- Files changed
+  - apps/web/app/api-proxy/users/me/password/route.ts — new proxy route replacing legacy `/api-proxy/auth/change-password`
+  - apps/web/app/change-password/page.tsx — refactored UI, confirm field, strength meter, refined error mapping
+  - apps/web/app/change-password/ChangePasswordPage.test.tsx — tests covering mismatch prevention, weak password client block, incorrect current (400) handling, success (204) path
+- Quality gates
+  - Typecheck (web): PASS
+  - Unit tests (web): PASS — new change password tests included
+- Deferred
+  - Stronger entropy scoring (zxcvbn or passphrase library) and backend configurable policy; potential rate limiting & audit logging
   - apps/web/src/components/ui/ConfirmSubmitButton.tsx — new client utility for confirm→submit
 
 - Quality gates

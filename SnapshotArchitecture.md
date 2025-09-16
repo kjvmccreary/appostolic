@@ -1,8 +1,23 @@
-# Appostolic — Architecture Snapshot (2025-09-15)
+# Appostolic — Architecture Snapshot (2025-09-16)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
 ## What’s new
+
+- User Profile — UPROF‑08: Change password UI enhancements (2025-09-16)
+  - Web: Refactored `/change-password` page to use new proxy `POST /api-proxy/users/me/password` aligning with API `/api/users/me/password`. Added confirm field, client strength heuristic meter (length + class variety), inline mismatch prevention, accessible live region for status. Maps 400 (incorrect current) and 422 (weak new password) to targeted inline errors; other failures show generic retry.
+  - Tests: Added `ChangePasswordPage.test.tsx` covering mismatch prevention, weak password block, incorrect current (400) handling, and success (204) flow.
+  - Deferred: Stronger entropy scoring via zxcvbn/passphrase lib and configurable backend policy.
+
+- User Profile — UPROF‑06: Guardrails & preferences form (2025-09-16)
+  - Web: Added `ProfileGuardrailsForm` collecting authors/books allowlists, instructional notes, and preferred lesson format. Chip input UX replaces arrays entirely (consistent with server deep merge array replacement semantics). Only changed guardrails/preferences paths are included in JSON merge patch submission.
+  - Tests: `ProfileGuardrailsForm.test.tsx` validates add/remove chips, empty submission no-op, and successful submit.
+  - Deferred: Denominational presets & advanced policy validation (planned UPROF‑11).
+
+- User Profile — UPROF‑05: Profile page (personal & social editing) (2025-09-16)
+  - Web: Introduced `/profile` server page that fetches via `GET /api-proxy/users/me` and renders `ProfileView` plus `ProfileEditForm` for personal/social fields (name, location, social links). Form constructs minimal JSON merge patch (omits untouched) and submits through `PUT /api-proxy/users/me` leveraging existing deep merge semantics.
+  - Tests: `ProfileEditForm.test.tsx` ensures untouched field omission, success state, and error mapping.
+  - Deferred: Rich validation (phone normalization, strict URL schema filtering, timezone selection).
 
 - Tenant Settings & Branding — TEN-01/TEN-02 (2025-09-16)
   - API: Added `GET /api/tenants/settings` and `PUT /api/tenants/settings` (merge semantics: objects deep-merge; arrays/scalars replace; explicit nulls clear) storing JSONB in `tenants.settings`.

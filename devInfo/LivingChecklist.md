@@ -133,4 +133,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑16 (Tenant settings & logo endpoints TEN-01/TEN-02 + S3/MinIO seam + avatar UX cache-bust + Node 20 testing documented)
+- Last updated: 2025‑09‑16 (Added UPROF-05/06 profile & guardrails forms, UPROF-08 change password UI; prior: TEN-01/TEN-02, UPROF-07, UPROF-09, Node 20 testing)
