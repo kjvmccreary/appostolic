@@ -134,13 +134,16 @@ Stories & acceptance criteria
 - Tests: `ProfileView` (avatar states, email render) and `ProfileEditForm` (success path, failure path) with fetch mocked.
 - Deferred to later stories: guardrails/preferences, bio editor, richer validation (international phone, timezone drop-down), toast system integration.
 
-## UPROF-06 — Web: `/profile` guardrails & preferences
+## ✅ DONE UPROF-06 — Web: `/profile` guardrails & preferences
 
-- Section: Denomination Alignment (text/select), Favorite Authors (chips), Favorite Books (chips), Notes (textarea), Preferred lesson format (select).
-- Save merges into existing profile; preserved on reload.
-- Tests: chip add/remove logic; merging behavior; a11y labels present.
+- Added `ProfileGuardrailsForm` client component with denomination alignment, favorite authors/books chip inputs (enter to add, button to remove), notes textarea, and preferred lesson format select (Engaging | Monologue | Games | Discussion | Interactive).
+- Integrated into `/profile` page under "Guardrails & Preferences" section with server-fetched initial values.
+- Constructed merge patch updating `profile.guardrails` (replacing arrays intentionally) and `profile.preferences.lessonFormat` only when provided.
+- Accessibility: labeled inputs, button aria-labels for chip removals, alert/status regions for error/success, disabled submit state.
+- Tests: chip add/remove flow; successful submit that includes lesson format in patch (fetch call assertion + success message).
+- Deferred: denomination presets integration (UPROF-11), richer validation (duplicate canonicalization, length limits), bio editor (UPROF-10), PII hashing instrumentation (UPROF-12).
 
-## ✅ UPROF-07 — Web: Avatar upload
+## ✅ DONE UPROF-07 — Web: Avatar upload
 
 - File input accepts jpg/png/webp; preview prior to upload; upload via `/api-proxy/users/me/avatar`.
 - On success, avatar in TopBar/ProfileMenu updates (client cache busting by query param timestamp).

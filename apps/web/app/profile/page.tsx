@@ -2,6 +2,7 @@ import React from 'react';
 import { fetchFromProxy } from '../lib/serverFetch';
 import { ProfileView } from './ProfileView';
 import { ProfileEditForm } from './ProfileEditForm';
+import { ProfileGuardrailsForm } from './ProfileGuardrailsForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,13 @@ interface UserProfileDto {
       youtube?: string;
       linkedin?: string;
     } | null;
+    guardrails?: {
+      denominationAlignment?: string;
+      favoriteAuthors?: string[];
+      favoriteBooks?: string[];
+      notes?: string;
+    } | null;
+    preferences?: { lessonFormat?: string } | null;
   } | null;
 }
 
@@ -62,6 +70,14 @@ export default async function ProfilePage() {
     linkedin: me.profile?.social?.linkedin,
   };
 
+  const guardrailsInitial = {
+    denominationAlignment: me.profile?.guardrails?.denominationAlignment,
+    favoriteAuthors: me.profile?.guardrails?.favoriteAuthors || [],
+    favoriteBooks: me.profile?.guardrails?.favoriteBooks || [],
+    notes: me.profile?.guardrails?.notes,
+    lessonFormat: me.profile?.preferences?.lessonFormat,
+  };
+
   return (
     <main id="main" className="container p-4 space-y-10" aria-labelledby="profile-heading">
       <header className="space-y-4">
@@ -75,6 +91,12 @@ export default async function ProfilePage() {
           Personal Information
         </h2>
         <ProfileEditForm initial={initial} />
+      </section>
+      <section className="space-y-4" aria-labelledby="profile-guardrails-heading">
+        <h2 id="profile-guardrails-heading" className="text-lg font-medium">
+          Guardrails & Preferences
+        </h2>
+        <ProfileGuardrailsForm initial={guardrailsInitial} />
       </section>
     </main>
   );
