@@ -103,4 +103,19 @@ describe('LoginPage', () => {
     const magic = await screen.findByRole('link', { name: /use magic link/i });
     expect(magic).toHaveAttribute('href', '/magic/request?next=%2Fstudio%2Fagents');
   });
+
+  it('applies unified input and button styling classes', async () => {
+    render(<LoginPage />);
+    const email = await screen.findByLabelText(/email/i);
+    const password = await screen.findByLabelText(/password/i);
+    const submit = await screen.findByRole('button', { name: /sign in/i });
+    // Check a representative subset of class tokens
+    for (const el of [email, password]) {
+      expect(el.className).toMatch(/rounded-md/);
+      expect(el.className).toMatch(/border-line/);
+      expect(el.className).toMatch(/focus:ring-2/);
+    }
+    expect(submit.className).toMatch(/bg-\[var\(--color-accent-600\)\]/);
+    expect(submit.className).toMatch(/rounded-md/);
+  });
 });

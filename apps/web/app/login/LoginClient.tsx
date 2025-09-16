@@ -2,7 +2,6 @@
 import React, { FormEvent, useRef, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import styles from './styles.module.css';
 
 export default function LoginClient() {
   const params = useSearchParams();
@@ -87,41 +86,60 @@ export default function LoginClient() {
   }
 
   return (
-    <main className={styles.container}>
-      <h1 className={styles.title}>Sign in</h1>
-      <form onSubmit={onSubmit} className={styles.form}>
-        {/* CSRF token hidden field for Auth.js */}
+    <main className="mx-auto max-w-sm p-6">
+      <h1 className="mb-2 text-2xl font-semibold">Sign in</h1>
+      <p className="mb-6 text-sm text-muted">Enter your credentials to continue.</p>
+      <form onSubmit={onSubmit} className="space-y-4" aria-describedby="login-help">
         <input type="hidden" name="csrfToken" value={csrfToken} />
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error && <p className={styles.error}>{error}</p>}
-        <button type="submit" className={styles.primaryButton} disabled={submitting}>
-          Sign in
+        <div>
+          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            Email
+          </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]"
+            />
+        </div>
+        <div>
+          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]"
+          />
+          <p id="login-help" className="mt-1 text-xs text-muted">
+            Use the magic link if you forgot your password.
+          </p>
+        </div>
+        {error && <p className="text-sm text-[crimson]" role="alert">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="h-9 w-full rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {submitting ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className={styles.linksRow}>
-          <a href="/forgot-password">Forgot password?</a>
-          <span aria-hidden>·</span>
-          <a href={`/signup?next=${encodeURIComponent(next)}`}>Sign up</a>
-          <span aria-hidden>·</span>
-          <a href={`/magic/request?next=${encodeURIComponent(next)}`}>Use Magic Link</a>
+        <p className="text-sm">
+          <a href="/forgot-password" className="text-[var(--color-accent-600)] hover:underline">Forgot password?</a>
+          <span className="px-1" aria-hidden>·</span>
+          <a href={`/signup?next=${encodeURIComponent(next)}`} className="text-[var(--color-accent-600)] hover:underline">Sign up</a>
+          <span className="px-1" aria-hidden>·</span>
+          <a href={`/magic/request?next=${encodeURIComponent(next)}`} className="text-[var(--color-accent-600)] hover:underline">Use Magic Link</a>
         </p>
       </form>
     </main>
