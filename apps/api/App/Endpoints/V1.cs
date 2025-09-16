@@ -1386,16 +1386,36 @@ public static class V1
             }
             // Load static JSON file; future enhancement: move to DB + versioning
             var file = Path.Combine(AppContext.BaseDirectory, "App", "Data", "denominations.json");
-            if (!System.IO.File.Exists(file))
+            Stream? dataStream = null;
+            if (System.IO.File.Exists(file))
+            {
+                dataStream = System.IO.File.OpenRead(file);
+            }
+            else
+            {
+                // Fallback to embedded resource (ensures availability in test contexts / single-file publish)
+                var asm = typeof(Program).Assembly;
+                var resourceName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("denominations.json", StringComparison.OrdinalIgnoreCase));
+                if (resourceName != null)
+                {
+                    dataStream = asm.GetManifestResourceStream(resourceName);
+                }
+            }
+            if (dataStream == null)
             {
                 return Results.Problem(title: "Denominations data missing", statusCode: 500, detail: "denominations.json not found");
             }
-            await using var fs = System.IO.File.OpenRead(file);
-            using var doc = await JsonDocument.ParseAsync(fs);
-            return Results.Json(new { presets = doc.RootElement }, new System.Text.Json.JsonSerializerOptions
+            await using (dataStream)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+                // Read raw JSON text; cheaper & avoids lifetime concerns of JsonDocument / JsonNode (UPROF-11 fix)
+                using var reader = new StreamReader(dataStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+                var json = await reader.ReadToEndAsync();
+                // Wrap inside an envelope object: { "presets": <original-array-or-object> }
+                // We avoid reparsing by constructing a small JSON string. Assumes source file is trusted and valid JSON.
+                var wrapped = string.Concat("{\"presets\":", json, "}");
+                // Return as application/json without reserialization (prevents double-encoding)
+                return Results.Text(wrapped, "application/json", Encoding.UTF8);
+            }
         }).WithName("GetDenominationPresets").WithSummary("List denomination presets").WithDescription("Returns an array of denomination preset definitions (id, name, notes)");
 
         return app;
