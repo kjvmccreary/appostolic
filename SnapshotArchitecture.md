@@ -9,6 +9,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Auth Flows: Forgot Password styled with accessible form and status messaging; Reset Password now reads token from URL (hidden field), adds confirm password with validation, and provides clear success/error feedback.
   - Web: `/studio/admin/invites` now surfaces acceptance state from the API. The table shows a Status chip: Accepted (green) when `acceptedAt` is set, Pending (amber) otherwise. When an invite has been accepted, the Resend/Revoke actions are hidden to avoid invalid operations. Also fixed a broken `ConfirmSubmitButton` import and restored the Expires column cell to match the header.
 
+- Auth — Login redirect loop fix (2025-09-16)
+  - Web Login now lets NextAuth perform the post‑sign‑in redirect instead of manually calling `router.replace` with `redirect: false`. This removes a race where middleware still sees no session cookie and bounces back to `/login`, causing repeated `/api/auth/csrf` requests. The login page also fetches the CSRF token once per mount and surfaces friendly error text for `?error=CredentialsSignin`.
+
 - Admin Invites — roles flags + HTML email (2025-09-16)
   - Web: `/studio/admin/invites` now uses granular roles flags (TenantAdmin, Approver, Creator, Learner) in the dropdown and sends `{ email, roles: [...] }` to align with the API’s `invitations.roles` column. Server actions redirect with `?ok=` only on success to avoid false error toasts.
   - API: Invite create/resend emails sent via Mailhog now use a small HTML body with an Accept link, tenant name, selected role, and expiry; `IsBodyHtml = true` set for better dev readability.

@@ -856,11 +856,116 @@ public static class V1
                     role = m.Role.ToString(),
                     roles = m.Roles.ToString(),
                     rolesValue = (int)m.Roles,
+                    status = m.Status.ToString(),
                     joinedAt = m.CreatedAt
                 })
                 .OrderBy(x => x.email)
                 .ToListAsync();
             return Results.Ok(list);
+        }).RequireAuthorization("TenantAdmin");
+
+        // PUT /api/tenants/{tenantId}/members/{userId}/status — toggle Active status (Admin/Owner only)
+        api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}/status", async (
+            Guid tenantId,
+            Guid userId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            UpdateMemberStatusDto dto) =>
+        {
+            var callerIdStr = user.FindFirstValue("sub");
+            var tenantIdStr = user.FindFirstValue("tenant_id");
+            if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
+            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+            if (tenantId != currentTenantId) return Results.Forbid();
+
+            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
+            if (me is null) return Results.Forbid();
+            var isCallerAdminOrOwner = me.Role == MembershipRole.Admin || me.Role == MembershipRole.Owner;
+            if (!isCallerAdminOrOwner) return Results.Forbid();
+
+            var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
+            if (target is null) return Results.NotFound();
+
+            var newStatus = dto.Active ? MembershipStatus.Active : MembershipStatus.Suspended;
+            if (target.Status == newStatus) return Results.NoContent();
+
+            // Enforce invariant: cannot deactivate the last TenantAdmin (hybrid definition).
+            if (!dto.Active)
+            {
+                bool targetIsTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin;
+                if (targetIsTenantAdmin)
+                {
+                    var otherActiveAdmins = await db.Memberships.AsNoTracking()
+                        .Where(m => m.TenantId == tenantId && m.UserId != target.UserId && m.Status == MembershipStatus.Active)
+                        .CountAsync(m => ((m.Roles & Roles.TenantAdmin) != 0) || (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin));
+                    if (otherActiveAdmins <= 0)
+                    {
+                        return Results.Conflict(new { error = "cannot deactivate the last TenantAdmin" });
+                    }
+                }
+            }
+
+            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
+            if (isInMemory)
+            {
+                var replacement = new Membership
+                {
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Role = target.Role,
+                    Roles = target.Roles,
+                    Status = newStatus,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+                return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
+            }
+            else
+            {
+                if (db.Database.CurrentTransaction is not null)
+                {
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = target.Role,
+                        Roles = target.Roles,
+                        Status = newStatus,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
+                    return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
+                }
+                else
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = target.Role,
+                        Roles = target.Roles,
+                        Status = newStatus,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
+                }
+            }
         }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/audits — List recent audit entries for membership role changes (TenantAdmin only)
@@ -1303,6 +1408,7 @@ public static class V1
     public record MagicConsumeDto(string Token);
     public record UpdateMemberRoleDto(string Role);
     public record SetRolesDto(string[] Roles);
+    public record UpdateMemberStatusDto(bool Active);
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
 

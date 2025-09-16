@@ -1,12 +1,279 @@
+
+
+macdaddy:~/appostolic$ clear
+macdaddy:~/appostolic$ make web
+cd apps/web && pnpm dev
+
+> @appostolic/web@0.0.0 dev /Users/kevinmccreary/appostolic/apps/web
+> next dev
+
+  ▲ Next.js 14.2.32
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1269ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.5s (1509 modules)
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET / 500 in 2716ms
+ ✓ Compiled in 320ms (759 modules)
+ ✓ Compiled /api/auth/[...nextauth] in 336ms (988 modules)
+ GET /api/auth/session 200 in 774ms
+ GET /api/auth/session 200 in 12ms
+ GET /api/auth/csrf 200 in 8ms
+ POST /api/auth/signout 200 in 7ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ✓ Compiled /middleware in 284ms (171 modules)
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ✓ Compiled /login in 410ms (1743 modules)
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /login 500 in 534ms
+ GET /api/auth/csrf 200 in 43ms
+ GET /api/auth/session 200 in 46ms
+ GET /api/auth/session 200 in 5ms
+ GET /api/auth/providers 200 in 10ms
+ GET /api/auth/csrf 200 in 5ms
+ POST /api/auth/callback/credentials 200 in 143ms
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
- POST /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships/6d6f46cc-7694-420f-8371-204748260b1f/roles 200 in 37ms
+ ✓ Compiled /select-tenant in 242ms (1764 modules)
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /select-tenant?next=%2Fstudio%2Fagents 500 in 378ms
+ GET /api/auth/session 200 in 13ms
+ GET /api/auth/session 200 in 7ms
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
- GET /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships 200 in 24ms
- GET /studio/admin/members?err=roles-failed 200 in 42ms
- POST /studio/admin/members 303 in 108ms
+ ✓ Compiled /api/tenant/select in 145ms (1040 modules)
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ✓ Compiled /studio/agents in 286ms (1799 modules)
+ ✓ Compiled /api-proxy/agents in 97ms (1051 modules)
+ GET /api-proxy/agents?take=50 200 in 141ms
+ GET /studio/agents 200 in 470ms
+ POST /select-tenant?next=%2Fstudio%2Fagents 303 in 682ms
+ GET /api/auth/csrf 200 in 14ms
+ POST /api/auth/session 200 in 6ms
+ POST /api/tenant/select 200 in 7ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 19ms
+ GET /studio/agents 200 in 41ms
+ GET /api-proxy/agents?take=50 200 in 15ms
+ GET /studio/agents 200 in 27ms
+ GET /api/auth/csrf 200 in 11ms
+ POST /api/auth/session 200 in 6ms
+ POST /api/tenant/select 200 in 7ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 18ms
+ GET /studio/agents 200 in 29ms
+ GET /api-proxy/agents?take=50 200 in 12ms
+ GET /studio/agents 200 in 25ms
+ GET /api/auth/csrf 200 in 10ms
+ POST /api/auth/session 200 in 7ms
+ POST /api/tenant/select 200 in 12ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 15ms
+ GET /studio/agents 200 in 26ms
+ GET /api-proxy/agents?take=50 200 in 12ms
+ GET /studio/agents 200 in 22ms
+ GET /api/auth/csrf 200 in 12ms
+ POST /api/auth/session 200 in 5ms
+ POST /api/tenant/select 200 in 5ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 26ms
+ GET /studio/agents 200 in 39ms
+ GET /api-proxy/agents?take=50 200 in 18ms
+ GET /studio/agents 200 in 27ms
+ GET /api/auth/csrf 200 in 11ms
+ POST /api/auth/signout 200 in 5ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /login 500 in 93ms
+ GET /api/auth/csrf 200 in 10ms
+ GET /api/auth/session 200 in 13ms
+ GET /api/auth/session 200 in 5ms
+ GET /api/auth/providers 200 in 9ms
+ GET /api/auth/csrf 200 in 8ms
+ POST /api/auth/callback/credentials 200 in 132ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /select-tenant?next=%2Fstudio%2Fagents 500 in 41ms
+ GET /api/auth/session 200 in 10ms
+ GET /api/auth/session 200 in 9ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 13ms
+ GET /studio/agents 200 in 22ms
+ POST /select-tenant?next=%2Fstudio%2Fagents 303 in 46ms
+ GET /api/auth/csrf 200 in 11ms
+ POST /api/auth/session 200 in 7ms
+ POST /api/tenant/select 200 in 7ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ GET /api-proxy/agents?take=50 200 in 18ms
+ GET /studio/agents 200 in 29ms
+ GET /api-proxy/agents?take=50 200 in 13ms
+ GET /studio/agents 200 in 22ms
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ○ Compiling /studio/admin/members ...
+ ✓ Compiled /studio/admin/members in 621ms (1827 modules)
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ✓ Compiled /api-proxy/tenants/[tenantId]/memberships in 116ms (1073 modules)
+ GET /api-proxy/tenants/3ac730e9-a83a-4d4f-9235-57a6ff5e9284/memberships 200 in 371ms
+ GET /studio/admin/members?_rsc=ejuja 200 in 425ms
+ ✓ Compiled in 502ms (1846 modules)
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /studio/admin/members?_rsc=cb83x 200 in 140ms
+ GET /api-proxy/tenants/3ac730e9-a83a-4d4f-9235-57a6ff5e9284/memberships 200 in 133ms
+ GET /api-proxy/tenants/3ac730e9-a83a-4d4f-9235-57a6ff5e9284/memberships 200 in 90ms
+ GET /studio/admin/members 500 in 238ms
+ GET /api/auth/session 200 in 14ms
+ GET /api/auth/session 200 in 10ms
+ ✓ Compiled in 327ms (1818 modules)
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
+ ⨯ src/components/ui/Toaster.tsx (69:9) @ document
+ ⨯ ReferenceError: document is not defined
+    at ToastProvider (./src/components/ui/Toaster.tsx:67:23)
+digest: "574946867"
+  67 |           ))}
+  68 |         </div>,
+> 69 |         document.body,
+     |         ^
+  70 |       )}
+  71 |     </ToastContext.Provider>
+  72 |   );
+ GET /studio/admin/members?_rsc=1ol21 200 in 147ms
+ GET /api-proxy/tenants/3ac730e9-a83a-4d4f-9235-57a6ff5e9284/memberships 200 in 61ms
+ GET /api-proxy/tenants/3ac730e9-a83a-4d4f-9235-57a6ff5e9284/memberships 200 in 55ms
+ GET /studio/admin/members 500 in 218ms
+ GET /api/auth/session 200 in 21ms
+ GET /api/auth/session 200 in 13ms

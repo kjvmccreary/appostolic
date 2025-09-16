@@ -35,6 +35,24 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // If authenticated and hitting a protected route, but the user has multiple memberships
+  // and no tenant has been selected yet (no token.tenant and no selected_tenant cookie),
+  // force a redirect to /select-tenant before continuing.
+  if (isProtected && isAuthed) {
+    const memberships = (token as unknown as { memberships?: unknown[] })?.memberships ?? [];
+    const hasMultiple = Array.isArray(memberships) && memberships.length > 1;
+    const selectedCookie = req.cookies.get('selected_tenant')?.value;
+    const selectedInToken = (token as unknown as { tenant?: string })?.tenant;
+    const hasSelection = !!selectedCookie || !!selectedInToken;
+    if (hasMultiple && !hasSelection) {
+      const selUrl = req.nextUrl.clone();
+      selUrl.pathname = '/select-tenant';
+      const requested = pathname + (search ?? '');
+      selUrl.searchParams.set('next', requested);
+      return NextResponse.redirect(selUrl);
+    }
+  }
+
   // Do not force-redirect authenticated users away from /login; the client page will handle
   // redirecting into the app when appropriate. This avoids bouncing immediately after logout
   // while session cookies are still clearing.

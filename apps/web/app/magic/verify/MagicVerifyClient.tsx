@@ -7,7 +7,8 @@ export default function MagicVerifyClient() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token') || '';
-  const next = params.get('next') || '/select-tenant';
+  const next = params.get('next') || '/studio/agents';
+  const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
 
   const [status, setStatus] = useState<'idle' | 'verifying' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -31,7 +32,7 @@ export default function MagicVerifyClient() {
           return;
         }
         setStatus('done');
-        setTimeout(() => router.replace(next), 300);
+        setTimeout(() => router.replace(postAuth), 300);
       } catch {
         setStatus('error');
         setMessage('Unexpected error verifying token.');

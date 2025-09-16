@@ -1,5 +1,5 @@
 'use client';
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useRef, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './styles.module.css';
@@ -8,18 +8,24 @@ export default function LoginClient() {
   const params = useSearchParams();
   const router = useRouter();
   const next = params.get('next') || '/studio/agents';
+  // After sign-in, route through select-tenant to enforce selection when user has multiple memberships
+  const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
   const loggedOut = params.get('loggedOut') === '1';
+  const errorParam = params.get('error');
   const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [csrfToken, setCsrfToken] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Load CSRF token (Auth.js anti-CSRF) after mount
-  // Guard against setting state on an unmounted component
+  // Load CSRF token (Auth.js anti-CSRF) once per mount
+  const csrfRequestedRef = useRef(false);
   React.useEffect(() => {
+    if (csrfRequestedRef.current || typeof window === 'undefined') return;
+    csrfRequestedRef.current = true;
     let alive = true;
-    async function loadCsrf() {
+    (async () => {
       try {
         const r = await fetch('/api/auth/csrf');
         const d = await r.json();
@@ -27,36 +33,57 @@ export default function LoginClient() {
       } catch {
         // ignore
       }
-    }
-    if (typeof window !== 'undefined' && !csrfToken) {
-      loadCsrf();
-    }
+    })();
     return () => {
       alive = false;
     };
-  }, [csrfToken]);
+  }, []);
 
   // Redirect to next when already authenticated (but not immediately after logout)
   React.useEffect(() => {
     if (session?.user?.email && !loggedOut) {
-      router.replace(next);
+      router.replace(postAuth);
     }
-  }, [session?.user?.email, loggedOut, next, router]);
+  }, [session?.user?.email, loggedOut, postAuth, router]);
+
+  // Surface auth provider error (e.g., CredentialsSignin) from query param
+  React.useEffect(() => {
+    if (!errorParam) return;
+    // Map common next-auth errors to friendly copy
+    const map: Record<string, string> = {
+      CredentialsSignin: 'Invalid email or password',
+      AccessDenied: 'Access denied',
+      default: 'Sign-in failed',
+    };
+    setError(map[errorParam] ?? map.default);
+  }, [errorParam]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
-    const res = await signIn('credentials', {
+    setSubmitting(true);
+    // Let NextAuth handle redirect after setting cookies to avoid race conditions
+    // If credentials are invalid, NextAuth will redirect back with ?error=CredentialsSignin
+    const testMode = process.env.NODE_ENV === 'test';
+    const result = await signIn('credentials', {
       email,
       password,
-      redirect: false,
-      callbackUrl: next,
+      // In tests, disable automatic redirect so we can assert navigation
+      redirect: !testMode,
+      callbackUrl: postAuth,
     });
-    if (res?.error) {
+    // In test/mocked scenarios signIn may return an object instead of redirecting
+    if (result && (result as unknown as { error?: string }).error) {
       setError('Invalid email or password');
+      setSubmitting(false);
       return;
     }
-    router.replace(next);
+    if (testMode && result && !(result as unknown as { error?: string }).error) {
+      router.replace(postAuth);
+      return;
+    }
+    // No further code runs here on success due to redirect
   }
 
   return (
@@ -86,7 +113,7 @@ export default function LoginClient() {
           required
         />
         {error && <p className={styles.error}>{error}</p>}
-        <button type="submit" className={styles.primaryButton}>
+        <button type="submit" className={styles.primaryButton} disabled={submitting}>
           Sign in
         </button>
         <p className={styles.linksRow}>

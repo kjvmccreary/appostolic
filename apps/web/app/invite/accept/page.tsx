@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../src/lib/auth';
-import { API_BASE } from '../../../src/lib/serverEnv';
+import { fetchFromProxy } from '../../lib/serverFetch';
 
 export default async function AcceptInvitePage({
   searchParams,
@@ -26,16 +26,10 @@ export default async function AcceptInvitePage({
     );
   }
 
-  // Signed in: call API to accept
-  const res = await fetch(`${API_BASE}/api/invites/accept`, {
+  // Signed in: call internal proxy to forward auth headers and accept
+  const res = await fetchFromProxy('/api-proxy/invites/accept', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      // In WEB_AUTH_ENABLED mode, API expects x-dev-user/x-tenant headers, but this endpoint
-      // does not require tenant header because it derives tenant from token. We still include
-      // x-dev-user via cookie/session when a proxy route is used. For simplicity here we call
-      // API directly since it only needs the bearer identity in dev header auth.
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ token }),
     cache: 'no-store',
   });

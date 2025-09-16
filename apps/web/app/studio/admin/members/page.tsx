@@ -15,6 +15,7 @@ type MemberRow = {
   role: LegacyRole;
   roles: string; // flags string from API (e.g., "TenantAdmin,Creator")
   rolesValue: number;
+  status: 'Active' | 'Invited' | 'Suspended' | 'Revoked';
   joinedAt: string;
 };
 
@@ -95,6 +96,26 @@ export default async function MembersPage() {
     redirect('/studio/admin/members?ok=roles-saved');
   }
 
+  async function saveMemberStatus(formData: FormData) {
+    'use server';
+    const userId = String(formData.get('userId'));
+    const active = formData.get('Active') === 'on';
+    try {
+      const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/members/${userId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active }),
+        cache: 'no-store',
+      });
+      if (!res.ok) redirect('/studio/admin/members?err=status-failed');
+    } catch {
+      redirect('/studio/admin/members?err=status-failed');
+    }
+    // Revalidate so status reflects immediately
+    revalidatePath('/studio/admin/members');
+    redirect('/studio/admin/members?ok=status-saved');
+  }
+
   // Compute last-admin counts to disable unchecking last admin in UI
   const currentAdmins = members
     .filter((m) => parseRoles(m.roles).includes('TenantAdmin'))
@@ -126,6 +147,7 @@ export default async function MembersPage() {
               <th className="px-3 py-2 font-medium">Approver</th>
               <th className="px-3 py-2 font-medium">Creator</th>
               <th className="px-3 py-2 font-medium">Learner</th>
+              <th className="px-3 py-2 font-medium">Active</th>
               <th className="px-3 py-2 font-medium">Joined</th>
             </tr>
           </thead>
@@ -192,6 +214,23 @@ export default async function MembersPage() {
                       }
                       formId={formId}
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    <form action={saveMemberStatus} className="inline-flex items-center gap-2">
+                      <input type="hidden" name="userId" value={m.userId} />
+                      {/* Disallow deactivating the last TenantAdmin */}
+                      <AutoSubmitCheckbox
+                        name="Active"
+                        label="Active"
+                        defaultChecked={m.status === 'Active'}
+                        disabled={lastAdmin && m.status === 'Active'}
+                      />
+                    </form>
+                    {lastAdmin && m.status === 'Active' && (
+                      <p className="mt-1 text-xs text-muted">
+                        You can’t deactivate the last TenantAdmin.
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-muted">{new Date(m.joinedAt).toLocaleString()}</td>
                 </tr>

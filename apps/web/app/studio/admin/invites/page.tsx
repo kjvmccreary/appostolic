@@ -75,10 +75,10 @@ export default async function InvitesAdminPage() {
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
     try {
-      const res = await fetchFromProxy(
-        `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}/resend`,
-        { method: 'POST' },
-      );
+      // Pass raw email; proxy route (POST /api-proxy/tenants/{tenantId}/invites/{email}) handles encoding and forwards to API /resend
+      const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${email}`, {
+        method: 'POST',
+      });
       if (!res.ok) redirect('/studio/admin/invites?err=invite-resend-failed');
     } catch {
       redirect('/studio/admin/invites?err=invite-resend-failed');
@@ -91,12 +91,10 @@ export default async function InvitesAdminPage() {
     const email = String(formData.get('email') ?? '').trim();
     if (!email) return;
     try {
-      const res = await fetchFromProxy(
-        `/api-proxy/tenants/${tenantId}/invites/${encodeURIComponent(email)}`,
-        {
-          method: 'DELETE',
-        },
-      );
+      // Pass raw email; proxy route will handle encoding exactly once
+      const res = await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites/${email}` as const, {
+        method: 'DELETE',
+      });
       if (!res.ok) redirect('/studio/admin/invites?err=invite-revoke-failed');
     } catch {
       redirect('/studio/admin/invites?err=invite-revoke-failed');

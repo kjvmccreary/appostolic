@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { getFlagRoles, type FlagRole } from '../lib/roles';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -18,8 +20,11 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
   const LAST_KEY = 'last_selected_tenant';
 
   const memberships =
-    (session as unknown as { memberships?: { tenantSlug: string; role?: string }[] })
-      ?.memberships ?? [];
+    (
+      session as unknown as {
+        memberships?: { tenantSlug: string; role?: string; roles?: FlagRole[] }[];
+      }
+    )?.memberships ?? [];
   const current = (session as unknown as { tenant?: string })?.tenant ?? '';
   const [lastSelected, setLastSelected] = React.useState<string | null>(null);
 
@@ -77,53 +82,79 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
 
   if (!open) return null;
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
+  const labelFor = (m: { role?: string; roles?: FlagRole[] }): string => {
+    // Prefer flags if present, otherwise derive from legacy role via getFlagRoles
+    const flags = getFlagRoles({
+      tenantId: '' as unknown as string,
+      tenantSlug: '' as unknown as string,
+      role: (m.role as unknown as 'Owner' | 'Admin' | 'Editor' | 'Viewer') || 'Viewer',
+      roles: m.roles,
+    } as unknown as {
+      tenantId: string;
+      tenantSlug: string;
+      role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+      roles?: FlagRole[];
+    });
+    const precedence: FlagRole[] = ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
+    for (const r of precedence) {
+      if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
+    }
+    return m.role || 'Member';
+  };
+
+  const modal = (
+    <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/40" onClick={onBackdrop} />
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="relative w-[min(90vw,28rem)] max-h-[calc(100vh-4rem)] overflow-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] p-4 shadow-xl focus:outline-none"
-      >
-        <h2 className="mb-2 text-base font-semibold">Switch tenant</h2>
-        <ul>
-          {memberships.map((m) => {
-            const active = m.tenantSlug === current;
-            const hinted = !active && lastSelected && lastSelected === m.tenantSlug;
-            return (
-              <li key={m.tenantSlug}>
-                <button
-                  type="button"
-                  className={
-                    'flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-[var(--color-surface-raised)] focus-ring ' +
-                    (hinted ? 'border border-dashed border-[var(--color-line)]' : '')
-                  }
-                  aria-current={active ? 'true' : undefined}
-                  onClick={() => onSelect(m.tenantSlug)}
-                >
-                  <span>{m.tenantSlug}</span>
-                  <span
-                    data-testid="role-badge"
-                    data-role={active ? 'Current' : (m.role ?? '').toString()}
+      <div className="relative h-full w-full p-4 flex items-center justify-center overflow-y-auto">
+        <div
+          role="dialog"
+          aria-modal="true"
+          ref={panelRef}
+          tabIndex={-1}
+          className="relative w-[min(90vw,28rem)] max-h-[calc(100vh-4rem)] overflow-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] p-4 shadow-xl focus:outline-none"
+        >
+          <h2 className="mb-2 text-base font-semibold">Switch tenant</h2>
+          <ul>
+            {memberships.map((m) => {
+              const active = m.tenantSlug === current;
+              const hinted = !active && lastSelected && lastSelected === m.tenantSlug;
+              return (
+                <li key={m.tenantSlug}>
+                  <button
+                    type="button"
                     className={
-                      'ml-3 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ' +
-                      (active
-                        ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                        : 'bg-[var(--color-surface-raised)] text-muted border border-line')
+                      'flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-[var(--color-surface-raised)] focus-ring ' +
+                      (hinted ? 'border border-dashed border-[var(--color-line)]' : '')
                     }
+                    aria-current={active ? 'true' : undefined}
+                    onClick={() => onSelect(m.tenantSlug)}
                   >
-                    {active ? 'Current' : m.role}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <span>{m.tenantSlug}</span>
+                    <span
+                      data-testid="role-badge"
+                      data-role={active ? 'Current' : labelFor(m)}
+                      className={
+                        'ml-3 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ' +
+                        (active
+                          ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                          : 'bg-[var(--color-surface-raised)] text-muted border border-line')
+                      }
+                    >
+                      {active ? 'Current' : labelFor(m)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </div>
   );
+
+  // Render via portal to avoid being constrained by header stacking/positioning
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modal, document.body);
+  }
+  return modal;
 }

@@ -9,7 +9,9 @@ const server: import('msw/node').SetupServer = (globalThis as unknown as { __msw
 vi.mock('next-auth', () => ({ getServerSession: vi.fn() }));
 // Match the import specifiers used by the page under test
 vi.mock('../../../src/lib/auth', () => ({ authOptions: {} }));
-vi.mock('../../../src/lib/serverEnv', () => ({ API_BASE: 'http://localhost' }));
+vi.mock('../../lib/serverFetch', () => ({
+  fetchFromProxy: (input: string, init?: RequestInit) => fetch(`http://localhost${input}`, init),
+}));
 
 // Mock next/navigation redirect to throw an Error with destination we can assert
 type RedirectError = Error & { destination?: string };
@@ -65,7 +67,7 @@ describe('/invite/accept page (server)', () => {
       user: { email: 'u@example.com' },
     } as unknown as Parameters<typeof getServerSession>[0]);
     server.use(
-      http.post('http://localhost/api/invites/accept', () =>
+      http.post('http://localhost/api-proxy/invites/accept', () =>
         HttpResponse.text('Bad token', { status: 400 }),
       ),
     );

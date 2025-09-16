@@ -1,3 +1,58 @@
+## 2025-09-16 — Invites — Fix: Resend/Revoke double-encoding — ✅ DONE
+
+- Summary
+  - Fixed a bug where the email path segment was pre-encoded in the web server actions and then encoded again by the proxy route. Addresses failures when emails contain special characters (e.g., plus addressing), which resulted in 404s or API failures and no email being sent.
+  - Server actions now pass the raw email; the proxy route handles encoding exactly once.
+
+- Files changed
+  - apps/web/app/studio/admin/invites/page.tsx — remove `encodeURIComponent(email)` from resend and revoke action paths; add comments to prevent regressions.
+
+- Quality gates
+  - Typecheck (workspace): PASS
+  - Smoke: Resend should now succeed and Mailhog should receive the message in dev.
+
+## 2025-09-16 — Auth — Fix: occasional login loop on invite → login — ✅ DONE
+
+## 2025-09-16 — Web — Logs cleanup: Toaster SSR + duplicate middleware — ✅ DONE
+
+- Summary
+  - Resolved noisy web dev logs and intermittent 500s caused by a client-only portal rendering during SSR. `ToastProvider` now guards `createPortal` behind a `mounted` check to avoid referencing `document` on the server. Also removed an inert `middleware.js` file that caused repeated “Duplicate page detected … middleware.ts and middleware.js” warnings in Next dev output.
+
+- Files changed
+  - apps/web/src/components/ui/Toaster.tsx — add `mounted` state and render portal only after mount.
+  - apps/web/middleware.js — deleted duplicate placeholder file; `middleware.ts` remains the source of truth.
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Smoke: Dev server should no longer log “document is not defined” errors or duplicate middleware warnings.
+
+## 2025-09-15 — Auth — Style: Magic Link request page — ✅ DONE
+
+- Summary
+  - Styled `/magic/request` to match Forgot/Reset patterns: compact layout, labeled email field with helper text, primary button, and clear post-submit guidance. Kept generic messaging (no enumeration) for security. Added a back-to-sign-in link.
+
+- Files changed
+  - apps/web/app/magic/request/page.tsx — replace bare form with styled inputs and accessibility hints; keep server-first POST to `/api-proxy/auth/magic/request`.
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Smoke: Manual check renders correctly; submit disables button and shows generic status.
+
+- Summary
+  - Fixed an intermittent redirect loop after signing in from an invite flow that redirected to `/login?next=/invite/accept?...`.
+  - Root cause: the login page manually navigated (`router.replace(next)`) with `redirect: false` before NextAuth had finalized session cookies. Middleware would still see an unauthenticated request and bounce back to `/login`, remounting the page and repeatedly fetching `/api/auth/csrf`.
+  - Changes:
+    - Let NextAuth perform the post-sign-in redirect (no manual `router.replace` in normal runs) to avoid the cookie race.
+    - Fetch the CSRF token once per mount using a ref guard to avoid noisy repeated `/api/auth/csrf` calls if the component re-renders.
+    - Surface friendly inline error when NextAuth returns `?error=CredentialsSignin`.
+
+- Files changed
+  - apps/web/app/login/LoginClient.tsx — rely on NextAuth redirect, add once-per-mount CSRF fetch, parse `error` param, and test-mode fallback for unit tests.
+
+- Quality gates
+  - Typecheck (web): PASS for changed files (local Vitest currently blocked by Node version mismatch; to re-run after Node >=20).
+  - Smoke expectation: Following an invite link to Login, submitting valid credentials should redirect once to Accept Invite, then into the app without CSRF spam in logs.
+
 ## 2025-09-15 — Web — Fix: Members roles toast/redirect
 
 - Summary
