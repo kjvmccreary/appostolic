@@ -1,3 +1,12 @@
+## 2025-09-16 — Fix: 500 on roles update (Tenant memberships)
+
+- Area: API (IAM endpoints), Web proxy unaffected
+- Change: Avoid nested DB transactions inside membership endpoints when `TenantScopeMiddleware` already opened a tenant-scoped transaction. Endpoints now detect `db.Database.CurrentTransaction` and reuse it, only opening a new transaction (and setting `app.tenant_id`) when none exists. This removes a runtime 500 observed on `POST /api-proxy/tenants/{tenantId}/memberships/{userId}/roles`.
+- Verification:
+  - Built API and ran a smoke flow: signed up a user (creates personal tenant), listed memberships, and updated roles via `POST /api/tenants/{tenantId}/memberships/{userId}/roles` using dev headers. Received 200/204 responses instead of 500. Last-admin invariant logic remains intact (legacy Owner/Admin still confer admin regardless of flags).
+- Files: `apps/api/App/Endpoints/V1.cs` (transaction reuse logic in roles update and member delete), docs updated.
+- Notes: No web changes required; server-first proxy continued to forward headers/body correctly. This aligns with our convention to avoid environment-gated route registration and prefer middleware-scoped transactions.
+
 ## 2025-09-15 — Story G: Auth/Tenant Multi-tenant UX polish
 
 - Centralized tenant switching to Account menu (ProfileMenu) and removed TopBar selector. Admin links are now a dropdown.
