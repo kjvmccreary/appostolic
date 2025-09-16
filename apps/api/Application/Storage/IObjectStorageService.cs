@@ -16,4 +16,11 @@ public interface IObjectStorageService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Tuple of (Url, Key)</returns>
     Task<(string Url, string Key)> UploadAsync(string key, string contentType, Stream content, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes an object at the given key. Implementations should not throw if the object does not exist.
+    /// </summary>
+    /// <param name="key">Path-like key previously used for upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DeleteAsync(string key, CancellationToken cancellationToken = default);
 }

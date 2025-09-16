@@ -37,6 +37,22 @@ public sealed class LocalFileStorageService : IObjectStorageService
         var urlPath = $"/media/{key.Replace("\\", "/")}";
         return (urlPath, key);
     }
+
+    /// <inheritdoc />
+    public Task DeleteAsync(string key, CancellationToken cancellationToken = default)
+    {
+        key = key.Replace('\\', '/');
+        var fullPath = Path.Combine(_options.BasePath, key);
+        try
+        {
+            if (File.Exists(fullPath)) File.Delete(fullPath);
+        }
+        catch
+        {
+            // Swallow for now (idempotent delete). Consider logging at debug level later.
+        }
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class LocalFileStorageOptions

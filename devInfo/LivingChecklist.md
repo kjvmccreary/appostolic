@@ -25,7 +25,7 @@ How to use
 - [x] API build green; tests passing (unit/integration); EF migrations applied
 - [x] Web typecheck/lint green; tests passing; coverage thresholds satisfied
 - [x] Accessibility basics upheld (labels, focus, aria-current/expanded, color contrast)
-- [ ] Server‑first auth/role guards for any new routes (avoid client-only gating)
+- [x] Server‑first auth/role guards for any new routes (avoid client-only gating) — Tenant settings & logo endpoints added with TenantAdmin policy
 - [x] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
 
 ---
@@ -67,7 +67,7 @@ How to use
 
 ### Storage & Versioning
 
-- [ ] Object storage wiring (MinIO) for lesson artifacts
+- [x] Object storage wiring (MinIO/S3) seam for avatars/logos (UPROF-09) — lesson artifacts will reuse seam
 - [ ] Version history (per lesson, per deliverable)
 
 ### Notifications & Messaging (Email)
@@ -125,4 +125,12 @@ How to use
 - UI Builder / Dynamic Forms
 - Advanced compliance & policy (exports/erasure)
 
-— Last updated: 2025‑09‑16 (UPROF‑07 avatar UX cache-bust completed; Node 20 testing + accessibility gates ticked)
+## Refactor Backlog (internal quality improvements)
+
+These are non-functional refactors we intend to tackle when touching adjacent code or before 1.0 hardening. They are safe to defer short-term.
+
+- [ ] Consolidate duplicated DeepMerge logic (UserProfileEndpoints & TenantSettingsEndpoints) into `Application/Json/JsonMerge.cs` + unit tests (null clearing, array replacement, nested creation). (Added 2025‑09‑16)
+- [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
+- [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
+
+- Last updated: 2025‑09‑16 (Tenant settings & logo endpoints TEN-01/TEN-02 + S3/MinIO seam + avatar UX cache-bust + Node 20 testing documented)

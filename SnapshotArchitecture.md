@@ -4,6 +4,21 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Tenant Settings & Branding — TEN-01/TEN-02 (2025-09-16)
+  - API: Added `GET /api/tenants/settings` and `PUT /api/tenants/settings` (merge semantics: objects deep-merge; arrays/scalars replace; explicit nulls clear) storing JSONB in `tenants.settings`.
+  - API: Added `POST /api/tenants/logo` (multipart image/png|jpeg|webp <=2MB) storing via `IObjectStorageService` under `tenants/{tenantId}/logo.*` and updating `settings.branding.logo = { url, key, mime }`.
+  - API: Added `DELETE /api/tenants/logo` removing `settings.branding.logo` and best-effort deleting the underlying object. Leaves `branding` removed if empty.
+  - Tests: Integration test suite `TenantSettingsEndpointsTests` covers GET/PUT settings merge, logo upload success, invalid mime (415), payload too large (413), and delete path cleanup (6 tests passing).
+  - Notes: Width/height fields intentionally deferred pending future image processing (resizing & metadata extraction) story; code comments reference this. DeepMerge duplicated from user profile endpoints pending small refactor to a shared helper.
+
+- User Profile — UPROF‑09: S3/MinIO object storage seam (2025-09-16)
+  - Added `S3ObjectStorageService` implementing `IObjectStorageService` using `AWSSDK.S3` with support for MinIO in development (path‑style) and AWS S3 in production (virtual host style).
+  - Configuration: `Storage:Mode` = `local` (default) or `s3`. When `s3`, options bound from `Storage:S3` section: `Bucket` (required), `PublicBaseUrl` (optional CDN/base URL override), `RegionEndpoint`, `DefaultCacheControl` (defaults to `public, max-age=31536000, immutable`), `PathStyle` (bool, defaults true for MinIO), `AccessKey`, `SecretKey`, and `ServiceURL` (endpoint override e.g. `http://localhost:9000`).
+  - DI wiring in `Program.cs` selects S3 vs local at startup; local mode continues to write under `apps/web/web.out/media` and serve via `/media/*` static files. S3 mode sets `S3CannedACL.PublicRead` (public avatars/logos) and applies the configured Cache-Control.
+  - URL generation: if `PublicBaseUrl` configured, returned object URL = `<PublicBaseUrl>/<key>`; otherwise falls back to `https://<bucket>.s3.<region>.amazonaws.com/<key>` (best effort). Keys are normalized path segments (no backslashes).
+  - Tests: Added unit tests (`S3ObjectStorageServiceTests`) mocking `IAmazonS3` to assert ACL, Cache-Control header, key integrity, and URL fallback behavior. Existing avatar endpoint tests remain green using local mode.
+  - Rationale: Establish a production‑ready seam for future tenant logo and lesson artifact storage without changing current endpoint contracts. Signed URLs and deletion lifecycle deferred to a later story.
+
 - User Profile — UPROF‑07: Web avatar upload UX & cache-bust (2025-09-16)
   - Web: Added client-side `AvatarUpload` tests (validation: mime/size; successful upload triggers event). Component now dispatches a global `avatar-updated` CustomEvent with a cache-busted URL instead of forcing a full page reload.
   - `ProfileMenu` now displays the current avatar (falling back to icon) and listens for `avatar-updated` to swap the image source live without navigation. Added link to `/profile` replacing placeholder alert.

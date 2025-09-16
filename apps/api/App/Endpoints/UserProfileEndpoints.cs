@@ -249,6 +249,10 @@ public static class UserProfileEndpoints
     /// - Explicit nulls in the patch clear fields in the target
     /// Clones assigned nodes to avoid "node already has a parent" exceptions.
     /// </summary>
+    // TODO (post-MVP): Consolidate this DeepMerge implementation with the identical one in
+    // TenantSettingsEndpoints into a shared helper (e.g., Application/Json/JsonMerge.cs) and add
+    // focused unit tests covering null-clears, array replacement, nested object creation, and
+    // non-object replacement cases. (Ref: TEN-01/TEN-02 follow-up)
     private static JsonObject DeepMerge(JsonObject target, JsonObject patch)
     {
         foreach (var kv in patch)

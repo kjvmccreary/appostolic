@@ -75,6 +75,38 @@
 
 ## 2025-09-16 — Tooling — Web Vitest Node 20 requirement — ✅ DONE
 
+## 2025-09-16 — UPROF-09: S3/MinIO object storage seam — ✅ DONE
+
+- Summary
+  - Introduced `S3ObjectStorageService` implementing `IObjectStorageService` using `AWSSDK.S3`, enabling a config-driven switch between local filesystem storage and S3/MinIO without altering upload endpoint contracts. Supports path-style addressing for MinIO dev (`ForcePathStyle=true`) and virtual-host style for AWS S3. Applies `PublicRead` ACL for avatars/logos and configurable Cache-Control (default immutable 1yr) to encourage client caching.
+- Files changed
+  - `apps/api/Application/Storage/S3ObjectStorageService.cs` — new implementation + options class.
+  - `apps/api/Program.cs` — conditional DI wiring based on `Storage:Mode` (`local`|`s3`).
+  - `Directory.Packages.props` / `Appostolic.Api.csproj` — added `AWSSDK.S3` via central package management.
+  - `apps/api.tests/Storage/S3ObjectStorageServiceTests.cs` — unit tests validating PutObject request (bucket, key, ACL, Cache-Control) and URL generation with/without `PublicBaseUrl`.
+- Configuration
+  - Add to `appsettings.Development.json` (example):
+    ```json
+    "Storage": {
+      "Mode": "s3",
+      "S3": {
+        "Bucket": "appostolic-dev",
+        "ServiceURL": "http://localhost:9000",
+        "AccessKey": "minioadmin",
+        "SecretKey": "minioadmin",
+        "PathStyle": true,
+        "PublicBaseUrl": "http://localhost:9000/appostolic-dev"
+      }
+    }
+    ```
+    Local default (no config) continues to use `LocalFileStorageService` writing under `apps/web/web.out/media` served at `/media/*`.
+- Quality gates
+  - Build (API): PASS (warning: NU1603 approximate AWSSDK.S3 version match — acceptable; pin can be added later if needed).
+  - Tests (API): PASS — new S3 unit tests (2) + full existing suite remain green.
+  - Docs: Updated `SnapshotArchitecture.md` What’s New; LivingChecklist to tick storage seam item (object storage wiring) when broader artifact usage lands.
+- Notes
+  - Signed URLs, deletion lifecycle, and tenant logo endpoint integration are deferred to subsequent stories (TEN‑02). Current endpoints return public URLs consistent with previous local mode behavior.
+
 - Summary
   - Documented mandatory use of Node 20.x LTS for running the web unit test suite (Vitest) and dev scripts. Node 19 triggered a Corepack crash (`TypeError: URL.canParse is not a function`) before any tests executed when invoking `pnpm test` with workspace filters. Added a Runtime & Testing Environment section to `apps/web/AGENTS.md` with nvm workflow, PATH override example, CI pinning note, and failure symptom checklist.
 - Files changed
@@ -85,6 +117,22 @@
   - Coverage: thresholds still satisfied post adjustments
 - Notes
   - Future improvement: add an `.nvmrc` or Volta pin to enforce version automatically; optionally fail early in a pretest script if `process.version` < 20.
+
+  ## 2025-09-16 — TEN-01/TEN-02: Tenant settings & branding logo endpoints — ✅ DONE
+  - Summary
+    - Implemented tenant-scoped settings management and branding logo lifecycle. Added `GET /api/tenants/settings` and `PUT /api/tenants/settings` (deep merge: objects merge recursively; arrays/scalars replace; explicit nulls clear) persisting to `tenants.settings` JSONB. Added `POST /api/tenants/logo` (multipart image/png|jpeg|webp <=2MB) storing via `IObjectStorageService` under `tenants/{tenantId}/logo.*` and updating `settings.branding.logo = { url, key, mime }`. Added `DELETE /api/tenants/logo` to remove logo metadata and best-effort delete the underlying object (local or S3/MinIO) without failing the request on storage delete errors.
+  - Files changed
+    - `apps/api/App/Endpoints/TenantSettingsEndpoints.cs` — new endpoints + duplicated DeepMerge helper (pending refactor).
+    - `apps/api/Program.cs` — wired `MapTenantSettingsEndpoints()`.
+    - `apps/api.tests/Api/TenantSettingsEndpointsTests.cs` — integration tests (6) covering settings merge, logo upload success, invalid mime (415), size limit (413), delete path, and logo absence after delete.
+    - `SnapshotArchitecture.md` — What’s New entry added.
+  - Quality gates
+    - Build (API): PASS (no new warnings beyond existing cryptography & Redis deprecation notices).
+    - Tests (API): PASS — new tenant settings/logo tests (6/6) plus existing suite unaffected.
+  - Notes
+    - Width/height (and potential variants) intentionally deferred until an image processing story introduces server-side resizing/metadata extraction.
+    - DeepMerge utility now duplicated between user profile and tenant settings endpoints; tracked as a small refactor task to extract a shared helper.
+    - Old logo asset deletion is best-effort; failure is swallowed to keep UX snappy and avoid partial state when storage is transiently unavailable.
 
 ## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
 

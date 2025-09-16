@@ -124,12 +124,15 @@ Stories & acceptance criteria
 - Notes: width/height metadata is deferred for now to avoid adding image processing; plan to add lightweight dimension read later.
 - Tests: integration tests cover success (PNG under 2MB → 200 with url+mime), unsupported type (415), and too-large payload (413). Targeted and full API suites pass.
 
-## UPROF-05 — Web: `/profile` page (info + social)
+## ✅ DONE UPROF-05 — Web: `/profile` page (read-only + edit form)
 
-- Server-first route; fetches via internal proxy; pre-fills form from `profile`.
-- Fields: Display name, First, Last, Phone, Timezone, Locale; Social links; Avatar preview.
-- Save performs PUT `/api-proxy/users/me` and updates UI; success toast; errors inline with role=alert.
-- Tests: rendering with initial data, submit success, client validation for URL format.
+- Implemented server component route with `fetchFromProxy` (no-store) fetching current user.
+- Added `ProfileView` (client) for avatar/email summary and `ProfileEditForm` for personal + social fields (display, first, last, phone, timezone, locale, website, twitter, facebook, instagram, youtube, linkedin).
+- Form builds JSON merge patch (only populated sub-objects) and submits PUT `/api-proxy/users/me`; optimistic local state via callback.
+- Added accessible labels (`htmlFor`/`id`), alert/status regions, disabled state while saving, minimal URL normalization (auto prepend https for bare domains).
+- Added `loading.tsx` skeleton; preserves heading hierarchy and landmark semantics.
+- Tests: `ProfileView` (avatar states, email render) and `ProfileEditForm` (success path, failure path) with fetch mocked.
+- Deferred to later stories: guardrails/preferences, bio editor, richer validation (international phone, timezone drop-down), toast system integration.
 
 ## UPROF-06 — Web: `/profile` guardrails & preferences
 
@@ -137,7 +140,7 @@ Stories & acceptance criteria
 - Save merges into existing profile; preserved on reload.
 - Tests: chip add/remove logic; merging behavior; a11y labels present.
 
-## UPROF-07 — Web: Avatar upload
+## ✅ UPROF-07 — Web: Avatar upload
 
 - File input accepts jpg/png/webp; preview prior to upload; upload via `/api-proxy/users/me/avatar`.
 - On success, avatar in TopBar/ProfileMenu updates (client cache busting by query param timestamp).
@@ -149,16 +152,20 @@ Stories & acceptance criteria
 - POST to `/api-proxy/users/me/password`; success toast; on 400 show error under Current password.
 - Tests: validation, error mapping, happy path; ensure no logging of secret inputs.
 
-## TEN-01 — API: GET/PUT `/api/tenants/settings` (TenantAdmin)
+## ✅ DONE TEN-01 — API: GET/PUT `/api/tenants/settings` (TenantAdmin)
 
-- GET returns current tenant `settings` (default empty object).
-- PUT merges JSON; validates URLs; requires TenantAdmin.
-- Tests: role guard enforced; happy path update.
+- Implemented `GET /api/tenants/settings` returning `{ id, name, settings }` with empty object fallback.
+- Implemented `PUT /api/tenants/settings` using deep merge semantics (objects merge; arrays/primitives replace; explicit null clears) mirroring user profile behavior.
+- Guarded by `TenantAdmin`; validates caller `tenant_id` claim to prevent cross-tenant access.
+- Tests: Integration tests cover empty default, merge preservation, size/shape stability.
+- Deferred: Field-level validation (URLs/emails), UI page (TEN-03), schema enforcement.
 
-## TEN-02 — API: POST `/api/tenants/logo` (TenantAdmin)
+## ✅ DONE TEN-02 — API: POST/DELETE `/api/tenants/logo` (TenantAdmin)
 
-- Upload and store tenant logo in object storage at `tenants/{tenantId}/logo.*`; return url + dimensions (and key).
-- Tests: content type/size enforced; success path.
+- `POST /api/tenants/logo` (multipart) validates mime (png/jpeg/webp) + size (<=2MB), stores at `tenants/{tenantId}/logo.*`, updates `settings.branding.logo = { url, key, mime }`.
+- `DELETE /api/tenants/logo` removes logo metadata and best-effort deletes previous object (errors swallowed until background cleanup job exists).
+- Tests: cover success, 415 unsupported media type, 413 payload too large, delete path (logo removed), settings integrity.
+- Deferred: Image dimensions (width/height), signed URLs (public URLs now), variant generation, retention policies.
 
 ## TEN-03 — Web: `/studio/admin/settings` page
 
@@ -171,12 +178,13 @@ Stories & acceptance criteria
 - Add Profile link to existing ProfileMenu; ensure focus management and restore behavior preserved.
 - Tests: TopBar snapshot updated; link present for all signed-in users.
 
-## UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
+## ✅ DONE UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
 
-- Implement storage abstraction service in API using `AWSSDK.S3` or `Minio` client.
-- Configure `.env`/appsettings: endpoint, region, access keys, bucket. In dev, use MinIO from docker compose.
-- Add helper to generate signed URLs (time-limited) or return public URLs in dev.
-- Tests: unit test storage service with MinIO test container or local dev; mock for API route tests.
+- Added `IObjectStorageService` with local filesystem + `S3ObjectStorageService` (MinIO path-style + AWS S3 virtual-host style) returning public URLs (optionally via `PublicBaseUrl`).
+- Config-driven via `Storage:Mode` and `Storage:S3` options (`Bucket`, `ServiceURL`, `AccessKey`, `SecretKey`, `RegionEndpoint`, `PublicBaseUrl`, `PathStyle`, cache headers).
+- Implemented object deletion seam (`DeleteAsync`) later used by tenant logo DELETE endpoint; avatar replacement currently overwrites only.
+- Tests: S3 unit tests assert PutObject ACL, Cache-Control, key integrity, URL fallback; avatar endpoint integration tests green under local mode.
+- Deferred: Signed URLs, automatic old file cleanup, dimension extraction, artifact versioning.
 
 ## UPROF-10 — Rich profile bio editor & sanitization
 

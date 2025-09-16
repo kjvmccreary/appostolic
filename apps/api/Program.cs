@@ -25,6 +25,8 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using Appostolic.Api.Application.Storage;
 using Microsoft.Extensions.FileProviders;
+using Amazon.S3;
+using Amazon;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -161,9 +163,39 @@ builder.Services.AddNotificationsRuntime(builder.Configuration, builder.Environm
 // Auth: password hasher
 builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, Appostolic.Api.Application.Auth.Argon2PasswordHasher>();
 
-// Storage: local file storage for Development/Test; options allow overriding base path
-builder.Services.Configure<LocalFileStorageOptions>(builder.Configuration.GetSection("Storage:Local"));
-builder.Services.AddSingleton<IObjectStorageService, LocalFileStorageService>();
+// Storage: conditional S3/MinIO vs local filesystem
+var storageMode = (builder.Configuration["Storage:Mode"] ?? "local").ToLowerInvariant();
+if (storageMode == "s3")
+{
+    builder.Services.Configure<S3StorageOptions>(builder.Configuration.GetSection("Storage:S3"));
+    builder.Services.AddSingleton<IAmazonS3>(sp =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<S3StorageOptions>>().Value;
+        var config = new AmazonS3Config
+        {
+            ForcePathStyle = opts.PathStyle,
+        };
+        if (!string.IsNullOrWhiteSpace(opts.ServiceURL))
+        {
+            config.ServiceURL = opts.ServiceURL;
+        }
+        if (!string.IsNullOrWhiteSpace(opts.RegionEndpoint))
+        {
+            config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(opts.RegionEndpoint);
+        }
+        if (!string.IsNullOrWhiteSpace(opts.AccessKey) && !string.IsNullOrWhiteSpace(opts.SecretKey))
+        {
+            return new AmazonS3Client(opts.AccessKey, opts.SecretKey, config);
+        }
+        return new AmazonS3Client(config);
+    });
+    builder.Services.AddSingleton<IObjectStorageService, S3ObjectStorageService>();
+}
+else
+{
+    builder.Services.Configure<LocalFileStorageOptions>(builder.Configuration.GetSection("Storage:Local"));
+    builder.Services.AddSingleton<IObjectStorageService, LocalFileStorageService>();
+}
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();
@@ -403,6 +435,7 @@ app.MapAgentTasksEndpoints();
 app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();
 app.MapUserProfileEndpoints();
+app.MapTenantSettingsEndpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
 {

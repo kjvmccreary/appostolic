@@ -30,5 +30,7 @@
     <PackageVersion Include="Scriban" Version="5.9.1" />
     <!-- Redis -->
     <PackageVersion Include="StackExchange.Redis" Version="2.7.33" />
+    <!-- S3 / MinIO -->
+  <PackageVersion Include="AWSSDK.S3" Version="3.7.303" />
   </ItemGroup>
 </Project>
