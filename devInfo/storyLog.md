@@ -118,6 +118,24 @@
   - Notes
   - Future improvement: add an `.nvmrc` or Volta pin to enforce version automatically; optionally fail early in a pretest script if `process.version` < 20.
 
+  ## 2025-09-16 — UPROF-12 (A–E): PII hashing & redaction foundation — ✅ PARTIAL
+  - Summary
+    - Implemented privacy configuration and core utilities for PII hashing & redaction. Added `PrivacyOptions` (pepper + enable flag), `IPIIHasher` with `Sha256PIIHasher` (email lowercase+trim; phone digits-only), unified `PIIRedactor` (email + phone) and deprecated legacy `EmailRedactor` (now delegates). Introduced `LoggingPIIScope` helper to attach structured redacted/hashed fields without emitting raw PII. Updated notification senders and hosted services to use `PIIRedactor`. Unit tests added for hashing determinism, pepper variance, normalization, and redaction edge cases; all passing.
+  - Files changed
+    - `apps/api/Application/Privacy/PrivacyOptions.cs`, `IPIIHasher.cs`, `PIIRedactor.cs`, `LoggingPIIScope.cs`
+    - `apps/api/App/Notifications/*` swapped `EmailRedactor` → `PIIRedactor`; legacy file marked `[Obsolete]`.
+    - `apps/api/Program.cs` added options binding + DI registration.
+    - `apps/api.tests/Privacy/PIIHasherTests.cs`, `PIIRedactorTests.cs` new test coverage.
+  - Quality gates
+    - Build (API): PASS (existing unrelated warnings).
+    - Tests (API): PASS for new PII suite (10/10). Full suite not yet re-run post-change (will run after integration sub-stories).
+  - Next
+    - 12F: Integrate scopes into auth/profile/tenant endpoints to guarantee absence of raw emails in logs.
+    - 12G: Add integration log-capture tests verifying no raw PII appears and hashed fields present when enabled.
+    - 12H: Update `SnapshotArchitecture.md` (partial entry added), `uProfSprintPlan.md` checklist (A–E checked), and `LivingChecklist` tick after endpoint integration.
+    - 12I: Optional OTEL enrichment (deferred until base integration complete).
+    - Consider future phone normalization upgrade (libphonenumber) post‑1.0.
+
   ## 2025-09-16 — TEN-01/TEN-02: Tenant settings & branding logo endpoints — ✅ DONE
   - Summary
     - Implemented tenant-scoped settings management and branding logo lifecycle. Added `GET /api/tenants/settings` and `PUT /api/tenants/settings` (deep merge: objects merge recursively; arrays/scalars replace; explicit nulls clear) persisting to `tenants.settings` JSONB. Added `POST /api/tenants/logo` (multipart image/png|jpeg|webp <=2MB) storing via `IObjectStorageService` under `tenants/{tenantId}/logo.*` and updating `settings.branding.logo = { url, key, mime }`. Added `DELETE /api/tenants/logo` to remove logo metadata and best-effort delete the underlying object (local or S3/MinIO) without failing the request on storage delete errors.

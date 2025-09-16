@@ -5,6 +5,14 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - User Profile — UPROF‑11: Denomination presets & multi-select guardrails UI (2025-09-16)
+- Privacy & Observability — UPROF‑12 (in progress) PII hashing & redaction foundation (2025-09-16)
+  - Added `PrivacyOptions` (`Privacy:PIIHashPepper`, `Privacy:PIIHashingEnabled`) bound in `Program.cs`.
+  - Introduced `IPIIHasher` with `Sha256PIIHasher` (email normalization: lowercase+trim; phone normalization: digits-only) computing peppered SHA-256 hex string; deterministic across processes sharing pepper.
+  - Added `PIIRedactor` (email → `f***@domain` or legacy fallback `***u@...` when <2 chars local; phone → `***1234` last 4) centralizing masking logic; legacy `EmailRedactor` now obsolete shim.
+  - Logging enrichment helper `LoggingPIIScope` supplies structured scope fields: `user.email.redacted`, optional `user.email.hash`, `user.phone.redacted`, optional `user.phone.hash` when hashing enabled, ensuring no raw values reach logs.
+  - Unit tests cover hashing determinism, pepper variance, normalization, and redaction edge cases. Integration of scopes into auth/profile/tenant endpoints pending (next sub‑story).
+  - Rationale: Provide privacy-by-default observability (correlation without disclosure) and enforce a single seam for PII normalization.
+
   - API: Added authenticated metadata endpoint `GET /api/metadata/denominations` returning `{ presets: Array<{ id, name, notes? }> }` sourced from a static JSON file (`apps/api/App/Data/denominations.json`). Serves 10 curated baseline presets (e.g., Baptist, Anglican, Mere Christianity) with future migration path to a DB table + versioning.
   - Web: Extended `/profile` server page to best‑effort fetch presets and pass them to `ProfileGuardrailsForm`. Added searchable multi-select picker (chips) allowing users to add/remove denominations; on first add, if `guardrails.denominationAlignment` is empty it auto-fills with the preset display name (never overwrites subsequent manual edits).
   - Patch semantics: Introduced `profile.presets.denominations: string[]`. Submission always sends the full array (`profile.presets.denominations`) so arrays remain deterministic replace operations under existing deep-merge JSONB logic; clearing = empty array. Alignment field remains an independent freeform string.
