@@ -1,3 +1,8 @@
+### 2025-09-16 — Sprint Plan: User & Tenant Profile
+
+- Added `devInfo/TenantAndUserProfile.md/uProfSprintPlan.md` detailing stories UPROF‑01..08 and TEN‑01..04 to deliver User Profile (info, social, guardrails, avatar, password) and Tenant Settings (org info, social, logo), with UI alignment to `devInfo/DesignDocs/UI-Spec.md` and server‑first guards.
+- Scope covers EF model, API contracts, Web pages, uploads in dev, tests, and docs updates; defers S3/MinIO production integration to post‑1.0.
+
 ### 2025-09-16 — Living Checklist seeded and process docs updated
 
 - Seeded `devInfo/LivingChecklist.md` with a 1.0 readiness checklist, global quality gates, and post‑1.0 parking lot.
