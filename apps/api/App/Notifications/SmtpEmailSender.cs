@@ -1,3 +1,4 @@
+using Appostolic.Api.Application.Privacy;
 using System.Net;
 using System.Net.Mail;
 using Appostolic.Api.App.Options;
@@ -84,12 +85,12 @@ public sealed class SmtpEmailSender : IEmailSender
 
         try
         {
-            _logger.LogInformation("Sending SMTP email to={To} subject={Subject}", EmailRedactor.Redact(to), subject);
+            _logger.LogInformation("Sending SMTP email to={To} subject={Subject}", PIIRedactor.RedactEmail(to), subject);
             await smtp.SendMailAsync(message, ct);
         }
         catch (SmtpException ex)
         {
-            _logger.LogError(ex, "SMTP send failed to={To} subject={Subject}", EmailRedactor.Redact(to), subject);
+            _logger.LogError(ex, "SMTP send failed to={To} subject={Subject}", PIIRedactor.RedactEmail(to), subject);
             throw;
         }
     }

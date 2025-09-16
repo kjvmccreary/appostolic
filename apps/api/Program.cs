@@ -142,6 +142,7 @@ builder.Services.Configure<Appostolic.Api.App.Options.SendGridOptions>(builder.C
 builder.Services.Configure<Appostolic.Api.App.Options.SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<Appostolic.Api.App.Options.NotificationOptions>(builder.Configuration.GetSection("Notifications"));
 builder.Services.Configure<Appostolic.Api.App.Options.NotificationTransportOptions>(builder.Configuration.GetSection("Notifications:Transport"));
+builder.Services.Configure<Appostolic.Api.Application.Privacy.PrivacyOptions>(builder.Configuration.GetSection("Privacy"));
 // JSON: prefer string values for enums for both input binding and output serialization
 builder.Services.ConfigureHttpJsonOptions(opts =>
 {
@@ -162,6 +163,8 @@ builder.Services.AddNotificationsRuntime(builder.Configuration, builder.Environm
 
 // Auth: password hasher
 builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, Appostolic.Api.Application.Auth.Argon2PasswordHasher>();
+// Privacy: PII hasher (hashes emails/phones using SHA-256 + pepper)
+builder.Services.AddSingleton<Appostolic.Api.Application.Privacy.IPIIHasher, Appostolic.Api.Application.Privacy.Sha256PIIHasher>();
 
 // Storage: conditional S3/MinIO vs local filesystem
 var storageMode = (builder.Configuration["Storage:Mode"] ?? "local").ToLowerInvariant();

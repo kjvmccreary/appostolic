@@ -1,3 +1,4 @@
+using Appostolic.Api.Application.Privacy;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -55,12 +56,12 @@ public sealed class SendGridEmailSender : IEmailSender
         var resp = await client.SendAsync(req, ct);
         if (resp.StatusCode == HttpStatusCode.Accepted)
         {
-            _logger.LogInformation("SendGrid accepted email to {To}", EmailRedactor.Redact(toEmail));
+            _logger.LogInformation("SendGrid accepted email to {To}", PIIRedactor.RedactEmail(toEmail));
             return;
         }
 
         var body = await SafeReadAsync(resp, ct);
-        _logger.LogError("SendGrid error {Status} for {To}: {Body}", (int)resp.StatusCode, EmailRedactor.Redact(toEmail), body);
+    _logger.LogError("SendGrid error {Status} for {To}: {Body}", (int)resp.StatusCode, PIIRedactor.RedactEmail(toEmail), body);
         throw new HttpRequestException($"SendGrid returned {(int)resp.StatusCode}: {body}");
     }
 

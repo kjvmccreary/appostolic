@@ -1,3 +1,4 @@
+using Appostolic.Api.Application.Privacy;
 using System.Text.Json;
 using Appostolic.Api.Domain.Notifications;
 using Microsoft.Extensions.Hosting;
@@ -68,7 +69,7 @@ public sealed class NotificationDispatcherHostedService : BackgroundService
                 {
                     ["notification.id"] = leased.Id,
                     ["email.kind"] = leased.Kind.ToString(),
-                    ["email.to"] = EmailRedactor.Redact(leased.ToEmail),
+                    ["email.to"] = PIIRedactor.RedactEmail(leased.ToEmail),
                 };
                 if (leased.TenantId is Guid tid)
                 {

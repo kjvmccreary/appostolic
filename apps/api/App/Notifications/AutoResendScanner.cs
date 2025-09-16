@@ -1,3 +1,4 @@
+using Appostolic.Api.Application.Privacy;
 using System.Text.Json;
 using Appostolic.Api.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -116,7 +117,7 @@ public sealed class AutoResendScanner : IAutoResendScanner
             catch (ResendThrottledException)
             {
                 EmailMetrics.RecordResend(n.Kind.ToString(), mode: "auto", tenantScope: n.TenantId.HasValue ? "tenant" : "none", outcome: "throttled");
-                _logger.LogDebug("Auto-resend throttled for {Email}", EmailRedactor.Redact(n.ToEmail));
+                _logger.LogDebug("Auto-resend throttled for {Email}", PIIRedactor.RedactEmail(n.ToEmail));
             }
             catch (Exception ex)
             {

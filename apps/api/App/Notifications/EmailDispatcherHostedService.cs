@@ -1,3 +1,4 @@
+using Appostolic.Api.Application.Privacy;
 using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -52,7 +53,7 @@ public sealed class EmailDispatcherHostedService : BackgroundService
             {
                 ["email.kind"] = msg.Kind.ToString(),
                 // Redact recipient address in logs/scopes (Notif-25)
-                ["email.to"] = EmailRedactor.Redact(msg.ToEmail)
+                ["email.to"] = PIIRedactor.RedactEmail(msg.ToEmail)
             };
 
             // Optional correlation fields if provided by the producer
