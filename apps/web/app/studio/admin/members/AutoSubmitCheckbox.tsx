@@ -8,12 +8,15 @@ export default function AutoSubmitCheckbox({
   defaultChecked,
   disabled,
   describedById,
+  formId,
 }: {
   name: string;
   label: string;
   defaultChecked?: boolean;
   disabled?: boolean;
   describedById?: string;
+  /** Optional form id to associate and submit when the input isn't a descendant of the form */
+  formId?: string;
 }) {
   const ref = React.useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -22,7 +25,10 @@ export default function AutoSubmitCheckbox({
   const onChange = React.useCallback(() => {
     const input = ref.current;
     if (!input) return;
-    const form = input.closest('form') as HTMLFormElement | null;
+    // If a formId is provided, submit that form; otherwise fallback to closest form
+    const form = formId
+      ? (document.getElementById(formId) as HTMLFormElement | null)
+      : (input.closest('form') as HTMLFormElement | null);
     if (!form) return;
     setPending(true);
     // next.js server actions submit via form.requestSubmit
@@ -49,6 +55,8 @@ export default function AutoSubmitCheckbox({
         onChange={onChange}
         className="h-4 w-4 rounded border-[var(--color-line)] accent-[var(--color-accent-600)]"
         data-pending={pending ? 'true' : undefined}
+        // When provided, associate the input with a specific form element
+        form={formId}
       />
       <span className="select-none">{label}</span>
       {pending ? (

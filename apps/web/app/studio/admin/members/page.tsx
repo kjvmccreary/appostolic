@@ -68,18 +68,31 @@ export default async function MembersPage() {
     if (approver) roles.push('Approver');
     if (creator) roles.push('Creator');
     if (learner) roles.push('Learner');
+    // Call proxy and make a decision based on the response, ensuring we don't
+    // place the success redirect inside a try/catch. Next.js implements
+    // redirect() by throwing a special error; catching that would falsely
+    // route us to the error path and surface an error toast after a 303.
     try {
-      await fetchFromProxy(`/api-proxy/tenants/${tenantId}/memberships/${userId}/roles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles }),
-        cache: 'no-store',
-      });
-      revalidatePath('/studio/admin/members');
-      redirect('/studio/admin/members?ok=roles-saved');
+      const res = await fetchFromProxy(
+        `/api-proxy/tenants/${tenantId}/memberships/${userId}/roles`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roles }),
+          cache: 'no-store',
+        },
+      );
+      if (!res.ok) {
+        // Backend/body validation failed or API returned non-2xx
+        redirect('/studio/admin/members?err=roles-failed');
+      }
     } catch {
+      // Network or unexpected error
       redirect('/studio/admin/members?err=roles-failed');
     }
+    // Success: revalidate and redirect with ok outside of try/catch so it's not swallowed
+    revalidatePath('/studio/admin/members');
+    redirect('/studio/admin/members?ok=roles-saved');
   }
 
   // Compute last-admin counts to disable unchecking last admin in UI
@@ -120,18 +133,29 @@ export default async function MembersPage() {
             {members.map((m) => {
               const flags = new Set(parseRoles(m.roles));
               const lastAdmin = isLastAdmin(m.userId);
+              const formId = `roles-form-${m.userId}`;
               return (
                 <tr key={m.userId} className="border-t border-[var(--color-line)]">
                   <td className="px-3 py-2">{m.email}</td>
                   <td className="px-3 py-2 align-top">
-                    <form action={saveMemberRoles} className="inline-flex items-start gap-2">
+                    {/* One form per member row; all checkboxes submit together */}
+                    <form
+                      id={formId}
+                      action={saveMemberRoles}
+                      className="inline-flex items-start gap-2"
+                    >
                       <input type="hidden" name="userId" value={m.userId} />
+                      {/* If this is the last remaining admin, the checkbox is disabled.
+                          Disabled inputs aren't submitted, so include a hidden field to
+                          ensure we preserve the TenantAdmin flag on submit. */}
+                      {lastAdmin ? <input type="hidden" name="TenantAdmin" value="on" /> : null}
                       <AutoSubmitCheckbox
                         name="TenantAdmin"
                         label="Admin"
                         defaultChecked={flags.has('TenantAdmin')}
                         disabled={lastAdmin}
                         describedById={lastAdmin ? `admin-help-${m.userId}` : undefined}
+                        formId={formId}
                       />
                     </form>
                     {lastAdmin && (
@@ -141,39 +165,33 @@ export default async function MembersPage() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <form action={saveMemberRoles}>
-                      <input type="hidden" name="userId" value={m.userId} />
-                      <AutoSubmitCheckbox
-                        name="Approver"
-                        label="Approver"
-                        defaultChecked={flags.has('Approver')}
-                      />
-                    </form>
+                    <AutoSubmitCheckbox
+                      name="Approver"
+                      label="Approver"
+                      defaultChecked={flags.has('Approver')}
+                      formId={formId}
+                    />
                   </td>
                   <td className="px-3 py-2">
-                    <form action={saveMemberRoles}>
-                      <input type="hidden" name="userId" value={m.userId} />
-                      <AutoSubmitCheckbox
-                        name="Creator"
-                        label="Creator"
-                        defaultChecked={flags.has('Creator')}
-                      />
-                    </form>
+                    <AutoSubmitCheckbox
+                      name="Creator"
+                      label="Creator"
+                      defaultChecked={flags.has('Creator')}
+                      formId={formId}
+                    />
                   </td>
                   <td className="px-3 py-2">
-                    <form action={saveMemberRoles}>
-                      <input type="hidden" name="userId" value={m.userId} />
-                      <AutoSubmitCheckbox
-                        name="Learner"
-                        label="Learner"
-                        defaultChecked={
-                          flags.has('Learner') ||
-                          (!flags.has('TenantAdmin') &&
-                            !flags.has('Approver') &&
-                            !flags.has('Creator'))
-                        }
-                      />
-                    </form>
+                    <AutoSubmitCheckbox
+                      name="Learner"
+                      label="Learner"
+                      defaultChecked={
+                        flags.has('Learner') ||
+                        (!flags.has('TenantAdmin') &&
+                          !flags.has('Approver') &&
+                          !flags.has('Creator'))
+                      }
+                      formId={formId}
+                    />
                   </td>
                   <td className="px-3 py-2 text-muted">{new Date(m.joinedAt).toLocaleString()}</td>
                 </tr>

@@ -2,11 +2,11 @@
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
- POST /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships/6d6f46cc-7694-420f-8371-204748260b1f/roles 500 in 25ms
+ POST /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships/6d6f46cc-7694-420f-8371-204748260b1f/roles 200 in 37ms
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
  ⚠ Duplicate page detected. pages/middleware.ts and pages/middleware.js both resolve to /middleware.
- GET /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships 200 in 19ms
- GET /studio/admin/members?err=roles-failed 200 in 38ms
- POST /studio/admin/members 303 in 89ms
+ GET /api-proxy/tenants/6bb1959b-eea1-4198-90d2-946c351e203a/memberships 200 in 24ms
+ GET /studio/admin/members?err=roles-failed 200 in 42ms
+ POST /studio/admin/members 303 in 108ms

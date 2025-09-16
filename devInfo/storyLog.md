@@ -1,3 +1,19 @@
+## 2025-09-15 — Web — Fix: Members roles toast/redirect
+
+- Summary
+  - Fixed a false error toast after role save on `/studio/admin/members`. Root cause: the server action wrapped `redirect()` in a try/catch; since Next implements `redirect()` by throwing a control-flow error, the catch path treated it as a failure and redirected with `?err=roles-failed`, surfacing an error toast despite a successful 303.
+  - The server action now posts to the proxy, checks `res.ok`, and only redirects to `?err=roles-failed` on non‑2xx or network errors. On success, it calls `revalidatePath('/studio/admin/members')` and then `redirect('/studio/admin/members?ok=roles-saved')` outside the catch block so the redirect isn’t swallowed.
+
+- Files changed
+  - apps/web/app/studio/admin/members/page.tsx — refactor `saveMemberRoles` try/catch + redirect flow
+
+- Why
+  - Network tab showed a 303 See Other after toggling roles, but a red "Failed to update roles. Try again." toast still appeared. The catch block misclassified the success redirect as an error.
+
+- Quality gates
+  - Typecheck (web): PASS
+  - Tests: Deferred; local vitest currently blocked by Node version mismatch (repo requires Node >=20 <21). Functional smoke via UI validated success toast appears and error toast no longer shows on success.
+
 ## 2025-09-16 — Fix: 500 on roles update (Tenant memberships)
 
 - Area: API (IAM endpoints), Web proxy unaffected
