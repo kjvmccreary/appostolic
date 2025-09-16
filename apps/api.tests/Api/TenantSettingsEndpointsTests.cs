@@ -55,8 +55,8 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     public async Task Upload_Logo_Succeeds_And_Stores_Metadata()
     {
         var client = Client();
-        // 1x1 PNG
-        var pngBytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottgAAAABJRU5ErkJggg==");
+        // 1x1 PNG (validated in MinimalPngDecodeTests)
+        var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(pngBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
@@ -65,7 +65,10 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
         json.GetProperty("logo").GetProperty("url").GetString().Should().NotBeNullOrEmpty();
-        json.GetProperty("logo").GetProperty("mime").GetString().Should().Be("image/png");
+        var logo = json.GetProperty("logo");
+        logo.GetProperty("mime").GetString().Should().Be("image/webp");
+        logo.GetProperty("width").GetInt32().Should().BeGreaterThan(0);
+        logo.GetProperty("height").GetInt32().Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -99,7 +102,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     {
         var client = Client();
         // First upload
-        var pngBytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottgAAAABJRU5ErkJggg==");
+        var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using (var content = new MultipartFormDataContent())
         {
             var fileContent = new ByteArrayContent(pngBytes);
@@ -122,4 +125,6 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
             branding.TryGetProperty("logo", out var _).Should().BeFalse();
         }
     }
+
+    private const string ValidMinimalPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAC0lEQVR4nGNhAAIAABkABaSlNawAAAAASUVORK5CYII="; // 1x1 PNG
 }
