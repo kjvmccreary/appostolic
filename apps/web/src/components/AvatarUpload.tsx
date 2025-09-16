@@ -46,9 +46,14 @@ export function AvatarUpload({ onUploaded }: Props) {
       }
       const data = (await res.json()) as { avatar?: { url?: string } };
       const url = data?.avatar?.url;
-      if (url) onUploaded?.(url);
-      // Basic cache-bust: reload current route
-      if (typeof window !== 'undefined') window.location.reload();
+      if (url) {
+        const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        // Fire global event so other components (e.g., ProfileMenu) can update without reload
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { url: cacheBusted } }));
+        }
+        onUploaded?.(cacheBusted);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {

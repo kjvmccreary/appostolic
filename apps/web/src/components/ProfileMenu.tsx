@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { TenantSwitcherModal } from './TenantSwitcherModal';
 import { useColorScheme } from '../theme/ColorSchemeContext';
 import { User, Sun, Moon, Monitor, Contrast } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * ProfileMenu — small dropdown menu for account actions.
@@ -30,6 +31,7 @@ export function ProfileMenu() {
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
   const { mode, toggleMode, amoled, toggleAmoled } = useColorSchemeOptional();
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
 
   const isSuper = Boolean((session as unknown as { isSuperAdmin?: boolean } | null)?.isSuperAdmin);
 
@@ -49,6 +51,22 @@ export function ProfileMenu() {
     return () => document.removeEventListener('click', onDoc);
   }, [open]);
 
+  React.useEffect(() => {
+    // Attempt to read initial avatar url from session (if present in profile)
+    const anySession = session as unknown as { profile?: { avatar?: { url?: string } } } | null;
+    const initial = anySession?.profile?.avatar?.url ?? null;
+    if (initial) setAvatarUrl(initial);
+  }, [session]);
+
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { url?: string } | undefined;
+      if (detail?.url) setAvatarUrl(detail.url);
+    };
+    window.addEventListener('avatar-updated', handler as EventListener);
+    return () => window.removeEventListener('avatar-updated', handler as EventListener);
+  }, []);
+
   return (
     <div className="relative">
       {isSuper ? (
@@ -59,14 +77,18 @@ export function ProfileMenu() {
       <button
         ref={btnRef}
         type="button"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-[var(--color-surface-raised)] focus-ring"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-[var(--color-surface-raised)] focus-ring overflow-hidden"
         aria-label="Account"
         aria-haspopup="menu"
-        aria-expanded={open ? 'true' : 'false'}
+        {...{ 'aria-expanded': open ? 'true' : 'false' }}
         onClick={onToggle}
         title="Account"
       >
-        <User size={18} />
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+        ) : (
+          <User size={18} />
+        )}
       </button>
       {open ? (
         <div
@@ -96,13 +118,14 @@ export function ProfileMenu() {
             <Contrast size={16} />
             <span>AMOLED: {amoled ? 'on' : 'off'}</span>
           </button>
-          <button
+          <Link
+            href="/profile"
             role="menuitem"
             className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
-            onClick={() => alert('Profile coming soon')}
+            onClick={onClose}
           >
             Profile
-          </button>
+          </Link>
           <button
             role="menuitem"
             className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"

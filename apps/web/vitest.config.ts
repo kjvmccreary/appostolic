@@ -60,7 +60,6 @@ export default defineConfig({
         'app/dev/agents/components/TracesTable.tsx',
         'src/app/studio/tasks/components/TaskFilters.tsx',
         // Temporarily exclude new avatar/profile UI until dedicated tests are added
-        'src/components/AvatarUpload.tsx',
         'app/profile/page.tsx',
         'src/components/TenantSwitcherModal.tsx',
       ],

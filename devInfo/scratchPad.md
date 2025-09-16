@@ -1,6 +1,6 @@
-- User needs ability to leave a Membership.
+- User needs ability to leave a Membership. Once they leave they can only 'rejoin' through an invite from the Tenant.
 - If user is logged in to Tenant A and receives and invite from Tenant B, user should receive on-screen notification and be able to accept from there.
-- If user is not logged in but does receive an invite from another tenant **and** if that user does not use the email link but logs into an existing membership, the user should see a notification indicator in the top bar which he/she can click, see the invite and either accept or reject.
+- If user is not logged in but does receive an invite from another tenant **and** if that user does not use the email link but logs into an existing membership, the user should see a notification indicator in the top bar which he/she can click, see the invite and either accept or reject. Once they accept in the app, the email token will be auto-expired.
 - The tenant name should display either immediately to the right of or immediatly below (but still in the TopBar) the app name (Appostolic) and logo (to be added later).
 - Immediately to the left of of the user account icon, display the user's email address. It should be clickable - along is the user icon right now - and display the dropdown menu.
 - The login page needs to be styled the same as /magic/request page and the Forgot Password page. Of particular concern is styling of input fields.

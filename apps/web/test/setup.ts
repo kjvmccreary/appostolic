@@ -23,3 +23,10 @@ if (!('location' in globalThis)) {
 
 // Ensure server-only fetch helper builds absolute URLs matching MSW handlers
 process.env.NEXT_PUBLIC_WEB_BASE = 'http://localhost';
+
+// jsdom does not implement URL.createObjectURL; stub for tests that generate previews
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if (!(URL as any).createObjectURL) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (URL as any).createObjectURL = () => 'blob:mock';
+}

@@ -4,6 +4,12 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- User Profile — UPROF‑07: Web avatar upload UX & cache-bust (2025-09-16)
+  - Web: Added client-side `AvatarUpload` tests (validation: mime/size; successful upload triggers event). Component now dispatches a global `avatar-updated` CustomEvent with a cache-busted URL instead of forcing a full page reload.
+  - `ProfileMenu` now displays the current avatar (falling back to icon) and listens for `avatar-updated` to swap the image source live without navigation. Added link to `/profile` replacing placeholder alert.
+  - Coverage: Removed temporary exclusion for `AvatarUpload.tsx`; suite updated (122 tests) with lines coverage >84% overall and >90% for AvatarUpload. Cache-busting uses `?v=timestamp` appended to returned avatar URL.
+  - Remaining storage story (UPROF‑09) will replace local filesystem implementation with MinIO/S3 provider while preserving event-driven refresh.
+
 - Web Tooling — Vitest Node 20 requirement (2025-09-16)
   - Added explicit guidance in `apps/web/AGENTS.md` to always run Vitest and Next dev tasks under Node 20.x LTS. Running under Node 19 triggered a Corepack failure (`TypeError: URL.canParse is not a function`) before tests executed. CI and local docs now mandate Node 20 to avoid the crash; sample `nvm`/PATH override commands documented.
 

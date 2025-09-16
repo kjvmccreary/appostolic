@@ -317,7 +317,31 @@
 ### 2025-09-16 — Invites email copy updated
 
 - Clarified email instructions for invite acceptance. Email now says:
+
+## 2025-09-16 — UPROF-07: Web avatar upload UX & cache-bust — ✅ DONE
+
+- Summary
+  - Completed web portion of avatar story: replaced full-page reload after upload with an event-driven cache-bust flow. `AvatarUpload` now dispatches `avatar-updated` with a `?v=<timestamp>` URL variant on success. `ProfileMenu` subscribes and swaps its button image live; placeholder Profile alert replaced by link to `/profile`.
+  - Added tests: `AvatarUpload.test.tsx` covers mime/size validation and successful upload (mocked fetch), `ProfileMenu.test.tsx` extended for avatar update event. Removed temporary coverage exclusion; AvatarUpload now >90% lines covered.
+
+- Files changed
+  - apps/web/src/components/AvatarUpload.tsx — dispatch event + cache-bust, invoke optional callback
+  - apps/web/src/components/ProfileMenu.tsx — show avatar image, listen for event, link to `/profile`
+  - apps/web/src/components/ProfileMenu.test.tsx — avatar-updated event test (act-wrapped)
+  - apps/web/src/components/AvatarUpload.test.tsx — new component tests
+  - apps/web/vitest.config.ts — removed `AvatarUpload.tsx` from coverage exclude list
+  - apps/web/test/setup.ts — stub `URL.createObjectURL` for jsdom
+  - SnapshotArchitecture.md — added UPROF‑07 entry to "What’s new"
+
+- Quality gates
+  - Web tests: PASS (122/122) with no unhandled errors; cache-bust event path verified.
+  - Coverage: Overall lines ~84%; AvatarUpload ~90.4%; thresholds satisfied.
+
+- Notes
+  - Remaining UPROF‑09 will introduce MinIO/S3 provider; event-driven UI requires no further changes. Consider lifting profile page coverage exclusion once page-level SSR tests are added.
+
   - “To proceed, open this link: Accept invite. If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.”
+
 - Files changed: `apps/api/App/Endpoints/V1.cs` (invite + resend email bodies)
 
 - Summary
