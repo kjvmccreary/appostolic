@@ -1,3 +1,9 @@
+### 2025-09-16 — Living Checklist seeded and process docs updated
+
+- Seeded `devInfo/LivingChecklist.md` with a 1.0 readiness checklist, global quality gates, and post‑1.0 parking lot.
+- Updated `AGENTS.md` and `.github/copilot-instructions.md` to require updating the Living Checklist at story/sprint close alongside `SnapshotArchitecture.md` and `devInfo/storyLog.md`.
+- Purpose: Establish a durable, team‑maintained checklist to track 1.0 readiness and reduce drift between specs and implementation.
+
 ## 2025-09-16 — Invites — Fix: Resend/Revoke double-encoding — ✅ DONE
 
 - Summary

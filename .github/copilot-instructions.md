@@ -11,6 +11,11 @@ These instructions complement `AGENTS.md` and nested `AGENTS.md` files.
 - Mark sprint stories ✅ DONE when completed.
 - Add code comments above new methods/controllers/functions (especially complex blocks).
 
+### Living Checklist
+
+- Maintain the live 1.0 readiness checklist at `devInfo/LivingChecklist.md`.
+- On story/sprint closure, update the checklist (tick items, add notes/links, or move to Post‑1.0), update `SnapshotArchitecture.md`, append to `devInfo/storyLog.md`, then commit and sync.
+
 ## Nested scopes
 
 - API (`apps/api/AGENTS.md`): migrations, auditing & guards, EF compatibility, quality gates.
