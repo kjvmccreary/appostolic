@@ -93,98 +93,99 @@ Security & auth
 
 Stories & acceptance criteria
 
-UPROF-01 — EF model & migration for profiles
+## ✅ DONE UPROF-01 — EF model & migration for profiles
 
 - Add `profile jsonb` to users; add `settings jsonb` to tenants.
 - Migration generated with `.Designer.cs`; `make migrate` runs cleanly.
 - SnapshotArchitecture updated (schema + examples).
 
-UPROF-02 — API: GET/PUT `/api/users/me`
+## ✅ DONE UPROF-02 — API: GET/PUT `/api/users/me`
 
 - GET returns current user with `profile` (default empty object).
-- PUT accepts partial updates; merges JSON (server-side merge); validates social URLs; trims strings; enforces reasonable lengths.
-- Tests: unit/integration cover happy path and invalid input (400 with validation errors).
+- PUT accepts partial updates; merges JSON server-side (objects deep-merged; arrays/scalars replace) with normalization (trim strings, validate social URLs; invalid URLs dropped).
+- Implementation guards EF tracking (AsNoTracking + Attach, property-level update) and clones JsonNode assignments to avoid parenting exceptions.
+- Tests: integration tests cover happy path, deep-merge behavior, and invalid body (400). Full API suite PASS (142/142).
 
-UPROF-03 — API: POST `/api/users/me/password`
+## UPROF-03 — API: POST `/api/users/me/password`
 
 - Requires `currentPassword`; returns 204 on success, 400 on invalid current, 422 on weak password.
 - Updates hash, salt, updated_at; writes audit log entry (optional) or trace.
 - Tests: verify verify() path and failure path; ensure no timing leak in error response content.
 
-UPROF-04 — API: POST `/api/users/me/avatar`
+## UPROF-04 — API: POST `/api/users/me/avatar`
 
 - Accepts image; validates type/size; stores in object storage at `users/{userId}/avatar.*`; returns url + dimensions (and key).
 - Overwrites existing avatar reference in profile; does not delete old files in MVP.
 - Tests: mock IFormFile and validate response metadata.
 
-UPROF-05 — Web: `/profile` page (info + social)
+## UPROF-05 — Web: `/profile` page (info + social)
 
 - Server-first route; fetches via internal proxy; pre-fills form from `profile`.
 - Fields: Display name, First, Last, Phone, Timezone, Locale; Social links; Avatar preview.
 - Save performs PUT `/api-proxy/users/me` and updates UI; success toast; errors inline with role=alert.
 - Tests: rendering with initial data, submit success, client validation for URL format.
 
-UPROF-06 — Web: `/profile` guardrails & preferences
+## UPROF-06 — Web: `/profile` guardrails & preferences
 
 - Section: Denomination Alignment (text/select), Favorite Authors (chips), Favorite Books (chips), Notes (textarea), Preferred lesson format (select).
 - Save merges into existing profile; preserved on reload.
 - Tests: chip add/remove logic; merging behavior; a11y labels present.
 
-UPROF-07 — Web: Avatar upload
+## UPROF-07 — Web: Avatar upload
 
 - File input accepts jpg/png/webp; preview prior to upload; upload via `/api-proxy/users/me/avatar`.
 - On success, avatar in TopBar/ProfileMenu updates (client cache busting by query param timestamp).
 - Tests: mock upload path; verify preview and form reset.
 
-UPROF-08 — Web: Change password
+## UPROF-08 — Web: Change password
 
 - Form fields: Current password, New password, Confirm new password; minimal strength meter.
 - POST to `/api-proxy/users/me/password`; success toast; on 400 show error under Current password.
 - Tests: validation, error mapping, happy path; ensure no logging of secret inputs.
 
-TEN-01 — API: GET/PUT `/api/tenants/settings` (TenantAdmin)
+## TEN-01 — API: GET/PUT `/api/tenants/settings` (TenantAdmin)
 
 - GET returns current tenant `settings` (default empty object).
 - PUT merges JSON; validates URLs; requires TenantAdmin.
 - Tests: role guard enforced; happy path update.
 
-TEN-02 — API: POST `/api/tenants/logo` (TenantAdmin)
+## TEN-02 — API: POST `/api/tenants/logo` (TenantAdmin)
 
 - Upload and store tenant logo in object storage at `tenants/{tenantId}/logo.*`; return url + dimensions (and key).
 - Tests: content type/size enforced; success path.
 
-TEN-03 — Web: `/studio/admin/settings` page
+## TEN-03 — Web: `/studio/admin/settings` page
 
 - Server-first; visible only to TenantAdmin; shows Tenant display name, contact email/website, social links, logo upload.
 - Save integrates with proxy endpoints; success toast; a11y intact.
 - Tests: Admin gating in nav and direct route; form submit success; logo preview + upload.
 
-TEN-04 — Wire ProfileMenu → `/profile`
+## TEN-04 — Wire ProfileMenu → `/profile`
 
 - Add Profile link to existing ProfileMenu; ensure focus management and restore behavior preserved.
 - Tests: TopBar snapshot updated; link present for all signed-in users.
 
-UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
+## UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
 
 - Implement storage abstraction service in API using `AWSSDK.S3` or `Minio` client.
 - Configure `.env`/appsettings: endpoint, region, access keys, bucket. In dev, use MinIO from docker compose.
 - Add helper to generate signed URLs (time-limited) or return public URLs in dev.
 - Tests: unit test storage service with MinIO test container or local dev; mock for API route tests.
 
-UPROF-10 — Rich profile bio editor & sanitization
+## UPROF-10 — Rich profile bio editor & sanitization
 
 - Web: integrate a lightweight editor (e.g., textarea with Markdown preview, or minimal rich text) consistent with UI tokens.
 - API: accept `bio` in profile; sanitize to HTML for read; store Markdown in `profile.bio.content`.
 - Tests: XSS injection attempts are stripped; round-trip preserves intended formatting.
 
-UPROF-11 — Denomination presets library
+## UPROF-11 — Denomination presets library
 
 - Provide a curated JSON list of denomination presets (id, name, notes) under `apps/api/App/Data/denominations.json` or seeded in DB.
 - API: GET `/api/metadata/denominations` returns the list.
 - Web: Profile guardrails exposes a preset select; selecting a preset sets `presets.denomination` and optionally pre-fills `guardrails.denominationAlignment`.
 - Tests: endpoint returns list; UI selection persists in profile.
 
-UPROF-12 — PII hashing & redaction
+## UPROF-12 — PII hashing & redaction
 
 - Add a `PIIHasher` utility (SHA-256 + pepper) for hashing emails/phones when emitting metrics/logs.
 - Update logging/tracing filters to redact raw PII; include only hashed derivatives when necessary.

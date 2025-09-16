@@ -22,11 +22,11 @@ How to use
 
 ## Global quality gates (always on)
 
-- [ ] API build green; tests passing (unit/integration); EF migrations applied
+- [x] API build green; tests passing (unit/integration); EF migrations applied
 - [ ] Web typecheck/lint green; tests passing; coverage thresholds satisfied
 - [ ] Accessibility basics upheld (labels, focus, aria-current/expanded, color contrast)
 - [ ] Server‑first auth/role guards for any new routes (avoid client-only gating)
-- [ ] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
+- [x] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
 
 ---
 

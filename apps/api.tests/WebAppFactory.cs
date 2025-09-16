@@ -22,17 +22,17 @@ public class WebAppFactory : WebApplicationFactory<Program>
         {
             // Option 1: keep real Npgsql but isolate by transaction/cleanup (not implemented here).
             // Option 2: swap DB to InMemory for fast/safe tests.
-            var dbDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-            if (dbDescriptor != null)
+            // Remove any existing AppDbContext registrations (options + context) so we can swap to InMemory
+            var dbDescriptors = services
+                .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>) || d.ServiceType == typeof(AppDbContext))
+                .ToList();
+            foreach (var d in dbDescriptors)
             {
-                services.Remove(dbDescriptor);
+                services.Remove(d);
             }
 
-            services.AddDbContext<AppDbContext>(opts =>
-            {
-                // Use a unique in-memory database per factory instance to avoid cross-test interference
-                opts.UseInMemoryDatabase(_dbName);
-            });
+            // Use a unique in-memory database per factory instance to avoid cross-test interference
+            services.AddDbContext<AppDbContext>(opts => opts.UseInMemoryDatabase(_dbName));
 
             // Remove background AgentTaskWorker to avoid flakiness in tests
             var hostedToRemove = services.Where(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType != null && d.ImplementationType.Name.Contains("AgentTaskWorker")).ToList();

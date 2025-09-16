@@ -398,6 +398,26 @@
 - Added POST /api/dev/grant-roles to quickly assign granular roles by tenant (id or slug); auto-creates users/memberships when needed.
 - Fixed routing 404s by removing environment-gated mapping; later added an internal guard requiring header x-dev-grant-key when configuration Dev:GrantRolesKey is set.
 - Resolved EF tracking issues by making Membership.Roles mutable and centralizing changes via ApplyRoleChange, which emits an Audit (OldRoles/NewRoles/ChangedAt).
+
+## 2025-09-16 — UPROF-02: API — GET/PUT /api/users/me — ✅ DONE
+
+- Summary
+  - Added current user profile endpoints: GET returns `{ id, email, profile }`; PUT performs a server-side deep merge into `users.profile` with normalization (trim strings) and basic social URL validation (invalid URLs dropped). Explicit nulls are allowed to clear fields. Implementation uses `AsNoTracking + Attach` with property-level modification to avoid double-tracking immutable records and clones `JsonNode` assignments to prevent "node already has a parent" exceptions when merging.
+
+- Files changed
+  - apps/api/App/Endpoints/UserProfileEndpoints.cs — new endpoints; deep-merge + normalization; EF-safe update.
+  - apps/api/Program.cs — provider-aware `JsonDocument` converters for EF InMemory to support tests; route mapping.
+  - apps/api.tests/Api/UserProfileEndpointsTests.cs — integration tests: GET me, PUT merge/trim/URL validate, reject non-object body.
+  - apps/api.tests/WebAppFactory.cs — use `AppDbContext` with InMemory provider; remove custom TestAppDbContext registration; disable hosted services for deterministic tests.
+
+- Quality gates
+  - Build: PASS
+  - Tests: PASS — API suite 142/142
+  - Lint/Typecheck: N/A for API; no new warnings beyond existing SYSLIB0053 in notifications code (unrelated)
+
+- Notes / follow-ups
+  - Consider removing the unused `TestUtilities/TestAppDbContext.cs` to reduce confusion.
+  - Next: UPROF-03 (password change) and UPROF-04 (avatar upload + storage abstraction).
 - Integrated auditing into the dev endpoint; cleaned temporary diagnostics.
 - Tests: full API suite green; added explicit test validating audit write on role update.
 - Documentation updated in SnapshotArchitecture to reflect endpoint, guard, and roles/audit model.

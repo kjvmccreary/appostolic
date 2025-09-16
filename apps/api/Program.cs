@@ -387,6 +387,7 @@ app.MapNotificationsAdminEndpoints();
 app.MapAgentTasksEndpoints();
 app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();
+app.MapUserProfileEndpoints();
 
 app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
 {
@@ -600,7 +601,23 @@ public partial class AppDbContext : DbContext
 
         // Apply configurations for domain types (Agent runtime)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Test support: EF InMemory provider cannot map JsonDocument; apply converters when detected
+        // Provider name for InMemory: "Microsoft.EntityFrameworkCore.InMemory"
+        if (Database.ProviderName != null && Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase))
+        {
+            // Use string storage for JsonDocument properties under InMemory via helper methods
+            System.Linq.Expressions.Expression<Func<JsonDocument?, string?>> toString = v => SerializeNullable(v);
+            System.Linq.Expressions.Expression<Func<string?, JsonDocument?>> toJson = s => ParseNullable(s);
+            var converter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<JsonDocument?, string?>(toString, toJson);
+
+            modelBuilder.Entity<Tenant>().Property(x => x.Settings).HasConversion(converter);
+            modelBuilder.Entity<User>().Property(x => x.Profile).HasConversion(converter);
+        }
     }
+
+    private static string? SerializeNullable(JsonDocument? doc) => doc == null ? null : doc.RootElement.GetRawText();
+    private static JsonDocument? ParseNullable(string? s) => s == null ? null : JsonDocument.Parse(s);
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<User> Users => Set<User>();

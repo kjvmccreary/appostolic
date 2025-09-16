@@ -4,6 +4,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- User Profile — UPROF‑02: GET/PUT /api/users/me (2025-09-16)
+  - API: Implemented current user profile endpoints. PUT performs a server-side deep merge into `users.profile` (objects merged; arrays/scalars replace) with normalization (trim strings) and basic social URL validation (invalid URLs dropped). EF update uses AsNoTracking + Attach with property-level modification to avoid double-tracking record types. Tests added; full API suite PASS (142/142).
+  - Testing: Introduced provider-aware `JsonDocument` converters for EF InMemory in Program startup to enable reliable JsonB-like behavior under tests.
+
 - Auth — Root route auth gate (2025-09-16)
   - Web: The root page (`/app/page.tsx`) is now a server-only redirector. Unauthenticated users are redirected to `/login`; authenticated users are redirected to `/studio` (which further redirects to `/studio/agents`). This prevents the dashboard UI from rendering to unauthenticated users. A unit test was updated to assert redirect behavior by mocking `next-auth` and `next/navigation`.
 - Auth — Signup page styling (2025-09-16)
