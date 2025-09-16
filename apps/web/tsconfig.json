@@ -12,7 +12,11 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "next-env.d.ts",

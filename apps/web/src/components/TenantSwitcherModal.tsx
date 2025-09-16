@@ -104,7 +104,11 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
 
   const modal = (
     <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/40" onClick={onBackdrop} />
+      <div
+        className="absolute inset-0 bg-black/40"
+        data-testid="tenant-switcher-backdrop"
+        onClick={onBackdrop}
+      />
       <div className="relative h-full w-full p-4 flex items-center justify-center overflow-y-auto">
         <div
           role="dialog"

@@ -86,7 +86,7 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('/studio/agents');
+      expect(replaceMock).toHaveBeenCalledWith('/select-tenant?next=%2Fstudio%2Fagents');
     });
   });
 

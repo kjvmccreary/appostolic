@@ -35,7 +35,7 @@ export default function EmailField({ id = 'invite-email', name, placeholder }: P
         required
         onBlur={onBlur}
         onInput={onInput}
-        aria-invalid={invalid ? 'true' : 'false'}
+        aria-invalid={invalid ? 'true' : undefined}
         aria-describedby={invalid ? `${id}-error` : undefined}
         className={
           'h-8 w-full rounded-md border border-line bg-[var(--color-surface-raised)] px-2 text-sm ' +

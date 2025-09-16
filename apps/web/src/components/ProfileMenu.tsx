@@ -62,7 +62,7 @@ export function ProfileMenu() {
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-[var(--color-surface-raised)] focus-ring"
         aria-label="Account"
         aria-haspopup="menu"
-        aria-expanded={open}
+        aria-expanded={open ? 'true' : 'false'}
         onClick={onToggle}
         title="Account"
       >
