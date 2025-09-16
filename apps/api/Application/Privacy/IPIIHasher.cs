@@ -14,7 +14,7 @@ public interface IPIIHasher
     string HashPhone(string? phone);
 }
 
-internal sealed class Sha256PIIHasher : IPIIHasher
+public sealed class Sha256PIIHasher : IPIIHasher
 {
     private readonly string _pepper;
 
@@ -34,13 +34,10 @@ internal sealed class Sha256PIIHasher : IPIIHasher
     public string HashPhone(string? phone)
     {
         if (string.IsNullOrWhiteSpace(phone)) return string.Empty;
-        // Basic normalization: strip non-digits, keep leading + if present; future: libphonenumber
-        var trimmed = phone.Trim();
-        var plus = trimmed.StartsWith("+");
-        var digits = new string(trimmed.Where(char.IsDigit).ToArray());
+        // Basic normalization: strip non-digits and ignore leading plus for consistency across formats.
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
         if (string.IsNullOrEmpty(digits)) return string.Empty;
-        var norm = plus ? "+" + digits : digits; // naive E.164-ish normalization
-        return Compute(norm);
+        return Compute(digits);
     }
 
     private string Compute(string normalized)
