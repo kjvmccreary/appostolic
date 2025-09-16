@@ -118,6 +118,22 @@
   - Notes
   - Future improvement: add an `.nvmrc` or Volta pin to enforce version automatically; optionally fail early in a pretest script if `process.version` < 20.
 
+  ## 2025-09-16 — UPROF-12G: PII hashing & redaction tests — ✅ DONE
+  - Summary
+    - Completed privacy test coverage for PII hashing/redaction: added unit tests for `Sha256PIIHasher` (determinism, pepper variance, normalization) and `PIIRedactor` edge cases plus logging scope behavior (hash included/excluded by toggle). Added integration logging tests (`UserProfileLoggingTests`) asserting `GET /api/users/me` emits only redacted email plus hash when enabled and never the raw email. All privacy sub-stories 12A–12G now complete; full API test suite passes 175/175.
+  - Files changed
+    - `apps/api.tests/Privacy/LoggingPIIScopeTests.cs` — scope unit tests for email/phone hashing toggle.
+    - `apps/api.tests/Privacy/UserProfileLoggingTests.cs` — integration tests capturing structured logging scopes for user profile endpoint.
+    - `devInfo/TenantAndUserProfile.md/uProfSprintPlan.md` — marked UPROF‑12G done.
+    - `SnapshotArchitecture.md` — updated What's New (12A–12G complete, OTEL enrichment pending 12I).
+  - Quality gates
+    - Build: PASS
+    - Tests: PASS (175/175)
+    - Docs: Sprint plan & architecture snapshot updated; LivingChecklist privacy/observability items remain accurate.
+  - Next
+    - UPROF‑12H: Documentation consolidation (already partially updated) and LivingChecklist tick confirmation.
+    - UPROF‑12I: Optional OTEL span attribute enrichment behind config flag.
+
   ## 2025-09-16 — UPROF-12 (A–E): PII hashing & redaction foundation — ✅ PARTIAL
   - Summary
     - Implemented privacy configuration and core utilities for PII hashing & redaction. Added `PrivacyOptions` (pepper + enable flag), `IPIIHasher` with `Sha256PIIHasher` (email lowercase+trim; phone digits-only), unified `PIIRedactor` (email + phone) and deprecated legacy `EmailRedactor` (now delegates). Introduced `LoggingPIIScope` helper to attach structured redacted/hashed fields without emitting raw PII. Updated notification senders and hosted services to use `PIIRedactor`. Unit tests added for hashing determinism, pepper variance, normalization, and redaction edge cases; all passing.

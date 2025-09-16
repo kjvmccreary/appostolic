@@ -87,6 +87,7 @@ How to use
 ### Observability & Audit
 
 - [x] OTel traces/metrics and structured logs with privacy gates
+- [x] PII hashing & redaction (UPROF-12A–12G) — logging scopes & tests (175/175) complete; OTEL span enrichment planned (12I)
 - [x] Tenant audit ledger (e.g., membership role changes) with admin UI
 - [ ] Admin dashboards for ops — ➕ Post‑1.0
 
