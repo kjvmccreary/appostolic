@@ -167,6 +167,12 @@
   - Existing users invited to another tenant are navigated to Login (not Signup): Done
   - New users can still create accounts with invite token: Done
 
+### 2025-09-16 — Invites email copy updated
+
+- Clarified email instructions for invite acceptance. Email now says:
+  - “To proceed, open this link: Accept invite. If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.”
+- Files changed: `apps/api/App/Endpoints/V1.cs` (invite + resend email bodies)
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 
