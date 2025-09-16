@@ -538,7 +538,7 @@ public static class V1
                 msg.From = new MailAddress(from);
                 msg.To.Add(new MailAddress(email));
                 msg.Subject = $"You're invited to join tenant {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
-                var signupUrl = $"http://localhost:3000/signup?invite={token}";
+                var signupUrl = $"http://localhost:3000/invite/accept?token={token}";
                 msg.IsBodyHtml = true;
                 msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{role}</b>.</p><p>Click <a href='{signupUrl}'>Accept invite</a> to continue.</p><p>This invite expires at {expiresAt:u}.</p>";
                 await client.SendMailAsync(msg);
@@ -623,7 +623,7 @@ public static class V1
                 msg.From = new MailAddress(from);
                 msg.To.Add(new MailAddress(invite.Email));
                 msg.Subject = $"Your invite was re-sent for {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
-                var signupUrl = $"http://localhost:3000/signup?invite={invite.Token}";
+                var signupUrl = $"http://localhost:3000/invite/accept?token={invite.Token}";
                 msg.IsBodyHtml = true;
                 msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{invite.Role}</b>.</p><p>Click <a href='{signupUrl}'>Accept invite</a> to continue.</p><p>This invite expires at {invite.ExpiresAt:u}.</p>";
                 await client.SendMailAsync(msg);

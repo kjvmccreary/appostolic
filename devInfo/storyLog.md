@@ -149,6 +149,24 @@
   - Accepted invites show as Accepted and hide actions: Done
   - Fix import path error blocking build: Done
 
+## 2025-09-16 — Invites: existing users redirected to Login — ✅ DONE
+
+- Summary
+  - Fixed invite workflow for cross-tenant invitations. Previously, invite emails linked to `/signup?invite=...`, which took existing users to “Create your account.” Now, emails link to `/invite/accept?token=...`. The accept page already redirects unauthenticated users to `/login?next=/invite/accept?token=...`, so existing users will authenticate and then accept the invite, while brand-new users can still sign up from the login page if needed.
+  - Added a small hint to the Signup page: when an invite token is present in the URL, it shows a banner suggesting existing users log in to accept the invite, linking to the correct login flow.
+
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — invite and resend email links now point to `/invite/accept?token=...` instead of `/signup?invite=...`.
+  - apps/web/app/signup/SignupClient.tsx — shows “Already have an account? Log in to accept your invite.” banner when invite token present, linking to `/login?next=/invite/accept?token=...`.
+
+- Quality gates
+  - Typecheck (workspace): PASS
+  - Tests: Deferred; behavior validated by code path review. E2E can be added to ensure correct redirect chain.
+
+- Requirements coverage
+  - Existing users invited to another tenant are navigated to Login (not Signup): Done
+  - New users can still create accounts with invite token: Done
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 

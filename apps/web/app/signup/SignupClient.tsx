@@ -66,6 +66,18 @@ export default function SignupClient() {
   return (
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold mb-4">Create your account</h1>
+      {inviteToken && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          Already have an account?{' '}
+          <a
+            className="underline"
+            href={`/login?next=${encodeURIComponent(`/invite/accept?token=${encodeURIComponent(inviteToken)}`)}`}
+          >
+            Log in
+          </a>{' '}
+          to accept your invite.
+        </div>
+      )}
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <label htmlFor="email">Email</label>
         <input
