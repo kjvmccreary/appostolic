@@ -149,37 +149,15 @@ Stories & acceptance criteria
 - On success, avatar in TopBar/ProfileMenu updates (client cache busting by query param timestamp).
 - Tests: mock upload path; verify preview and form reset.
 
-## UPROF-08 — Web: Change password
+## ✅ DONE UPROF-08 — Web: Change password
 
-- Form fields: Current password, New password, Confirm new password; minimal strength meter.
-- POST to `/api-proxy/users/me/password`; success toast; on 400 show error under Current password.
-- Tests: validation, error mapping, happy path; ensure no logging of secret inputs.
-
-## ✅ DONE TEN-01 — API: GET/PUT `/api/tenants/settings` (TenantAdmin)
-
-- Implemented `GET /api/tenants/settings` returning `{ id, name, settings }` with empty object fallback.
-- Implemented `PUT /api/tenants/settings` using deep merge semantics (objects merge; arrays/primitives replace; explicit null clears) mirroring user profile behavior.
-- Guarded by `TenantAdmin`; validates caller `tenant_id` claim to prevent cross-tenant access.
-- Tests: Integration tests cover empty default, merge preservation, size/shape stability.
-- Deferred: Field-level validation (URLs/emails), UI page (TEN-03), schema enforcement.
-
-## ✅ DONE TEN-02 — API: POST/DELETE `/api/tenants/logo` (TenantAdmin)
-
-- `POST /api/tenants/logo` (multipart) validates mime (png/jpeg/webp) + size (<=2MB), stores at `tenants/{tenantId}/logo.*`, updates `settings.branding.logo = { url, key, mime }`.
-- `DELETE /api/tenants/logo` removes logo metadata and best-effort deletes previous object (errors swallowed until background cleanup job exists).
-- Tests: cover success, 415 unsupported media type, 413 payload too large, delete path (logo removed), settings integrity.
-- Deferred: Image dimensions (width/height), signed URLs (public URLs now), variant generation, retention policies.
-
-## TEN-03 — Web: `/studio/admin/settings` page
-
-- Server-first; visible only to TenantAdmin; shows Tenant display name, contact email/website, social links, logo upload.
-- Save integrates with proxy endpoints; success toast; a11y intact.
-- Tests: Admin gating in nav and direct route; form submit success; logo preview + upload.
-
-## TEN-04 — Wire ProfileMenu → `/profile`
-
-- Add Profile link to existing ProfileMenu; ensure focus management and restore behavior preserved.
-- Tests: TopBar snapshot updated; link present for all signed-in users.
+- Added enhanced change password form at `/change-password` using new proxy route `/api-proxy/users/me/password` (aligns with backend user endpoint).
+- Fields: current password, new password, confirm new password; client strength meter (length, upper, lower, digit, symbol heuristics) + accessible live region.
+- Client validation blocks submit for: weak password (<8 or missing letter/digit), mismatch confirmation.
+- Server response mapping: 204 success (form reset + status message), 400 incorrect current, 422 server-deemed weak, 401 unauthorized, generic fallback for others.
+- Accessibility: labels with `htmlFor`, status/alert regions, aria-live strength hint, disabled state while submitting.
+- Tests: weak password blocked (no fetch call), mismatch confirm blocked, success path triggers fetch to new route, 400 maps to error alert.
+- Deferred: Password strength library / zxcvbn integration, password reveal toggle, rate-limit UI messaging.
 
 ## ✅ DONE UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
 
