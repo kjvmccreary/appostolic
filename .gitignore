@@ -49,6 +49,9 @@ android/app/build/
 .next/
 out/
 
+# Generated static output for tests/dev media
+**/web.out/
+
 # Test coverage
 coverage/
 apps/web/coverage/

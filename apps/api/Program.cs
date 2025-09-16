@@ -23,6 +23,8 @@ using Appostolic.Api.App.Notifications;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using Appostolic.Api.Application.Storage;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -158,6 +160,10 @@ builder.Services.AddNotificationsRuntime(builder.Configuration, builder.Environm
 
 // Auth: password hasher
 builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, Appostolic.Api.Application.Auth.Argon2PasswordHasher>();
+
+// Storage: local file storage for Development/Test; options allow overriding base path
+builder.Services.Configure<LocalFileStorageOptions>(builder.Configuration.GetSection("Storage:Local"));
+builder.Services.AddSingleton<IObjectStorageService, LocalFileStorageService>();
 
 // Orchestration services
 builder.Services.AddScoped<ITraceWriter, Appostolic.Api.Application.Agents.Runtime.TraceWriter>();
@@ -318,6 +324,15 @@ app.Use(async (context, next) =>
     }
 
     await next();
+});
+
+// Static files for media (avatars/logos) under /media
+var mediaBase = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "web.out", "media");
+Directory.CreateDirectory(mediaBase);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(mediaBase),
+    RequestPath = "/media"
 });
 
 // Uniform 403 responses (both policy and manual Results.Forbid) as RFC7807 problem+json

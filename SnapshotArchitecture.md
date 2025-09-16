@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- User Profile — UPROF‑04: POST /api/users/me/avatar (2025-09-16)
+  - API: Added avatar upload endpoint that accepts multipart/form-data, validates image type (png/jpeg/webp) and size (<=2MB), stores via a new storage abstraction `IObjectStorageService` with a local filesystem implementation. Files are saved under `users/{userId}/avatar.*` and exposed through static file hosting at `/media/*`. The endpoint updates `users.profile.avatar` to `{ url, key, mime }` and returns the avatar metadata.
+  - Runtime wiring: Registered `IObjectStorageService` → `LocalFileStorageService` in `Program.cs` and added static file mapping for `/media` pointing at `apps/web/web.out/media` by default. This provides stable relative URLs in dev/test without external object storage.
+  - Testing: Integration tests cover success (200), unsupported media type (415), and payload too large (413). Full API suite PASS (148/148).
+
 - User Profile — UPROF‑02: GET/PUT /api/users/me (2025-09-16)
   - API: Implemented current user profile endpoints. PUT performs a server-side deep merge into `users.profile` (objects merged; arrays/scalars replace) with normalization (trim strings) and basic social URL validation (invalid URLs dropped). EF update uses AsNoTracking + Attach with property-level modification to avoid double-tracking record types. Tests added; full API suite PASS (142/142).
   - Testing: Introduced provider-aware `JsonDocument` converters for EF InMemory in Program startup to enable reliable JsonB-like behavior under tests.

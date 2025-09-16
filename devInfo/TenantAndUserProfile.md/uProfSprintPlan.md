@@ -115,11 +115,14 @@ Stories & acceptance criteria
 - Telemetry: Traces success/failure without leaking secrets.
 - Tests: Integration tests cover success (204), wrong current (400), and weak password (422). Full API suite PASS (145/145).
 
-## UPROF-04 — API: POST `/api/users/me/avatar`
+## ✅ DONE UPROF-04 — API: POST `/api/users/me/avatar`
 
-- Accepts image; validates type/size; stores in object storage at `users/{userId}/avatar.*`; returns url + dimensions (and key).
-- Overwrites existing avatar reference in profile; does not delete old files in MVP.
-- Tests: mock IFormFile and validate response metadata.
+- Implemented avatar upload endpoint accepting multipart/form-data. Validates content type (png/jpeg/webp) and size (<= 2MB).
+- Introduced storage abstraction `IObjectStorageService` with a local filesystem implementation `LocalFileStorageService` (configurable base path). Files are written under `users/{userId}/avatar.*` and served via static files at `/media/*`.
+- Program wiring: registers `IObjectStorageService` → `LocalFileStorageService` and maps a `PhysicalFileProvider` for `/media` pointing at `apps/web/web.out/media` by default. Returns a stable, relative URL (e.g., `/media/users/<id>/avatar.png`) and MIME in API response.
+- Persistence: updates `profile.avatar` to `{ url, key, mime }`, replacing any existing avatar reference (old files not deleted in MVP).
+- Notes: width/height metadata is deferred for now to avoid adding image processing; plan to add lightweight dimension read later.
+- Tests: integration tests cover success (PNG under 2MB → 200 with url+mime), unsupported type (415), and too-large payload (413). Targeted and full API suites pass.
 
 ## UPROF-05 — Web: `/profile` page (info + social)
 

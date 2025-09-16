@@ -125,4 +125,4 @@ How to use
 - UI Builder / Dynamic Forms
 - Advanced compliance & policy (exports/erasure)
 
-— Last updated: 2025‑09‑16
+— Last updated: 2025‑09‑16 (post UPROF‑04)

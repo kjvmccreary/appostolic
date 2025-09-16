@@ -52,6 +52,27 @@
   - Strength rules are intentionally minimal for MVP; follow-up may add a configurable policy (length/classes/deny list) and rate-limit per user/tenant.
   - No user-facing audit record yet; telemetry trace provides operational visibility. Consider adding an audit ledger entry post‑1.0 if required.
 
+## 2025-09-16 — UPROF-04: Avatar upload endpoint + local storage — ✅ DONE
+
+- Summary
+  - Implemented POST `/api/users/me/avatar` to upload and attach a user avatar. Validates content type (png/jpeg/webp) and max size (2MB), stores the file via a new storage abstraction, and updates `users.profile.avatar` with `{ url, key, mime }`. Returns 200 with the avatar metadata.
+  - Introduced `IObjectStorageService` and a dev/test `LocalFileStorageService` that writes under a configurable base path and serves files through `/media/*` static hosting. This provides stable relative URLs in dev without external dependencies.
+
+- Files changed
+  - apps/api/App/Endpoints/UserProfileEndpoints.cs — added POST `/api/users/me/avatar` with validation and profile update.
+  - apps/api/Application/Storage/IObjectStorageService.cs — new storage interface.
+  - apps/api/Application/Storage/LocalFileStorageService.cs — local filesystem implementation with configurable base path and relative URL generation.
+  - apps/api/Program.cs — DI registration for storage and static file hosting for `/media` using `PhysicalFileProvider`.
+  - apps/api.tests/Api/UserAvatarEndpointsTests.cs — new integration tests: success (png), 415 unsupported type, 413 too large.
+
+- Quality gates
+  - Build (API): PASS
+  - Tests (API): PASS — targeted avatar tests PASS (3/3); full API suite PASS (148/148)
+  - Docs: Sprint plan marked DONE for UPROF‑04; SnapshotArchitecture “What’s new” updated; LivingChecklist remains accurate.
+
+- Notes
+  - Old avatar files are not deleted in MVP; replacement updates the profile reference only. Dimensions are deferred; lightweight metadata extraction can be added later without breaking the contract.
+
 ## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
 
 - Summary
