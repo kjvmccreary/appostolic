@@ -731,23 +731,44 @@ public static class V1
             }
             else
             {
-                await using var tx = await db.Database.BeginTransactionAsync();
-                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                var replacement = new Membership
+                // If middleware already opened a tenant-scoped transaction, reuse it to avoid nesting
+                if (db.Database.CurrentTransaction is not null)
                 {
-                    Id = target.Id,
-                    TenantId = target.TenantId,
-                    UserId = target.UserId,
-                    Role = newRole,
-                    Status = target.Status,
-                    CreatedAt = target.CreatedAt
-                };
-                db.Memberships.Remove(target);
-                await db.SaveChangesAsync();
-                db.Memberships.Add(replacement);
-                await db.SaveChangesAsync();
-                await tx.CommitAsync();
-                return Results.NoContent();
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = newRole,
+                        Status = target.Status,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
+                    return Results.NoContent();
+                }
+                else
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = newRole,
+                        Status = target.Status,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    return Results.NoContent();
+                }
             }
         }).RequireAuthorization("TenantAdmin");
 
@@ -793,12 +814,21 @@ public static class V1
             }
             else
             {
-                await using var tx = await db.Database.BeginTransactionAsync();
-                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                db.Memberships.Remove(target);
-                await db.SaveChangesAsync();
-                await tx.CommitAsync();
-                return Results.NoContent();
+                if (db.Database.CurrentTransaction is not null)
+                {
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    return Results.NoContent();
+                }
+                else
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    return Results.NoContent();
+                }
             }
         }).RequireAuthorization("TenantAdmin");
 
@@ -996,41 +1026,79 @@ public static class V1
             }
             else
             {
-                await using var tx = await db.Database.BeginTransactionAsync();
-                await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                var replacement = new Membership
+                if (db.Database.CurrentTransaction is not null)
                 {
-                    Id = target.Id,
-                    TenantId = target.TenantId,
-                    UserId = target.UserId,
-                    Role = target.Role,
-                    Roles = newFlags,
-                    Status = target.Status,
-                    CreatedAt = target.CreatedAt
-                };
-                db.Memberships.Remove(target);
-                await db.SaveChangesAsync();
-                db.Memberships.Add(replacement);
-                await db.SaveChangesAsync();
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = target.Role,
+                        Roles = newFlags,
+                        Status = target.Status,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
 
-                // Audit: record roles change within same transaction
-                Guid? changedByUserId = null;
-                var changedByStr = user.FindFirstValue("sub");
-                if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
-                var changedByEmail = user.FindFirstValue("email");
-                db.Audits.Add(new Audit
+                    // Audit: record roles change within ambient transaction
+                    Guid? changedByUserId = null;
+                    var changedByStr = user.FindFirstValue("sub");
+                    if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
+                    var changedByEmail = user.FindFirstValue("email");
+                    db.Audits.Add(new Audit
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        UserId = replacement.UserId,
+                        ChangedByUserId = changedByUserId,
+                        ChangedByEmail = changedByEmail,
+                        OldRoles = target.Roles,
+                        NewRoles = newFlags,
+                        ChangedAt = DateTime.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                }
+                else
                 {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenantId,
-                    UserId = replacement.UserId,
-                    ChangedByUserId = changedByUserId,
-                    ChangedByEmail = changedByEmail,
-                    OldRoles = target.Roles,
-                    NewRoles = newFlags,
-                    ChangedAt = DateTime.UtcNow
-                });
-                await db.SaveChangesAsync();
-                await tx.CommitAsync();
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+                    var replacement = new Membership
+                    {
+                        Id = target.Id,
+                        TenantId = target.TenantId,
+                        UserId = target.UserId,
+                        Role = target.Role,
+                        Roles = newFlags,
+                        Status = target.Status,
+                        CreatedAt = target.CreatedAt
+                    };
+                    db.Memberships.Remove(target);
+                    await db.SaveChangesAsync();
+                    db.Memberships.Add(replacement);
+                    await db.SaveChangesAsync();
+
+                    // Audit: record roles change within same transaction
+                    Guid? changedByUserId = null;
+                    var changedByStr = user.FindFirstValue("sub");
+                    if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
+                    var changedByEmail = user.FindFirstValue("email");
+                    db.Audits.Add(new Audit
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        UserId = replacement.UserId,
+                        ChangedByUserId = changedByUserId,
+                        ChangedByEmail = changedByEmail,
+                        OldRoles = target.Roles,
+                        NewRoles = newFlags,
+                        ChangedAt = DateTime.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
             }
 
             // Return updated roles summary (string and numeric) for caller UI reconciliation.

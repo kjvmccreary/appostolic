@@ -48,6 +48,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - `/select-tenant` now validates same-origin `next` and auto-selects when a single membership exists; added tests for safe/unsafe `next` values.
   - Tenant switcher modal shows role badges and hints the last selected tenant from localStorage for quick re-selection; cookie remains authoritative for server reads.
 
+- Web — Various FE cleanup (auth/nav/login)
+  - TopBar hides primary nav when logged out (shows Sign in). Login page styled and now links to Sign up and Magic Link (both preserve `next`). Members page includes an "Invite members" link. Mobile drawer backdrop made more opaque; Tenant Switcher modal alignment improved. Tests updated; full web suite green.
+
 - IAM — Sprint 4.1: Seeds + dev roles utility (Completed)
   - Seeded baseline users with distinct Roles per tenant (Admin, Approver, Creator, Learner) via an idempotent seed that converges memberships and augments Owner composite flags when needed.
   - Added developer utility endpoint `POST /api/dev/grant-roles` that accepts `tenantId` or `tenantSlug`, `email`, and `roles[]` (case-insensitive names). It auto-creates the user if missing, ensures membership, and sets role flags.

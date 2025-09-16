@@ -78,15 +78,19 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
   if (!open) return null;
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:items-center sm:pt-0"
+    >
       <div className="absolute inset-0 bg-black/40" onClick={onBackdrop} />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="absolute left-1/2 top-1/2 w-[min(90vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] p-4 shadow-xl focus:outline-none"
+        className="relative w-[min(90vw,28rem)] max-h-[calc(100vh-6rem)] overflow-hidden rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] p-4 shadow-xl focus:outline-none"
       >
         <h2 className="mb-2 text-base font-semibold">Switch tenant</h2>
-        <ul className="max-h-72 overflow-auto">
+        <ul className="max-h-[calc(100vh-10rem)] overflow-auto">
           {memberships.map((m) => {
             const active = m.tenantSlug === current;
             const hinted = !active && lastSelected && lastSelected === m.tenantSlug;

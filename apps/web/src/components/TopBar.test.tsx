@@ -32,6 +32,7 @@ describe('TopBar', () => {
   });
 
   it('marks the active nav with aria-current', () => {
+    mockSession = { data: { user: { email: 'u@example.com' } } };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/shepherd/step1');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /shepherd/i })).toHaveAttribute('aria-current', 'page');
@@ -39,6 +40,7 @@ describe('TopBar', () => {
   });
 
   it('includes Agents in primary nav and marks it active on /studio/agents', () => {
+    mockSession = { data: { user: { email: 'u@example.com' } } };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/studio/agents');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /agents/i })).toBeInTheDocument();
@@ -58,7 +60,7 @@ describe('TopBar', () => {
   });
 
   it('renders Create Lesson when canCreate', () => {
-    mockSession = { data: { canCreate: true } };
+    mockSession = { data: { user: { email: 'u@example.com' }, canCreate: true } };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /create lesson/i })).toBeInTheDocument();
@@ -71,7 +73,7 @@ describe('TopBar', () => {
     expect(screen.queryByTestId('new-agent')).not.toBeInTheDocument();
 
     // Visible when canCreate
-    mockSession = { data: { canCreate: true } };
+    mockSession = { data: { user: { email: 'u@example.com' }, canCreate: true } };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     expect(screen.getByTestId('new-agent')).toBeInTheDocument();
@@ -106,11 +108,22 @@ describe('TopBar', () => {
   });
 
   it('exposes accessible labels for nav and hamburger', () => {
+    mockSession = { data: { user: { email: 'u@example.com' } } };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     // Hamburger button has clear aria-label
     expect(screen.getByRole('button', { name: /open navigation/i })).toBeInTheDocument();
     // Desktop nav landmark has an accessible name
+    // When unauthenticated, we still render an (empty) desktop nav container for layout
     expect(screen.getByRole('navigation', { name: /main navigation/i })).toBeInTheDocument();
+  });
+
+  it('hides primary nav and shows Sign in when unauthenticated', () => {
+    vi.spyOn(nav, 'usePathname').mockReturnValue('/');
+    render(<TopBar />);
+    // No Agents link
+    expect(screen.queryByRole('link', { name: /agents/i })).not.toBeInTheDocument();
+    // Shows Sign in CTA
+    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
   });
 });

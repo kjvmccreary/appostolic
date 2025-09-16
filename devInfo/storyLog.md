@@ -6,6 +6,13 @@
 - API route `/api/tenant/select` already validates next and sets `selected_tenant` cookie; no changes required beyond tests.
 - Tests: Added cases for safe/unsafe next, ensured modal interaction still posts and updates session.
 
+### 2025-09-15 — Various FE cleanup (auth/nav/login)
+
+- TopBar when logged out now hides primary nav and shows a Sign in button; kept a named nav landmark for a11y. Unified styling between "Create Lesson" and "New Agent" CTAs.
+- Login page styled (title spacing, primary button) and now includes links to Sign up and Magic Link (both preserve `next`). Forgot password link retained. Magic Link request/verify pages use consistent headings and spacing.
+- Members page adds an "Invite members" link. Mobile drawer backdrop made more opaque with slight blur to avoid text overlay in dark mode. Tenant Switcher modal alignment fixed (moved down with internal scrolling).
+- Tests: Extended LoginPage tests for new links. Re-ran full web suite: PASS (39 files, 114 tests). Coverage ~85% lines. MUI license warnings remain non-fatal.
+
 ### 2025-09-15 — Story F: Agents editor form polish
 
 - What: Repaired and enhanced `AgentForm` with accessible labels, helper texts, inline validation, and clear `isEnabled` toggle; preserved tool allowlist hints and token estimate preview.

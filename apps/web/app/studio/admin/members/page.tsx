@@ -93,7 +93,15 @@ export default async function MembersPage() {
       <ClientToasts />
       <div className="mb-4">
         <h1 className="text-xl font-semibold">Members — {mine.tenantSlug}</h1>
-        <p className="text-sm text-muted">Manage tenant roles. Changes apply immediately.</p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="text-sm text-muted">Manage tenant roles. Changes apply immediately.</p>
+          <a
+            href="/studio/admin/invites"
+            className="inline-flex items-center rounded border border-line px-2 py-1 text-sm hover:bg-[var(--color-surface-raised)]"
+          >
+            Invite members
+          </a>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-md border border-[var(--color-line)] bg-[var(--color-surface-raised)]">

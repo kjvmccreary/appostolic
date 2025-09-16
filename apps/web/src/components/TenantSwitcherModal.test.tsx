@@ -84,4 +84,16 @@ describe('TenantSwitcherModal', () => {
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(window.localStorage.getItem('last_selected_tenant')).toBe('t2');
   });
+
+  it('hints the last selected tenant with a dashed border when reopening', () => {
+    // Arrange: last selected is t2, current is t1
+    window.localStorage.setItem('last_selected_tenant', 't2');
+    const { getByRole } = render(<TenantSwitcherModal open onClose={() => {}} />);
+    const hintedBtn = getByRole('button', { name: /t2/i });
+    // The component adds 'border-dashed' class when hinted
+    expect(hintedBtn.className).toContain('border-dashed');
+    // Current tenant (t1) should not be hinted with dashed border
+    const currentBtn = getByRole('button', { name: /t1\s+Current/i });
+    expect(currentBtn.className).not.toContain('border-dashed');
+  });
 });

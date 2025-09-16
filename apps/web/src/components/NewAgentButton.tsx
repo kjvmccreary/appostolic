@@ -10,7 +10,7 @@ export function NewAgentButton() {
   return (
     <Link
       href="/studio/agents/new"
-      className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+      className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
     >
       New Agent
     </Link>

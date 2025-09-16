@@ -95,4 +95,12 @@ describe('LoginPage', () => {
     const link = await screen.findByRole('link', { name: /forgot password/i });
     expect(link).toHaveAttribute('href', '/forgot-password');
   });
+
+  it('includes Sign up and Magic Link links with next param', async () => {
+    render(<LoginPage />);
+    const signup = await screen.findByRole('link', { name: /sign up/i });
+    expect(signup).toHaveAttribute('href', '/signup?next=%2Fstudio%2Fagents');
+    const magic = await screen.findByRole('link', { name: /use magic link/i });
+    expect(magic).toHaveAttribute('href', '/magic/request?next=%2Fstudio%2Fagents');
+  });
 });

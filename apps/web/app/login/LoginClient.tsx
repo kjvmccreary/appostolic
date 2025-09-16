@@ -61,7 +61,7 @@ export default function LoginClient() {
 
   return (
     <main className={styles.container}>
-      <h1>Sign in</h1>
+      <h1 className={styles.title}>Sign in</h1>
       <form onSubmit={onSubmit} className={styles.form}>
         {/* CSRF token hidden field for Auth.js */}
         <input type="hidden" name="csrfToken" value={csrfToken} />
@@ -86,9 +86,15 @@ export default function LoginClient() {
           required
         />
         {error && <p className={styles.error}>{error}</p>}
-        <button type="submit">Sign in</button>
-        <p className={styles.forgotLink}>
+        <button type="submit" className={styles.primaryButton}>
+          Sign in
+        </button>
+        <p className={styles.linksRow}>
           <a href="/forgot-password">Forgot password?</a>
+          <span aria-hidden>·</span>
+          <a href={`/signup?next=${encodeURIComponent(next)}`}>Sign up</a>
+          <span aria-hidden>·</span>
+          <a href={`/magic/request?next=${encodeURIComponent(next)}`}>Use Magic Link</a>
         </p>
       </form>
     </main>

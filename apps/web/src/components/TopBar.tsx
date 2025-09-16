@@ -30,6 +30,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 export function TopBar() {
   // const pathname = usePathname() || '';
   const { data: session } = useSession();
+  const isAuthed = Boolean(
+    (session as unknown as { user?: { email?: string } } | null)?.user?.email,
+  );
   const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
   const isAdmin = Boolean((session as unknown as { isAdmin?: boolean } | null)?.isAdmin);
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
@@ -83,26 +86,41 @@ export function TopBar() {
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>
-        <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <NavLink key={item.href} href={item.href}>
-              {item.label}
-            </NavLink>
-          ))}
-          {isAdmin ? <AdminDropdown /> : null}
-        </nav>
+        {isAuthed ? (
+          <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
+            {navItems.map((item) => (
+              <NavLink key={item.href} href={item.href}>
+                {item.label}
+              </NavLink>
+            ))}
+            {isAdmin ? <AdminDropdown /> : null}
+          </nav>
+        ) : (
+          <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation" />
+        )}
         <div className="ml-auto flex items-center gap-2">
-          {canCreate ? (
+          {isAuthed ? (
+            <>
+              {canCreate ? (
+                <Link
+                  href="/shepherd/step1"
+                  className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
+                >
+                  Create Lesson
+                </Link>
+              ) : null}
+              {/* Creator-only CTA to quickly add an Agent */}
+              {canCreate ? <NewAgentButton /> : null}
+              <ProfileMenu />
+            </>
+          ) : (
             <Link
-              href="/shepherd/step1"
-              className="px-3 py-1 rounded-md text-sm font-medium text-white bg-[var(--color-accent-600)] hover:brightness-110"
+              href="/login"
+              className="px-3 py-1 rounded-md text-sm font-medium border border-line hover:bg-[var(--color-surface-raised)]"
             >
-              Create Lesson
+              Sign in
             </Link>
-          ) : null}
-          {/* Creator-only CTA to quickly add an Agent */}
-          {canCreate ? <NewAgentButton /> : null}
-          <ProfileMenu />
+          )}
         </div>
         {/* Mobile Nav Drawer */}
         <NavDrawer

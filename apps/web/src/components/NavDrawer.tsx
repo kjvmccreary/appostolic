@@ -86,7 +86,11 @@ export function NavDrawer({
       aria-modal="true"
       className="fixed inset-0 z-50"
     >
-      <div data-testid="backdrop" className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        data-testid="backdrop"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+        onClick={onClose}
+      />
       <div
         ref={panelRef}
         tabIndex={-1}
