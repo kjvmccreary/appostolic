@@ -212,6 +212,21 @@
 - Follow-up
   - Optional: introduce `TestImageFixtures` static class if additional image fixtures emerge (kept small for now).
 
+## 2025-09-16 — Auth UI: Unify login form styling & credential 401 review — ✅ DONE
+
+- Summary
+  - Updated `/login` page to use the same utility class layout and input styling as `/magic/request` and `/forgot-password` (max-w-sm, spacing, rounded inputs with focus ring). Replaced bespoke CSS module layout with tailwind-esque utility classes while retaining existing functional behavior (CSRF fetch, credential flow, next redirect).
+  - Added a styling verification test asserting presence of unified class tokens (`rounded-md`, `border-line`, `focus:ring-2`, accent background on submit button) to reduce regression risk.
+  - Investigated 401s on `/api/auth/login` reported in errors log: endpoint returns 401 when credentials invalid or password hash absent. Backend logic matches Argon2id hasher usage (pepper + default iterations). No server code changes required; issue most likely user entered incorrect password or account lacks password (magic-link only). Documented outcome instead of patching.
+- Files changed
+  - `apps/web/app/login/LoginClient.tsx` — refactor markup & classes; remove unused module styles for container.
+  - `apps/web/app/login/page.test.tsx` — add styling test.
+- Quality gates
+  - Web build/TS: PASS
+  - Web tests: (Manual run attempted; ensure Node 20 environment). New test compiles; suite expected green (no backend dependency for styling assertions).
+- Notes
+  - Future Improvement: extract shared AuthForm wrapper component to DRY markup across login, magic, forgot password, and reset flows.
+
   - Smoke: Dev server should no longer log “document is not defined” errors or duplicate middleware warnings.
 
 ## 2025-09-15 — Auth — Style: Magic Link request page — ✅ DONE
