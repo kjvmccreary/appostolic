@@ -7,10 +7,13 @@ interface GuardrailsInitial {
   favoriteBooks?: string[];
   notes?: string;
   lessonFormat?: string; // preferences.lessonFormat
+  denominations?: string[]; // presets.denominations
 }
 
 interface ProfileGuardrailsFormProps {
   initial: GuardrailsInitial;
+  // Optional preset list for multi-select denominations
+  presets?: { id: string; name: string; notes?: string }[];
 }
 
 const LESSON_FORMATS = ['Engaging', 'Monologue', 'Games', 'Discussion', 'Interactive'] as const;
@@ -29,22 +32,28 @@ interface PreferencesPatch {
 interface ProfilePatch {
   guardrails?: GuardrailsPatch;
   preferences?: PreferencesPatch;
+  presets?: { denominations?: string[] };
 }
 interface RootPatch {
   profile: ProfilePatch;
 }
 
-export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ initial }) => {
+export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({
+  initial,
+  presets,
+}) => {
   const [denominationAlignment, setDenominationAlignment] = useState(
     initial.denominationAlignment || '',
   );
   const [favoriteAuthors, setFavoriteAuthors] = useState<string[]>(initial.favoriteAuthors || []);
   const [favoriteBooks, setFavoriteBooks] = useState<string[]>(initial.favoriteBooks || []);
+  const [denominations, setDenominations] = useState<string[]>(initial.denominations || []);
   const [notes, setNotes] = useState(initial.notes || '');
   const [lessonFormat, setLessonFormat] = useState(initial.lessonFormat || '');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   function addChip(kind: ChipKind, value: string) {
     const v = value.trim();
@@ -62,6 +71,23 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ in
     else setFavoriteBooks(favoriteBooks.filter((x) => x !== value));
   }
 
+  function addDenomination(id: string) {
+    if (!denominations.includes(id)) {
+      setDenominations([...denominations, id]);
+      // Auto-fill alignment if currently empty
+      if (!denominationAlignment) {
+        const preset = presets?.find((p) => p.id === id);
+        if (preset) setDenominationAlignment(preset.name);
+      }
+      setSuccess(null);
+    }
+  }
+
+  function removeDenomination(id: string) {
+    setDenominations(denominations.filter((d) => d !== id));
+    setSuccess(null);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
@@ -75,9 +101,11 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ in
       guardrails.notes = notes ? notes.trim() : '';
       const preferences: PreferencesPatch = {};
       if (lessonFormat) preferences.lessonFormat = lessonFormat;
-      const patch: RootPatch = {
-        profile: { guardrails, ...(Object.keys(preferences).length ? { preferences } : {}) },
-      };
+      const profile: ProfilePatch = { guardrails };
+      if (Object.keys(preferences).length) profile.preferences = preferences;
+      // Always send denominations array for full replacement semantics
+      profile.presets = { denominations };
+      const patch: RootPatch = { profile };
       const res = await fetch('/api-proxy/users/me', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -96,6 +124,8 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ in
   const chipCls = 'inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs';
   const chipBtnCls = 'text-muted-foreground hover:text-foreground focus:outline-none';
   const inputCls = 'w-full rounded border border-line bg-transparent px-2 py-1 text-sm';
+  const pillBtnCls =
+    'cursor-pointer rounded border border-line px-2 py-1 text-xs hover:bg-accent flex items-center gap-1';
 
   function Chips({ kind, items }: { kind: ChipKind; items: string[] }) {
     const [draft, setDraft] = useState('');
@@ -137,6 +167,17 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ in
     );
   }
 
+  const filteredPresets = (presets || []).filter((p) => {
+    if (!search.trim()) return !denominations.includes(p.id);
+    const s = search.toLowerCase();
+    return (
+      !denominations.includes(p.id) &&
+      (p.name.toLowerCase().includes(s) ||
+        p.id.toLowerCase().includes(s) ||
+        (p.notes || '').toLowerCase().includes(s))
+    );
+  });
+
   return (
     <form
       onSubmit={onSubmit}
@@ -144,6 +185,70 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({ in
       aria-describedby={error ? 'guardrails-error' : undefined}
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium mb-1" htmlFor="pf-denominations-search">
+            Denominations
+          </label>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2" data-testid="denomination-chips">
+              {denominations.map((id) => {
+                const preset = presets?.find((p) => p.id === id);
+                const label = preset ? preset.name : id;
+                return (
+                  <span key={id} className={chipCls} aria-label={label} title={label}>
+                    {label}
+                    <button
+                      type="button"
+                      className={chipBtnCls}
+                      aria-label={`Remove ${label}`}
+                      onClick={() => removeDenomination(id)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+              {denominations.length === 0 && (
+                <span className="text-xs text-muted-foreground">No denominations selected.</span>
+              )}
+            </div>
+            <input
+              id="pf-denominations-search"
+              placeholder="Search denominations..."
+              className={inputCls}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={pending}
+            />
+            <ul
+              className="flex flex-wrap gap-2"
+              aria-label="Available denominations"
+              data-testid="denomination-options"
+            >
+              {filteredPresets.slice(0, 24).map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className={pillBtnCls}
+                    onClick={() => addDenomination(p.id)}
+                    disabled={pending}
+                    aria-label={`Add ${p.name}`}
+                    title={p.notes || p.name}
+                  >
+                    <span>{p.name}</span>
+                    <span className="text-muted-foreground">+</span>
+                  </button>
+                </li>
+              ))}
+              {filteredPresets.length === 0 && (
+                <li className="text-xs text-muted-foreground">No matches.</li>
+              )}
+            </ul>
+            <p className="text-[11px] text-muted-foreground" id="pf-denominations-help">
+              Add one or more denominations. Alignment auto-fills when adding the first if empty.
+            </p>
+          </div>
+        </div>
         <div className="sm:col-span-2">
           <label htmlFor="pf-denomination" className="block text-xs font-medium mb-1">
             Denomination Alignment

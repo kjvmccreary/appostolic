@@ -28,7 +28,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ email, avatarUrl }) =>
     <section className="flex items-center gap-4" aria-label="Identity summary">
       <div className="h-16 w-16 overflow-hidden rounded-full border border-line bg-[var(--color-surface-raised)]">
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={avatarUrl}
+            alt=""
+            data-testid="avatar-img"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div
             className="flex h-full w-full items-center justify-center text-sm text-muted-foreground"

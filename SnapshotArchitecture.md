@@ -4,6 +4,15 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- User Profile — UPROF‑11: Denomination presets & multi-select guardrails UI (2025-09-16)
+  - API: Added authenticated metadata endpoint `GET /api/metadata/denominations` returning `{ presets: Array<{ id, name, notes? }> }` sourced from a static JSON file (`apps/api/App/Data/denominations.json`). Serves 10 curated baseline presets (e.g., Baptist, Anglican, Mere Christianity) with future migration path to a DB table + versioning.
+  - Web: Extended `/profile` server page to best‑effort fetch presets and pass them to `ProfileGuardrailsForm`. Added searchable multi-select picker (chips) allowing users to add/remove denominations; on first add, if `guardrails.denominationAlignment` is empty it auto-fills with the preset display name (never overwrites subsequent manual edits).
+  - Patch semantics: Introduced `profile.presets.denominations: string[]`. Submission always sends the full array (`profile.presets.denominations`) so arrays remain deterministic replace operations under existing deep-merge JSONB logic; clearing = empty array. Alignment field remains an independent freeform string.
+  - Tests: API integration tests `DenominationsMetadataTests` cover 401 unauthenticated and 200 shape; web tests extend `ProfileGuardrailsForm.test.tsx` with selection, auto-fill, non-overwrite, removal, and patch body assertion (now 46 files / 142 tests total web suite, coverage ~84% lines).
+  - Accessibility: Search input labeled, add/remove buttons use descriptive `aria-label`s, helper text explains auto-fill behavior; chips use `aria-label` for the readable name.
+  - Deferred: Versioned presets with revision/deprecation flags; tenant-level preset overrides; primary/ordering metadata; faceted grouping (family/tradition); server-side validation rejecting unknown IDs (400) with error details; ETag/If-None-Match caching + CDN headers; analytics on co-occurrence and selection trends; preset change notifications.
+  - Rationale: Static JSON keeps iteration fast; moving to DB later is non-breaking (endpoint contract stable). Always-sent array avoids accidental partial merge anomalies and simplifies diff reasoning.
+
 - User Profile — UPROF‑08: Change password UI enhancements (2025-09-16)
   - Web: Refactored `/change-password` page to use new proxy `POST /api-proxy/users/me/password` aligning with API `/api/users/me/password`. Added confirm field, client strength heuristic meter (length + class variety), inline mismatch prevention, accessible live region for status. Maps 400 (incorrect current) and 422 (weak new password) to targeted inline errors; other failures show generic retry.
   - Tests: Added `ChangePasswordPage.test.tsx` covering mismatch prevention, weak password block, incorrect current (400) handling, and success (204) flow.

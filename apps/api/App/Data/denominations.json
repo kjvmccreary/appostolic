@@ -1,0 +1,52 @@
+[
+  {
+    "id": "mere-christianity",
+    "name": "Mere Christianity (Core Orthodoxy)",
+    "notes": "Baseline orthodox Nicene/Chalcedonian consensus suitable as a neutral preset; emphasizes core creedal doctrines, excludes denominational distinctives."
+  },
+  {
+    "id": "baptist",
+    "name": "Baptist",
+    "notes": "Believer's baptism by immersion, congregational governance, high view of Scripture, symbolic ordinances."
+  },
+  {
+    "id": "methodist",
+    "name": "Methodist / Wesleyan",
+    "notes": "Emphasis on sanctification (holiness), prevenient grace, structured discipleship, connectional polity."
+  },
+  {
+    "id": "presbyterian",
+    "name": "Presbyterian / Reformed",
+    "notes": "Eldership governance, covenant theology, confessional standards (e.g., Westminster), emphasis on God's sovereignty."
+  },
+  {
+    "id": "anglican",
+    "name": "Anglican",
+    "notes": "Via media liturgical tradition, Book of Common Prayer, episcopal structure, creedal orthodoxy with broad evangelical/catholic/charismatic streams."
+  },
+  {
+    "id": "pentecostal",
+    "name": "Pentecostal",
+    "notes": "Continuing charismatic gifts, emphasis on Spirit baptism/empowerment, vibrant worship, global mission focus."
+  },
+  {
+    "id": "lutheran",
+    "name": "Lutheran",
+    "notes": "Justification by faith central, Law/Gospel distinction, sacramental (Word & Sacrament means of grace), liturgical continuity."
+  },
+  {
+    "id": "adventist",
+    "name": "Adventist (Seventh-day)",
+    "notes": "Seventh-day Sabbath observance, Second Advent expectancy, holistic health emphasis, great controversy metanarrative."
+  },
+  {
+    "id": "anabaptist",
+    "name": "Anabaptist",
+    "notes": "Believer's baptism, community discipleship, peace witness (nonviolence), simple living, counter-cultural ethic."
+  },
+  {
+    "id": "eastern-orthodox",
+    "name": "Eastern Orthodox",
+    "notes": "Historic liturgy, theosis (deification) emphasis, patristic continuity, sacramental life, icons as theology in color."
+  }
+]

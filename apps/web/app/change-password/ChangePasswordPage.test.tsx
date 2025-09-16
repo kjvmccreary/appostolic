@@ -38,7 +38,8 @@ describe('ChangePasswordPage', () => {
     render(<ChangePasswordPage />);
     fill({ current: 'oldPass1', pw: 'LongerPass1', confirm: 'Different1' });
     fireEvent.click(screen.getByRole('button', { name: /Save Password/i }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/match/);
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.some((a) => /match/i.test(a.textContent || ''))).toBe(true);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

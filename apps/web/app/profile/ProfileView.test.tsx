@@ -16,7 +16,7 @@ describe('ProfileView', () => {
 
   it('renders img when avatarUrl provided', () => {
     render(<ProfileView email="user@example.com" avatarUrl="https://cdn.example.com/a.png" />);
-    const img = screen.getByRole('img', { hidden: true });
+    const img = screen.getByTestId('avatar-img');
     expect(img).toHaveAttribute('src', 'https://cdn.example.com/a.png');
   });
 });

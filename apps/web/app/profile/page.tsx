@@ -3,6 +3,7 @@ import { fetchFromProxy } from '../lib/serverFetch';
 import { ProfileView } from './ProfileView';
 import { ProfileEditForm } from './ProfileEditForm';
 import { ProfileGuardrailsForm } from './ProfileGuardrailsForm';
+import { BioEditor } from './BioEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,10 @@ interface UserProfileDto {
       notes?: string;
     } | null;
     preferences?: { lessonFormat?: string } | null;
+    bio?: { format?: string; content?: string } | null;
+    presets?: {
+      denominations?: string[];
+    } | null;
   } | null;
 }
 
@@ -43,6 +48,19 @@ async function loadProfile(): Promise<UserProfileDto | null> {
 
 export default async function ProfilePage() {
   const me = await loadProfile();
+  // Load denomination presets metadata (best-effort; do not block page if fails)
+  let denominationPresets: { id: string; name: string; notes?: string }[] = [];
+  try {
+    const metaRes = await fetchFromProxy('/api-proxy/metadata/denominations');
+    if (metaRes.ok) {
+      const j = (await metaRes.json()) as {
+        presets?: { id: string; name: string; notes?: string }[];
+      };
+      if (Array.isArray(j.presets)) denominationPresets = j.presets;
+    }
+  } catch {
+    // swallow – non-critical metadata
+  }
 
   if (!me) {
     return (
@@ -76,7 +94,12 @@ export default async function ProfilePage() {
     favoriteBooks: me.profile?.guardrails?.favoriteBooks || [],
     notes: me.profile?.guardrails?.notes,
     lessonFormat: me.profile?.preferences?.lessonFormat,
+    denominations: me.profile?.presets?.denominations || [],
   };
+
+  const bioInitial = me.profile?.bio
+    ? { format: me.profile.bio.format, content: me.profile.bio.content }
+    : undefined;
 
   return (
     <main id="main" className="container p-4 space-y-10" aria-labelledby="profile-heading">
@@ -97,6 +120,12 @@ export default async function ProfilePage() {
           Guardrails & Preferences
         </h2>
         <ProfileGuardrailsForm initial={guardrailsInitial} />
+      </section>
+      <section className="space-y-4" aria-labelledby="profile-bio-heading">
+        <h2 id="profile-bio-heading" className="text-lg font-medium">
+          Bio
+        </h2>
+        <BioEditor initial={bioInitial} />
       </section>
     </main>
   );

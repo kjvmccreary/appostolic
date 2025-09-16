@@ -7,6 +7,7 @@ using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Hosting;
+using System.Text.Json;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -1375,6 +1376,27 @@ public static class V1
         });
 
         // Diagnostics removed: endpoint enumeration used during earlier routing investigation has been cleaned up.
+
+        // UPROF-11: Denomination presets metadata endpoint
+        apiRoot.MapGet("/metadata/denominations", async (HttpContext ctx) =>
+        {
+            if (ctx.User?.Identity?.IsAuthenticated != true)
+            {
+                return Results.Unauthorized();
+            }
+            // Load static JSON file; future enhancement: move to DB + versioning
+            var file = Path.Combine(AppContext.BaseDirectory, "App", "Data", "denominations.json");
+            if (!System.IO.File.Exists(file))
+            {
+                return Results.Problem(title: "Denominations data missing", statusCode: 500, detail: "denominations.json not found");
+            }
+            await using var fs = System.IO.File.OpenRead(file);
+            using var doc = await JsonDocument.ParseAsync(fs);
+            return Results.Json(new { presets = doc.RootElement }, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+        }).WithName("GetDenominationPresets").WithSummary("List denomination presets").WithDescription("Returns an array of denomination preset definitions (id, name, notes)");
 
         return app;
     }

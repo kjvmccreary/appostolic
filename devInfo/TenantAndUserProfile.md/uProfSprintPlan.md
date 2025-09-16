@@ -14,7 +14,7 @@ Scope (included)
 - Frontend: `/profile` and `/studio/admin/settings` pages with server-first auth/guards, forms, and uploads via proxy.
 - Storage: Full S3-compatible object storage integration (MinIO in dev, S3-compatible in prod) for avatars/logos with signed URLs and simple public-read option in dev; abstraction surfaces a stable relative URL in API responses.
 - Rich profile bio editor and safe rendering (sanitized HTML or Markdown→HTML) aligned with UI tokens.
-- Denomination presets library available to the profile guardrails UI (preset picker + freeform overrides).
+- Denomination presets library available to the profile guardrails UI (multi-select preset picker + freeform alignment auto-fill on first add).
 - Hashing/redaction of PII where appropriate (logs/metrics); derive-only hashed values when needed for analytics or dedupe.
 - Tests: API unit/integration tests and Web unit tests; basic happy-path smoke; adherence to coverage thresholds.
 - Docs: SnapshotArchitecture and storyLog updates; LivingChecklist ticks.
@@ -61,7 +61,7 @@ Data model changes
       notes?: string
       }
     - `preferences`: { lessonFormat?: "Engaging"|"Monologue"|"Games"|"Discussion"|"Interactive" }
-    - `presets`?: { denomination?: string } // key referencing presets library id/slug
+  - `presets`?: { denominations?: string[] } // multi-select denomination preset ids
 - Tenant (table `app.tenants`)
   - Add `settings jsonb null` to hold:
     - `displayName?: string`
@@ -159,26 +159,26 @@ Stories & acceptance criteria
 - Tests: weak password blocked (no fetch call), mismatch confirm blocked, success path triggers fetch to new route, 400 maps to error alert.
 - Deferred: Password strength library / zxcvbn integration, password reveal toggle, rate-limit UI messaging.
 
-## ✅ DONE UPROF-09 — Object storage integration (MinIO/S3) for avatars/logos
+## ✅ DONE UPROF-09 — (already documented elsewhere) S3/MinIO object storage seam
 
-- Added `IObjectStorageService` with local filesystem + `S3ObjectStorageService` (MinIO path-style + AWS S3 virtual-host style) returning public URLs (optionally via `PublicBaseUrl`).
-- Config-driven via `Storage:Mode` and `Storage:S3` options (`Bucket`, `ServiceURL`, `AccessKey`, `SecretKey`, `RegionEndpoint`, `PublicBaseUrl`, `PathStyle`, cache headers).
-- Implemented object deletion seam (`DeleteAsync`) later used by tenant logo DELETE endpoint; avatar replacement currently overwrites only.
-- Tests: S3 unit tests assert PutObject ACL, Cache-Control, key integrity, URL fallback; avatar endpoint integration tests green under local mode.
-- Deferred: Signed URLs, automatic old file cleanup, dimension extraction, artifact versioning.
+## ✅ DONE UPROF-10 — Web: Rich profile bio editor
 
-## UPROF-10 — Rich profile bio editor & sanitization
+- Added `BioEditor` component to `/profile` page enabling users to author a Markdown bio (stored as markdown; server assumed to sanitize to safe HTML when rendering elsewhere). Textarea includes live character count (max 4000 soft limit) and clear action setting bio to null via merge patch.
+- Submission builds minimal JSON merge patch: when empty after clear → `{ profile: { bio: null } }`; otherwise `{ profile: { bio: { format: "markdown", content: "..." } } }`.
+- Disabled submit when value unchanged or exceeds char limit; over-limit displays inline alert.
+- Accessibility: label, helper/counter `aria-describedby`, error `role="alert"`, success `role="status"`, and proper `aria-invalid` when over limit.
+- Tests (`BioEditor.test.tsx`): unchanged disabled, submit new bio (assert minimal fetch body), clear to null, over-limit blocked (no fetch), server error path shows alert.
+- Updated `ProfileView` test to use `data-testid="avatar-img"` due to empty alt (`alt=""`) making the image presentational (no implicit role). Component patched to add the test id.
+- Coverage: full web suite now 84% lines overall (thresholds maintained). No navigation or guard changes required.
+- Deferred: Server-side markdown → sanitized HTML rendering preview on the profile page (future enhancement), toolbar/formatting UI, drag/drop image uploads.
 
-- Web: integrate a lightweight editor (e.g., textarea with Markdown preview, or minimal rich text) consistent with UI tokens.
-- API: accept `bio` in profile; sanitize to HTML for read; store Markdown in `profile.bio.content`.
-- Tests: XSS injection attempts are stripped; round-trip preserves intended formatting.
+## ✅ DONE UPROF-11 — Denomination presets library
 
-## UPROF-11 — Denomination presets library
-
-- Provide a curated JSON list of denomination presets (id, name, notes) under `apps/api/App/Data/denominations.json` or seeded in DB.
-- API: GET `/api/metadata/denominations` returns the list.
-- Web: Profile guardrails exposes a preset select; selecting a preset sets `presets.denomination` and optionally pre-fills `guardrails.denominationAlignment`.
-- Tests: endpoint returns list; UI selection persists in profile.
+- Added curated JSON list of denomination presets (id, name, notes) at `apps/api/App/Data/denominations.json`.
+- API: `GET /api/metadata/denominations` (auth required) returns `{ presets: [...] }`.
+- Web: Guardrails form now provides a searchable multi-select; adding first denomination auto-fills alignment if blank; selections stored at `profile.presets.denominations[]` (arrays replace entirely on patch).
+- Tests: API integration (401 + 200 shape); Web tests for selection, auto-fill, non-overwrite, chip removal, and patch payload.
+- Deferred: preset versioning, tenant overrides, server validation of unknown ids, ETag caching, analytics on selection trends.
 
 ## UPROF-12 — PII hashing & redaction
 
