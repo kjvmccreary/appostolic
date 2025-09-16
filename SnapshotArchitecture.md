@@ -4,6 +4,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Admin Invites — roles flags + HTML email (2025-09-16)
+  - Web: `/studio/admin/invites` now uses granular roles flags (TenantAdmin, Approver, Creator, Learner) in the dropdown and sends `{ email, roles: [...] }` to align with the API’s `invitations.roles` column. Server actions redirect with `?ok=` only on success to avoid false error toasts.
+  - API: Invite create/resend emails sent via Mailhog now use a small HTML body with an Accept link, tenant name, selected role, and expiry; `IsBodyHtml = true` set for better dev readability.
+
 - Web — Studio: Tasks ergonomics (Completed)
 - Agents: Editor form polished (a11y helper texts, inline validation, clear isEnabled toggle) and test added for isEnabled payload.
   - Task detail and inbox now include copy-to-clipboard for Task IDs (detail header and table ID column).
