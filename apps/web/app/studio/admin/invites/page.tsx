@@ -6,6 +6,7 @@ import { fetchFromProxy } from '../../../lib/serverFetch';
 import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
 import ClientToasts from './ClientToasts';
 import EmailField from './EmailField';
+import type { FlagRole } from '../../../../src/lib/roles';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -51,13 +52,15 @@ export default async function InvitesAdminPage() {
   async function createInvite(formData: FormData) {
     'use server';
     const email = String(formData.get('email') ?? '').trim();
-    const role = String(formData.get('role') ?? 'Viewer');
+    // role is a single selected flag role value (uses FlagRole values for correctness)
+    const selected = String(formData.get('role') ?? 'Learner') as FlagRole;
     if (!email) return;
     try {
       await fetchFromProxy(`/api-proxy/tenants/${tenantId}/invites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role }),
+        // Send as roles flags array to align with IAM 2.2 invitations.roles
+        body: JSON.stringify({ email, roles: [selected] }),
       });
       redirect('/studio/admin/invites?ok=invite-created');
     } catch {
@@ -121,13 +124,14 @@ export default async function InvitesAdminPage() {
           id="invite-role"
           aria-label="Role"
           name="role"
-          defaultValue="Viewer"
+          defaultValue="Learner"
           className="h-8 rounded-md border border-line bg-[var(--color-surface-raised)] px-2 text-sm"
         >
-          <option value="Owner">Owner</option>
-          <option value="Admin">Admin</option>
-          <option value="Editor">Editor</option>
-          <option value="Viewer">Viewer</option>
+          {/* Use flag values for option values; label 'Admin' maps to 'TenantAdmin' */}
+          <option value="TenantAdmin">Admin</option>
+          <option value="Approver">Approver</option>
+          <option value="Creator">Creator</option>
+          <option value="Learner">Learner</option>
         </select>
         <button
           type="submit"
