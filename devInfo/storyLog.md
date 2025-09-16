@@ -129,6 +129,26 @@
   - Empty/error states: Done
   - Role-gated navigation visibility for Admin: Done
 
+## 2025-09-16 — Admin UX polish: Tenant switcher + Invites Accepted state
+
+- Summary
+  - Centered the Tenant Switcher modal and prevented cut‑off by switching the outer container to full‑height flex with `items-center justify-center` and making the dialog panel scrollable via `max-h` + `overflow-auto`.
+  - On `/studio/admin/invites`, surfaced acceptance state from the API. The table now shows a Status chip: Accepted (green) when `acceptedAt` is set, Pending (amber) otherwise. When an invite has been accepted, the Resend/Revoke actions are hidden to avoid invalid operations.
+  - Fixed a broken import path for `ConfirmSubmitButton` by importing from `apps/web/src/components/ui/ConfirmSubmitButton`. Also restored the missing Expires cell to match the table header.
+
+- Files changed
+  - apps/web/src/components/TenantSwitcherModal.tsx — centered modal and scrollable panel
+  - apps/web/app/studio/admin/invites/page.tsx — add Status column, hide actions when accepted, fix ConfirmSubmitButton import, restore Expires cell
+
+- Quality gates
+  - Typecheck (web): PASS for changed files
+  - Unit tests (web): Deferred — local runner blocked by Node v19; repo expects Node >=20. Will re‑run when Node matches workspace settings.
+
+- Requirements coverage
+  - Tenant Switcher modal not cut off: Done
+  - Accepted invites show as Accepted and hide actions: Done
+  - Fix import path error blocking build: Done
+
 - Summary
   - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
 

@@ -19,6 +19,7 @@ type Invite = {
   expiresAt: string;
   invitedByEmail?: string | null;
   acceptedByEmail?: string | null;
+  acceptedAt?: string | null;
 };
 
 export default async function InvitesAdminPage() {
@@ -160,6 +161,7 @@ export default async function InvitesAdminPage() {
               <th className="py-2 pr-2">Invited By</th>
               <th className="py-2 pr-2">Accepted By</th>
               <th className="py-2 pr-2">Expires</th>
+              <th className="py-2 pr-2">Status</th>
               <th className="py-2 pr-2">Actions</th>
             </tr>
           </thead>
@@ -170,24 +172,41 @@ export default async function InvitesAdminPage() {
                 <td className="py-2 pr-2">{i.role}</td>
                 <td className="py-2 pr-2">{i.invitedByEmail ?? '—'}</td>
                 <td className="py-2 pr-2">{i.acceptedByEmail ?? '—'}</td>
-                <td className="py-2 pr-2">{new Date(i.expiresAt).toLocaleString()}</td>
+                <td className="py-2 pr-2">{i.expiresAt}</td>
                 <td className="py-2 pr-2">
-                  <form action={resendInvite} className="inline">
-                    <input type="hidden" name="email" value={i.email} />
-                    <button type="submit" className="rounded border px-2 py-1 mr-2">
-                      Resend
-                    </button>
-                  </form>
-                  <form id={`revoke-form-${idx}`} action={revokeInvite} className="inline">
-                    <input type="hidden" name="email" value={i.email} />
-                    {/* The submit is triggered via a client-side confirm button for safety */}
-                  </form>
-                  <ConfirmSubmitButton
-                    formId={`revoke-form-${idx}`}
-                    label="Revoke"
-                    confirmText={`Revoke invite for ${i.email}?`}
-                    className="rounded border px-2 py-1 text-red-600"
-                  />
+                  {i.acceptedAt ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600">
+                      Accepted
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">
+                      Pending
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-2">
+                  {i.acceptedAt ? (
+                    <span className="text-muted">—</span>
+                  ) : (
+                    <>
+                      <form action={resendInvite} className="inline">
+                        <input type="hidden" name="email" value={i.email} />
+                        <button type="submit" className="rounded border px-2 py-1 mr-2">
+                          Resend
+                        </button>
+                      </form>
+                      <form id={`revoke-form-${idx}`} action={revokeInvite} className="inline">
+                        <input type="hidden" name="email" value={i.email} />
+                        {/* The submit is triggered via a client-side confirm button for safety */}
+                      </form>
+                      <ConfirmSubmitButton
+                        formId={`revoke-form-${idx}`}
+                        label="Revoke"
+                        confirmText={`Revoke invite for ${i.email}?`}
+                        className="rounded border px-2 py-1 text-red-600"
+                      />
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
