@@ -193,7 +193,7 @@ Stories & acceptance criteria
 - [x] UPROF-12C: `PIIRedactor` (email + phone) replacing/augmenting existing `EmailRedactor` — New unified redactor; legacy `EmailRedactor` marked `[Obsolete]` and delegates.
 - [x] UPROF-12D: Logging scope/enricher utilities (adds redacted + hashed fields; respects toggle) — Added `LoggingPIIScope` helpers for email/phone scopes.
 - [x] UPROF-12E: Refactor duplicated token/email hash helpers — Centralized PII hashing; token hashing left unchanged (not PII) and documented implicitly by new abstraction.
-- [ ] UPROF-12F: Integration of redaction & hashing in auth/profile/tenant settings endpoints (no raw emails in logs)
+- [x] UPROF-12F: Integration of redaction & hashing in auth/profile/tenant settings endpoints (no raw emails in logs) — Added `LoggingPIIScope` to user + tenant endpoints; structured scope fields only.
 - [ ] UPROF-12G: Tests — hasher determinism, pepper variance, redaction edge cases, log capture (no raw PII) — Unit tests for hasher/redactor complete; log capture & endpoint coverage pending.
 - [ ] UPROF-12H: Documentation updates (SnapshotArchitecture section, storyLog entry, LivingChecklist tick)
 - [ ] UPROF-12I: Optional OTEL/metrics enrichment (hashed identifiers only when justified) — can defer if time constrained
