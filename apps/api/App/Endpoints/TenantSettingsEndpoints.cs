@@ -5,6 +5,9 @@ using Appostolic.Api.Application.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Appostolic.Api.Application.Privacy;
+using Microsoft.Extensions.Options;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -21,7 +24,7 @@ public static class TenantSettingsEndpoints
         var group = app.MapGroup("/api/tenants").RequireAuthorization().WithTags("Tenant");
 
         // GET /api/tenants/settings — fetch current tenant settings blob (or empty object)
-        group.MapGet("settings", async (ClaimsPrincipal user, AppDbContext db, CancellationToken ct) =>
+        group.MapGet("settings", async (ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("tenant_id")?.Value, out var tenantId))
                 return Results.BadRequest(new { error = "invalid tenant" });
@@ -33,11 +36,18 @@ public static class TenantSettingsEndpoints
             if (tenant is null) return Results.NotFound();
             // Return empty object when null for easier client consumption
             var settings = tenant.Settings is null ? new JsonObject() : JsonNode.Parse(tenant.Settings.RootElement.GetRawText());
+            var logger = lf.CreateLogger("TenantSettings");
+            using var scope = logger.BeginScope(new Dictionary<string, object>
+            {
+                ["tenant.id"] = tenant.Id,
+                ["tenant.name"] = tenant.Name ?? string.Empty
+            });
+            logger.LogDebug("Fetched tenant settings");
             return Results.Ok(new { tenant.Id, tenant.Name, settings });
         }).RequireAuthorization("TenantAdmin").WithSummary("Get current tenant settings");
 
         // PUT /api/tenants/settings — merge patch into settings JSONB
-        group.MapPut("settings", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, CancellationToken ct) =>
+        group.MapPut("settings", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("tenant_id")?.Value, out var tenantId))
                 return Results.BadRequest(new { error = "invalid tenant" });
@@ -69,6 +79,14 @@ public static class TenantSettingsEndpoints
             db.Entry(updated).Property(t => t.Settings).IsModified = true;
             await db.SaveChangesAsync(ct);
 
+            var logger = lf.CreateLogger("TenantSettings");
+            // If contact.email present, enrich scope with redacted+hashed form
+            string? contactEmail = null;
+            if (merged["contact"] is JsonObject cObj && cObj["email"] is JsonValue ev && ev.TryGetValue<string>(out var e)) contactEmail = e;
+            using var scope = contactEmail is null
+                ? logger.BeginScope(new Dictionary<string, object> { ["tenant.id"] = updated.Id })
+                : LoggingPIIScope.BeginEmailScope(logger, contactEmail, piiHasher, privacy);
+            logger.LogInformation("Updated tenant settings");
             return Results.Ok(new { updated.Id, settings = merged });
         }).RequireAuthorization("TenantAdmin").WithSummary("Update current tenant settings (merge)");
 

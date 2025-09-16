@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Appostolic.Api.Application.Auth;
 using Appostolic.Api.Application.Storage;
+using Appostolic.Api.Application.Privacy;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -18,7 +21,7 @@ public static class UserProfileEndpoints
         var group = app.MapGroup("/api/users").RequireAuthorization().WithTags("User");
 
         // GET /api/users/me
-        group.MapGet("me", async (ClaimsPrincipal user, AppDbContext db, CancellationToken ct) =>
+        group.MapGet("me", async (ClaimsPrincipal user, AppDbContext db, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
                 return Results.Unauthorized();
@@ -28,12 +31,15 @@ public static class UserProfileEndpoints
                 .Select(u => new { u.Id, u.Email, u.Profile })
                 .FirstOrDefaultAsync(ct);
             if (me is null) return Results.NotFound();
+            var logger = lf.CreateLogger("UserProfile");
+            using var scope = LoggingPIIScope.BeginEmailScope(logger, me.Email, piiHasher, privacy);
+            logger.LogDebug("Fetched current user profile");
             return Results.Ok(me);
         })
         .WithSummary("Get current user profile");
 
         // PUT /api/users/me — merge patch into profile
-        group.MapPut("me", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, CancellationToken ct) =>
+        group.MapPut("me", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
                 return Results.Unauthorized();
@@ -72,12 +78,15 @@ public static class UserProfileEndpoints
             db.Entry(updated).Property(u => u.Profile).IsModified = true;
             await db.SaveChangesAsync(ct);
 
+            var logger = lf.CreateLogger("UserProfile");
+            using var scope = LoggingPIIScope.BeginEmailScope(logger, updated.Email, piiHasher, privacy);
+            logger.LogInformation("Updated user profile");
             return Results.Ok(new { updated.Id, updated.Email, updated.Profile });
         })
         .WithSummary("Update current user profile (merge)");
 
         // POST /api/users/me/password — change password
-        group.MapPost("me/password", async (ClaimsPrincipal user, AppDbContext db, IPasswordHasher hasher, HttpRequest req, CancellationToken ct) =>
+        group.MapPost("me/password", async (ClaimsPrincipal user, AppDbContext db, IPasswordHasher hasher, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, HttpRequest req, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
                 return Results.Unauthorized();
@@ -106,12 +115,15 @@ public static class UserProfileEndpoints
             entry.Property(u => u.PasswordSalt).IsModified = true;
             entry.Property(u => u.PasswordUpdatedAt).IsModified = true;
             await db.SaveChangesAsync(ct);
+            var logger = lf.CreateLogger("UserProfile");
+            using var scope = LoggingPIIScope.BeginEmailScope(logger, entity.Email, piiHasher, privacy);
+            logger.LogInformation("Changed user password");
             return Results.NoContent();
         })
         .WithSummary("Change current user password");
 
         // POST /api/users/me/avatar — upload avatar image
-        group.MapPost("me/avatar", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IObjectStorageService storage, CancellationToken ct) =>
+        group.MapPost("me/avatar", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IObjectStorageService storage, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
                 return Results.Unauthorized();
@@ -168,6 +180,9 @@ public static class UserProfileEndpoints
             db.Entry(updated).Property(u => u.Profile).IsModified = true;
             await db.SaveChangesAsync(ct);
 
+            var logger = lf.CreateLogger("UserProfile");
+            using var scope = LoggingPIIScope.BeginEmailScope(logger, entity.Email, piiHasher, privacy);
+            logger.LogInformation("Updated avatar");
             return Results.Ok(new { avatar = new { url, key = storedKey, mime = contentType } });
         })
         .WithSummary("Upload current user avatar");
