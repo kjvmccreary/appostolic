@@ -1,20 +1,21 @@
 import './globals.css';
 import React from 'react';
 import Providers from './providers';
-import { TenantAwareTopBar } from '../src/components/TenantAwareTopBar';
+import { cookies } from 'next/headers';
+import { TopBar } from '../src/components/TopBar';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Attempt to read the custom x-pathname header via a script (no server component header API used here in client boundary). For SSR pass, we can inline a data attribute via a small script before paint.
+  const cookieStore = cookies();
+  const selectedTenant = cookieStore.get('selected_tenant')?.value;
+  const showTopBar = Boolean(selectedTenant);
   return (
-    <html lang="en" suppressHydrationWarning data-pathname="">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Prevent theme flash on first paint: initialize classes before hydration */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => { try {
   const d = document.documentElement;
-  // Capture current pathname early for client components that need stable gating prior to hydration.
-  d.setAttribute('data-pathname', window.location.pathname || '');
   const storedMode = localStorage.getItem('theme') || 'system';
   const amoled = localStorage.getItem('amoled') === 'true';
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <Providers>
-          <TenantAwareTopBar />
+          {showTopBar ? <TopBar /> : null}
           {children}
         </Providers>
       </body>

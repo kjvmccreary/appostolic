@@ -213,6 +213,12 @@
   - Rationale: Previous gating still displayed nav items between auth and tenant selection; this enforces strict tenant-first context.
   - Quality gates: Added test validating nav hidden when authed without tenant. Pending full suite run for aggregate coverage.
 
+- 2025-09-16 — Nav — Server-side TopBar gating via cookie — ✅ DONE
+  - Summary: Removed client `TenantAwareTopBar` gating logic; `app/layout.tsx` now renders `TopBar` only if the `selected_tenant` cookie exists (server-side). Eliminates hydration race and guarantees nav is absent pre-selection regardless of client state.
+  - Files changed: `apps/web/app/layout.tsx` (server cookie check), removed `TenantAwareTopBar*.tsx` + tests.
+  - Rationale: Client gating allowed edge flashes and complexity; server gating is deterministic and simpler.
+  - Follow-up: Consider middleware expansion to redirect authed/no-cookie requests to `/select-tenant` for path-level enforcement.
+
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed
