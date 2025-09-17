@@ -22,8 +22,20 @@ const skipInCi = !!process.env.CI && !process.env.E2E_WEB_ENABLE;
       page.getByRole('button', { name: /sign up/i }).click(),
     ]);
 
-    // 2. On first sign-in there should be at least one membership (assumed dev seed)
-    // Navigate to studio area to force selection/auto-redirect path; if auto-selected (single membership), cookie will exist.
+    // 2. Force multi-tenant scenario by invoking a dev-only API hook (if available) to add a second membership.
+    // This assumes the backend exposes a dev/test helper endpoint for adding memberships when WEB_AUTH_ENABLED is false.
+    // Best-effort: ignore failure so test still proceeds (will fall back to skip logic later if single-tenant).
+    try {
+      await fetch(`${webBase}/api-proxy/dev/test-hooks/seed-second-membership`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch (err) {
+      // Non-fatal
+      console.log('[seed-second-membership] failed', err);
+    }
+    // Navigate to studio area to force selection/auto-redirect path; if auto-selected (single membership pre-seed), cookie will exist.
     await page.goto(`${webBase}/studio/agents`, { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: /agents/i })).toBeVisible();
 
@@ -35,7 +47,9 @@ const skipInCi = !!process.env.CI && !process.env.E2E_WEB_ENABLE;
     // 3. Logout via profile menu sign out (routes through /logout)
     await page.goto(`${webBase}/studio/agents`, { waitUntil: 'networkidle' });
     // Open profile menu (avatar button) - adapt selector if needed
-    const profileButton = page.getByRole('button', { name: /profile menu|open profile|avatar/i }).first();
+    const profileButton = page
+      .getByRole('button', { name: /profile menu|open profile|avatar/i })
+      .first();
     // Fallback: try image with alt
     if (!(await profileButton.isVisible())) {
       const possible = page.locator('button:has(img[alt*="avatar" i]),button:has(svg)');
@@ -65,16 +79,17 @@ const skipInCi = !!process.env.CI && !process.env.E2E_WEB_ENABLE;
       page.getByRole('button', { name: /sign in|log in/i }).click(),
     ]);
 
-    // 6. Navigate directly to a protected route: expect redirect back to select-tenant until selection
+    // 6. Navigate directly to a protected route: expect redirect back to select-tenant (multi-tenant enforced)
     await page.goto(`${webBase}/studio/agents`, { waitUntil: 'networkidle' });
+    // If we land on select-tenant, assertion passes. If we land directly on studio/agents, treat as a failure for multi-tenant expectation.
     if (page.url().includes('/studio/agents')) {
-      // If auto-selected (single membership), cookie may have been re-set; this test focuses on multi-tenant scenario.
-      // Assert TopBar not visible if no tenant claim; fallback skip if single-tenant auto case.
-      // Attempt to detect hidden nav by absence of common nav items.
-      const hasDashboard = await page.getByRole('link', { name: /dashboard/i }).isVisible().catch(() => false);
-      if (hasDashboard) {
-        test.skip(true, 'Environment appears single-tenant; skipping multi-tenant re-selection assertion');
+      // Re-check cookie count: if only one membership actually exists, skip rather than fail.
+      const maybeCookie = (await context.cookies()).find((c) => c.name === 'selected_tenant');
+      if (!maybeCookie) {
+        test.skip(true, 'Single-tenant environment prevented redirect; skipping assertion');
       }
+      // Failure path: multi-tenant expectation violated (nav accessible without re-selection)
+      throw new Error('Expected redirect to /select-tenant for multi-tenant user after re-login');
     } else {
       expect(page.url()).toMatch(/\/select-tenant/);
     }
