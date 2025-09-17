@@ -26,9 +26,9 @@ describe('BioEditor', () => {
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
     await waitFor(() => expect(screen.getByText(/Bio saved/i)).toBeInTheDocument());
-  const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
-  const call = mockFetch.mock.calls[0];
-  const body = JSON.parse((call[1] as RequestInit).body as string);
+    const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse((call[1] as RequestInit).body as string);
     expect(body).toEqual({ bio: { format: 'markdown', content: 'My **bio**' } });
   });
 
@@ -40,9 +40,9 @@ describe('BioEditor', () => {
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
     await waitFor(() => expect(screen.getByText(/Bio saved/i)).toBeInTheDocument());
-  const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
-  const call = mockFetch.mock.calls[0];
-  const body = JSON.parse((call[1] as RequestInit).body as string);
+    const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse((call[1] as RequestInit).body as string);
     expect(body).toEqual({ bio: null });
   });
 
@@ -76,7 +76,14 @@ describe('BioEditor', () => {
     const ta = screen.getByPlaceholderText(/write your bio/i);
     fireEvent.change(ta, { target: { value: 'Line one\nLine two' } });
     fireEvent.click(screen.getByRole('tab', { name: /Preview/i }));
-    expect(screen.getByText('Line one')).toBeInTheDocument();
-    expect(screen.getByText('Line two')).toBeInTheDocument();
+    // remark-breaks turns single newlines into <br/> elements inside one paragraph.
+    const para = screen.getByText(/Line one/).closest('p');
+    expect(para).toBeInTheDocument();
+    // combined text should contain both lines
+    expect(para?.textContent).toContain('Line one');
+    expect(para?.textContent).toContain('Line two');
+    // Ensure exactly one <br> inserted (soft break)
+    const brs = para?.querySelectorAll('br');
+    expect(brs?.length).toBe(1);
   });
 });

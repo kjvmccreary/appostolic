@@ -40,7 +40,10 @@ describe('AvatarUpload', () => {
     Object.defineProperty(window, 'location', { value: { reload: vi.fn() }, writable: true });
 
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.submit(input.closest('form')!);
+    // Component uses explicit Upload button (no wrapping form). Simulate clicking it.
+    const uploadBtn = screen.getByRole('button', { name: /Upload/i });
+    expect(uploadBtn).not.toBeDisabled();
+    fireEvent.click(uploadBtn);
 
     await waitFor(() => expect(onUploaded).toHaveBeenCalled());
     expect(fetch).toHaveBeenCalled();

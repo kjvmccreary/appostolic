@@ -100,6 +100,10 @@ describe('ProfileGuardrailsForm', () => {
     expect(call).toBeTruthy();
     if (!call) throw new Error('fetch call not found');
     const body = JSON.parse((call[1]?.body as string) || '{}');
-    expect(body.profile.presets.denominations).toEqual(['baptist']);
+    // New patch semantics: top-level merge patch from profile page code; no nested `profile` wrapper.
+    // Denominations are sent under presets.denominations; guardrails & preferences siblings.
+    expect(body.presets.denominations).toEqual(['baptist']);
+    expect(body.guardrails.favoriteAuthors).toEqual([]);
+    expect(body.guardrails.favoriteBooks).toEqual([]);
   });
 });

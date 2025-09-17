@@ -398,6 +398,22 @@
   - apps/web/src/components/TenantSwitcherModal.tsx — centered modal and scrollable panel
   - apps/web/app/studio/admin/invites/page.tsx — add Status column, hide actions when accepted, fix ConfirmSubmitButton import, restore Expires cell
 
+  ## 2025-09-16 — Web Fix: Profile guardrails & bio tests alignment — ✅ DONE
+  - Summary
+    - Updated web unit tests to reflect evolved merge patch semantics for profile guardrails and bio editor components. `ProfileGuardrailsForm` now emits a top-level merge patch without a nested `profile` wrapper (arrays and objects submitted directly). Adjusted its test to assert `presets.denominations` under the root patch and verify empty favorite arrays are still present for intentional full replacement semantics. Refactored `BioEditor` soft line break test to account for `remark-breaks` rendering a single `<p>` with `<br/>`, preventing brittle multi-node expectations. Updated `AvatarUpload` test to click the explicit Upload button instead of assuming a form submit event after internal component refactor (component no longer wrapped in a form). All targeted tests now pass; full web suite: 47 files, 150 tests, coverage ~84% lines (thresholds satisfied).
+  - Files changed
+    - `apps/web/app/profile/ProfileGuardrailsForm.test.tsx` — patch body assertion updated (root-level `presets.denominations`, guardrails arrays expectations) with explanatory comment.
+    - `apps/web/app/profile/BioEditor.test.tsx` — soft line break test revised to select combined paragraph, ensure one `<br/>` node, and assert line text presence.
+    - `apps/web/src/components/AvatarUpload.test.tsx` — removed `form` submit usage; now simulates file selection + Upload button click.
+  - Rationale
+    - Keeps tests aligned with minimal merge patch strategy (avoid nested wrappers) and robust against markdown rendering structure. Prevents false negatives on UI refactors (form removal) and ensures intentional full-replacement array semantics are asserted.
+  - Quality gates
+    - Typecheck: PASS
+    - Web tests: PASS (150/150)
+    - Coverage: Lines 84.38%, Branches 72.4%, Functions 65.51%, Statements 84.38% (meets configured global thresholds)
+  - Follow-up
+    - Consider adding a small test asserting no network request occurs when `ProfileGuardrailsForm` submits unchanged data (dirty=false). Optional enhancement for diff clarity.
+
 ## 2025-09-16 — Web — Profile Bio diff patch & preview soft breaks — ✅ DONE
 
 - Summary
@@ -423,7 +439,6 @@
 - Deferred / Follow-ups
   - Potential XSS sanitization layer for rendered markdown (currently relying on react-markdown defaults; consider rehype-sanitize for untrusted content).
   - Draft autosave and richer formatting toolbar (emoji, slash commands) remain future enhancements.
-
 
 ## 2025-09-16 — Web — Profile name clearing semantics fix — ✅ DONE
 

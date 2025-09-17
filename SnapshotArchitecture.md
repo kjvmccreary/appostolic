@@ -5,15 +5,16 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - User Profile — UPROF‑11: Denomination presets & multi-select guardrails UI (2025-09-16)
+- Web Fix — Test alignment: Guardrails patch now root-level (no nested `profile` wrapper); bio preview soft line break test updated for `remark-breaks`; avatar upload test uses explicit button (2025-09-16)
 - User Profile — UPROF‑05 Enhancement: Rich bio editor (MUI, GFM preview) & styled avatar upload (2025-09-16)
   - Web Fix — Bio editor diff patch & soft line breaks (2025-09-16)
     - `BioEditor` now tracks a saved baseline and submits minimal merge patches. Clearing sends `{"bio":null}`; unchanged content results in no network call. Adds `remark-breaks` to render single newlines as soft line breaks consistent with GitHub-flavored Markdown expectations. Tests updated to assert minimal patch emission, null clearing, soft line break preview, and avoidance of redundant saves.
- - Web Fix — Profile name clearing semantics (2025-09-16)
-   - `ProfileEditForm` now sends explicit `null` for name/contact/social fields that transition from non-empty to empty, enabling proper clearing under backend deep-merge logic. Previous behavior omitted the `name` object entirely, leaving stale values persisted. Diff-based patch builder prevents unnecessary writes and keeps no-op submissions empty.
-  - Replaced plain textarea bio editor with tabbed Write/Preview Markdown component using `react-markdown` + `remark-gfm`, MUI Tabs, and accessible character count + helper/error messaging. Maintains flat merge‑patch contract `{ bio: { format:'markdown', content } } | { bio:null }`.
-  - Refactored `AvatarUpload` to MUI (Avatar, Buttons, progress) adding file info, tooltips, and improved accessibility; preserves validation (png/jpeg/webp ≤2MB) and global `avatar-updated` CustomEvent with cache-busted URL.
-  - Added dependencies: `react-markdown`, `remark-gfm` to web; no server contract changes.
-  - Deferred: Slash commands, emoji picker, drag-drop image upload, markdown linting, and persisted draft autosave.
+- Web Fix — Profile name clearing semantics (2025-09-16)
+  - `ProfileEditForm` now sends explicit `null` for name/contact/social fields that transition from non-empty to empty, enabling proper clearing under backend deep-merge logic. Previous behavior omitted the `name` object entirely, leaving stale values persisted. Diff-based patch builder prevents unnecessary writes and keeps no-op submissions empty.
+- Replaced plain textarea bio editor with tabbed Write/Preview Markdown component using `react-markdown` + `remark-gfm`, MUI Tabs, and accessible character count + helper/error messaging. Maintains flat merge‑patch contract `{ bio: { format:'markdown', content } } | { bio:null }`.
+- Refactored `AvatarUpload` to MUI (Avatar, Buttons, progress) adding file info, tooltips, and improved accessibility; preserves validation (png/jpeg/webp ≤2MB) and global `avatar-updated` CustomEvent with cache-busted URL.
+- Added dependencies: `react-markdown`, `remark-gfm` to web; no server contract changes.
+- Deferred: Slash commands, emoji picker, drag-drop image upload, markdown linting, and persisted draft autosave.
 - Privacy & Observability — UPROF‑12 (12A–12G complete) PII hashing & redaction (2025-09-16)
   - Added `PrivacyOptions` (`Privacy:PIIHashPepper`, `Privacy:PIIHashingEnabled`) bound in `Program.cs`.
   - Introduced `IPIIHasher` with `Sha256PIIHasher` (email normalization: lowercase+trim; phone normalization: digits-only) computing peppered SHA-256 hex string; deterministic across processes sharing pepper.
