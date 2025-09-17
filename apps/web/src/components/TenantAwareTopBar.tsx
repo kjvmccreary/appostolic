@@ -39,19 +39,26 @@ export function TenantAwareTopBar() {
     tenant?: string | null;
   } | null;
   const memberships = Array.isArray(anySession?.memberships) ? anySession!.memberships! : [];
-  const membershipCount = memberships.length;
-  const hasMultiple = membershipCount > 1;
+  type RawMembership = { tenant?: string; tenantSlug?: string };
+  const membershipSlugs = memberships
+    .map((m) => {
+      const rm = m as unknown as RawMembership;
+      return rm.tenantSlug || rm.tenant || '';
+    })
+    .filter((s): s is string => !!s);
 
-  // Determine if a tenant has already been selected either via session claim or cookie.
-  const selectedFromSession = anySession?.tenant || null;
-  const cookieHasSelection =
-    typeof document !== 'undefined' && /(?:^|; )selected_tenant=/.test(document.cookie);
-  const hasSelection = !!selectedFromSession || cookieHasSelection;
+  // Require explicit cookie selection — do not trust session.tenant to avoid pre-selection leaks.
+  let selectedCookie: string | null = null;
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )selected_tenant=([^;]+)/);
+    selectedCookie = match ? decodeURIComponent(match[1]) : null;
+  }
+  const hasSelection = !!selectedCookie && membershipSlugs.includes(selectedCookie);
 
   const pathname = initialPathname;
   const onSelectTenantPage = pathname.startsWith('/select-tenant');
 
-  // Determine if authenticated (email presence) — if not authed, allow existing TopBar logic (it renders minimal sign-in navigation)
+  // Determine if authenticated (email presence)
   const isAuthed = Boolean(
     (anySession as unknown as { user?: { email?: string } } | null)?.user?.email,
   );
@@ -63,13 +70,8 @@ export function TenantAwareTopBar() {
    *    Rationale: Even a single-tenant account should not expose tenant-scoped navigation until the server asserts the tenant context.
    * 3. Exception: allow visibility on the /select-tenant page itself so the layout can remain consistent if desired (but we still hide to reduce clutter – choose to keep hidden here).
    */
-  if (isAuthed && !hasSelection) {
-    return null; // enforce selection-first navigation gating (no flash)
-  }
-
-  // Additional guard: multi-tenant & no selection already covered above, but keep logic explicit.
-  if (hasMultiple && !hasSelection && !onSelectTenantPage) {
-    return null;
+  if (isAuthed && !hasSelection && !onSelectTenantPage) {
+    return null; // hide EVERYTHING (nav + user actions) until a valid membership selection cookie exists
   }
 
   return <TopBar />;
