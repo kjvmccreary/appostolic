@@ -36,16 +36,13 @@ export default async function SelectTenantPage(props: {
 
   if (memberships && memberships.length === 1) {
     const tenant = memberships[0].tenantSlug;
-    // Write cookie directly (canonical slug) and redirect to next.
-    const isSecure = process.env.NODE_ENV === 'production';
-    c.set(TENANT_COOKIE, tenant, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      secure: isSecure,
-    });
-    redirect(next);
+    // Redirect through our API route to set the cookie in a Route Handler (supported by Next.js)
+    // and then continue to the intended destination.
+    const url = new URL(
+      `/api/tenant/select?tenant=${encodeURIComponent(tenant)}&next=${encodeURIComponent(next)}`,
+      'http://localhost',
+    );
+    redirect(url.pathname + url.search);
   }
 
   async function chooseTenant(formData: FormData) {

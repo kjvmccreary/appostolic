@@ -59,6 +59,32 @@ export function ProfileMenu() {
   }, [session]);
 
   React.useEffect(() => {
+    // Fallback hydration: on fresh login the NextAuth session may not include profile.avatar yet.
+    // In that case, fetch /api-proxy/users/me once and pull avatar URL from the profile blob.
+    // Guard: only run when authenticated (user.email present) and avatarUrl is still null.
+    const anySession = session as unknown as { user?: { email?: string } } | null;
+    const hasEmail = Boolean(anySession?.user?.email);
+    let cancelled = false;
+    async function hydrateFromProfile() {
+      try {
+        const res = await fetch('/api-proxy/users/me', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = (await res.json()) as { profile?: { avatar?: { url?: string } } };
+        const url = json?.profile?.avatar?.url ?? null;
+        if (!cancelled && url) setAvatarUrl(url);
+      } catch {
+        // non-fatal; leave as default icon
+      }
+    }
+    if (hasEmail && !avatarUrl) {
+      void hydrateFromProfile();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [session, avatarUrl]);
+
+  React.useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { url?: string } | undefined;
       if (detail?.url) setAvatarUrl(detail.url);

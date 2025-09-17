@@ -48,7 +48,7 @@ describe('/select-tenant page', () => {
     expect(dest).toBe('/login');
   });
 
-  it('auto-selects when only one membership and redirects directly to /studio/agents (no intermediate api route)', async () => {
+  it('auto-selects when only one membership and redirects via API route to set cookie then continue', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
@@ -62,10 +62,12 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toBe('/studio/agents');
+    expect(dest).toBe(
+      `/api/tenant/select?tenant=t1-personal&next=${encodeURIComponent('/studio/agents')}`,
+    );
   });
 
-  it('respects a safe next path when provided', async () => {
+  it('respects a safe next path when provided (via API route)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
@@ -81,10 +83,12 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toBe('/studio/tasks?status=open');
+    expect(dest).toBe(
+      `/api/tenant/select?tenant=t1-personal&next=${encodeURIComponent('/studio/tasks?status=open')}`,
+    );
   });
 
-  it('defaults next when provided value is unsafe (external)', async () => {
+  it('defaults next when provided value is unsafe (external) via API route', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
@@ -100,6 +104,8 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toBe('/studio/agents');
+    expect(dest).toBe(
+      `/api/tenant/select?tenant=t1-personal&next=${encodeURIComponent('/studio/agents')}`,
+    );
   });
 });

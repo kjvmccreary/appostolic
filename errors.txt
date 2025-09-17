@@ -4,22 +4,15 @@
 Next.js (14.2.32) is outdated (learn more)
 
 Unhandled Runtime Error
-Error: Event handlers cannot be passed to Client Component props.
-  <... onUploaded={function onUploaded}>
-                  ^^^^^^^^^^^^^^^^^^^^^
-If you need interactivity, consider converting part of this to a Client Component.
+Error: Cookies can only be modified in a Server Action or Route Handler. Read more: https://nextjs.org/docs/app/api-reference/functions/cookies#cookiessetname-value-options
 
-Call Stack
-Next.js
-eF
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:272472)
-<unknown>
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266015)
-Object.toJSON
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:266479)
-eq
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:274847)
-eJ
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:275365)
-Timeout._onTimeout
-/Users/kevinmccreary/appostolic/node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js (35:265152)
+Source
+app/select-tenant/page.tsx (41:7) @ set
+
+  39 |     // Write cookie directly (canonical slug) and redirect to next.
+  40 |     const isSecure = process.env.NODE_ENV === 'production';
+> 41 |     c.set(TENANT_COOKIE, tenant, {
+     |       ^
+  42 |       path: '/',
+  43 |       httpOnly: true,
+  44 |       sameSite: 'lax',
