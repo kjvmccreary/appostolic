@@ -29,6 +29,14 @@ describe('TopBar tenant-scoped admin gating', () => {
     expires: new Date(Date.now() + 60_000).toISOString(),
   };
 
+  it('hides all nav/actions when authed but no tenant claim', () => {
+    renderWithSession({ ...baseSession, memberships: [{ tenantSlug: 'acme', role: 'admin' }] });
+    // Dashboard link should not appear because tenant not yet selected
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Agents')).not.toBeInTheDocument();
+    expect(screen.queryByText('Create Lesson')).not.toBeInTheDocument();
+  });
+
   it('hides Admin when no memberships', () => {
     renderWithSession({ ...baseSession, memberships: [], tenant: 'acme' });
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();

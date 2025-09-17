@@ -98,7 +98,7 @@ export function TopBar() {
         <Link href="/" className="font-semibold tracking-tight mr-2">
           Appostolic
         </Link>
-        {isAuthed ? (
+        {isAuthed && selectedTenant ? (
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
             {navItems.map((item) => (
               <NavLink key={item.href} href={item.href}>
@@ -111,7 +111,7 @@ export function TopBar() {
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation" />
         )}
         <div className="ml-auto flex items-center gap-2">
-          {isAuthed ? (
+          {isAuthed && selectedTenant ? (
             <>
               {canCreate ? (
                 <Link
