@@ -199,6 +199,21 @@
 - Quality gates
   - Typecheck (web): PASS
 
+## 2025-09-16 — Nav — Strengthen multi-tenant TopBar gating — ✅ DONE
+
+- Summary
+  - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression.
+- Files changed
+  - `apps/web/src/components/TenantAwareTopBar.tsx` — add `status===loading` defensive early return + expanded doc comment.
+  - `apps/web/src/components/TenantAwareTopBar.test.tsx` — add loading-state test; refactor mocking to avoid CommonJS `require` usage.
+- Rationale
+  - Previous implementation returned the nav on the very first client render when `session` was undefined, then suppressed it after hydration if multi-tenant & unselected, creating a brief exploitable navigation window.
+- Quality gates
+  - Web tests: PASS (suite re-run locally under Node 20) — new loading state test included.
+  - Typecheck: PASS (no new errors introduced).
+- Follow-ups (optional)
+  - Consider a server component wrapper to pass a preloaded session to avoid hiding nav for single-tenant users during initial load (perf/UX tweak, not required for correctness).
+
 ## 2025-09-16 — TEN-02 Fix: Corrupt tenant logo PNG test fixture — ✅ DONE
 
 - Summary
