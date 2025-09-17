@@ -13,6 +13,11 @@ import { TopBar } from './TopBar';
  */
 export function TenantAwareTopBar() {
   const { data: session, status } = useSession();
+  // Read pathname pre-extracted by middleware via x-pathname header (set on request) using a data attribute injected in layout if available.
+  // Fallback to window.location if data attribute absent.
+  const initialPathname =
+    (typeof document !== 'undefined' && document.documentElement.getAttribute('data-pathname')) ||
+    (typeof window !== 'undefined' ? window.location.pathname : '');
 
   /**
    * SECURITY / UX NOTE
@@ -43,7 +48,7 @@ export function TenantAwareTopBar() {
     typeof document !== 'undefined' && /(?:^|; )selected_tenant=/.test(document.cookie);
   const hasSelection = !!selectedFromSession || cookieHasSelection;
 
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const pathname = initialPathname;
   const onSelectTenantPage = pathname.startsWith('/select-tenant');
 
   // Determine if authenticated (email presence) — if not authed, allow existing TopBar logic (it renders minimal sign-in navigation)
@@ -59,7 +64,7 @@ export function TenantAwareTopBar() {
    * 3. Exception: allow visibility on the /select-tenant page itself so the layout can remain consistent if desired (but we still hide to reduce clutter – choose to keep hidden here).
    */
   if (isAuthed && !hasSelection) {
-    return null; // enforce selection-first navigation gating
+    return null; // enforce selection-first navigation gating (no flash)
   }
 
   // Additional guard: multi-tenant & no selection already covered above, but keep logic explicit.
