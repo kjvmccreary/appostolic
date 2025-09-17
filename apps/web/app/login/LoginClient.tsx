@@ -95,17 +95,17 @@ export default function LoginClient() {
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
             Email
           </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]"
-            />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]"
+          />
         </div>
         <div>
           <label htmlFor="password" className="mb-1 block text-sm font-medium">
@@ -126,7 +126,11 @@ export default function LoginClient() {
             Use the magic link if you forgot your password.
           </p>
         </div>
-        {error && <p className="text-sm text-[crimson]" role="alert">{error}</p>}
+        {error && (
+          <p className="text-sm text-[crimson]" role="alert">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={submitting}
@@ -135,11 +139,27 @@ export default function LoginClient() {
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="text-sm">
-          <a href="/forgot-password" className="text-[var(--color-accent-600)] hover:underline">Forgot password?</a>
-          <span className="px-1" aria-hidden>·</span>
-          <a href={`/signup?next=${encodeURIComponent(next)}`} className="text-[var(--color-accent-600)] hover:underline">Sign up</a>
-          <span className="px-1" aria-hidden>·</span>
-          <a href={`/magic/request?next=${encodeURIComponent(next)}`} className="text-[var(--color-accent-600)] hover:underline">Use Magic Link</a>
+          <a href="/forgot-password" className="text-[var(--color-accent-600)] hover:underline">
+            Forgot password?
+          </a>
+          <span className="px-1" aria-hidden>
+            ·
+          </span>
+          <a
+            href={`/signup?next=${encodeURIComponent(next)}`}
+            className="text-[var(--color-accent-600)] hover:underline"
+          >
+            Sign up
+          </a>
+          <span className="px-1" aria-hidden>
+            ·
+          </span>
+          <a
+            href={`/magic/request?next=${encodeURIComponent(next)}`}
+            className="text-[var(--color-accent-600)] hover:underline"
+          >
+            Use Magic Link
+          </a>
         </p>
       </form>
     </main>

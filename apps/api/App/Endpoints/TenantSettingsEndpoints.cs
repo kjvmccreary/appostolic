@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Appostolic.Api.Application.Privacy;
 using Microsoft.Extensions.Options;
+using SixLabors.ImageSharp; // for Image, extension methods (SaveAsWebpAsync)
+using SixLabors.ImageSharp.Processing; // for Mutate, Resize, Crop
+using SixLabors.ImageSharp.Formats.Webp; // for WebpEncoder
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -15,7 +18,9 @@ namespace Appostolic.Api.App.Endpoints;
 /// Tenant-level settings management endpoints (branding, contact, etc.) plus logo upload/delete.
 /// Routes infer the current tenant from the caller's tenant_id claim and require the TenantAdmin policy.
 /// JSON merge semantics mirror user profile: objects are deep-merged, primitives/arrays replace, explicit nulls clear fields.
-/// NOTE: We intentionally omit width/height metadata for logos for now; future image processing will populate those.
+/// Includes image optimization for tenant logo uploads: validates type/size, resizes (max 512 on longest side),
+/// converts to WebP (quality 80), and stores width/height metadata. Unlike avatars we preserve aspect ratio and
+/// do not enforce squareness.
 /// </summary>
 public static class TenantSettingsEndpoints
 {
@@ -24,7 +29,7 @@ public static class TenantSettingsEndpoints
         var group = app.MapGroup("/api/tenants").RequireAuthorization().WithTags("Tenant");
 
         // GET /api/tenants/settings — fetch current tenant settings blob (or empty object)
-        group.MapGet("settings", async (ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
+    group.MapGet("settings", async (ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("tenant_id")?.Value, out var tenantId))
                 return Results.BadRequest(new { error = "invalid tenant" });
@@ -42,12 +47,17 @@ public static class TenantSettingsEndpoints
                 ["tenant.id"] = tenant.Id,
                 ["tenant.name"] = tenant.Name ?? string.Empty
             });
+            // Enrich tracing with tenant context (and contact email if present in settings) respecting privacy flags
+            if (settings is JsonObject sObj && sObj["contact"] is JsonObject cObj && cObj["email"] is JsonValue ev && ev.TryGetValue<string>(out var contactEmail))
+            {
+                TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, contactEmail, piiHasher, privacy);
+            }
             logger.LogDebug("Fetched tenant settings");
             return Results.Ok(new { tenant.Id, tenant.Name, settings });
         }).RequireAuthorization("TenantAdmin").WithSummary("Get current tenant settings");
 
         // PUT /api/tenants/settings — merge patch into settings JSONB
-        group.MapPut("settings", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, CancellationToken ct) =>
+    group.MapPut("settings", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, ILoggerFactory lf, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("tenant_id")?.Value, out var tenantId))
                 return Results.BadRequest(new { error = "invalid tenant" });
@@ -86,11 +96,15 @@ public static class TenantSettingsEndpoints
             using var scope = contactEmail is null
                 ? logger.BeginScope(new Dictionary<string, object> { ["tenant.id"] = updated.Id })
                 : LoggingPIIScope.BeginEmailScope(logger, contactEmail, piiHasher, privacy);
+            if (contactEmail is not null)
+            {
+                TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, contactEmail, piiHasher, privacy);
+            }
             logger.LogInformation("Updated tenant settings");
             return Results.Ok(new { updated.Id, settings = merged });
         }).RequireAuthorization("TenantAdmin").WithSummary("Update current tenant settings (merge)");
 
-        // POST /api/tenants/logo — upload/replace tenant branding logo (PNG/JPEG/WEBP <=2MB)
+        // POST /api/tenants/logo — upload/replace tenant branding logo (PNG/JPEG/WEBP <=2MB) with normalization to WebP
         group.MapPost("logo", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IObjectStorageService storage, CancellationToken ct) =>
         {
             if (!Guid.TryParse(user.FindFirst("tenant_id")?.Value, out var tenantId))
@@ -113,14 +127,6 @@ public static class TenantSettingsEndpoints
             if (file.Length > maxSize)
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
-            var ext = contentType switch
-            {
-                "image/png" => ".png",
-                "image/jpeg" => ".jpg",
-                "image/webp" => ".webp",
-                _ => string.Empty
-            };
-
             var entity = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId, ct);
             if (entity is null) return Results.NotFound();
 
@@ -129,21 +135,61 @@ public static class TenantSettingsEndpoints
                 ? new JsonObject()
                 : JsonNode.Parse(entity.Settings.RootElement.GetRawText()) as JsonObject ?? new JsonObject();
             string? oldKey = settingsNode?["branding"] is JsonObject brandingObj && brandingObj["logo"] is JsonObject logoObj && logoObj["key"] is JsonValue keyVal && keyVal.TryGetValue<string>(out var k) ? k : null;
+            // --- Image processing pipeline (tenant logo) ---
+            // 1. Load the image (reject if unreadable)
+            await using var uploadStream = file.OpenReadStream();
+            SixLabors.ImageSharp.Image image;
+            try
+            {
+                image = await SixLabors.ImageSharp.Image.LoadAsync(uploadStream, ct);
+            }
+            catch
+            {
+                return Results.BadRequest(new { error = "Invalid image data" });
+            }
 
-            var key = $"tenants/{tenantId}/logo{ext}";
-            await using var stream = file.OpenReadStream();
-            var (url, storedKey) = await storage.UploadAsync(key, contentType, stream, ct);
+            var width = image.Width;
+            var height = image.Height;
+            if (width < 1 || height < 1)
+                return Results.BadRequest(new { error = "Invalid image dimensions" });
 
-            // Ensure settingsNode is non-null (it is always a JsonObject by construction above)
+            // 2. Resize if either dimension exceeds 512 (preserve aspect ratio; avoid upscaling)
+            const int maxDim = 512;
+            if (width > maxDim || height > maxDim)
+            {
+                image.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions
+                {
+                    Size = new SixLabors.ImageSharp.Size(maxDim, maxDim),
+                    Mode = SixLabors.ImageSharp.Processing.ResizeMode.Max,
+                    Sampler = SixLabors.ImageSharp.Processing.KnownResamplers.Lanczos3,
+                    Compand = true
+                }));
+                width = image.Width;
+                height = image.Height;
+            }
+
+            // 3. Encode to WebP (lossy quality 80 for compression/quality balance)
+            var key = $"tenants/{tenantId}/logo.webp";
+            await using var processed = new MemoryStream();
+            await image.SaveAsWebpAsync(processed, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+            {
+                Quality = 80,
+                FileFormat = SixLabors.ImageSharp.Formats.Webp.WebpFileFormatType.Lossy
+            }, ct);
+            processed.Position = 0;
+            var (url, storedKey) = await storage.UploadAsync(key, "image/webp", processed, ct);
+            var finalMime = "image/webp";
+
+            // 4. Persist metadata (url, key, mime, width, height)
             var branding = settingsNode is not null && settingsNode["branding"] is JsonObject bObj ? bObj : new JsonObject();
             branding["logo"] = new JsonObject
             {
                 ["url"] = url,
                 ["key"] = storedKey,
-                ["mime"] = contentType
-                // width / height placeholders intentionally omitted until image processing story
+                ["mime"] = finalMime,
+                ["width"] = width,
+                ["height"] = height
             };
-            // settingsNode is guaranteed non-null (created as new JsonObject when null earlier)
             settingsNode!["branding"] = branding;
 
             using var ms = new MemoryStream();
@@ -164,7 +210,7 @@ public static class TenantSettingsEndpoints
                 try { await storage.DeleteAsync(oldKey, ct); } catch { /* swallow */ }
             }
 
-            return Results.Ok(new { logo = new { url, key = storedKey, mime = contentType } });
+            return Results.Ok(new { logo = new { url, key = storedKey, mime = finalMime, width, height } });
         }).RequireAuthorization("TenantAdmin").WithSummary("Upload tenant branding logo");
 
         // DELETE /api/tenants/logo — remove tenant logo and delete underlying object

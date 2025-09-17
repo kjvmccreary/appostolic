@@ -28,6 +28,8 @@
   <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
   <PackageReference Include="StackExchange.Redis" />
   <PackageReference Include="AWSSDK.S3" />
+  <!-- Image processing for avatar/logo optimization -->
+  <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Migrations/20240911120000_Initial.cs" />

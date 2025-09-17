@@ -94,9 +94,20 @@ export const authOptions: NextAuthOptions & {
         t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
       }
       if (user?.email) t.email = user.email;
-      // If no tenant is selected and exactly one membership exists, auto-select it
-      if (!t.tenant && t.memberships && t.memberships.length === 1) {
-        t.tenant = t.memberships[0].tenantSlug;
+      // Auto-select tenant heuristics:
+      // 1. If exactly one membership, pick it.
+      // 2. If multiple and none selected yet, pick highest privilege (Owner > Admin > Editor > Viewer).
+      if (!t.tenant && t.memberships && t.memberships.length > 0) {
+        if (t.memberships.length === 1) {
+          t.tenant = t.memberships[0].tenantSlug;
+        } else {
+          const rank: Record<string, number> = { Owner: 4, Admin: 3, Editor: 2, Viewer: 1 };
+          const sorted = [...t.memberships].sort(
+            (a, b) => (rank[b.role] ?? 0) - (rank[a.role] ?? 0),
+          );
+          // Prefer first highest privilege; ties arbitrary but deterministic.
+          t.tenant = sorted[0]?.tenantSlug;
+        }
       }
       // Respect session.update({ tenant }) calls from the client switcher
       if (trigger === 'update' && session && (session as unknown as { tenant?: string }).tenant) {

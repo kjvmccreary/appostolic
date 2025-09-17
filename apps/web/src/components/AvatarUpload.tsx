@@ -1,7 +1,24 @@
 'use client';
-
 import React from 'react';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import LinearProgress from '@mui/material/LinearProgress';
+import Typography from '@mui/material/Typography';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
+/**
+ * AvatarUpload
+ * Styled avatar uploader using MUI components. Responsibilities:
+ *  - Provide accessible file selection (hidden input + trigger button)
+ *  - Validate type & size (<=2MB, jpeg/png/webp)
+ *  - Preview selected image immediately
+ *  - Upload to /api-proxy/users/me/avatar and dispatch global 'avatar-updated' event
+ *  - Expose optional onUploaded callback for downstream usage
+ */
 type Props = { onUploaded?: (url: string) => void };
 
 export function AvatarUpload({ onUploaded }: Props) {
@@ -9,6 +26,11 @@ export function AvatarUpload({ onUploaded }: Props) {
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  function chooseFile() {
+    inputRef.current?.click();
+  }
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -30,8 +52,7 @@ export function AvatarUpload({ onUploaded }: Props) {
     setPreview(URL.createObjectURL(f));
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleUpload() {
     setError(null);
     if (!file) return;
     setSubmitting(true);
@@ -48,11 +69,12 @@ export function AvatarUpload({ onUploaded }: Props) {
       const url = data?.avatar?.url;
       if (url) {
         const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
-        // Fire global event so other components (e.g., ProfileMenu) can update without reload
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { url: cacheBusted } }));
         }
         onUploaded?.(cacheBusted);
+        // Reset local selection but keep preview (shows uploaded)
+        setFile(null);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -62,33 +84,75 @@ export function AvatarUpload({ onUploaded }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex items-center gap-3">
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      component="section"
+      aria-label="Avatar upload"
+    >
+      <Box position="relative">
+        <Avatar
+          src={preview || undefined}
+          alt="Avatar preview"
+          sx={{ width: 56, height: 56, border: '1px solid', borderColor: 'divider' }}
+        />
+        {submitting && (
+          <LinearProgress
+            color="primary"
+            sx={{ position: 'absolute', bottom: -4, left: 0, width: '100%', height: 4 }}
+          />
+        )}
+      </Box>
       <input
-        aria-label="Choose avatar image"
+        ref={inputRef}
         type="file"
         accept="image/png,image/jpeg,image/webp"
         onChange={onChange}
+        aria-label="Choose avatar image"
+        hidden
         disabled={submitting}
       />
-      <button
-        className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
-        type="submit"
-        disabled={!file || submitting}
-      >
-        {submitting ? 'Uploading…' : 'Upload'}
-      </button>
-      {preview ? (
-        <img
-          src={preview}
-          alt="Preview"
-          className="h-10 w-10 rounded-full border border-line object-cover"
-        />
-      ) : null}
-      {error ? (
-        <div role="alert" className="text-sm text-red-500">
-          {error}
-        </div>
-      ) : null}
-    </form>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Tooltip title="Select image">
+          <span>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PhotoCameraIcon />}
+              onClick={chooseFile}
+              disabled={submitting}
+            >
+              Choose
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title="Upload selected image">
+          <span>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<CloudUploadIcon />}
+              onClick={handleUpload}
+              disabled={!file || submitting}
+            >
+              {submitting ? 'Uploading…' : 'Upload'}
+            </Button>
+          </span>
+        </Tooltip>
+      </Stack>
+      <Box minWidth={160}>
+        {file && !error && (
+          <Typography variant="caption" color="text.secondary" display="block" noWrap>
+            {file.name} ({(file.size / 1024).toFixed(0)} KB)
+          </Typography>
+        )}
+        {error && (
+          <Typography role="alert" variant="caption" color="error.main" display="block">
+            {error}
+          </Typography>
+        )}
+      </Box>
+    </Stack>
   );
 }

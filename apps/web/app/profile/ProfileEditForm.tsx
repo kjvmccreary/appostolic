@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { EditableProfileFields } from './ProfileView';
 
 interface ProfileEditFormProps {
@@ -18,23 +18,23 @@ function normalizeUrl(input: string | undefined): string | undefined {
   return trimmed; // leave as-is; backend will drop if invalid
 }
 
+// Patch interfaces allow null to explicitly clear previous non-empty values on the backend merge.
 interface ProfilePatchName {
-  first?: string;
-  last?: string;
-  display?: string;
+  first?: string | null;
+  last?: string | null;
+  display?: string | null;
 }
 interface ProfilePatchContact {
-  phone?: string;
-  timezone?: string;
-  locale?: string;
+  phone?: string | null;
+  timezone?: string | null;
 }
 interface ProfilePatchSocial {
-  website?: string;
-  twitter?: string;
-  facebook?: string;
-  instagram?: string;
-  youtube?: string;
-  linkedin?: string;
+  website?: string | null;
+  twitter?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  youtube?: string | null;
+  linkedin?: string | null;
 }
 interface ProfilePatch {
   name?: ProfilePatchName;
@@ -42,35 +42,116 @@ interface ProfilePatch {
   social?: ProfilePatchSocial;
 }
 
-function toPatch(fields: EditableProfileFields) {
-  // Construct JSON merge patch structure matching backend schema
+/**
+ * Build a minimal merge patch describing changes between a baseline profile snapshot and the
+ * current in‑form values. Non-empty changes are included with trimmed strings; fields that were
+ * previously non-empty but are now empty are sent explicitly as null so the backend DeepMerge
+ * logic will clear them. Unchanged fields are omitted to avoid unnecessary writes.
+ */
+function buildPatch(baseline: EditableProfileFields, current: EditableProfileFields): ProfilePatch {
+  const patch: ProfilePatch = {};
+
+  // Name fields (clear via null)
   const name: ProfilePatchName = {};
-  if (fields.first) name.first = fields.first.trim();
-  if (fields.last) name.last = fields.last.trim();
-  if (fields.display) name.display = fields.display.trim();
+  (['first', 'last', 'display'] as const).forEach((k) => {
+    const before = (baseline[k] || '').trim();
+    const after = (current[k] || '').trim();
+    if (after) {
+      if (after !== before) name[k] = after; // changed value
+    } else if (before) {
+      // previously had a value, now blank -> explicit null to clear
+      name[k] = null;
+    }
+  });
+  if (Object.keys(name).length) patch.name = name;
+
+  // Contact fields (currently only timezone & phone). Apply same clear semantics for consistency.
   const contact: ProfilePatchContact = {};
-  if (fields.phone) contact.phone = fields.phone.trim();
-  if (fields.timezone) contact.timezone = fields.timezone.trim();
-  if (fields.locale) contact.locale = fields.locale.trim();
+  (['phone', 'timezone'] as const).forEach((k) => {
+    const before = (baseline[k] || '').trim();
+    const after = (current[k] || '').trim();
+    if (after) {
+      if (after !== before) contact[k] = after;
+    } else if (before) {
+      contact[k] = null;
+    }
+  });
+  if (Object.keys(contact).length) patch.contact = contact;
+
+  // Social links: normalize non-empty; allow explicit null to clear removed entries.
   const social: ProfilePatchSocial = {};
   (['website', 'twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const).forEach(
-    (key) => {
-      const v = fields[key];
-      if (v) social[key] = normalizeUrl(v);
+    (k) => {
+      const beforeRaw = baseline[k];
+      const afterRaw = current[k];
+      const before = beforeRaw ? beforeRaw.trim() : '';
+      const normalizedAfter = afterRaw ? normalizeUrl(afterRaw) : undefined;
+      const after = normalizedAfter ? normalizedAfter.trim() : '';
+      if (after) {
+        if (after !== before) social[k] = after;
+      } else if (before) {
+        social[k] = null; // cleared
+      }
     },
   );
-  const profile: ProfilePatch = {};
-  if (Object.keys(name).length) profile.name = name;
-  if (Object.keys(contact).length) profile.contact = contact;
-  if (Object.keys(social).length) profile.social = social;
-  return { profile };
+  if (Object.keys(social).length) patch.social = social;
+
+  return patch;
 }
 
 export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSaved }) => {
   const [fields, setFields] = useState<EditableProfileFields>(initial);
+  // Baseline tracks last-saved (or initial) values to compute a minimal diff & send nulls for clears.
+  const [baseline, setBaseline] = useState<EditableProfileFields>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [timezones, setTimezones] = useState<string[]>([]);
+
+  // Populate timezone list (Intl.supportedValuesOf if available, else fallback curated list)
+  useEffect(() => {
+    function loadZones(): string[] {
+      try {
+        // Access dynamically to avoid type issues on older TS lib versions
+        const maybeIntl = Intl as unknown as { supportedValuesOf?: (kind: string) => string[] };
+        if (typeof maybeIntl.supportedValuesOf === 'function') {
+          const vals: string[] = maybeIntl.supportedValuesOf('timeZone');
+          if (Array.isArray(vals) && vals.length > 0) return vals;
+        }
+      } catch {
+        /* ignore */
+      }
+      // Fallback subset (common representations) — keep alphabetized
+      return [
+        'Africa/Johannesburg',
+        'America/Chicago',
+        'America/Denver',
+        'America/Los_Angeles',
+        'America/New_York',
+        'America/Phoenix',
+        'America/Sao_Paulo',
+        'Asia/Dubai',
+        'Asia/Hong_Kong',
+        'Asia/Kolkata',
+        'Asia/Seoul',
+        'Asia/Shanghai',
+        'Asia/Singapore',
+        'Asia/Tokyo',
+        'Australia/Brisbane',
+        'Australia/Melbourne',
+        'Australia/Sydney',
+        'Europe/Amsterdam',
+        'Europe/Berlin',
+        'Europe/London',
+        'Europe/Madrid',
+        'Europe/Paris',
+        'Europe/Rome',
+        'Pacific/Auckland',
+        'UTC',
+      ];
+    }
+    setTimezones(loadZones());
+  }, []);
 
   function update<K extends keyof EditableProfileFields>(key: K, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
@@ -82,7 +163,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSav
     setError(null);
     setSuccess(null);
     try {
-      const patch = toPatch(fields);
+      const patch = buildPatch(baseline, fields);
       const res = await fetch('/api-proxy/users/me', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -92,6 +173,8 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSav
         setError(`Update failed (${res.status}).`);
       } else {
         setSuccess('Profile updated.');
+        // Update baseline so subsequent edits diff against newly-saved values.
+        setBaseline(fields);
         onSaved?.(fields);
       }
     } catch (err) {
@@ -102,7 +185,9 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSav
     }
   }
 
-  const inputCls = 'w-full rounded border border-line bg-transparent px-2 py-1 text-sm';
+  // Canonical input styling (aligned with Login form for visual consistency)
+  const inputCls =
+    'w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]';
   const fieldsetCls = 'grid gap-4 sm:grid-cols-2';
 
   return (
@@ -160,25 +245,19 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSav
           <label htmlFor="pf-timezone" className="block text-xs font-medium mb-1">
             Timezone
           </label>
-          <input
+          <select
             id="pf-timezone"
             className={inputCls}
             value={fields.timezone || ''}
             onChange={(e) => update('timezone', e.target.value)}
-            placeholder="e.g. America/Chicago"
-          />
-        </div>
-        <div>
-          <label htmlFor="pf-locale" className="block text-xs font-medium mb-1">
-            Locale
-          </label>
-          <input
-            id="pf-locale"
-            className={inputCls}
-            value={fields.locale || ''}
-            onChange={(e) => update('locale', e.target.value)}
-            placeholder="e.g. en-US"
-          />
+          >
+            <option value="">Select timezone…</option>
+            {timezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
         </div>
       </fieldset>
 
@@ -224,7 +303,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ initial, onSav
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save Changes'}
         </button>

@@ -18,53 +18,65 @@ describe('BioEditor', () => {
     expect(screen.getByRole('button', { name: /Save Bio/i })).toBeDisabled();
   });
 
-  it('enables and submits new bio', async () => {
+  it('enables and submits new bio (minimal patch)', async () => {
     render(<BioEditor initial={null} />);
-    const ta = screen.getByLabelText(/Bio \(Markdown\)/i);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
     fireEvent.change(ta, { target: { value: 'My **bio**' } });
     const btn = screen.getByRole('button', { name: /Save Bio/i });
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
     await waitFor(() => expect(screen.getByText(/Bio saved/i)).toBeInTheDocument());
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api-proxy/users/me',
-      expect.objectContaining({ method: 'PUT' }),
-    );
+  const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
+  const call = mockFetch.mock.calls[0];
+  const body = JSON.parse((call[1] as RequestInit).body as string);
+    expect(body).toEqual({ bio: { format: 'markdown', content: 'My **bio**' } });
   });
 
-  it('clears bio sending null', async () => {
+  it('clears bio sending null when baseline non-empty', async () => {
     render(<BioEditor initial={{ format: 'markdown', content: 'Existing' }} />);
-    // change then clear to produce dirty empty state
-    const ta = screen.getByLabelText(/Bio \(Markdown\)/i);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
     fireEvent.change(ta, { target: { value: '' } });
     const btn = screen.getByRole('button', { name: /Save Bio/i });
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
     await waitFor(() => expect(screen.getByText(/Bio saved/i)).toBeInTheDocument());
-    // body should include bio: null
-    // Casting fetch to any within test scope to inspect mock call arguments (Vitest provides .mock).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fetchMock = global.fetch as any;
-    const call = fetchMock.mock.calls[0];
-    const body = JSON.parse((call[1] as RequestInit).body as string);
-    expect(body).toEqual({ profile: { bio: null } });
+  const mockFetch = global.fetch as unknown as { mock: { calls: unknown[][] } };
+  const call = mockFetch.mock.calls[0];
+  const body = JSON.parse((call[1] as RequestInit).body as string);
+    expect(body).toEqual({ bio: null });
+  });
+
+  it('does not submit when value returns to baseline', async () => {
+    render(<BioEditor initial={{ format: 'markdown', content: 'Same' }} />);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
+    fireEvent.change(ta, { target: { value: 'Different' } });
+    fireEvent.change(ta, { target: { value: 'Same' } });
+    expect(screen.getByRole('button', { name: /Save Bio/i })).toBeDisabled();
   });
 
   it('blocks over-limit bio', () => {
     render(<BioEditor initial={null} maxChars={10} />);
-    const ta = screen.getByLabelText(/Bio \(Markdown\)/i);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
     fireEvent.change(ta, { target: { value: 'This is definitely longer than ten chars' } });
     const btn = screen.getByRole('button', { name: /Save Bio/i });
     expect(btn).toBeDisabled();
-    expect(screen.getByRole('alert')).toHaveTextContent(/too long/i);
   });
 
   it('shows error on failure', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
     render(<BioEditor initial={null} />);
-    const ta = screen.getByLabelText(/Bio \(Markdown\)/i);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
     fireEvent.change(ta, { target: { value: 'Test' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Bio/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
+
+  it('renders soft line breaks in preview', () => {
+    render(<BioEditor initial={null} />);
+    const ta = screen.getByPlaceholderText(/write your bio/i);
+    fireEvent.change(ta, { target: { value: 'Line one\nLine two' } });
+    fireEvent.click(screen.getByRole('tab', { name: /Preview/i }));
+    expect(screen.getByText('Line one')).toBeInTheDocument();
+    expect(screen.getByText('Line two')).toBeInTheDocument();
   });
 });

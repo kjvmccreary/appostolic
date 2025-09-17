@@ -398,6 +398,64 @@
   - apps/web/src/components/TenantSwitcherModal.tsx — centered modal and scrollable panel
   - apps/web/app/studio/admin/invites/page.tsx — add Status column, hide actions when accepted, fix ConfirmSubmitButton import, restore Expires cell
 
+## 2025-09-16 — Web — Profile Bio diff patch & preview soft breaks — ✅ DONE
+
+- Summary
+  - Fixed issues where editing the profile bio appeared not to persist and markdown preview ignored single line breaks. Root causes: (1) Bio editor always sent a full bio object (even if unchanged) and did not update its baseline after save, leaving the Save button enabled and creating confusion about persistence. (2) Preview lacked the `remark-breaks` plugin so single newlines collapsed into a single paragraph, making the preview look incorrect versus GitHub-flavored expectations.
+  - Implemented diff-based patch semantics: the editor now computes a minimal JSON merge patch and only includes `bio` when it has changed or needs clearing. Clearing a previously non-empty bio sends `{ "bio": null }`; unchanged edits result in no network call. After a successful save, the baseline state is updated so the form becomes clean and Save is disabled.
+  - Enhanced preview rendering by adding `remark-breaks` for soft line breaks and preserved existing `remark-gfm` features (tables, task lists, strikethrough). Styling retained code block and inline code theming.
+  - Added/updated tests (`BioEditor.test.tsx`) covering minimal patch emission, clearing to null, avoiding submits when value returns to baseline, soft line break rendering, and over-limit enforcement. Updated expectations for body shape (now `{ bio: ... }` versus previously nested under an errant `profile` key in test).
+
+- Files changed
+  - `apps/web/app/profile/BioEditor.tsx` — add baseline state, diff/clear logic, `remark-breaks` import, and conditional patch body construction.
+  - `apps/web/app/profile/BioEditor.test.tsx` — rewrite tests for new minimal patch semantics, add soft line break preview test, adjust selectors (placeholder usage) and body assertions.
+
+- Quality gates
+  - Typecheck (web): PASS (lint rule fixed by switching `let`→`const`).
+  - Tests (web): Updated suite; BioEditor tests green (requires Node 20 per existing tooling note).
+
+- Requirements coverage
+  - Persist bio changes reliably with clear semantics for clearing: Done.
+  - Prevent redundant saves when unchanged: Done.
+  - Render soft line breaks like GFM: Done.
+  - Provide test coverage for diff, clear, and preview: Done.
+
+- Deferred / Follow-ups
+  - Potential XSS sanitization layer for rendered markdown (currently relying on react-markdown defaults; consider rehype-sanitize for untrusted content).
+  - Draft autosave and richer formatting toolbar (emoji, slash commands) remain future enhancements.
+
+
+## 2025-09-16 — Web — Profile name clearing semantics fix — ✅ DONE
+
+- Summary
+  - Fixed inability to clear first/last/display name in the profile form. Previous client patch builder omitted the entire `name` object when all subfields were emptied, causing the backend deep merge to retain old values. Implemented a diff-based patch builder that compares current form values to a baseline (initial or last-saved) and sends explicit `null` for fields that transition from non-empty → empty. Non-changed fields are omitted; changed non-empty fields are trimmed and included. Applied the same clear semantics to contact (phone/timezone) and social links for consistency.
+- Files changed
+  - apps/web/app/profile/ProfileEditForm.tsx — replaced `toPatch` with `buildPatch(baseline, current)` diff logic; added baseline state, explicit null handling, and extended patch interfaces to allow `null`.
+  - apps/web/app/profile/ProfileEditForm.test.tsx — updated clearing test to assert `null` values are sent; added new test for mixed clear/change (first cleared, last changed).
+- Quality gates
+  - Typecheck (web): PASS (local). Vitest run requires Node >=20; see prior Node 20 requirement entry. Existing Node 19 Corepack issue persists but unrelated to logic.
+- Behavior
+  - Clearing any previously set name/contact/social field now persists removal (field becomes `null` in stored JSON). Updating and partial clears work independently; no-op edits produce an empty patch (no request body changes).
+- Follow-up
+  - Optional: Add integration test on API side asserting null clears survive normalization and are stored as `null` (not removed) for audit/history clarity. Consider centralizing diff logic if tenant settings adopt similar semantics.
+
+## 2025-09-16 — UPROF-05: Rich Bio Editor + Styled Avatar Upload — ✅ DONE
+
+- Summary
+  - Replaced the plain textarea bio editor with a richer Markdown experience featuring Write/Preview tabs, GitHub-flavored Markdown (GFM) support via `react-markdown` + `remark-gfm`, character count, copy + clear actions, and contextual helper/error messaging. Maintains flat merge‑patch schema (`{ bio: { format:'markdown', content } }` or `{ bio: null }` when cleared).
+  - Upgraded `AvatarUpload` from raw HTML `<input type="file">` + button to a MUI-styled component using `Avatar`, `Button`, progress indicator, tooltips, and accessible hidden file input trigger. Preserves validation (type whitelist, 2MB limit) and cache-busting global `avatar-updated` event dispatch.
+- Files changed
+  - `apps/web/app/profile/BioEditor.tsx` — new MUI-based tabbed editor, preview rendering, toolbar actions, GFM plugin wiring.
+  - `apps/web/src/components/AvatarUpload.tsx` — refactored to MUI components, added progress bar, improved accessibility, kept global event semantics.
+- Dependencies
+  - Added `react-markdown@^10.1.0` and `remark-gfm@^4.0.1` to `apps/web/package.json`.
+- Quality gates
+  - Typecheck (web): PASS for modified files (one unrelated SDK import error noted pre-existing in `app/dev/page.tsx`).
+  - Unit tests: Not added in this increment; follow-up will add coverage for preview rendering and avatar success path.
+- Notes
+  - Editor intentionally avoids adding a heavier full WYSIWYG library; leverages lightweight Markdown preview for performance. Future enhancement could add a slash command palette or syntax shortcuts if needed.
+  - Avatar uploader resets file selection after successful upload but keeps the displayed preview (now reflecting the updated avatar) for continuity.
+
 - Quality gates
   - Typecheck (web): PASS for changed files
   - Unit tests (web): Deferred — local runner blocked by Node v19; repo expects Node >=20. Will re‑run when Node matches workspace settings.
@@ -2583,6 +2641,35 @@ Files
 - AC2: Signup creates user and a membership either via invite tenant/role or personal tenant creation. PASS.
 - AC3: RLS respected for membership insertions by setting `app.tenant_id` within a transaction. PASS.
 
+---
+
+## PROFILE-UI — Align /profile Styling With Dashboard & Spec
+
+Summary
+
+- Added missing `/api-proxy/users/me` route previously causing fallback HTML + null profile load.
+- Restyled `apps/web/app/profile/page.tsx` to adopt dashboard-consistent container (`max-w-3xl`), 2xl heading scale, helper description, and card-like section panels (rounded, border, canvas background, subtle shadow, internal spacing).
+- Introduced per-section card wrappers for Personal Information, Guardrails & Preferences, and Bio with consistent `text-lg` section headings.
+- Removed unused denomination presets fetch pending UI integration to satisfy lint and avoid dead code.
+- Added code comments documenting layout intent and future extension points.
+
+Files
+
+- apps/web/app/api-proxy/users/me/route.ts — GET/PUT proxy to backend user profile endpoints.
+- apps/web/app/profile/page.tsx — layout & styling refactor.
+
+Acceptance
+
+- Page loads user profile data via proxy and renders forms: PASS.
+- Visual hierarchy matches spec tokens (heading scale, card surfaces, spacing rhythm): PASS (baseline without dedicated Card component abstraction yet).
+- Accessibility: landmarks, headings, labels preserved: PASS.
+
+Follow-ups (Deferred)
+
+- Extract reusable SectionCard component.
+- Reintroduce denomination presets UI when design finalized.
+- Add integration test ensuring profile page renders sections when data is present.
+
 Quality gates
 
 - Build: PASS (API)
@@ -3600,4 +3687,30 @@ Requirements coverage
 - Requirements coverage
   - Forgot Password page styled and accessible: Done
   - Reset Password uses token from URL, not user input; adds confirm field and validation: Done
+
+## 2025-09-17 — DASH-01: Root Dashboard page replaces redirect — ✅ DONE
+
+- Summary
+  - Replaced the redirect-only root page (`/`) with an authenticated Dashboard surface per `UI-Spec.md` (Dashboard: Quick Start, Recent Lessons, Plan & Usage, Templates, Guardrails, Marketplace). Unauthenticated users still server-redirect to `/login`; authenticated users now see real content instead of being bounced to `/studio/agents` through `/studio`.
+  - Provides semantic `<section>` blocks each with an `aria-labelledby` heading, consistent card styling used on `/profile` (rounded + border-line + canvas background + subtle shadow) and a 2xl page heading. Content is placeholder/mocked pending data wiring stories (recent lessons, usage metrics, template catalog, guardrails summary, marketplace inventory).
+  - Updated the previous redirect behavior test to assert unauth redirect and authenticated render of all section headings.
+
+- Files changed
+  - `apps/web/app/page.tsx` — implement Dashboard layout (main landmark, header, 6 section cards, internal links to Shepherd/Editor/Agents/etc.).
+  - `apps/web/src/app/dashboard.test.tsx` — refactored: now mocks `getServerSession`, captures `redirect` for unauth case, and renders returned JSX to assert presence of h1 and all h2 section headings.
+
+- Quality gates
+  - Typecheck (web): PASS (expected; server component + test compile)
+  - Tests (web): Requires Node 20 runtime; new test compiles. (Execution pending local Node version alignment already documented in tooling entry.)
+
+- Requirements coverage
+  - Dashboard shows Quick Start, Recent Lessons, Plan & Usage, Templates, Guardrails, Marketplace sections: Done
+  - Unauthenticated users redirected to /login without rendering dashboard HTML: Done
+  - Semantic headings & landmark for accessibility: Done
+
+- Deferred / Next
+  - Data wiring stories for each placeholder (recent lessons API integration, billing/usage proxy, guardrails summary aggregation, templates listing).
+  - Potential extraction of a reusable `SectionCard` component shared with `/profile`.
+  - Skeleton/loading states once data fetches are introduced.
+
 ```

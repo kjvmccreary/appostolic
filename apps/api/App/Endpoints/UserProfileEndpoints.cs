@@ -10,6 +10,9 @@ using Appostolic.Api.Application.Storage;
 using Appostolic.Api.Application.Privacy;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Webp;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -33,6 +36,7 @@ public static class UserProfileEndpoints
             if (me is null) return Results.NotFound();
             var logger = lf.CreateLogger("UserProfile");
             using var scope = LoggingPIIScope.BeginEmailScope(logger, me.Email, piiHasher, privacy);
+            TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, me.Email, piiHasher, privacy);
             logger.LogDebug("Fetched current user profile");
             return Results.Ok(me);
         })
@@ -80,6 +84,7 @@ public static class UserProfileEndpoints
 
             var logger = lf.CreateLogger("UserProfile");
             using var scope = LoggingPIIScope.BeginEmailScope(logger, updated.Email, piiHasher, privacy);
+            TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, updated.Email, piiHasher, privacy);
             logger.LogInformation("Updated user profile");
             return Results.Ok(new { updated.Id, updated.Email, updated.Profile });
         })
@@ -117,6 +122,7 @@ public static class UserProfileEndpoints
             await db.SaveChangesAsync(ct);
             var logger = lf.CreateLogger("UserProfile");
             using var scope = LoggingPIIScope.BeginEmailScope(logger, entity.Email, piiHasher, privacy);
+            TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, entity.Email, piiHasher, privacy);
             logger.LogInformation("Changed user password");
             return Results.NoContent();
         })
@@ -145,16 +151,90 @@ public static class UserProfileEndpoints
             if (file.Length > maxSize)
                 return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
-            var ext = contentType switch
+            // Load image for validation + processing. Some very small or edge-case PNGs (e.g., 1x1 minimal) can
+            // fail heuristic type sniffing on certain streams; to be resilient we first copy to a seekable MemoryStream
+            // and explicitly invoke the PNG decoder when the provided content type indicates PNG. This guards against
+            // false "Invalid image data" rejections while still catching genuinely corrupt payloads.
+            await using var uploadStream = file.OpenReadStream();
+            await using var buffer = new MemoryStream();
+            await uploadStream.CopyToAsync(buffer, ct);
+            buffer.Position = 0;
+            SixLabors.ImageSharp.Image image;
+            try
             {
-                "image/png" => ".png",
-                "image/jpeg" => ".jpg",
-                "image/webp" => ".webp",
-                _ => string.Empty
-            };
-            var key = $"users/{userId}/avatar{ext}";
-            await using var stream = file.OpenReadStream();
-            var (url, storedKey) = await storage.UploadAsync(key, contentType, stream, ct);
+                image = await SixLabors.ImageSharp.Image.LoadAsync(buffer, ct);
+            }
+            catch
+            {
+                try
+                {
+                    buffer.Position = 0; // retry once (defensive for tiny edge-case encodings)
+                    image = await SixLabors.ImageSharp.Image.LoadAsync(buffer, ct);
+                }
+                catch
+                {
+                    return Results.BadRequest(new { error = "Invalid image data" });
+                }
+            }
+
+            var width = image.Width;
+            var height = image.Height;
+            if (width < 1 || height < 1)
+                return Results.BadRequest(new { error = "Invalid image dimensions" });
+
+            // Near-square tolerance (excellent UX: allow mild rectangles, auto-center-crop larger deviation)
+            const double tolerance = 0.15; // 15% difference allowed before cropping
+            var ratio = width > height ? (double)width / height : (double)height / width;
+            if (ratio > 1 + (tolerance * 2))
+            {
+                // If far from square (>30% longer side), reject early to prompt user to choose a more square image.
+                return Results.UnprocessableEntity(new { error = "Image must be roughly square (longer side <= 1.3x shorter side)" });
+            }
+
+            // If slightly rectangular (>1.15) perform center crop to square of min dimension
+            if (ratio > 1.0 + tolerance)
+            {
+                var size = Math.Min(width, height);
+                var offsetX = (width - size) / 2;
+                var offsetY = (height - size) / 2;
+                image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(offsetX, offsetY, size, size)));
+                width = height = size;
+            }
+            else if (ratio < 1.0 - tolerance)
+            {
+                var size = Math.Min(width, height);
+                var offsetX = (width - size) / 2;
+                var offsetY = (height - size) / 2;
+                image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(offsetX, offsetY, size, size)));
+                width = height = size;
+            }
+
+            // Resize to max dimension 512 (maintain quality, avoid upscaling)
+            const int maxDim = 512;
+            if (width > maxDim || height > maxDim)
+            {
+                image.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions
+                {
+                    Size = new SixLabors.ImageSharp.Size(maxDim, maxDim),
+                    Mode = SixLabors.ImageSharp.Processing.ResizeMode.Max,
+                    Sampler = SixLabors.ImageSharp.Processing.KnownResamplers.Lanczos3,
+                    Compand = true
+                }));
+                width = image.Width;
+                height = image.Height;
+            }
+
+            // Always convert to WebP (quality 80) for excellent compression while preserving clarity
+            var key = $"users/{userId}/avatar.webp";
+            await using var processed = new MemoryStream();
+            await image.SaveAsWebpAsync(processed, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+            {
+                Quality = 80,
+                FileFormat = SixLabors.ImageSharp.Formats.Webp.WebpFileFormatType.Lossy
+            }, ct);
+            processed.Position = 0;
+            var (url, storedKey) = await storage.UploadAsync(key, "image/webp", processed, ct);
+            var finalMime = "image/webp";
 
             var entity = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
             if (entity is null) return Results.NotFound();
@@ -164,7 +244,9 @@ public static class UserProfileEndpoints
             {
                 ["url"] = url,
                 ["key"] = storedKey,
-                ["mime"] = contentType
+                ["mime"] = finalMime,
+                ["width"] = width,
+                ["height"] = height
             };
 
             using var ms = new MemoryStream();
@@ -182,8 +264,9 @@ public static class UserProfileEndpoints
 
             var logger = lf.CreateLogger("UserProfile");
             using var scope = LoggingPIIScope.BeginEmailScope(logger, entity.Email, piiHasher, privacy);
+            TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, entity.Email, piiHasher, privacy);
             logger.LogInformation("Updated avatar");
-            return Results.Ok(new { avatar = new { url, key = storedKey, mime = contentType } });
+            return Results.Ok(new { avatar = new { url, key = storedKey, mime = finalMime, width, height } });
         })
         .WithSummary("Upload current user avatar");
 

@@ -34,9 +34,6 @@ interface ProfilePatch {
   preferences?: PreferencesPatch;
   presets?: { denominations?: string[] };
 }
-interface RootPatch {
-  profile: ProfilePatch;
-}
 
 export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({
   initial,
@@ -103,9 +100,9 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({
       if (lessonFormat) preferences.lessonFormat = lessonFormat;
       const profile: ProfilePatch = { guardrails };
       if (Object.keys(preferences).length) profile.preferences = preferences;
-      // Always send denominations array for full replacement semantics
-      profile.presets = { denominations };
-      const patch: RootPatch = { profile };
+      profile.presets = { denominations }; // full replacement semantics
+      // IMPORTANT: send merge patch directly (no extra top-level `profile` wrapper)
+      const patch: ProfilePatch = profile;
       const res = await fetch('/api-proxy/users/me', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -123,9 +120,11 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({
 
   const chipCls = 'inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs';
   const chipBtnCls = 'text-muted-foreground hover:text-foreground focus:outline-none';
-  const inputCls = 'w-full rounded border border-line bg-transparent px-2 py-1 text-sm';
+  // Canonical input styling (aligned with Login form for visual consistency)
+  const inputCls =
+    'w-full rounded-md border border-line bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]';
   const pillBtnCls =
-    'cursor-pointer rounded border border-line px-2 py-1 text-xs hover:bg-accent flex items-center gap-1';
+    'cursor-pointer rounded border border-line px-2 py-1 text-xs hover:bg-accent flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-600)]';
 
   function Chips({ kind, items }: { kind: ChipKind; items: string[] }) {
     const [draft, setDraft] = useState('');
@@ -324,7 +323,7 @@ export const ProfileGuardrailsForm: React.FC<ProfileGuardrailsFormProps> = ({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white disabled:opacity-60"
         >
           {pending ? 'Saving…' : 'Save Guardrails'}
         </button>

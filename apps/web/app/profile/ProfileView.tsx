@@ -12,7 +12,6 @@ export interface EditableProfileFields {
   last?: string;
   phone?: string;
   timezone?: string;
-  locale?: string;
   website?: string;
   twitter?: string;
   facebook?: string;

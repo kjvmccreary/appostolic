@@ -195,8 +195,8 @@ Stories & acceptance criteria
 - [x] UPROF-12E: Refactor duplicated token/email hash helpers — Centralized PII hashing; token hashing left unchanged (not PII) and documented implicitly by new abstraction.
 - [x] UPROF-12F: Integration of redaction & hashing in auth/profile/tenant settings endpoints (no raw emails in logs) — Added `LoggingPIIScope` to user + tenant endpoints; structured scope fields only.
 - [x] UPROF-12G: Tests — hasher determinism, pepper variance, redaction edge cases, log capture (no raw PII) — Added unit tests (determinism, pepper variance, normalization + redaction) and integration logging tests for `GET /api/users/me` asserting presence of redacted + (when enabled) hashed fields and absence of raw email; full API suite now 175/175.
-- [ ] UPROF-12H: Documentation updates (SnapshotArchitecture section, storyLog entry, LivingChecklist tick)
-- [ ] UPROF-12I: Optional OTEL/metrics enrichment (hashed identifiers only when justified) — can defer if time constrained
+- [x] UPROF-12H: Documentation updates (SnapshotArchitecture section, storyLog entry, LivingChecklist tick)
+- [x] UPROF-12I: Optional OTEL/metrics enrichment (hashed identifiers only when justified) — can defer if time constrained
 
 Deferred / Post‑1.0 candidates
 

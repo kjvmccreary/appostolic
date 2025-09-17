@@ -15,4 +15,10 @@ public sealed class PrivacyOptions
     /// Keeps interfaces simple while allowing runtime disable of emission.
     /// </summary>
     public bool PIIHashingEnabled { get; set; } = true;
+
+    /// <summary>
+    /// When true, selected spans (user/tenant profile related) will be enriched with redacted (and, if enabled, hashed) PII attributes.
+    /// Defaults false to minimize span cardinality risk. Attributes are never added if hashing emission disabled for hash values.
+    /// </summary>
+    public bool IncludePIITracing { get; set; } = false;
 }

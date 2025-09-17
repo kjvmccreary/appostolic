@@ -58,6 +58,21 @@ export async function middleware(req: NextRequest) {
   // while session cookies are still clearing.
 
   const res = NextResponse.next();
+  // If JWT auto-selected a tenant (token.tenant) but cookie is missing, set cookie for downstream API proxy consistency.
+  if (isAuthed) {
+    const selectedInToken = (token as unknown as { tenant?: string })?.tenant;
+    const selectedCookie = req.cookies.get('selected_tenant')?.value;
+    if (selectedInToken && !selectedCookie) {
+      res.cookies.set('selected_tenant', selectedInToken, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        secure:
+          req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https',
+      });
+    }
+  }
   // Surface the current pathname to the layout via a header to selectively hide UI
   res.headers.set('x-pathname', pathname);
   return res;

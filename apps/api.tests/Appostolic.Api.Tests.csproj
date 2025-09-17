@@ -17,6 +17,7 @@
   <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+  <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../api/Appostolic.Api.csproj" />

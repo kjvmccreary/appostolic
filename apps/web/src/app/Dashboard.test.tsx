@@ -1,47 +1,58 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
+import { render, screen } from '../../test/utils';
 
-// The root page is now a server component that performs a redirect based on auth state.
-// We mock next-auth's getServerSession and next/navigation's redirect to assert behavior.
+// The root page now renders a real dashboard (unauthenticated users still redirect server-side).
+// We mock only the authenticated path here, asserting section headings render.
 
 vi.mock('next-auth', () => ({
   getServerSession: vi.fn(),
 }));
 
-class RedirectError extends Error {
-  constructor(url: string) {
-    super(`REDIRECT:${url}`);
-    this.name = 'NEXT_REDIRECT';
-  }
-}
-
-// Capture redirect calls and throw to simulate Next's redirect short-circuit
+// Mock next/navigation redirect so we can detect unauthenticated behavior without crashing tests
+const redirectMock = vi.fn();
 vi.mock('next/navigation', () => ({
-  redirect: (url: string) => {
-    throw new RedirectError(url);
-  },
+  redirect: (...args: unknown[]) => redirectMock(...args),
 }));
 
 import RootPage from '../../app/page';
 import { getServerSession } from 'next-auth';
 
-describe('RootPage redirects', () => {
+describe('RootPage dashboard', () => {
   beforeEach(() => {
+    redirectMock.mockReset();
     (getServerSession as unknown as { mockReset: () => void }).mockReset?.();
   });
 
-  it('redirects unauthenticated users to /login', async () => {
+  it('redirects unauthenticated users to /login (server)', async () => {
     (
       getServerSession as unknown as { mockResolvedValue: (v: unknown) => void }
     ).mockResolvedValue?.(null);
-    await expect(RootPage()).rejects.toThrow(/REDIRECT:\/login/);
+    // Execute the server component function
+    await RootPage();
+    expect(redirectMock).toHaveBeenCalledWith('/login');
   });
 
-  it('redirects authenticated users to /studio', async () => {
+  it('renders dashboard sections for authenticated users', async () => {
     (
       getServerSession as unknown as { mockResolvedValue: (v: unknown) => void }
-    ).mockResolvedValue?.({
-      user: { email: 'user@example.com' },
-    });
-    await expect(RootPage()).rejects.toThrow(/REDIRECT:\/studio/);
+    ).mockResolvedValue?.({ user: { email: 'u@example.com' } });
+    // Invoke the server component to get its JSX and then render it
+    const jsx = await RootPage();
+    render(jsx as React.ReactElement);
+    // Heading + representative section headings
+    expect(
+      await screen.findByRole('heading', { name: /dashboard/i, level: 1 }),
+    ).toBeInTheDocument();
+    for (const h2 of [
+      /quick start/i,
+      /recent lessons/i,
+      /plan & usage/i,
+      /templates/i,
+      /guardrails/i,
+      /marketplace/i,
+    ]) {
+      expect(screen.getByRole('heading', { name: h2 })).toBeInTheDocument();
+    }
   });
 });
