@@ -4,6 +4,14 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Nav — Multi-tenant explicit selection hardening (2025-09-17)
+  - Removed multi-tenant auto-selection heuristic in NextAuth `jwt` callback that previously picked an arbitrary/high-privilege membership and populated `token.tenant` on initial sign-in. Multi-membership users now always start with `tenant` unset until they explicitly select one via `/select-tenant` (which persists the `selected_tenant` cookie) or the tenant switcher modal. Single-membership users still auto-select for ergonomics.
+  - Middleware no longer silently sets `selected_tenant` for multi-tenant users; it only auto-sets when exactly one membership exists. Authenticated requests lacking a valid selection are redirected to `/select-tenant`.
+  - Server layout gating (`app/layout.tsx`) already required both a `selected_tenant` cookie and a matching session tenant claim; with the heuristic removed, the TopBar cannot appear prematurely for multi-tenant accounts.
+  - Deprecated client `TenantAwareTopBar` wrapper fully removed/neutralized (tests replaced with server-gating tests). A stub file remains temporarily to avoid breaking deep imports; will be deleted after a repo-wide search confirms no external dependents.
+  - Added regression tests: `auth.multiTenant.test.ts` (ensures no tenant claim post sign-in for multi-membership) and `layout.multiTenantNoSelection.test.tsx` (asserts nav absence without selection). Updated middleware tests to reflect stricter redirect behavior.
+  - Rationale: Eliminate UI leakage of nav/actions prior to explicit tenant selection for multi-tenant users and close the gap where a heuristic could elevate unintended tenant context.
+
 - Nav — Server-side TopBar gating (2025-09-16)
   - Replaced client `TenantAwareTopBar` wrapper with deterministic server-side gating in `app/layout.tsx` that renders `<TopBar />` only when the `selected_tenant` cookie is present. Eliminates hydration race/flash of navigation items for authenticated users who have not yet selected a tenant. Removed obsolete component + associated tests and updated `TopBar` to continue internal tenant-claim checks for nav/actions. Follow-up (optional): middleware redirect for authenticated requests lacking the cookie to force `/select-tenant`.
   - Hardened (later same day): Gating now also requires the server session tenant claim to match the cookie to avoid stale cookie nav leakage.

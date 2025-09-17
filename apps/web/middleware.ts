@@ -63,11 +63,13 @@ export async function middleware(req: NextRequest) {
   // while session cookies are still clearing.
 
   const res = NextResponse.next();
-  // If JWT auto-selected a tenant (token.tenant) but cookie is missing, set cookie for downstream API proxy consistency.
+  // Only set cookie implicitly when there is exactly one membership (auto-selection case).
   if (isAuthed) {
     const selectedInToken = (token as unknown as { tenant?: string })?.tenant;
     const selectedCookie = req.cookies.get('selected_tenant')?.value;
-    if (selectedInToken && !selectedCookie) {
+    const memberships = (token as unknown as { memberships?: unknown[] })?.memberships ?? [];
+    const singleMembership = Array.isArray(memberships) && memberships.length === 1;
+    if (singleMembership && selectedInToken && !selectedCookie) {
       res.cookies.set('selected_tenant', selectedInToken, {
         path: '/',
         httpOnly: true,

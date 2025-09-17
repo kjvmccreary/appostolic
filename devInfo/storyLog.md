@@ -1,5 +1,33 @@
 ## 2025-09-16 — UPROF-01: EF model & migration for profiles — ✅ DONE
 
+## 2025-09-17 — Nav Hardening: Explicit multi-tenant selection required — ✅ DONE
+
+- Summary
+  - Removed the multi-tenant auto-selection heuristic from the NextAuth `jwt` callback so accounts with >1 membership no longer receive an implicit `tenant` claim on first sign-in. They now remain unscoped until an explicit selection is performed (cookie + session alignment), preventing premature TopBar/nav exposure.
+  - Middleware updated to stop silently writing a `selected_tenant` cookie for multi-tenant sessions; it only auto-sets when exactly one membership exists. Multi-tenant users without a selection are redirected to `/select-tenant`.
+  - Server layout gating (cookie + session tenant match) now deterministically hides navigation for multi-tenant users pre-selection with no client race.
+  - Deprecated `TenantAwareTopBar` client wrapper removed/neutralized (component replaced by a no-op stub; legacy tests emptied) in favor of pure server gating.
+  - Added regression tests: `auth.multiTenant.test.ts` (no implicit tenant claim) and `layout.multiTenantNoSelection.test.tsx` (no banner/nav without selection). Existing TopBar/admin tests updated implicitly by relying on explicit tenant claim setup.
+
+- Files changed
+  - apps/web/src/lib/auth.ts — delete multi-tenant auto-selection branch (retain single-membership auto-select & update trigger path).
+  - apps/web/middleware.ts — restrict auto cookie set to single membership; ensure redirect for multi-tenant no-selection.
+  - apps/web/app/layout.multiTenantNoSelection.test.tsx — new test (gating negative case).
+  - apps/web/src/lib/auth.multiTenant.test.ts — new regression test.
+  - apps/web/src/components/TenantAwareTopBar\*.tsx — neutralized (content removed / stub) pending full removal.
+
+- Quality gates
+  - Web tests: PASS (all suites green after neutralization; no residual TenantAwareTopBar assertions).
+  - Typecheck: PASS.
+  - Coverage: Stable (TopBar gating logic covered by new tests; removed tests replaced by server gating tests).
+
+- Rationale
+  - Enforces explicit tenant context selection for multi-tenant accounts, closing a privilege visibility gap and eliminating hydration flashes tied to client-side gating logic.
+
+- Follow-ups
+  - Remove stub `TenantAwareTopBar` files entirely after confirming no external references.
+  - Consider adding an SSR integration test simulating a multi-tenant request lacking cookie to assert redirect (middleware-level) if warranted.
+
 - Added JSONB columns:
   - `app.users.profile jsonb` for user-level profile (name/contact/social/avatar/bio/guardrails/preferences)
   - `app.tenants.settings jsonb` for tenant settings (branding/contact/social/privacy)
@@ -238,7 +266,6 @@
   - Web unit tests: PASS (all TopBar tests green; obsolete suites removed). Coverage thresholds still met.
 - Notes
   - Middleware redirect/auth-mismatch scenarios are partially covered; richer auth-mocked middleware tests can be added later. No architecture structural changes beyond test cleanup (SnapshotArchitecture unchanged).
-
 
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
