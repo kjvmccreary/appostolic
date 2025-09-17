@@ -192,6 +192,7 @@ public static class UserProfileEndpoints
             }
 
             // If slightly rectangular (>1.15) perform center crop to square of min dimension
+            bool cropped = false;
             if (ratio > 1.0 + tolerance)
             {
                 var size = Math.Min(width, height);
@@ -199,6 +200,7 @@ public static class UserProfileEndpoints
                 var offsetY = (height - size) / 2;
                 image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(offsetX, offsetY, size, size)));
                 width = height = size;
+                cropped = true;
             }
             else if (ratio < 1.0 - tolerance)
             {
@@ -207,10 +209,12 @@ public static class UserProfileEndpoints
                 var offsetY = (height - size) / 2;
                 image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(offsetX, offsetY, size, size)));
                 width = height = size;
+                cropped = true;
             }
 
             // Resize to max dimension 512 (maintain quality, avoid upscaling)
             const int maxDim = 512;
+            // track resize implicitly via dimensions; no separate flag needed
             if (width > maxDim || height > maxDim)
             {
                 image.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions
@@ -224,17 +228,60 @@ public static class UserProfileEndpoints
                 height = image.Height;
             }
 
-            // Always convert to WebP (quality 80) for excellent compression while preserving clarity
-            var key = $"users/{userId}/avatar.webp";
-            await using var processed = new MemoryStream();
-            await image.SaveAsWebpAsync(processed, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+            // Normalize orientation (EXIF) before encoding so rotation issues don't "corrupt" perceived image
+            try { image.Mutate(ctx => ctx.AutoOrient()); } catch { /* non-fatal */ }
+
+            // Preserve original format: do not convert to WebP. Keep it simple and predictable.
+            string finalMime = contentType;
+            string ext = finalMime switch
             {
-                Quality = 80,
-                FileFormat = SixLabors.ImageSharp.Formats.Webp.WebpFileFormatType.Lossy
-            }, ct);
+                "image/png" => "png",
+                "image/jpeg" => "jpg",
+                "image/webp" => "webp",
+                _ => "png"
+            };
+
+            var key = $"users/{userId}/avatar.{ext}";
+            await using var processed = new MemoryStream();
+            // Always re-encode using the original format's encoder after our safe transforms (crop/resize/orient)
+            try
+            {
+                if (finalMime == "image/png")
+                {
+                    await image.SaveAsPngAsync(processed, cancellationToken: ct);
+                }
+                else if (finalMime == "image/jpeg")
+                {
+                    var jpg = new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 90 };
+                    await image.SaveAsJpegAsync(processed, jpg, ct);
+                }
+                else // image/webp
+                {
+                    var webp = new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+                    {
+                        FileFormat = SixLabors.ImageSharp.Formats.Webp.WebpFileFormatType.Lossy,
+                        Quality = 88
+                    };
+                    await image.SaveAsWebpAsync(processed, webp, ct);
+                }
+            }
+            catch
+            {
+                // As an ultra-simple fallback, if encoding fails for any reason, store the original payload bytes.
+                processed.SetLength(0);
+                processed.Position = 0;
+                buffer.Position = 0;
+                await buffer.CopyToAsync(processed, ct);
+                finalMime = contentType;
+            }
+
             processed.Position = 0;
-            var (url, storedKey) = await storage.UploadAsync(key, "image/webp", processed, ct);
-            var finalMime = "image/webp";
+            var (url, storedKey) = await storage.UploadAsync(key, finalMime, processed, ct);
+
+            // Build absolute URL so the web frontend can fetch from the API server even in dev.
+            var absoluteUrl = url.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? url
+                : $"{req.Scheme}://{req.Host}{url}";
 
             var entity = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
             if (entity is null) return Results.NotFound();
@@ -242,7 +289,7 @@ public static class UserProfileEndpoints
             var existing = entity.Profile is null ? new JsonObject() : JsonNode.Parse(entity.Profile.RootElement.GetRawText()) as JsonObject ?? new JsonObject();
             existing["avatar"] = new JsonObject
             {
-                ["url"] = url,
+                ["url"] = absoluteUrl,
                 ["key"] = storedKey,
                 ["mime"] = finalMime,
                 ["width"] = width,
@@ -266,7 +313,7 @@ public static class UserProfileEndpoints
             using var scope = LoggingPIIScope.BeginEmailScope(logger, entity.Email, piiHasher, privacy);
             TracingPIIEnricher.AddEmail(System.Diagnostics.Activity.Current, entity.Email, piiHasher, privacy);
             logger.LogInformation("Updated avatar");
-            return Results.Ok(new { avatar = new { url, key = storedKey, mime = finalMime, width, height } });
+            return Results.Ok(new { avatar = new { url = absoluteUrl, key = storedKey, mime = finalMime, width, height } });
         })
         .WithSummary("Upload current user avatar");
 

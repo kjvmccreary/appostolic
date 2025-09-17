@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { getServerSession } from 'next-auth';
+// Mock server headers/cookies API to avoid request async storage errors
+vi.mock('next/headers', () => ({
+  cookies: () => ({
+    get: (_name: string) => undefined,
+  }),
+  headers: () => new Headers(),
+}));
 
 // We will mock useSession + signOut + router
 vi.mock('next-auth/react', () => ({

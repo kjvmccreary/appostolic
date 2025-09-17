@@ -20,6 +20,8 @@ vi.mock('./TenantSwitcherModal', () => ({
 }));
 
 import { ProfileMenu } from './ProfileMenu';
+// signOut no longer invoked directly; sign-out now redirects via window.location.href = '/logout'
+// Keeping the mock above for next-auth/react but we won't assert on signOut anymore.
 import { signOut } from 'next-auth/react';
 
 describe('ProfileMenu', () => {
@@ -44,12 +46,34 @@ describe('ProfileMenu', () => {
     expect(screen.getByTestId('switcher')).toHaveAttribute('data-open', 'true');
   });
 
-  it('calls signOut on Sign out', async () => {
+  it('redirects to /logout on Sign out', async () => {
     const user = userEvent.setup();
+    // Stub window.location.href setter to capture redirect target without triggering jsdom navigation error.
+    const originalLocation = window.location;
+    const hrefSetter = vi.fn();
+    // Redefine location with custom href setter
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        set href(v: string) {
+          hrefSetter(v);
+        },
+        get href() {
+          return originalLocation.href;
+        },
+      },
+    });
+
     render(<ProfileMenu />);
     await user.click(screen.getByRole('button', { name: /account/i }));
     await user.click(screen.getByRole('menuitem', { name: /sign out/i }));
-    expect(signOut).toHaveBeenCalled();
+
+    expect(hrefSetter).toHaveBeenCalledWith('/logout');
+    // Restore original location to avoid side-effects on other tests
+    Object.defineProperty(window, 'location', { value: originalLocation });
+    // Ensure we did NOT call signOut directly anymore
+    expect(signOut).not.toHaveBeenCalled();
   });
 
   it('updates avatar button when avatar-updated event dispatched', async () => {

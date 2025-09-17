@@ -1,5 +1,13 @@
 # AGENTS.md — Web (Next.js)
 
+# IMPORTANT FOR RUNNING TEST SUITE
+
+## you must use this base command to run the test suite:
+
+### `pnpm --filter @appostolic/web test `
+
+---
+
 This supplements the root AGENTS.md for `apps/web`.
 
 ## Tasks
@@ -23,9 +31,7 @@ This supplements the root AGENTS.md for `apps/web`.
 
 ## Runtime & Testing Environment
 
-- Always run vitest and Next.js dev commands with Node 20.x LTS. Using Node 19 can trigger a Corepack
-  failure (`TypeError: URL.canParse is not a function` coming from `corepack.cjs`) when invoking
-  `pnpm test` at the workspace root.
+- Always run vitest and Next.js dev commands with Node 20.x LTS. Using Node 19 can trigger a Corepac failure (`TypeError: URL.canParse is not a function` coming from `corepack.cjs`) when invoking `pnpm test` at the workspace root.
 - Recommended local workflow with `nvm`:
   1. `nvm install 20 && nvm use 20`
   2. Verify: `node -v` should show `v20.*`.

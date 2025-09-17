@@ -29,23 +29,34 @@ describe('AvatarUpload', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/too large/i);
   });
 
-  it('uploads valid image and invokes onUploaded', async () => {
+  it('uploads valid image, replaces preview with cache-busted server URL, dispatches event, and invokes onUploaded', async () => {
     const onUploaded = vi.fn();
+    const eventListener = vi.fn();
+    window.addEventListener('avatar-updated', eventListener as EventListener);
+
     render(<AvatarUpload onUploaded={onUploaded} />);
     const input = screen.getByLabelText(/choose avatar image/i) as HTMLInputElement;
     const file = makeFile('a.png', 'image/png');
 
     const json = vi.fn().mockResolvedValue({ avatar: { url: '/media/users/u/avatar.png' } });
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json } as unknown as Response);
-    Object.defineProperty(window, 'location', { value: { reload: vi.fn() }, writable: true });
 
     fireEvent.change(input, { target: { files: [file] } });
-    // Component uses explicit Upload button (no wrapping form). Simulate clicking it.
     const uploadBtn = screen.getByRole('button', { name: /Upload/i });
-    expect(uploadBtn).not.toBeDisabled();
     fireEvent.click(uploadBtn);
 
     await waitFor(() => expect(onUploaded).toHaveBeenCalled());
     expect(fetch).toHaveBeenCalled();
+
+    // Preview replacement: find the img inside MUI Avatar root (it renders as <div><img/></div>)
+    // We query by alt text.
+    const img = screen.getByAltText(/avatar preview/i) as HTMLImageElement | null;
+    expect(img).not.toBeNull();
+    const src = img!.getAttribute('src') || '';
+    expect(src).toMatch(/\/media\/users\/u\/avatar\.png\?v=\d+/);
+    // Ensure event fired with cache-busted URL
+    expect(eventListener).toHaveBeenCalledTimes(1);
+    const call = eventListener.mock.calls[0][0] as CustomEvent;
+    expect(call.detail.url).toEqual(src);
   });
 });

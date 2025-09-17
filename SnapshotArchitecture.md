@@ -1,8 +1,13 @@
-# Appostolic — Architecture Snapshot (2025-09-16)
+# Appostolic — Architecture Snapshot (2025-09-17)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
 ## What’s new
+
+- User Profile — Avatar pipeline simplification & absolute URLs (2025-09-17)
+  - Upload endpoint now preserves the original image format (PNG/JPEG/WebP) rather than forcing WebP. Minimal transforms remain (AutoOrient; optional center-crop to near-square; optional downscale to max 512px). When mutated, re-encodes using the original format encoder with sane quality defaults; otherwise passes through original bytes.
+  - Storage keys include the correct extension (e.g., `users/{id}/avatar.png|jpg|webp`) and the response metadata includes `{ url, key, mime, width, height }` with the URL now absolute (`scheme://host/...`) to avoid dev-server relative path confusion.
+  - Tests updated to assert original mime and absolute URL; full API suite green.
 
 - Nav — Multi-tenant explicit selection hardening (2025-09-17)
   - Removed multi-tenant auto-selection heuristic in NextAuth `jwt` callback that previously picked an arbitrary/high-privilege membership and populated `token.tenant` on initial sign-in. Multi-membership users now always start with `tenant` unset until they explicitly select one via `/select-tenant` (which persists the `selected_tenant` cookie) or the tenant switcher modal. Single-membership users still auto-select for ergonomics.

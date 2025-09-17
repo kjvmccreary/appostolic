@@ -25,7 +25,13 @@ export function AvatarUpload({ onUploaded }: Props) {
   const [file, setFile] = React.useState<File | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  /**
+   * preview — always the URL currently displayed in the Avatar component.
+   *  - Starts as an object URL for local file selection
+   *  - Replaced with the final server URL (cache-busted) after successful upload
+   */
   const [preview, setPreview] = React.useState<string | null>(null);
+  const previousObjectUrlRef = React.useRef<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   function chooseFile() {
@@ -49,7 +55,20 @@ export function AvatarUpload({ onUploaded }: Props) {
       return;
     }
     setFile(f);
-    setPreview(URL.createObjectURL(f));
+    // Revoke any prior blob URL to avoid memory leak.
+    if (previousObjectUrlRef.current) {
+      // jsdom does not implement revokeObjectURL; guard before calling.
+      try {
+        if (typeof URL.revokeObjectURL === 'function') {
+          URL.revokeObjectURL(previousObjectUrlRef.current);
+        }
+      } catch {
+        // Ignore revoke failures (jsdom or unexpected environment without implementation)
+      }
+    }
+    const objectUrl = URL.createObjectURL(f);
+    previousObjectUrlRef.current = objectUrl;
+    setPreview(objectUrl);
   }
 
   async function handleUpload() {
@@ -68,12 +87,26 @@ export function AvatarUpload({ onUploaded }: Props) {
       const data = (await res.json()) as { avatar?: { url?: string } };
       const url = data?.avatar?.url;
       if (url) {
+        // Simple cache bust: timestamp; if desired later we can add a content hash.
         const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        // Replace preview with server URL so user sees the canonical stored version (not local blob)
+        setPreview(cacheBusted);
+        // Revoke prior object URL if any now that we no longer need the local blob preview.
+        if (previousObjectUrlRef.current) {
+          try {
+            if (typeof URL.revokeObjectURL === 'function') {
+              URL.revokeObjectURL(previousObjectUrlRef.current);
+            }
+          } catch {
+            // Ignore revoke failures
+          }
+          previousObjectUrlRef.current = null;
+        }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { url: cacheBusted } }));
         }
         onUploaded?.(cacheBusted);
-        // Reset local selection but keep preview (shows uploaded)
+        // Clear file selection (so user can re-upload same filename again if desired)
         setFile(null);
       }
     } catch (err: unknown) {
@@ -82,6 +115,22 @@ export function AvatarUpload({ onUploaded }: Props) {
       setSubmitting(false);
     }
   }
+
+  // Cleanup any lingering object URL on unmount.
+  React.useEffect(() => {
+    return () => {
+      if (previousObjectUrlRef.current) {
+        try {
+          if (typeof URL.revokeObjectURL === 'function') {
+            URL.revokeObjectURL(previousObjectUrlRef.current);
+          }
+        } catch {
+          // Ignore revoke failures
+        }
+        previousObjectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <Stack
@@ -95,7 +144,19 @@ export function AvatarUpload({ onUploaded }: Props) {
         <Avatar
           src={preview || undefined}
           alt="Avatar preview"
-          sx={{ width: 56, height: 56, border: '1px solid', borderColor: 'divider' }}
+          sx={{
+            width: 56,
+            height: 56,
+            border: '1px solid',
+            borderColor: 'divider',
+            overflow: 'hidden',
+            '& img': {
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            },
+          }}
         />
         {submitting && (
           <LinearProgress

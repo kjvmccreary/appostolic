@@ -40,10 +40,14 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
         var res = await client.PostAsync("/api/users/me/avatar", content);
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await res.Content.ReadFromJsonAsync<JsonElement>();
-        json.GetProperty("avatar").GetProperty("url").GetString().Should().NotBeNullOrEmpty();
-    json.GetProperty("avatar").GetProperty("mime").GetString().Should().Be("image/webp");
-    json.GetProperty("avatar").GetProperty("width").GetInt32().Should().Be(1);
-    json.GetProperty("avatar").GetProperty("height").GetInt32().Should().Be(1);
+        var url = json.GetProperty("avatar").GetProperty("url").GetString();
+        url.Should().NotBeNullOrEmpty();
+        // We now preserve original format; mime should echo input PNG
+        json.GetProperty("avatar").GetProperty("mime").GetString().Should().Be("image/png");
+        json.GetProperty("avatar").GetProperty("width").GetInt32().Should().Be(1);
+        json.GetProperty("avatar").GetProperty("height").GetInt32().Should().Be(1);
+        // API now returns absolute URL for /media to ensure browser can fetch in dev
+        url!.Should().StartWith("http");
     }
 
     [Fact]
@@ -121,9 +125,43 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
 
         var res = await client.PostAsync("/api/users/me/avatar", content);
         res.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
-        json.GetProperty("avatar").GetProperty("mime").GetString().Should().Be("image/webp");
+    var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+    json.GetProperty("avatar").GetProperty("mime").GetString().Should().Be("image/png");
         json.GetProperty("avatar").GetProperty("width").GetInt32().Should().BeLessOrEqualTo(512);
         json.GetProperty("avatar").GetProperty("height").GetInt32().Should().BeLessOrEqualTo(512);
+    }
+    [Fact]
+    public async Task UploadAvatar_TransparentLogo_PreservesDimensions_Webp()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
+        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // Build a 64x64 transparent PNG with a single red pixel to trigger lossless path
+        byte[] bytes;
+        using (var img = new Image<Rgba32>(64, 64))
+        {
+            img.ProcessPixelRows(accessor =>
+            {
+                var row = accessor.GetRowSpan(10);
+                row[10] = new Rgba32(255, 0, 0, 255);
+            });
+            using var ms = new MemoryStream();
+            img.Save(ms, new PngEncoder());
+            bytes = ms.ToArray();
+        }
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(fileContent, name: "file", fileName: "transparent-logo.png");
+        var res = await client.PostAsync("/api/users/me/avatar", content);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+    json.GetProperty("avatar").GetProperty("mime").GetString().Should().Be("image/png");
+        json.GetProperty("avatar").GetProperty("width").GetInt32().Should().Be(64);
+        json.GetProperty("avatar").GetProperty("height").GetInt32().Should().Be(64);
+    var url2 = json.GetProperty("avatar").GetProperty("url").GetString();
+    url2.Should().NotBeNullOrEmpty();
+    url2!.Should().Contain("/media/users/");
+    url2.Should().StartWith("http");
     }
 }
