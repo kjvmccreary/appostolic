@@ -201,6 +201,12 @@
 
 ## 2025-09-16 — Nav — Strengthen multi-tenant TopBar gating — ✅ DONE
 
+- 2025-09-16 — Nav — Tenant-scoped Admin gating — ✅ DONE
+  - Summary: Replaced flat `session.isAdmin` usage in `TopBar` with derived admin status from the currently selected tenant membership (matching on `tenantSlug` or `tenantId` and checking `role` or `roles[]` for `admin`). Prevents Admin menu leakage when user is admin in a different tenant or no selection yet. Added `TopBar.admin.test.tsx` covering positive & negative cases and mixed role arrays.
+  - Files changed: `apps/web/src/components/TopBar.tsx`, `apps/web/src/components/TopBar.admin.test.tsx` (new).
+  - Rationale: Prior implementation surfaced Admin navigation across tenants because `isAdmin` was a global boolean, violating least privilege after tenant switch or when selecting a non-admin tenant.
+  - Quality gates: Unit tests updated (new test file) — full suite to be re-run in next CI pass; local targeted tests pass.
+
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed
