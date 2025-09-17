@@ -207,6 +207,12 @@
   - Rationale: Prior implementation surfaced Admin navigation across tenants because `isAdmin` was a global boolean, violating least privilege after tenant switch or when selecting a non-admin tenant.
   - Quality gates: Unit tests updated (new test file) — full suite to be re-run in next CI pass; local targeted tests pass.
 
+- 2025-09-16 — Nav — Hide nav until tenant claim present — ✅ DONE
+  - Summary: Suppress all primary navigation links, creation CTA buttons, and profile menu until the JWT includes a tenant claim (`session.tenant`). Prevents early navigation before explicit tenant context is established, even if the user is authenticated and memberships are known.
+  - Files changed: `apps/web/src/components/TopBar.tsx` (conditional visibility), `apps/web/src/components/TopBar.admin.test.tsx` (added no-tenant test).
+  - Rationale: Previous gating still displayed nav items between auth and tenant selection; this enforces strict tenant-first context.
+  - Quality gates: Added test validating nav hidden when authed without tenant. Pending full suite run for aggregate coverage.
+
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed
