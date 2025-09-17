@@ -1,7 +1,7 @@
 import './globals.css';
 import React from 'react';
 import Providers from './providers';
-import { TopBar } from '../src/components/TopBar';
+import { TenantAwareTopBar } from '../src/components/TenantAwareTopBar';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <Providers>
-          <TopBar />
+          <TenantAwareTopBar />
           {children}
         </Providers>
       </body>

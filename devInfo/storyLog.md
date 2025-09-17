@@ -398,6 +398,21 @@
   - apps/web/src/components/TenantSwitcherModal.tsx — centered modal and scrollable panel
   - apps/web/app/studio/admin/invites/page.tsx — add Status column, hide actions when accepted, fix ConfirmSubmitButton import, restore Expires cell
 
+  ## 2025-09-16 — Multi-tenant TopBar gating (prevent navigation pre-selection) — ✅ DONE
+  - Summary
+    - Added `TenantAwareTopBar` wrapper that suppresses the global `TopBar` when an authenticated user has more than one tenant membership but has not yet selected a tenant (no `selected_tenant` cookie and no `session.tenant`). Prevents premature navigation before tenant context is established.
+    - Layout now uses `TenantAwareTopBar` instead of `TopBar` directly. New unit tests ensure hidden state (multi-tenant no selection) and visible states (single tenant, or multi-tenant with selection).
+  - Files changed
+    - `apps/web/app/layout.tsx` — swap in `TenantAwareTopBar`.
+    - `apps/web/src/components/TenantAwareTopBar.tsx` — new component with gating logic (cookie + session + pathname checks).
+    - `apps/web/src/components/TenantAwareTopBar.test.tsx` — tests for hidden/visible scenarios.
+  - Quality gates
+    - Web tests: PASS (153/153) after addition; coverage unchanged (lines ~84.8%).
+    - Typecheck: PASS.
+  - Notes
+    - Uses client-side cookie inspection via `document.cookie` for immediate hide without extra server round trip. Middleware already handles redirect to `/select-tenant` for protected paths; this UI gate closes the gap on public/initial pages.
+    - Future enhancement: promote tenant selection to server session earlier and drop cookie sniffing.
+
   ## 2025-09-16 — Web Fix: Profile guardrails & bio tests alignment — ✅ DONE
   - Summary
     - Updated web unit tests to reflect evolved merge patch semantics for profile guardrails and bio editor components. `ProfileGuardrailsForm` now emits a top-level merge patch without a nested `profile` wrapper (arrays and objects submitted directly). Adjusted its test to assert `presets.denominations` under the root patch and verify empty favorite arrays are still present for intentional full replacement semantics. Refactored `BioEditor` soft line break test to account for `remark-breaks` rendering a single `<p>` with `<br/>`, preventing brittle multi-node expectations. Updated `AvatarUpload` test to click the explicit Upload button instead of assuming a form submit event after internal component refactor (component no longer wrapped in a form). All targeted tests now pass; full web suite: 47 files, 150 tests, coverage ~84% lines (thresholds satisfied).
