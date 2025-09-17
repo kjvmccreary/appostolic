@@ -6,6 +6,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 - Nav — Server-side TopBar gating (2025-09-16)
   - Replaced client `TenantAwareTopBar` wrapper with deterministic server-side gating in `app/layout.tsx` that renders `<TopBar />` only when the `selected_tenant` cookie is present. Eliminates hydration race/flash of navigation items for authenticated users who have not yet selected a tenant. Removed obsolete component + associated tests and updated `TopBar` to continue internal tenant-claim checks for nav/actions. Follow-up (optional): middleware redirect for authenticated requests lacking the cookie to force `/select-tenant`.
+  - Hardened (later same day): Gating now also requires the server session tenant claim to match the cookie to avoid stale cookie nav leakage.
 
 - User Profile — UPROF‑11: Denomination presets & multi-select guardrails UI (2025-09-16)
 - Web Fix — Test alignment: Guardrails patch now root-level (no nested `profile` wrapper); bio preview soft line break test updated for `remark-breaks`; avatar upload test uses explicit button (2025-09-16)

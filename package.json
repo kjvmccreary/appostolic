@@ -12,6 +12,7 @@
     "dev": "concurrently --kill-others-on-fail -n web,api -c green,cyan \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\"",
     "dev:all": "concurrently --kill-others-on-fail -n web,api,info -c green,cyan,magenta \"pnpm --filter @appostolic/web dev\" \"pnpm --filter @appostolic/api dev\" \"node -e \"console.log('\\n============================================================\\n Mobile is interactive.\\n Open new terminal:\\n   cd apps/mobile && pnpm dev\\n============================================================\\n')\"\"",
     "build": "turbo run build",
+    "pretest": "node -e \"if(!/^20\\./.test(process.versions.node)){console.error('Error: Node 20.x required. Current '+process.versions.node);process.exit(1)}\"",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "sdk:openapi": "pnpm -C apps/api build && dotnet swagger tofile --output packages/sdk/openapi.json apps/api/bin/Debug/net8.0/Appostolic.Api.dll v1",

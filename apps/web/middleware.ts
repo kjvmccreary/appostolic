@@ -40,11 +40,16 @@ export async function middleware(req: NextRequest) {
   // force a redirect to /select-tenant before continuing.
   if (isProtected && isAuthed) {
     const memberships = (token as unknown as { memberships?: unknown[] })?.memberships ?? [];
-    const hasMultiple = Array.isArray(memberships) && memberships.length > 1;
     const selectedCookie = req.cookies.get('selected_tenant')?.value;
     const selectedInToken = (token as unknown as { tenant?: string })?.tenant;
-    const hasSelection = !!selectedCookie || !!selectedInToken;
-    if (hasMultiple && !hasSelection) {
+    // Redirect logic:
+    // 1. If user has >1 membership and no selection at all → force select.
+    // 2. If cookie exists but does NOT match token claim (stale/forged) → force select to realign.
+    // 3. If single membership but no cookie or claim yet (edge) → allow auto-selection heuristics (skip redirect) for UX.
+    const hasMultiple = Array.isArray(memberships) && memberships.length > 1;
+    const noAnySelection = !selectedCookie && !selectedInToken;
+    const staleCookie = selectedCookie && selectedCookie !== selectedInToken;
+    if ((hasMultiple && noAnySelection) || staleCookie) {
       const selUrl = req.nextUrl.clone();
       selUrl.pathname = '/select-tenant';
       const requested = pathname + (search ?? '');

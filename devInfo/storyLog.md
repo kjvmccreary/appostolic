@@ -219,6 +219,12 @@
   - Rationale: Client gating allowed edge flashes and complexity; server gating is deterministic and simpler.
   - Follow-up: Consider middleware expansion to redirect authed/no-cookie requests to `/select-tenant` for path-level enforcement.
 
+- 2025-09-16 — Nav — Stricter server gating (cookie + session alignment) — ✅ DONE
+  - Summary: Hardened server-side TopBar gating to require both a `selected_tenant` cookie AND a matching `session.tenant` claim before rendering the nav. Prevents stale/forged cookie from exposing navigation when the authenticated JWT has no tenant selected (e.g., after switch or logout/login without selection).
+  - Files changed: `apps/web/app/layout.tsx` now fetches server session via `getServerSession(authOptions)` and compares `session.tenant === cookie` before rendering `<TopBar />`.
+  - Rationale: Prior cookie-only check could leak nav if cookie persisted from an earlier session mismatch.
+  - Next (optional): Middleware enhancement to redirect authenticated users lacking both cookie & claim directly to `/select-tenant`.
+
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed
