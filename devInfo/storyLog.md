@@ -225,6 +225,21 @@
   - Rationale: Prior cookie-only check could leak nav if cookie persisted from an earlier session mismatch.
   - Next (optional): Middleware enhancement to redirect authenticated users lacking both cookie & claim directly to `/select-tenant`.
 
+### 2025-09-17 — Nav — Remove legacy client gating + align tests — ✅ DONE
+
+- Summary
+  - Fully removed obsolete `TenantAwareTopBar` client wrapper and its two test suites after migrating to deterministic server-side gating (cookie + session.tenant alignment) in `app/layout.tsx`. Updated existing `TopBar` tests to include a `tenant` claim where navigation or creator/admin actions are expected, preventing false negatives under the stricter gating rules. Added stable `next/navigation` mocks in admin tests to eliminate App Router invariant errors and ensure isolated unit reliability.
+- Files changed
+  - Deleted: `apps/web/src/components/TenantAwareTopBar.tsx`, `TenantAwareTopBar.test.tsx`, `TenantAwareTopBar.strict.test.tsx`.
+  - Updated: `apps/web/src/components/TopBar.test.tsx` (adds `tenant` claim to relevant cases), `TopBar.admin.test.tsx` (adds explicit `usePathname`/`useRouter` mocks).
+- Rationale
+  - Retaining the legacy client gating created redundant logic and brittle tests that conflicted with the new server-first approach, leaving the suite red. Consolidation reduces surface area and ensures tests assert the intended invariant: nav/actions require an aligned tenant selection.
+- Quality gates
+  - Web unit tests: PASS (all TopBar tests green; obsolete suites removed). Coverage thresholds still met.
+- Notes
+  - Middleware redirect/auth-mismatch scenarios are partially covered; richer auth-mocked middleware tests can be added later. No architecture structural changes beyond test cleanup (SnapshotArchitecture unchanged).
+
+
 - Summary
   - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed

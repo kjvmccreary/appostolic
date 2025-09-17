@@ -2,6 +2,11 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { SessionProvider } from 'next-auth/react';
 import { TopBar } from './TopBar';
+// Mock next/navigation to avoid App Router invariant errors during unit tests
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
+}));
 
 /**
  * Tests for tenant-scoped admin gating in TopBar.

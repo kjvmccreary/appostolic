@@ -37,7 +37,10 @@ import remarkBreaks from 'remark-breaks';
  * - Accessible: textarea labeled, character count announced via `aria-describedby`, status region for success/error.
  */
 
-interface BioContent { format?: string; content?: string }
+interface BioContent {
+  format?: string;
+  content?: string;
+}
 
 interface BioEditorProps {
   initial?: BioContent | null;
@@ -65,7 +68,7 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
     setError(null);
     try {
       // Build minimal patch: only include bio key if changed vs baseline
-  const body: Record<string, unknown> = {};
+      const body: Record<string, unknown> = {};
       const trimmed = value.trim();
       const baselineContent = baseline?.content ?? '';
       if (trimmed === '' && baselineContent !== '') {
@@ -89,8 +92,8 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
           onSaved?.(null);
         } else if (body.bio) {
           // update baseline to new value
-            setBaseline({ format: 'markdown', content: value });
-            onSaved?.({ format: 'markdown', content: value });
+          setBaseline({ format: 'markdown', content: value });
+          onSaved?.({ format: 'markdown', content: value });
         }
       } else {
         setStatus('error');

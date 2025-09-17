@@ -6,6 +6,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../src/lib/auth';
 import { TopBar } from '../src/components/TopBar';
 
+// Pure helper (exported for tests) deciding whether to show the TopBar.
+// Guards against stale cookies by requiring both cookie and session alignment.
+export function shouldShowTopBar(
+  selectedTenantCookie: string | undefined,
+  sessionTenant: string | undefined,
+) {
+  return !!(selectedTenantCookie && sessionTenant && selectedTenantCookie === sessionTenant);
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
   const selectedTenantCookie = cookieStore.get('selected_tenant')?.value;
@@ -13,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await getServerSession(authOptions);
   const sessionTenant = (session as unknown as { tenant?: string } | null)?.tenant;
   // Only show TopBar when both a cookie and a matching session tenant exist to avoid stale cookie leakage.
-  const showTopBar = Boolean(selectedTenantCookie && sessionTenant && sessionTenant === selectedTenantCookie);
+  const showTopBar = shouldShowTopBar(selectedTenantCookie, sessionTenant);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

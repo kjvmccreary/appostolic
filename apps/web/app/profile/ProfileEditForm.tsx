@@ -80,20 +80,18 @@ function buildPatch(baseline: EditableProfileFields, current: EditableProfileFie
 
   // Social links: normalize non-empty; allow explicit null to clear removed entries.
   const social: ProfilePatchSocial = {};
-  (['website', 'twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const).forEach(
-    (k) => {
-      const beforeRaw = baseline[k];
-      const afterRaw = current[k];
-      const before = beforeRaw ? beforeRaw.trim() : '';
-      const normalizedAfter = afterRaw ? normalizeUrl(afterRaw) : undefined;
-      const after = normalizedAfter ? normalizedAfter.trim() : '';
-      if (after) {
-        if (after !== before) social[k] = after;
-      } else if (before) {
-        social[k] = null; // cleared
-      }
-    },
-  );
+  (['website', 'twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const).forEach((k) => {
+    const beforeRaw = baseline[k];
+    const afterRaw = current[k];
+    const before = beforeRaw ? beforeRaw.trim() : '';
+    const normalizedAfter = afterRaw ? normalizeUrl(afterRaw) : undefined;
+    const after = normalizedAfter ? normalizedAfter.trim() : '';
+    if (after) {
+      if (after !== before) social[k] = after;
+    } else if (before) {
+      social[k] = null; // cleared
+    }
+  });
   if (Object.keys(social).length) patch.social = social;
 
   return patch;

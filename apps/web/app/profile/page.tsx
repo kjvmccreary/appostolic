@@ -111,13 +111,13 @@ export default async function ProfilePage() {
   // Temporary backward compatibility: earlier client incorrectly nested data under profile.profile
   const rawProfile: unknown = me.profile;
   function hasNestedProfile(o: unknown): o is { profile: ProfileJson } {
-      return !!o && typeof o === 'object' && 'profile' in o;
-    }
+    return !!o && typeof o === 'object' && 'profile' in o;
+  }
   // Flatten legacy shape: earlier versions incorrectly nested data under profile.profile.
   // We want root-level (newly saved) fields to win over legacy nested ones if both exist.
   const flattened: ProfileJson | null = hasNestedProfile(rawProfile)
-    ? ({ ...rawProfile.profile, ...(rawProfile as ProfileJson) })
-    : ((rawProfile as ProfileJson) || null);
+    ? { ...rawProfile.profile, ...(rawProfile as ProfileJson) }
+    : (rawProfile as ProfileJson) || null;
 
   const initial = {
     display: flattened?.name?.display,
