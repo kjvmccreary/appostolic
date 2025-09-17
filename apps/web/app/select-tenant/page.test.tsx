@@ -48,7 +48,7 @@ describe('/select-tenant page', () => {
     expect(dest).toBe('/login');
   });
 
-  it('auto-selects when only one membership and redirects to /studio/agents by default', async () => {
+  it('auto-selects when only one membership and redirects directly to /studio/agents (no intermediate api route)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [{ tenantId: 't1', tenantSlug: 't1-personal', role: 'Admin' }],
@@ -62,9 +62,7 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toContain('/api/tenant/select?');
-    expect(dest).toContain('tenant=t1-personal');
-    expect(dest).toContain('next=%2Fstudio%2Fagents');
+    expect(dest).toBe('/studio/agents');
   });
 
   it('respects a safe next path when provided', async () => {
@@ -83,7 +81,7 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toContain('next=%2Fstudio%2Ftasks%3Fstatus%3Dopen');
+    expect(dest).toBe('/studio/tasks?status=open');
   });
 
   it('defaults next when provided value is unsafe (external)', async () => {
@@ -102,6 +100,6 @@ describe('/select-tenant page', () => {
       if (err.message === 'REDIRECT') dest = err.destination ?? '';
       else throw e;
     }
-    expect(dest).toContain('next=%2Fstudio%2Fagents');
+    expect(dest).toBe('/studio/agents');
   });
 });

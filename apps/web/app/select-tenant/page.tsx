@@ -35,11 +35,17 @@ export default async function SelectTenantPage(props: {
   })();
 
   if (memberships && memberships.length === 1) {
-    // Auto-select single membership via API route that sets cookie, then redirect
     const tenant = memberships[0].tenantSlug;
-    redirect(
-      `/api/tenant/select?tenant=${encodeURIComponent(tenant)}&next=${encodeURIComponent(next)}`,
-    );
+    // Write cookie directly (canonical slug) and redirect to next.
+    const isSecure = process.env.NODE_ENV === 'production';
+    c.set(TENANT_COOKIE, tenant, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      secure: isSecure,
+    });
+    redirect(next);
   }
 
   async function chooseTenant(formData: FormData) {
@@ -53,12 +59,22 @@ export default async function SelectTenantPage(props: {
       if (!n.startsWith('/') || n.startsWith('//')) return next;
       return n;
     })();
-    // Call server route to set cookie, then redirect
-    // We can't use fetch in a server action without importing, but Next allows calling internal routes
-    // via a redirect-after handler approach for simplicity; use GET for now.
-    redirect(
-      `/api/tenant/select?tenant=${encodeURIComponent(slug)}&next=${encodeURIComponent(nextSafe)}`,
+    const session = await getServerSession(authOptions);
+    const membership = (session as Session & { memberships?: Membership[] })?.memberships?.find(
+      (m) => m.tenantSlug === slug || m.tenantId === slug,
     );
+    if (!membership) {
+      redirect('/select-tenant'); // invalid selection attempt; start over
+    }
+    const isSecure = process.env.NODE_ENV === 'production';
+    cookies().set(TENANT_COOKIE, membership.tenantSlug, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      secure: isSecure,
+    });
+    redirect(nextSafe);
   }
 
   return (
