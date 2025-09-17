@@ -12,10 +12,15 @@ export async function middleware(req: NextRequest) {
   if (!WEB_AUTH_ENABLED) {
     const res = NextResponse.next();
     res.headers.set('x-pathname', req.nextUrl.pathname);
+    if (req.nextUrl.pathname === '/logout' && req.cookies.get('selected_tenant')) {
+      // Proactively clear tenant cookie on logout navigation
+      res.cookies.set('selected_tenant', '', { path: '/', maxAge: 0 });
+    }
     return res;
   }
 
   const { pathname, search } = req.nextUrl;
+  const isLogout = pathname === '/logout';
   const isProtected = PROTECTED_MATCHERS.some(
     (p) => pathname === p || pathname.startsWith(p + '/'),
   );
@@ -48,7 +53,10 @@ export async function middleware(req: NextRequest) {
     // 3. If single membership but no cookie or claim yet (edge) → allow auto-selection heuristics (skip redirect) for UX.
     const hasMultiple = Array.isArray(memberships) && memberships.length > 1;
     const noAnySelection = !selectedCookie && !selectedInToken;
-    const staleCookie = selectedCookie && selectedCookie !== selectedInToken;
+    // Treat cookie as stale only if the token already possesses a tenant claim and they differ.
+    // This avoids a redirect loop in the brief window after selection where the cookie is set
+    // but the JWT hasn't been re-issued yet (hydrator will reconcile client state).
+    const staleCookie = selectedCookie && selectedInToken && selectedCookie !== selectedInToken;
     if ((hasMultiple && noAnySelection) || staleCookie) {
       const selUrl = req.nextUrl.clone();
       selUrl.pathname = '/select-tenant';
@@ -63,6 +71,9 @@ export async function middleware(req: NextRequest) {
   // while session cookies are still clearing.
 
   const res = NextResponse.next();
+  if (isLogout && req.cookies.get('selected_tenant')) {
+    res.cookies.set('selected_tenant', '', { path: '/', maxAge: 0 });
+  }
   // Only set cookie implicitly when there is exactly one membership (auto-selection case).
   if (isAuthed) {
     const selectedInToken = (token as unknown as { tenant?: string })?.tenant;
@@ -92,6 +103,7 @@ export const config = {
     '/studio/:path*',
     '/dev/:path*',
     '/login',
+    '/logout',
     '/select-tenant',
     '/magic/:path*',
     '/signup',

@@ -16,6 +16,9 @@ export async function POST(req: Request | { formData: () => Promise<FormData> })
   const form = await req.formData();
   // Normalize headers into a plain object to avoid issues with special header objects in test env
   const upstreamHeaders: Record<string, string> = { ...headers };
+  // Remove JSON content-type from generic proxy headers so fetch can assign the multipart boundary.
+  if (upstreamHeaders['Content-Type']) delete upstreamHeaders['Content-Type'];
+  if (upstreamHeaders['content-type']) delete upstreamHeaders['content-type'];
   const res = await fetch(target, {
     method: 'POST',
     headers: upstreamHeaders,

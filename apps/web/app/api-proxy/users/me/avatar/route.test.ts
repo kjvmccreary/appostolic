@@ -29,6 +29,7 @@ describe('/api-proxy/users/me/avatar', () => {
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue({
       'x-dev-user': 'test@example.com',
       'x-tenant': 't1',
+      'Content-Type': 'application/json',
     });
 
     // Mock upstream fetch
@@ -49,5 +50,19 @@ describe('/api-proxy/users/me/avatar', () => {
     const res = await POST(fakeReq);
     expect(res.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledOnce();
+    type MockCall = [unknown, RequestInit?];
+    const fetchMock = global.fetch as unknown as { mock: { calls: MockCall[] } };
+    const forwardedInit = fetchMock.mock.calls[0][1];
+    const hdrs = forwardedInit?.headers;
+    let foundCt: string | undefined;
+    if (hdrs instanceof Headers) {
+      foundCt = hdrs.get('content-type') ?? undefined;
+    } else if (Array.isArray(hdrs)) {
+      for (const [k, v] of hdrs) if (k.toLowerCase() === 'content-type') foundCt = String(v);
+    } else if (hdrs && typeof hdrs === 'object') {
+      for (const k of Object.keys(hdrs))
+        if (k.toLowerCase() === 'content-type') foundCt = (hdrs as Record<string, string>)[k];
+    }
+    expect(foundCt).toBeUndefined();
   });
 });

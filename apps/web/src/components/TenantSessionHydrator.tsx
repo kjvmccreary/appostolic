@@ -1,6 +1,7 @@
 'use client';
 import { useSession } from 'next-auth/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 /**
  * TenantSessionHydrator
@@ -10,13 +11,28 @@ import { useEffect } from 'react';
  */
 export default function TenantSessionHydrator(props: { tenant: string }) {
   const { data: session, status, update } = useSession();
+  const router = useRouter();
+  const didUpdateRef = useRef(false);
   useEffect(() => {
+    if (didUpdateRef.current) return;
     if (status === 'authenticated' && props.tenant) {
       const current = (session as unknown as { tenant?: string } | null)?.tenant;
       if (!current) {
-        update({ tenant: props.tenant });
+        didUpdateRef.current = true;
+        // Align session tenant with cookie, then force a revalidation-driven refresh
+        // so that the next server-render includes the TopBar without manual reload.
+        update({ tenant: props.tenant }).finally(() => {
+          // Small microtask delay to let next-auth context settle before refresh.
+          setTimeout(() => {
+            try {
+              router.refresh();
+            } catch {
+              // no-op: refresh best-effort
+            }
+          }, 0);
+        });
       }
     }
-  }, [status, session, props.tenant, update]);
+  }, [status, session, props.tenant, update, router]);
   return null;
 }

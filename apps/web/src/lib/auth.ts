@@ -94,6 +94,12 @@ export const authOptions: NextAuthOptions & {
         t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
       }
       if (user?.email) t.email = user.email;
+      // Fresh sign-in (user present) with multiple memberships: ensure we do NOT carry over any stale
+      // tenant claim from a prior session (e.g., stale JWT survived signOut race) so that explicit
+      // selection is always required. Single membership auto-select still handled below.
+      if (user && t.memberships && t.memberships.length > 1) {
+        delete t.tenant;
+      }
       // Auto-selection (LOW IMPACT RESTRICTION):
       // Only auto-select when there is exactly one membership. For multi-tenant users
       // we now require an explicit selection (session.update({ tenant }) or /select-tenant flow)
