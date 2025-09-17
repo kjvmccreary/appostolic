@@ -34,7 +34,8 @@ export function TenantAwareTopBar() {
     tenant?: string | null;
   } | null;
   const memberships = Array.isArray(anySession?.memberships) ? anySession!.memberships! : [];
-  const hasMultiple = memberships.length > 1;
+  const membershipCount = memberships.length;
+  const hasMultiple = membershipCount > 1;
 
   // Determine if a tenant has already been selected either via session claim or cookie.
   const selectedFromSession = anySession?.tenant || null;
@@ -45,8 +46,25 @@ export function TenantAwareTopBar() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const onSelectTenantPage = pathname.startsWith('/select-tenant');
 
+  // Determine if authenticated (email presence) — if not authed, allow existing TopBar logic (it renders minimal sign-in navigation)
+  const isAuthed = Boolean(
+    (anySession as unknown as { user?: { email?: string } } | null)?.user?.email,
+  );
+
+  /**
+   * Revised gating rules (strict):
+   * 1. While session loading => hidden (handled above).
+   * 2. If authenticated and NO tenant selection yet (neither cookie nor session.tenant) => hide regardless of membership count
+   *    Rationale: Even a single-tenant account should not expose tenant-scoped navigation until the server asserts the tenant context.
+   * 3. Exception: allow visibility on the /select-tenant page itself so the layout can remain consistent if desired (but we still hide to reduce clutter – choose to keep hidden here).
+   */
+  if (isAuthed && !hasSelection) {
+    return null; // enforce selection-first navigation gating
+  }
+
+  // Additional guard: multi-tenant & no selection already covered above, but keep logic explicit.
   if (hasMultiple && !hasSelection && !onSelectTenantPage) {
-    return null; // suppress TopBar until tenant chosen
+    return null;
   }
 
   return <TopBar />;

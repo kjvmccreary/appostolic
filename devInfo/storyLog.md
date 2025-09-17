@@ -202,7 +202,7 @@
 ## 2025-09-16 — Nav — Strengthen multi-tenant TopBar gating — ✅ DONE
 
 - Summary
-  - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression.
+  - Eliminated initial paint flash where multi-tenant users (no tenant selected) could momentarily see and interact with the `TopBar` before the client session finished loading. The `TenantAwareTopBar` now waits for `useSession()` to reach a non-`loading` state and defaults to a hidden nav, removing the race window. Added an explicit loading-state unit test to prevent regression. (Refined again to hide for any authenticated user lacking a tenant selection, not just multi-tenant accounts.)
 - Files changed
   - `apps/web/src/components/TenantAwareTopBar.tsx` — add `status===loading` defensive early return + expanded doc comment.
   - `apps/web/src/components/TenantAwareTopBar.test.tsx` — add loading-state test; refactor mocking to avoid CommonJS `require` usage.
