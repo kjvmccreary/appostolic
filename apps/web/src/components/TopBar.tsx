@@ -34,7 +34,19 @@ export function TopBar() {
     (session as unknown as { user?: { email?: string } } | null)?.user?.email,
   );
   const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
-  const isAdmin = Boolean((session as unknown as { isAdmin?: boolean } | null)?.isAdmin);
+  // Derive admin per selected tenant membership rather than a flat isAdmin boolean to avoid leaking admin UI
+  type Membership = { tenantId?: string; tenantSlug?: string; role?: string; roles?: string[] };
+  const memberships: Membership[] =
+    (session as unknown as { memberships?: Membership[] })?.memberships || [];
+  const selectedTenant = (session as unknown as { tenant?: string })?.tenant;
+  // Accept either role or roles[] containing 'admin'
+  const isAdmin = memberships.some((m) => {
+    if (!selectedTenant) return false;
+    const matches = m.tenantSlug === selectedTenant || m.tenantId === selectedTenant;
+    if (!matches) return false;
+    const roles = [m.role, ...(Array.isArray(m.roles) ? m.roles : [])].filter(Boolean) as string[];
+    return roles.some((r) => r?.toLowerCase() === 'admin');
+  });
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
   // Centralized primary nav items for desktop. Agents is now a first-class entry.
