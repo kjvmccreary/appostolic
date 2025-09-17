@@ -100,9 +100,22 @@ export function TopBar() {
             <span className="mt-1 block h-0.5 w-full bg-ink"></span>
           </span>
         </button>
-        <Link href="/" className="font-semibold tracking-tight mr-2">
-          Appostolic
-        </Link>
+        {/* Brand with tenant label just below to aid cross-tenant debugging */}
+        <div className="mr-2 leading-none">
+          <Link href="/" className="font-semibold tracking-tight block">
+            Appostolic
+          </Link>
+          {/* Show selected tenant slug (or id) below the brand when authenticated */}
+          {isAuthed && selectedTenant ? (
+            <div
+              data-testid="tenant-label"
+              className="mt-0.5 text-[11px] text-[color:var(--color-muted)]"
+              aria-label="Selected tenant"
+            >
+              {String(selectedTenant)}
+            </div>
+          ) : null}
+        </div>
         {isAuthed && selectedTenant ? (
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
             {navItems.map((item) => (
@@ -128,6 +141,16 @@ export function TopBar() {
               ) : null}
               {/* Creator-only CTA to quickly add an Agent */}
               {canCreate ? <NewAgentButton /> : null}
+              {/* Display current user's email immediately to the left of the avatar to help debug cross-tenant state */}
+              {isAuthed ? (
+                <span
+                  data-testid="user-email"
+                  className="hidden sm:inline text-xs text-[color:var(--color-muted)] mr-1"
+                  aria-label="Current user email"
+                >
+                  {(session as unknown as { user?: { email?: string } } | null)?.user?.email ?? ''}
+                </span>
+              ) : null}
               <ProfileMenu />
             </>
           ) : (
@@ -146,6 +169,7 @@ export function TopBar() {
           isAdmin={isAdmin}
           navItems={navItems as unknown as { label: string; href: string }[]}
           adminItems={[
+            { label: 'Settings', href: '/studio/admin/settings' },
             { label: 'Members', href: '/studio/admin/members' },
             { label: 'Invites', href: '/studio/admin/invites' },
             { label: 'Audits', href: '/studio/admin/audits' },
@@ -188,6 +212,13 @@ function AdminDropdown() {
           role="menu"
           className="absolute left-0 mt-2 w-44 rounded-md border border-line bg-[var(--color-surface)] p-1 shadow-lg"
         >
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/admin/settings')}
+          >
+            Settings
+          </button>
           <button
             role="menuitem"
             className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"

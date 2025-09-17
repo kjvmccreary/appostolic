@@ -91,6 +91,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Web Tooling — Vitest Node 20 requirement (2025-09-16)
   - Added explicit guidance in `apps/web/AGENTS.md` to always run Vitest and Next dev tasks under Node 20.x LTS. Running under Node 19 triggered a Corepack failure (`TypeError: URL.canParse is not a function`) before tests executed. CI and local docs now mandate Node 20 to avoid the crash; sample `nvm`/PATH override commands documented.
 
+- Nav Debug — Temporary user/tenant labels (2025-09-17)
+  - To investigate potential cross-tenant cookie persistence, the TopBar now surfaces the current user's email (left of the avatar) and the selected tenant slug beneath the Appostolic brand. A previously added temporary JavaScript alert on `/logout` has been removed after diagnosis.
+  - Admin UX: Added a Tenant Settings link for admins in the TopBar (desktop Admin menu and mobile drawer) pointing to `/studio/admin/settings`. The page is server‑gated (TenantAdmin) and currently renders a placeholder.
+
 - User Profile — UPROF‑04: POST /api/users/me/avatar (2025-09-16)
   - API: Added avatar upload endpoint that accepts multipart/form-data, validates image type (png/jpeg/webp) and size (<=2MB), stores via a new storage abstraction `IObjectStorageService` with a local filesystem implementation. Files are saved under `users/{userId}/avatar.*` and exposed through static file hosting at `/media/*`. The endpoint updates `users.profile.avatar` to `{ url, key, mime }` and returns the avatar metadata.
   - Runtime wiring: Registered `IObjectStorageService` → `LocalFileStorageService` in `Program.cs` and added static file mapping for `/media` pointing at `apps/web/web.out/media` by default. This provides stable relative URLs in dev/test without external object storage.

@@ -12,7 +12,9 @@ export default function LogoutPage() {
       // does not render the TopBar before an explicit selection.
       try {
         document.cookie = 'selected_tenant=; Path=/; Max-Age=0; SameSite=Lax';
-      } catch {}
+      } catch {
+        // ignore cookie clear errors
+      }
       // Include a flag so middleware doesn't bounce back to the app while cookies settle
       router.replace('/login?loggedOut=1');
     })();

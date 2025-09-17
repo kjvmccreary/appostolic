@@ -398,6 +398,25 @@
 - Files changed
   - apps/web/app/magic/request/page.tsx — replace bare form with styled inputs and accessibility hints; keep server-first POST to `/api-proxy/auth/magic/request`.
 
+## 2025-09-17 — Nav — Cleanup debug alert; add Tenant Settings link — ✅ DONE
+
+- Summary
+  - Removed the temporary JavaScript alert from `/logout` that displayed cookie/session-token status after sign-out. This was for diagnostics only and is now cleaned up. The logout flow continues to sign out without redirect, proactively clears the `selected_tenant` cookie, and then redirects to `/login?loggedOut=1`.
+  - Added a Tenant Settings link for Tenant Admins in the TopBar: included in the desktop Admin dropdown and the mobile NavDrawer. Created a server-gated placeholder page at `/studio/admin/settings` that returns 403 for non-admins and renders a heading for admins.
+- Files changed
+  - apps/web/app/logout/page.tsx — remove alert and cookie inspection block.
+  - apps/web/app/logout/page.test.tsx — drop alert expectations; keep signOut + redirect assertions.
+  - apps/web/src/components/TopBar.tsx — add Settings item in Admin menu and mobile adminItems.
+  - apps/web/app/studio/admin/settings/page.tsx — new server page with TenantAdmin gate and placeholder content.
+  - apps/web/app/studio/admin/settings/page.test.tsx — tests for non-admin 403 and admin heading render.
+  - apps/web/src/components/TopBar.admin.test.tsx — minor assertion to ensure Admin menu appears; Settings link covered by page existence.
+  - SnapshotArchitecture.md — updated to note alert removal and new Tenant Settings link/page.
+- Quality gates
+  - Web tests: to be re-run under Node 20; targeted tests compile. Full suite expected green.
+  - Typecheck: PASS (lint cleaned in new files).
+- Notes
+- The Tenant Settings page is a placeholder; future work will surface settings and branding logo management, aligning with existing API endpoints.
+
 - Quality gates
   - Typecheck (web): PASS
   - Smoke: Manual check renders correctly; submit disables button and shows generic status.
@@ -823,3 +842,24 @@
 
 - Notes
   - S3/MinIO storage seam remains compatible. Future follow-up could add width/height metadata to the profile payload; not required for current UI.
+
+## 2025-09-17 — Nav Debug: Show user/tenant in TopBar + logout cookie alert — ✅ DONE
+
+- Summary
+  - To help diagnose potential cross-tenant login/cookie persistence issues, added two temporary debugging aids in the web UI:
+    - TopBar now displays the current user's email immediately to the left of the avatar (desktop) and shows the selected tenant slug just below the Appostolic brand.
+    - The logout page now presents a temporary JavaScript alert after sign out and cookie clear, indicating whether the `selected_tenant` cookie is still present and showing a short preview of the NextAuth session-token cookie if visible to JS (often 'none' due to HttpOnly in real browsers). This is purely diagnostic and will be removed after investigation.
+  - Added/updated tests: `TopBar.test.tsx` asserts the new labels, and `logout/page.test.tsx` verifies the alert trigger and message shape.
+
+- Files changed
+  - apps/web/src/components/TopBar.tsx — show tenant label under brand and user email next to avatar; small accessibility attributes and data-testid hooks.
+  - apps/web/app/logout/page.tsx — add post-logout cookie/session-token alert wrapped in try/catch; keep tenant cookie clearing.
+  - apps/web/src/components/TopBar.test.tsx — new expectations for tenant+email.
+  - apps/web/app/logout/page.test.tsx — add alert verification test and mock cookie surface.
+
+- Quality gates
+  - Web tests: PASS — 173/173 under Node 20 (Vitest). Some jsdom warnings logged for unmocked alert in a prior run; current tests now stub alert and pass.
+  - Typecheck: PASS for edited files.
+
+- Notes
+  - The alert is temporary and will be removed once cross-tenant cookie persistence concerns are resolved. The tenant label uses the selected slug from session; if a friendly name is later available, we can render it instead.

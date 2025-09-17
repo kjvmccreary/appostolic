@@ -45,6 +45,10 @@ describe('TopBar', () => {
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /agents/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /agents/i })).toHaveAttribute('aria-current', 'page');
+    // Tenant label appears under brand
+    expect(screen.getByTestId('tenant-label')).toHaveTextContent('acme');
+    // Email appears to the left of the avatar
+    expect(screen.getByTestId('user-email')).toHaveTextContent('u@example.com');
   });
 
   it('does not render TenantSwitcher in TopBar anymore (moved to Account menu)', () => {
