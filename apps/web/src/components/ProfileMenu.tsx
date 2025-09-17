@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { TenantSwitcherModal } from './TenantSwitcherModal';
 import { useColorScheme } from '../theme/ColorSchemeContext';
 import { User, Sun, Moon, Monitor, Contrast } from 'lucide-react';
@@ -139,7 +139,11 @@ export function ProfileMenu() {
           <button
             role="menuitem"
             className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={() => {
+              // Route through /logout so both client and middleware can clear the selected_tenant cookie
+              // and ensure multi-tenant users must explicitly re-select a tenant after next login.
+              window.location.href = '/logout';
+            }}
           >
             Sign out
           </button>
