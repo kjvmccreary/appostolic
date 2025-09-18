@@ -99,7 +99,7 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
     for (const r of precedence) {
       if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
     }
-    return m.role || 'Member';
+    return 'Learner';
   };
 
   const modal = (

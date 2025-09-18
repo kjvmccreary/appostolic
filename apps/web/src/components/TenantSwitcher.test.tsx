@@ -48,4 +48,12 @@ describe('TenantSwitcher', () => {
 
     global.fetch = originalFetch;
   });
+
+  it('renders canonical role labels for legacy roles', () => {
+    render(<TenantSwitcher />);
+    const opt1 = screen.getByRole('option', { name: /t1 —/i });
+    const opt2 = screen.getByRole('option', { name: /t2 —/i });
+    expect(opt1.textContent).toMatch(/t1 — Admin$/);
+    expect(opt2.textContent).toMatch(/t2 — Learner$/);
+  });
 });

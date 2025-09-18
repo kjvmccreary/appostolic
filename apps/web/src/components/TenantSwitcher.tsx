@@ -67,7 +67,8 @@ export function TenantSwitcher() {
     for (const r of precedence) {
       if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
     }
-    return m.role || 'Member';
+    // Fall back to canonical baseline rather than legacy label
+    return 'Learner';
   };
 
   return (
@@ -81,7 +82,6 @@ export function TenantSwitcher() {
           value={value}
           onChange={onChange}
           disabled={saving}
-          aria-busy={saving ? true : undefined}
           className="h-8 min-w-[10rem] rounded-md border border-line bg-[var(--color-surface-raised)] pl-2 pr-7 text-sm text-ink focus-ring disabled:opacity-60 appearance-none"
         >
           <option value="">Select…</option>

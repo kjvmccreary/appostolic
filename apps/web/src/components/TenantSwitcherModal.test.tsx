@@ -68,8 +68,8 @@ describe('TenantSwitcherModal', () => {
     expect(badges.length).toBeGreaterThan(0);
     const roles = Array.from(badges).map((b) => b.getAttribute('data-role'));
     expect(roles).toContain('Current');
-    // Depending on legacy role mapping, non-current may be Learner or Creator; assert at least one non-Current badge
-    expect(roles.filter((r) => r !== 'Current').length).toBeGreaterThan(0);
+    // Non-current badges should be canonical labels (e.g., Admin/Creator/Learner), not legacy names
+    expect(roles.some((r) => r === 'Admin' || r === 'Creator' || r === 'Learner')).toBe(true);
   });
 
   it('remembers last selected tenant in localStorage', async () => {
