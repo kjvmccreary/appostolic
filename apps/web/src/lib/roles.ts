@@ -10,8 +10,10 @@ export type Membership = {
   tenantId: string;
   tenantSlug: string;
   role: LegacyRole;
-  /** Optional roles flags provided by API; when absent, derive from legacy role. */
-  roles?: FlagRole[];
+  /** Optional roles flags provided by API; when absent, derive from legacy role.
+   * Accepts canonical FlagRole names or legacy labels (Admin/Owner/Editor/Viewer) which are normalized.
+   */
+  roles?: Array<FlagRole | string>;
 };
 
 /**
@@ -37,7 +39,50 @@ export function deriveFlagsFromLegacy(role: LegacyRole): FlagRole[] {
  */
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
-  if (m.roles && Array.isArray(m.roles) && m.roles.length) return dedupe(m.roles);
+  // If roles[] is provided, prefer it — but normalize common legacy/synonym names.
+  if (m.roles && Array.isArray(m.roles) && m.roles.length) {
+    const acc: FlagRole[] = [];
+    for (const raw of m.roles) {
+      const name = String(raw).trim();
+      const lower = name.toLowerCase();
+      switch (lower) {
+        // Canonical flag names
+        case 'tenantadmin':
+          acc.push('TenantAdmin');
+          break;
+        case 'approver':
+          acc.push('Approver');
+          break;
+        case 'creator':
+          acc.push('Creator');
+          break;
+        case 'learner':
+          acc.push('Learner');
+          break;
+        // Legacy role names seen in older payloads — expand to flag sets
+        case 'admin':
+          acc.push(...deriveFlagsFromLegacy('Admin'));
+          break;
+        case 'owner':
+          acc.push(...deriveFlagsFromLegacy('Owner'));
+          break;
+        case 'editor':
+          acc.push(...deriveFlagsFromLegacy('Editor'));
+          break;
+        case 'viewer':
+          acc.push(...deriveFlagsFromLegacy('Viewer'));
+          break;
+        default:
+          // Unknown label — ignore to avoid introducing accidental flags.
+          break;
+      }
+    }
+    const normalized = dedupe(acc);
+    if (normalized.length) return normalized;
+    // If normalization produced nothing (e.g., unexpected labels), fall back to legacy role.
+    return deriveFlagsFromLegacy(m.role);
+  }
+  // No roles[] provided — derive from legacy role.
   return deriveFlagsFromLegacy(m.role);
 }
 

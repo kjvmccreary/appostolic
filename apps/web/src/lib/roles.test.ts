@@ -52,4 +52,17 @@ describe('roles helpers', () => {
     expect(beta.canCreate).toBe(false);
     expect(beta.isLearner).toBe(true);
   });
+
+  it('normalizes legacy names inside roles[] to flags', () => {
+    const memberships: Membership[] = [
+      base({ tenantSlug: 'acme', role: 'Viewer', roles: ['Admin'] }),
+      base({ tenantSlug: 'beta', role: 'Viewer', roles: ['Owner'] }),
+      base({ tenantSlug: 'gamma', role: 'Viewer', roles: ['Editor'] }),
+      base({ tenantSlug: 'delta', role: 'Viewer', roles: ['Viewer'] }),
+    ];
+    expect(computeBooleansForTenant(memberships, 'acme').isAdmin).toBe(true);
+    expect(computeBooleansForTenant(memberships, 'beta').isAdmin).toBe(true);
+    expect(computeBooleansForTenant(memberships, 'gamma').canCreate).toBe(true);
+    expect(computeBooleansForTenant(memberships, 'delta').isLearner).toBe(true);
+  });
 });
