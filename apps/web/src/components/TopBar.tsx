@@ -64,17 +64,19 @@ export function TopBar() {
     memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
-  // Dev-only: warn if admin visibility may be due to flags while legacy role suggests otherwise.
-  if (process.env.NODE_ENV !== 'production' && isAdmin) {
-    const mem = memberships.find((m) => m.tenantSlug === effectiveSlug) ?? null;
-    const legacy = String(mem?.role ?? '').toLowerCase();
-    const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
-    if (!legacyIsAdmin) {
-      console.warn(
-        '[TopBar] Admin menu visible due to roles flags; legacy role is non-admin. Check API roles for tenant',
-        effectiveSlug,
-      );
-    }
+  // Determine legacy role for the selected membership (if any)
+  const selectedMembership = memberships.find((m) => m.tenantSlug === effectiveSlug) ?? null;
+  const legacy = String(selectedMembership?.role ?? '').toLowerCase();
+  const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
+  // Client-side safety: suppress Admin in the UI when flags grant admin but legacy role is non-admin.
+  // This avoids accidental elevation in the TopBar while preserving server-first guards.
+  const isAdminGated = isAdmin && legacyIsAdmin;
+  // Dev-only: warn when suppression occurs due to mismatch.
+  if (process.env.NODE_ENV !== 'production' && isAdmin && !legacyIsAdmin) {
+    console.warn(
+      '[TopBar] Admin menu suppressed: roles flags grant admin but legacy role is non-admin. Check API roles for tenant',
+      effectiveSlug,
+    );
   }
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
@@ -147,7 +149,7 @@ export function TopBar() {
                 {item.label}
               </NavLink>
             ))}
-            {isAdmin ? <AdminDropdown /> : null}
+            {isAdminGated ? <AdminDropdown /> : null}
           </nav>
         ) : (
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation" />
@@ -190,7 +192,7 @@ export function TopBar() {
         <NavDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          isAdmin={isAdmin}
+          isAdmin={isAdminGated}
           navItems={navItems as unknown as { label: string; href: string }[]}
           adminItems={[
             { label: 'Org Settings', href: '/studio/admin/settings' },

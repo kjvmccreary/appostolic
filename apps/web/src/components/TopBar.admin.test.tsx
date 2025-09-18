@@ -77,7 +77,7 @@ describe('TopBar tenant-scoped admin gating', () => {
       ...baseSession,
       tenant: 'acme',
       memberships: [
-        { tenantSlug: 'acme', roles: ['Creator', 'TenantAdmin'] },
+        { tenantSlug: 'acme', role: 'Admin', roles: ['Creator', 'TenantAdmin'] },
         { tenantSlug: 'other', role: 'Viewer' },
       ],
     });
