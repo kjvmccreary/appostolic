@@ -1,3 +1,24 @@
+## 2025-09-18 — Nav — Tenant selector role labels (canonical) + legacy tolerance — ✅ DONE
+
+- Summary
+  - Updated the tenant selector UI to display canonical role labels derived from roles flags (Admin, Approver, Creator, Learner) instead of legacy strings (Owner/Viewer). Centralized label computation via getFlagRoles to normalize both canonical flags and legacy names, case-insensitive. Also fixed an admin-gating edge case by tolerating lowercase legacy role strings in the roles helper so TopBar visibility remains correct.
+  - Fixed a small a11y nit in TenantSwitcher (aria-busy boolean). SnapshotArchitecture updated in "What’s new" to reflect selector label normalization and shared roles helper usage.
+
+- Files changed
+  - apps/web/src/components/TenantSwitcher.tsx — derive display labels from roles flags; aria-busy boolean.
+  - apps/web/src/lib/roles.ts — accept lowercase legacy role strings in normalization; no behavior change for canonical flags.
+  - SnapshotArchitecture.md — “What’s new” entry for selector label normalization and roles helper alignment.
+
+- Quality gates
+  - Web tests: PASS (full suite green locally after change). Non-fatal MUI license warnings unchanged.
+  - Typecheck: PASS for modified files.
+
+- Rationale
+  - Ensures consistent, future-proof role names across the UI during the transition from legacy roles to flags and prevents admin gating misses caused by case variance in older payloads/fixtures.
+
+- Follow-ups
+  - Consider extracting a small shared label utility (flag roles → display label) to reduce duplication across switcher modal and other components.
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 - Summary

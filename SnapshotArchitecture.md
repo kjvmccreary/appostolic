@@ -7,6 +7,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - User Profile — Avatar pipeline simplification & absolute URLs (2025-09-17)
   - Upload endpoint now preserves the original image format (PNG/JPEG/WebP) rather than forcing WebP. Minimal transforms remain (AutoOrient; optional center-crop to near-square; optional downscale to max 512px). When mutated, re-encodes using the original format encoder with sane quality defaults; otherwise passes through original bytes.
   - Storage keys include the correct extension (e.g., `users/{id}/avatar.png|jpg|webp`) and the response metadata includes `{ url, key, mime, width, height }` with the URL now absolute (`scheme://host/...`) to avoid dev-server relative path confusion.
+
+### What’s new
+
+- Web: Tenant selector labels now derive from roles flags (Admin/Approver/Creator/Learner) instead of legacy Owner/Viewer strings. This uses `getFlagRoles` to normalize roles[] or legacy role names (case-insensitive) ensuring consistent UX across components (TopBar, TenantSwitcher, TenantSwitcherModal).
   - Tests updated to assert original mime and absolute URL; full API suite green.
 
 - Nav — Multi-tenant explicit selection hardening (2025-09-17)

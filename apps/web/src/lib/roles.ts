@@ -80,10 +80,36 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
     const normalized = dedupe(acc);
     if (normalized.length) return normalized;
     // If normalization produced nothing (e.g., unexpected labels), fall back to legacy role.
-    return deriveFlagsFromLegacy(m.role);
+    // Be tolerant of case: accept lowercase legacy role strings as well.
+    const lower = String(m.role).trim().toLowerCase();
+    switch (lower) {
+      case 'owner':
+        return deriveFlagsFromLegacy('Owner');
+      case 'admin':
+        return deriveFlagsFromLegacy('Admin');
+      case 'editor':
+        return deriveFlagsFromLegacy('Editor');
+      case 'viewer':
+        return deriveFlagsFromLegacy('Viewer');
+      default:
+        return deriveFlagsFromLegacy(m.role);
+    }
   }
   // No roles[] provided — derive from legacy role.
-  return deriveFlagsFromLegacy(m.role);
+  // Be tolerant of case: accept lowercase legacy role strings as well.
+  const lower = String(m.role).trim().toLowerCase();
+  switch (lower) {
+    case 'owner':
+      return deriveFlagsFromLegacy('Owner');
+    case 'admin':
+      return deriveFlagsFromLegacy('Admin');
+    case 'editor':
+      return deriveFlagsFromLegacy('Editor');
+    case 'viewer':
+      return deriveFlagsFromLegacy('Viewer');
+    default:
+      return deriveFlagsFromLegacy(m.role);
+  }
 }
 
 /**

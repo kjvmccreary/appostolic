@@ -3,8 +3,9 @@ import * as React from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
+import { getFlagRoles, type FlagRole } from '../lib/roles';
 
-type Membership = { tenantId: string; tenantSlug: string; role: string };
+type Membership = { tenantId: string; tenantSlug: string; role: string; roles?: FlagRole[] };
 
 export function TenantSwitcher() {
   const { data: session, update } = useSession();
@@ -49,6 +50,26 @@ export function TenantSwitcher() {
 
   if (!memberships?.length) return null;
 
+  // Compute a canonical role label from roles[] flags (preferred) or legacy role.
+  const labelFor = (m: { role?: string; roles?: FlagRole[] }): string => {
+    const flags = getFlagRoles({
+      tenantId: '' as unknown as string,
+      tenantSlug: '' as unknown as string,
+      role: (m.role as unknown as 'Owner' | 'Admin' | 'Editor' | 'Viewer') || 'Viewer',
+      roles: m.roles,
+    } as unknown as {
+      tenantId: string;
+      tenantSlug: string;
+      role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+      roles?: FlagRole[];
+    });
+    const precedence: FlagRole[] = ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
+    for (const r of precedence) {
+      if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
+    }
+    return m.role || 'Member';
+  };
+
   return (
     <div aria-label="Tenant switcher" className="tenant-switcher inline-flex items-center gap-2">
       <label htmlFor="tenant-switcher-select" className="text-xs text-muted">
@@ -60,15 +81,18 @@ export function TenantSwitcher() {
           value={value}
           onChange={onChange}
           disabled={saving}
-          aria-busy={saving ? 'true' : undefined}
+          aria-busy={saving ? true : undefined}
           className="h-8 min-w-[10rem] rounded-md border border-line bg-[var(--color-surface-raised)] pl-2 pr-7 text-sm text-ink focus-ring disabled:opacity-60 appearance-none"
         >
           <option value="">Select…</option>
-          {memberships.map((m) => (
-            <option key={m.tenantId} value={m.tenantSlug}>
-              {m.tenantSlug} — {m.role}
-            </option>
-          ))}
+          {memberships.map((m) => {
+            const roleLabel = labelFor(m);
+            return (
+              <option key={m.tenantId} value={m.tenantSlug}>
+                {m.tenantSlug} — {roleLabel}
+              </option>
+            );
+          })}
         </select>
         <ChevronDown
           size={14}
