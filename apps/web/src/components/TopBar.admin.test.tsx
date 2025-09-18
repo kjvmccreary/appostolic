@@ -145,4 +145,16 @@ describe('TopBar tenant-scoped admin gating', () => {
     });
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
+
+  it('does NOT show Admin when flags include Approver+Creator+Learner but NOT TenantAdmin (bitmask 14 scenario)', () => {
+    // Bitmask 14 (assuming 1=TenantAdmin,2=Approver,4=Creator,8=Learner) => 2|4|8 = 14, missing TenantAdmin (1)
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      memberships: [
+        { tenantSlug: 'acme', role: 'Viewer', roles: ['Approver', 'Creator', 'Learner'] },
+      ],
+    });
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument();
+  });
 });

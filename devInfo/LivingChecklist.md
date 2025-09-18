@@ -140,4 +140,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑18 (Removed legacy role fallback; flags-only authorization across web; Org Settings guardrails/bio + logo removal; all web tests green after test fixture updates; prior: avatar pipeline simplification, denomination presets, profile/guardrails, change password, tenant settings/logo, Node 20 testing)
+- Last updated: 2025‑09‑18 (Admin gating tightened to require explicit TenantAdmin flag; removed legacy role fallback; flags-only authorization across web; Org Settings guardrails/bio + logo removal; all web tests green after test fixture updates; prior: avatar pipeline simplification, denomination presets, profile/guardrails, change password, tenant settings/logo, Node 20 testing)

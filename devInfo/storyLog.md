@@ -1,4 +1,18 @@
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
+2025-09-18 — Nav — Admin gating tightening (explicit TenantAdmin flag) — ✅ DONE
+
+- Summary
+  - Hardened Admin menu visibility so only memberships that explicitly include the `TenantAdmin` flag render the Admin dropdown. Previously, a composite of non-admin flags (Approver+Creator+Learner — bitmask 14) could still surface the Admin menu because upstream `isAdmin` derivation was overly permissive. Added a regression test covering this scenario and updated `TopBar` to gate on `isAdmin && roles.includes('TenantAdmin')`.
+- Files changed
+  - apps/web/src/components/TopBar.tsx — require explicit `TenantAdmin` in `effectiveRoles` (`isAdminGated`).
+  - apps/web/src/components/TopBar.admin.test.tsx — added regression: no Admin menu for roles `['Approver','Creator','Learner']` (bitmask 14, missing TenantAdmin).
+- Quality gates
+  - Web tests: PASS (62 files, 198 tests) after change; new test passes; coverage unchanged (lines ~85%).
+- Rationale
+  - Prevent accidental privilege inflation from future broadening of `isAdmin` derivation or transitional fallback mappings. Makes TenantAdmin flag the single authoritative signal for Admin UI entry points.
+- Follow-ups
+  - Instrument (dev-only) counts of sessions hitting legacy fallback to plan safe removal; later remove gating comment once backend consistently supplies flags.
+
 2025-09-18 — Auth/Web: Flags-only authorization test alignment — ✅ DONE
 
 - Summary

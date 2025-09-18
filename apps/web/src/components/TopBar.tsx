@@ -57,7 +57,9 @@ export function TopBar() {
     memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
-  const isAdminGated = isAdmin; // flags are authoritative now
+  // Only treat user as admin when explicit TenantAdmin flag present. Other flags (Approver/Creator)
+  // alone must NOT render the Admin dropdown even if upstream logic ever broadens isAdmin.
+  const isAdminGated = isAdmin && effectiveRoles.includes('TenantAdmin');
   if (DEBUG && isAuthed && selectedTenant) {
     console.groupCollapsed(
       `%c[AdminGate] tenant=%s email=%s isAdmin=%s roles=%o`,
