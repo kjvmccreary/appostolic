@@ -4,6 +4,14 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Auth / Web — Removal of legacy MembershipRole fallback; flags-only authorization (2025-09-18)
+  - Fully removed UI and helper fallbacks that previously considered the legacy `role` string (`Owner`/`Admin`/`Editor`/`Viewer`). Authorization and gating now rely solely on the `roles[]` flags bitmask (`TenantAdmin`, `Approver`, `Creator`, `Learner`).
+  - Deleted legacy expansion logic (`deriveFlagsFromLegacy`, `PREFER_LEGACY_FOR_ADMIN`, single-tenant safety) from `apps/web/src/lib/roles.ts` and simplified `computeBooleansForTenant` to interpret only provided flags.
+  - Simplified server/page guards (`roleGuard.ts`) to remove dual-mode branching; TopBar/Admin pages (Members, Invites, Audits, Notifications, Settings) now gate exclusively via `{ isAdmin }` derived from flags.
+  - Updated tests to supply explicit `roles: ['TenantAdmin']` where admin access is expected; removed assertions relying on legacy Owner/Admin acceptance. All web tests green post-migration.
+  - Revert point commit retained for emergency rollback (`REVERT POINT: pre removal of legacy role fallback`).
+  - Rationale: Eliminate inconsistent gating and hidden privilege retention caused by OR-ing legacy and flag sources of truth; reduce cognitive load and future maintenance surface ahead of 1.0.
+
 - Auth — API RoleAuthorization prefers Roles flags (2025-09-18)
   - Updated the authorization handler to treat Roles flags as the source of truth and only fall back to the legacy MembershipRole when Roles == None. This fixes a field issue where a tenant originator could remain effectively admin after demotion because legacy role and flags were previously OR-ed together.
   - Outcome: Admin-only endpoints now deny access appropriately after roles demotion; UI already layers additional safety (single-tenant safeguard + legacy-aligned TopBar suppress). API tests PASS (180/180) post-change.

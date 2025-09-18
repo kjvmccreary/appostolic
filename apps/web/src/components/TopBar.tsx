@@ -9,8 +9,7 @@ import { NewAgentButton } from './NewAgentButton';
 import { NavDrawer } from './NavDrawer';
 import { ProfileMenu } from './ProfileMenu';
 import { cn } from '../lib/cn';
-import { computeBooleansForTenant, getFlagRoles } from '../lib/roles';
-import type { Membership as RolesLibMembership } from '../lib/roles';
+import { computeBooleansForTenant } from '../lib/roles';
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname() || '';
@@ -33,8 +32,6 @@ export function TopBar() {
   // const pathname = usePathname() || '';
   const { data: session } = useSession();
   const DEBUG = (process.env.NEXT_PUBLIC_DEBUG_ADMIN_GATING ?? 'false').toLowerCase() === 'true';
-  const FLAGS_ONLY =
-    (process.env.NEXT_PUBLIC_UI_ADMIN_FROM_FLAGS_ONLY ?? 'false').toLowerCase() === 'true';
   const isAuthed = Boolean(
     (session as unknown as { user?: { email?: string } } | null)?.user?.email,
   );
@@ -43,15 +40,7 @@ export function TopBar() {
   // IMPORTANT: Do NOT trust a global session.isAdmin. Admin visibility must be
   // tenant-scoped. We compute admin strictly from the membership that matches
   // the currently selected tenant to avoid leakage from stale or global flags.
-  // Use shared roles helper to determine tenant-scoped admin based on flags/legacy role.
-  // This supports both legacy role values (Owner/Admin/Editor/Viewer) and
-  // the newer roles flags array (e.g., ['TenantAdmin', 'Approver', ...]).
-  type RolesMembership = {
-    tenantId: string;
-    tenantSlug: string;
-    role: string;
-    roles?: string[];
-  };
+  type RolesMembership = { tenantId: string; tenantSlug: string; role: string; roles?: string[] };
   const rawMemberships = (session as unknown as { memberships?: RolesMembership[] })?.memberships;
   const memberships = Array.isArray(rawMemberships) ? rawMemberships : [];
   // Support session.tenant being either a slug or an id by resolving to slug if needed.
@@ -68,56 +57,16 @@ export function TopBar() {
     memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
-  // Determine legacy role for the selected membership (if any)
-  const selectedMembership = memberships.find((m) => m.tenantSlug === effectiveSlug) ?? null;
-  const legacy = String(selectedMembership?.role ?? '').toLowerCase();
-  const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
-  // Client-side safety: suppress Admin in the UI when flags grant admin but legacy role is non-admin.
-  // This avoids accidental elevation in the TopBar while preserving server-first guards.
-  const adminFromFlags = isAdmin; // isAdmin already reflects flags via computeBooleansForTenant
-  const isAdminGated = FLAGS_ONLY ? adminFromFlags : isAdmin && legacyIsAdmin;
-  // Dev-only: warn when suppression occurs due to mismatch.
-  if (process.env.NODE_ENV !== 'production' && isAdmin && !legacyIsAdmin) {
-    console.warn(
-      '[TopBar] Admin menu suppressed: roles flags grant admin but legacy role is non-admin. Check API roles for tenant',
-      effectiveSlug,
-    );
-  }
-  // Optional detailed diagnostics to trace gating. Enable by setting
-  // NEXT_PUBLIC_DEBUG_ADMIN_GATING=true (recommended: apps/web/.env.local) and restarting dev.
+  const isAdminGated = isAdmin; // flags are authoritative now
   if (DEBUG && isAuthed && selectedTenant) {
-    const mem = selectedMembership;
-    const rawRoles = Array.isArray(mem?.roles) ? mem?.roles : undefined;
-    const normalizedRoles = getFlagRoles(mem as unknown as RolesLibMembership);
-    // Detect suspicious legacy labels present in roles[] that could expand to TenantAdmin
-    const hasLegacyInRoles = (rawRoles ?? []).some((r) => {
-      const v = String(r).toLowerCase();
-      return v === 'admin' || v === 'owner' || v === 'editor' || v === 'viewer';
-    });
-    // Group logs for readability
     console.groupCollapsed(
-      `%c[AdminGate] tenant=%s email=%s gated=%s`,
+      `%c[AdminGate] tenant=%s email=%s isAdmin=%s roles=%o`,
       'color:#888',
       String(effectiveSlug ?? selectedTenant),
       (session as unknown as { user?: { email?: string } } | null)?.user?.email ?? '(unknown)',
       String(isAdminGated),
+      effectiveRoles,
     );
-    console.log('selectedTenant (raw):', selectedTenant);
-    console.log('effectiveSlug (resolved):', effectiveSlug);
-    console.log('memberships.count:', memberships.length);
-    console.log('selectedMembership:', mem);
-    console.log('legacy role:', mem?.role);
-    console.log('roles[] (raw from session):', rawRoles);
-    console.log('roles (normalized via getFlagRoles):', normalizedRoles);
-    console.log('roles (effective from computeBooleansForTenant):', effectiveRoles);
-    console.log('isAdmin (from flags):', isAdmin);
-    console.log('legacyIsAdmin (owner/admin):', legacyIsAdmin);
-    console.log('isAdminGated (UI will show Admin?):', isAdminGated);
-    if (hasLegacyInRoles) {
-      console.warn(
-        '[AdminGate] roles[] contains legacy labels (admin/owner/editor/viewer). These expand to flags; verify they reflect current authority.',
-      );
-    }
     console.groupEnd();
   }
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use

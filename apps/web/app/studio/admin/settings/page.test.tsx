@@ -23,11 +23,11 @@ describe('/studio/admin/settings', () => {
     vi.clearAllMocks();
   });
 
-  it('renders 403 for non-admin membership', async () => {
+  it('renders 403 for non-admin membership (no TenantAdmin flag)', async () => {
     const session = {
       user: { email: 'user@example.com' },
       tenant: 'acme',
-      memberships: [{ tenantSlug: 'acme', role: 'member' }],
+      memberships: [{ tenantSlug: 'acme', role: 'viewer', roles: [] }],
     };
     getServerSessionMock.mockResolvedValue(session);
     const Page = await importPage();
@@ -36,11 +36,11 @@ describe('/studio/admin/settings', () => {
     expect(getByText(/403/i)).toBeInTheDocument();
   });
 
-  it('renders heading for admin membership', async () => {
+  it('renders heading for membership with TenantAdmin flag', async () => {
     const session = {
       user: { email: 'user@example.com' },
       tenant: 'acme',
-      memberships: [{ tenantSlug: 'acme', role: 'admin' }],
+      memberships: [{ tenantSlug: 'acme', role: 'viewer', roles: ['TenantAdmin'] }],
     };
     getServerSessionMock.mockResolvedValue(session);
     const Page = await importPage();
@@ -49,29 +49,15 @@ describe('/studio/admin/settings', () => {
     expect(getByText(/Tenant Settings/i)).toBeInTheDocument();
   });
 
-  it('accepts legacy Owner role (case-insensitive)', async () => {
-    const session = {
-      user: { email: 'user@example.com' },
-      tenant: 'acme',
-      memberships: [
-        { tenantSlug: 'acme', role: 'Owner' },
-        { tenantSlug: 'beta', role: 'viewer' },
-      ],
-    };
-    getServerSessionMock.mockResolvedValue(session);
-    const Page = await importPage();
-    const ui = await Page();
-    const { getByText } = render(ui);
-    expect(getByText(/Tenant Settings/i)).toBeInTheDocument();
-  });
+  // Legacy Owner/Admin roles no longer implicitly grant admin; must include TenantAdmin flag.
 
-  it('resolves tenantId in session.tenant to matching membership slug', async () => {
+  it('resolves tenantId in session.tenant to matching membership slug using roles flags', async () => {
     const session = {
       user: { email: 'user@example.com' },
       tenant: 't-123',
       memberships: [
-        { tenantId: 't-123', tenantSlug: 'acme', role: 'admin' },
-        { tenantId: 't-999', tenantSlug: 'beta', role: 'viewer' },
+        { tenantId: 't-123', tenantSlug: 'acme', role: 'viewer', roles: ['TenantAdmin'] },
+        { tenantId: 't-999', tenantSlug: 'other', role: 'viewer', roles: [] },
       ],
     };
     getServerSessionMock.mockResolvedValue(session);

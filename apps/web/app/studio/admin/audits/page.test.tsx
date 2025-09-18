@@ -61,7 +61,7 @@ describe('audits page (server)', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       tenant: 't1',
-      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Viewer' }],
+      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Viewer', roles: [] }],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
     const Comp = Page as unknown as (args?: {
@@ -76,7 +76,7 @@ describe('audits page (server)', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'admin@example.com' },
       tenant: 't1',
-      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Admin' }],
+      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Viewer', roles: ['TenantAdmin'] }],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
     const rows: AuditRow[] = [
@@ -108,7 +108,7 @@ describe('audits page (server)', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'admin@example.com' },
       tenant: 't1',
-      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Admin' }],
+      memberships: [{ tenantId: 'tid', tenantSlug: 't1', role: 'Viewer', roles: ['TenantAdmin'] }],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
     const rows: AuditRow[] = new Array(25).fill(0).map((_, i) => ({

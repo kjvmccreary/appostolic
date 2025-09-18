@@ -26,7 +26,7 @@ describe('InvitesAdminPage (server)', () => {
   it('renders 403 for non-admin', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
-      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer' }],
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer', roles: [] }],
       tenant: 't1',
     } as unknown as Parameters<typeof getServerSession>[0]);
     const jsx = (await InvitesAdminPage()) as unknown as { [k: string]: unknown };
@@ -36,7 +36,7 @@ describe('InvitesAdminPage (server)', () => {
   it('fetches and renders when admin', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
-      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer', roles: ['TenantAdmin'] }],
       tenant: 't1',
     } as unknown as Parameters<typeof getServerSession>[0]);
     vi.mocked(fetchFromProxy).mockResolvedValue({
@@ -50,7 +50,7 @@ describe('InvitesAdminPage (server)', () => {
   it('renders successfully when ok flag would be present (handled by client toast)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
-      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer', roles: ['TenantAdmin'] }],
       tenant: 't1',
     } as unknown as Parameters<typeof getServerSession>[0]);
     vi.mocked(fetchFromProxy).mockResolvedValue({
@@ -64,7 +64,7 @@ describe('InvitesAdminPage (server)', () => {
   it('renders successfully when err flag would be present (handled by client toast)', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
-      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer', roles: ['TenantAdmin'] }],
       tenant: 't1',
     } as unknown as Parameters<typeof getServerSession>[0]);
     vi.mocked(fetchFromProxy).mockResolvedValue({
@@ -78,7 +78,7 @@ describe('InvitesAdminPage (server)', () => {
   it('renders failure state when invites fetch fails', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
-      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Admin' }],
+      memberships: [{ tenantSlug: 't1', tenantId: 'tid', role: 'Viewer', roles: ['TenantAdmin'] }],
       tenant: 't1',
     } as unknown as Parameters<typeof getServerSession>[0]);
     vi.mocked(fetchFromProxy).mockResolvedValue({

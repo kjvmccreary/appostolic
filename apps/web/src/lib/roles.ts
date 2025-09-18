@@ -4,125 +4,42 @@
 export type FlagRole = 'TenantAdmin' | 'Approver' | 'Creator' | 'Learner';
 
 /** Legacy membership role from API (pre-flags). */
+// Legacy role type retained only for typing incoming data; not used in logic anymore.
 export type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 
 export type Membership = {
   tenantId: string;
   tenantSlug: string;
-  role: LegacyRole;
-  /** Optional roles flags provided by API; when absent, derive from legacy role.
-   * Accepts canonical FlagRole names or legacy labels (Admin/Owner/Editor/Viewer) which are normalized.
-   */
-  roles?: Array<FlagRole | string>;
+  role: LegacyRole; // ignored for authority; kept for display / backward visibility only
+  roles?: Array<FlagRole | string>; // authoritative source of truth
 };
 
-// Optional safety: prefer legacy role for Admin escalation when flags conflict.
-// Enable by setting NEXT_PUBLIC_PREFER_LEGACY_ROLES=true to avoid accidental TenantAdmin grants
-// if the API temporarily over-assigns roles flags. Default is false to trust flags when present.
-const PREFER_LEGACY_FOR_ADMIN =
-  (process.env.NEXT_PUBLIC_PREFER_LEGACY_ROLES ?? 'false').toLowerCase() === 'true';
-
-/**
- * Derive Roles flags from a legacy membership role.
- * Matches server-side RoleAuthorizationHandler mapping for compatibility.
- */
-export function deriveFlagsFromLegacy(role: LegacyRole): FlagRole[] {
-  switch (role) {
-    case 'Owner':
-    case 'Admin':
-      return ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
-    case 'Editor':
-      return ['Creator', 'Learner'];
-    case 'Viewer':
-    default:
-      return ['Learner'];
-  }
-}
-
-/**
- * Normalize a membership's roles as a set of flag role names.
- * If membership.roles is present, use it; otherwise derive from legacy role.
- */
+/** Return roles flags (canonical) from membership.roles; ignore legacy role completely. */
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
-  // If roles[] is provided, prefer it — but normalize common legacy/synonym names.
-  if (m.roles && Array.isArray(m.roles) && m.roles.length) {
-    const acc: FlagRole[] = [];
-    for (const raw of m.roles) {
-      const name = String(raw).trim();
-      const lower = name.toLowerCase();
-      switch (lower) {
-        // Canonical flag names
-        case 'tenantadmin':
-          acc.push('TenantAdmin');
-          break;
-        case 'approver':
-          acc.push('Approver');
-          break;
-        case 'creator':
-          acc.push('Creator');
-          break;
-        case 'learner':
-          acc.push('Learner');
-          break;
-        // Legacy role names seen in older payloads — expand to flag sets
-        case 'admin':
-          acc.push(...deriveFlagsFromLegacy('Admin'));
-          break;
-        case 'owner':
-          acc.push(...deriveFlagsFromLegacy('Owner'));
-          break;
-        case 'editor':
-          acc.push(...deriveFlagsFromLegacy('Editor'));
-          break;
-        case 'viewer':
-          acc.push(...deriveFlagsFromLegacy('Viewer'));
-          break;
-        default:
-          // Unknown label — ignore to avoid introducing accidental flags.
-          break;
-      }
-    }
-    let normalized = dedupe(acc);
-    // Safety guard: if enabled, prevent elevating to TenantAdmin via flags when legacy role
-    // indicates a non-admin (Viewer/Editor). This mitigates transient server-side flag issues.
-    if (PREFER_LEGACY_FOR_ADMIN && normalized.includes('TenantAdmin')) {
-      const legacy = String(m.role).trim().toLowerCase();
-      const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
-      if (!legacyIsAdmin) normalized = normalized.filter((r) => r !== 'TenantAdmin');
-    }
-    if (normalized.length) return normalized;
-    // If normalization produced nothing (e.g., unexpected labels), fall back to legacy role.
-    // Be tolerant of case: accept lowercase legacy role strings as well.
-    const lower = String(m.role).trim().toLowerCase();
+  if (!m.roles || !Array.isArray(m.roles)) return [];
+  const acc: FlagRole[] = [];
+  for (const raw of m.roles) {
+    const lower = String(raw).trim().toLowerCase();
     switch (lower) {
-      case 'owner':
-        return deriveFlagsFromLegacy('Owner');
-      case 'admin':
-        return deriveFlagsFromLegacy('Admin');
-      case 'editor':
-        return deriveFlagsFromLegacy('Editor');
-      case 'viewer':
-        return deriveFlagsFromLegacy('Viewer');
+      case 'tenantadmin':
+        acc.push('TenantAdmin');
+        break;
+      case 'approver':
+        acc.push('Approver');
+        break;
+      case 'creator':
+        acc.push('Creator');
+        break;
+      case 'learner':
+        acc.push('Learner');
+        break;
       default:
-        return deriveFlagsFromLegacy(m.role);
+        // Ignore legacy labels and unknown strings silently now.
+        break;
     }
   }
-  // No roles[] provided — derive from legacy role.
-  // Be tolerant of case: accept lowercase legacy role strings as well.
-  const lower = String(m.role).trim().toLowerCase();
-  switch (lower) {
-    case 'owner':
-      return deriveFlagsFromLegacy('Owner');
-    case 'admin':
-      return deriveFlagsFromLegacy('Admin');
-    case 'editor':
-      return deriveFlagsFromLegacy('Editor');
-    case 'viewer':
-      return deriveFlagsFromLegacy('Viewer');
-    default:
-      return deriveFlagsFromLegacy(m.role);
-  }
+  return dedupe(acc);
 }
 
 /**
@@ -140,16 +57,7 @@ export function computeBooleansForTenant(
 } {
   const list = memberships ?? [];
   const mem = tenantSlug ? (list.find((m) => m.tenantSlug === tenantSlug) ?? null) : null;
-  let roles = getFlagRoles(mem);
-  // Single-tenant safety: if the user has exactly one membership and the legacy role
-  // is not admin/owner, do not allow flags to elevate to TenantAdmin.
-  if (list.length === 1 && mem) {
-    const legacy = String(mem.role).trim().toLowerCase();
-    const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
-    if (!legacyIsAdmin && roles.includes('TenantAdmin')) {
-      roles = roles.filter((r) => r !== 'TenantAdmin');
-    }
-  }
+  const roles = getFlagRoles(mem);
   const has = (r: FlagRole) => roles.includes(r);
   return {
     isAdmin: has('TenantAdmin'),

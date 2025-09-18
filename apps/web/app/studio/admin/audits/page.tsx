@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 import { mapAuditRows, type AuditRow } from './mapAuditRows';
+import { computeBooleansForTenant } from '../../../../src/lib/roles';
 
 type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
 
@@ -28,7 +29,12 @@ export default async function AuditsPage(props: {
   const memberships =
     (
       session as unknown as {
-        memberships?: { tenantId: string; tenantSlug: string; role: LegacyRole }[];
+        memberships?: {
+          tenantId: string;
+          tenantSlug: string;
+          role?: LegacyRole;
+          roles?: string[];
+        }[];
       } | null
     )?.memberships ?? [];
   const currentTenant =
@@ -37,10 +43,17 @@ export default async function AuditsPage(props: {
   const mine = memberships.find((m) => m.tenantSlug === currentTenant);
   if (!mine) redirect('/select-tenant');
 
-  // Enforce admin in UI: render 403 message rather than redirecting.
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
-    return <div>403 — Access denied</div>;
-  }
+  // Flags-only admin gating via computeBooleansForTenant (legacy role ignored)
+  const { isAdmin } = computeBooleansForTenant(
+    memberships.map((m) => ({
+      tenantId: m.tenantId,
+      tenantSlug: m.tenantSlug,
+      role: 'Viewer', // placeholder legacy role
+      roles: m.roles || [],
+    })) as unknown as Parameters<typeof computeBooleansForTenant>[0],
+    mine.tenantSlug,
+  );
+  if (!isAdmin) return <div>403 — Access denied</div>;
 
   const take = String(
     (Array.isArray(searchParams?.take) ? searchParams?.take[0] : searchParams?.take) ?? '50',

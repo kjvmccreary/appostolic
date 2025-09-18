@@ -50,24 +50,18 @@ export function TenantSwitcher() {
 
   if (!memberships?.length) return null;
 
-  // Compute a canonical role label from roles[] flags (preferred) or legacy role.
-  const labelFor = (m: { role?: string; roles?: FlagRole[] }): string => {
+  // Compute a canonical role label from roles[] flags only.
+  const labelFor = (m: { roles?: FlagRole[] }): string => {
     const flags = getFlagRoles({
-      tenantId: '' as unknown as string,
-      tenantSlug: '' as unknown as string,
-      role: (m.role as unknown as 'Owner' | 'Admin' | 'Editor' | 'Viewer') || 'Viewer',
+      tenantId: '' as string,
+      tenantSlug: '' as string,
+      role: 'Viewer',
       roles: m.roles,
-    } as unknown as {
-      tenantId: string;
-      tenantSlug: string;
-      role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
-      roles?: FlagRole[];
     });
-    const precedence: FlagRole[] = ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
-    for (const r of precedence) {
-      if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
-    }
-    // Fall back to canonical baseline rather than legacy label
+    if (flags.includes('TenantAdmin')) return 'Admin';
+    if (flags.includes('Approver')) return 'Approver';
+    if (flags.includes('Creator')) return 'Creator';
+    if (flags.includes('Learner')) return 'Learner';
     return 'Learner';
   };
 

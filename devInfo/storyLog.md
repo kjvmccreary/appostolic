@@ -118,6 +118,32 @@
   - apps/web/src/lib/auth.ts — delete multi-tenant auto-selection branch (retain single-membership auto-select & update trigger path).
   - apps/web/middleware.ts — restrict auto cookie set to single membership; ensure redirect for multi-tenant no-selection.
   - apps/web/app/layout.multiTenantNoSelection.test.tsx — new test (gating negative case).
+
+  2025-09-18 — Auth/Web: Remove legacy role fallback; flags-only authorization — ✅ DONE
+  - Summary
+    - Eliminated all legacy `role` (Owner/Admin/Editor/Viewer) fallback logic from web authorization and navigation gating. `computeBooleansForTenant` now interprets only explicit `roles[]` flags (`TenantAdmin`, `Approver`, `Creator`, `Learner`). Admin pages (Members, Invites, Audits, Notifications, Settings) and `TopBar` rely solely on flags for `isAdmin`.
+    - Removed legacy expansion helpers and environment toggles (`deriveFlagsFromLegacy`, `PREFER_LEGACY_FOR_ADMIN`, single-tenant safety) simplifying the mental model and preventing mismatched UI/server authorization states.
+    - Updated all related tests to supply `roles: ['TenantAdmin']` for admin scenarios; removed tests asserting legacy Owner/Admin acceptance. Adjusted select-tenant role label test to derive canonical labels purely from flags.
+    - Added architecture snapshot entry documenting rationale and revert point.
+
+  - Files changed
+    - apps/web/src/lib/roles.ts — delete legacy conversion & safety logic; flags-only `computeBooleansForTenant`.
+    - apps/web/src/lib/roleGuard.ts — simplify guards (remove legacy branching).
+    - apps/web/src/components/TopBar.tsx — remove legacy gating & diagnostics tied to role field.
+    - apps/web/app/studio/admin/\*/page.tsx (audits, notifications, settings) — replace legacy `mine.role` checks with flags-based gating.
+    - Tests: multiple `*.test.tsx` updated to use `roles: ['TenantAdmin']` and drop legacy role assertions.
+    - SnapshotArchitecture.md — new “What’s new” entry.
+    - devInfo/storyLog.md — this entry appended.
+
+  - Quality gates
+    - Web tests: PASS after updates (`make fetest`).
+    - Typecheck/Lint: PASS (no new warnings beyond existing baseline MUI/X notices).
+
+  - Rationale
+    - Prevent inconsistent admin visibility and 403 errors caused by divergent legacy vs flags interpretation; reduce surface area before 1.0; ensure a single source of truth for authorization semantics.
+
+  - Revert Plan
+    - Revert commit `REVERT POINT: pre removal of legacy role fallback` if emergency rollback required.
   - apps/web/src/lib/auth.multiTenant.test.ts — new regression test.
   - apps/web/src/components/TenantAwareTopBar\*.tsx — neutralized (content removed / stub) pending full removal.
 

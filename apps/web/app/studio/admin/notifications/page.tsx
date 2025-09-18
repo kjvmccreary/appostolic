@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../lib/serverFetch';
+import { computeBooleansForTenant } from '../../../../src/lib/roles';
 import styles from './styles.module.css';
 import ClientToasts from './ClientToasts';
 import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
@@ -33,17 +34,25 @@ export default async function NotificationsDlqPage(props: {
   const memberships =
     (
       session as unknown as {
-        memberships?: { tenantSlug: string; tenantId: string; role: string }[];
+        memberships?: { tenantSlug: string; tenantId: string; role?: string; roles?: string[] }[];
       }
     ).memberships ?? [];
   const currentTenant =
     (session as unknown as { tenant?: string }).tenant || cookies().get('selected_tenant')?.value;
   const mine = memberships.find((m) => m.tenantSlug === currentTenant);
   if (!mine) redirect('/select-tenant');
-  // Enforce admin in UI: render 403 message rather than redirecting.
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
-    return <div>403 — Access denied</div>;
-  }
+  // Flags-only admin gating (legacy role field ignored / deprecated)
+  const { isAdmin } = computeBooleansForTenant(
+    memberships.map((m) => ({
+      tenantId: m.tenantId,
+      tenantSlug: m.tenantSlug,
+      // Provide a placeholder legacy role to satisfy type; ignored by flags logic.
+      role: 'Viewer',
+      roles: m.roles || [],
+    })) as unknown as Parameters<typeof computeBooleansForTenant>[0],
+    mine.tenantSlug,
+  );
+  if (!isAdmin) return <div>403 — Access denied</div>;
 
   // Parse filters/paging from URL
   const take = Math.min(Math.max(Number(searchParams?.take ?? '50') || 50, 1), 200);

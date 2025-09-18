@@ -114,9 +114,9 @@ describe('/select-tenant page', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [
-        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer' }, // -> Learner
-        { tenantId: 't2', tenantSlug: 'beta', role: 'Editor' }, // -> Creator
-        { tenantId: 't3', tenantSlug: 'gamma', role: 'Owner' }, // -> Admin
+        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer', roles: [] }, // Learner (no flags)
+        { tenantId: 't2', tenantSlug: 'beta', role: 'Viewer', roles: ['Creator'] }, // Creator
+        { tenantId: 't3', tenantSlug: 'gamma', role: 'Viewer', roles: ['TenantAdmin'] }, // Admin
       ],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
@@ -129,6 +129,7 @@ describe('/select-tenant page', () => {
     expect(serialized).toContain('Learner');
     expect(serialized).toContain('Creator');
     expect(serialized).toContain('Admin');
+    // Legacy names should not be used as labels anymore (Viewer/Editor/Owner)
     expect(serialized).not.toContain('Viewer');
     expect(serialized).not.toContain('Editor');
     expect(serialized).not.toContain('Owner');

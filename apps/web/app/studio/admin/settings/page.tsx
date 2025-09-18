@@ -31,14 +31,14 @@ export default async function TenantSettingsPage() {
   if (!match) redirect('/select-tenant');
   const effectiveSlug = match.tenantSlug;
 
-  // Use shared roles helper to compute admin based on selected tenant membership (accepts flags and legacy roles, including Owner).
+  // Flags-only admin gating: legacy role string ignored.
   const { isAdmin } = computeBooleansForTenant(
-    memberships as unknown as {
-      tenantId: string;
-      tenantSlug: string;
-      role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
-      roles?: Array<'TenantAdmin' | 'Approver' | 'Creator' | 'Learner' | string>;
-    }[],
+    memberships.map((m) => ({
+      tenantId: m.tenantId,
+      tenantSlug: m.tenantSlug,
+      role: 'Viewer',
+      roles: m.roles || [],
+    })) as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
   if (!isAdmin) return <div>403 — Access denied</div>;
