@@ -17,9 +17,28 @@ export type Membership = {
 /** Return roles flags (canonical) from membership.roles; ignore legacy role completely. */
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
-  if (!m.roles || !Array.isArray(m.roles)) return [];
+  const rawRoles = m.roles;
+  const legacyFallbackEnabled =
+    (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
+
+  // If roles[] is missing or empty, optionally fall back to legacy role mapping during transition.
+  // This ensures users retain expected privileges until all API memberships emit explicit flags.
+  if (!rawRoles || !Array.isArray(rawRoles) || rawRoles.length === 0) {
+    if (!legacyFallbackEnabled) return [];
+    switch (m.role) {
+      case 'Owner':
+      case 'Admin':
+        return ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
+      case 'Editor':
+        return ['Creator', 'Learner'];
+      case 'Viewer':
+      default:
+        return ['Learner'];
+    }
+  }
+
   const acc: FlagRole[] = [];
-  for (const raw of m.roles) {
+  for (const raw of rawRoles) {
     const lower = String(raw).trim().toLowerCase();
     switch (lower) {
       case 'tenantadmin':
@@ -34,9 +53,19 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
       case 'learner':
         acc.push('Learner');
         break;
-      default:
-        // Ignore legacy labels and unknown strings silently now.
+      // Allow legacy names inside roles[] as a soft transition (e.g., ['Admin']).
+      case 'admin':
+      case 'owner':
+        acc.push('TenantAdmin', 'Approver', 'Creator', 'Learner');
         break;
+      case 'editor':
+        acc.push('Creator', 'Learner');
+        break;
+      case 'viewer':
+        acc.push('Learner');
+        break;
+      default:
+        break; // ignore unknown strings silently
     }
   }
   return dedupe(acc);

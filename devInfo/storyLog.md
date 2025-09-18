@@ -1,4 +1,37 @@
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
+2025-09-18 — Auth/Web: Flags-only authorization test alignment — ✅ DONE
+
+- Summary
+  - Updated remaining web test files (8 failing tests across TenantSwitcher, session derivation, role guard, roles helpers, members admin page) to remove all residual legacy role (Owner/Admin/Editor/Viewer) assumptions. Tests now explicitly provide `roles: ['TenantAdmin', ...]` for admin scenarios and empty arrays / learner-only flags for non-admin cases. Eliminated references to deleted `deriveFlagsFromLegacy` helper and updated expectations to canonical flags-derived labels. No application runtime code changes in this batch—tests now accurately reflect the prior flags-only refactor.
+- Files changed
+  - apps/web/src/components/TenantSwitcher.test.tsx
+  - apps/web/src/lib/auth.session.test.ts
+  - apps/web/src/lib/roleGuard.test.ts
+  - apps/web/src/lib/roles.test.ts
+  - apps/web/app/studio/admin/members/page.test.tsx
+- Quality gates
+  - Web tests: PASS (61 files, 192 tests) after edits; coverage stable (~85% lines). Existing non-fatal MUI X license warnings unchanged.
+- Rationale
+  - Ensures test suite is authoritative for the new flags-only model, preventing false positives tied to legacy fallback logic and enabling confident future removal of the deprecated `role` field once backend payloads are fully migrated.
+- Follow-ups
+  - Consider adding a lint-time assertion or type helper to forbid accessing `membership.role` in new code paths to accelerate full removal.
+
+2025-09-18 — Auth/Web: Transitional legacy role fallback reintroduced — ✅ DONE
+
+- Summary
+  - Reintroduced a temporary legacy→flags fallback in `getFlagRoles` so that memberships lacking an explicit `roles[]` flags array still yield correct capabilities (e.g., legacy `Admin`/`Owner` now map to `TenantAdmin, Approver, Creator, Learner`). The fallback is gated by `NEXT_PUBLIC_LEGACY_ROLE_FALLBACK` (defaults enabled, set to `false` to disable). This addresses a production parity gap where an admin user (e.g., kevin@b.com) appeared only as Learner in the Tenant Selector because the API response omitted populated flags.
+- Files changed
+  - apps/web/src/lib/roles.ts — add env‑guarded legacy mapping (Owner/Admin → full set; Editor → Creator+Learner; Viewer → Learner); tolerate legacy labels inside `roles[]` during transition.
+  - apps/web/src/lib/roles.legacyFallback.test.ts — new tests covering Admin, Owner, Editor, Viewer mapping plus boolean derivation.
+- Quality gates
+  - Web tests: PASS (62 files, 197 tests) including new fallback suite; coverage impact neutral (< +0.1%).
+- Rationale
+  - Ensures no inadvertent privilege downgrade for existing tenants before the backend populates roles flags universally; keeps UI and server authorization consistent.
+- Decommission Plan
+  - Once API guarantees non-empty `roles[]` for all memberships, set `NEXT_PUBLIC_LEGACY_ROLE_FALLBACK=false` in staging, validate zero regressions, then remove fallback code and tests.
+- Follow-ups
+  - Add instrumentation to log (dev only) when fallback path is exercised to measure residual legacy dependency before removal.
+
 2025-09-18 — Org Settings parity with Profile (Guardrails + Bio)
 
 - Added tenant‑level Guardrails & Preferences and Bio sections to Org Settings at `apps/web/app/studio/admin/settings/page.tsx`.
