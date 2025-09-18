@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { AvatarUpload } from './AvatarUpload';
 
@@ -58,5 +58,39 @@ describe('AvatarUpload', () => {
     expect(eventListener).toHaveBeenCalledTimes(1);
     const call = eventListener.mock.calls[0][0] as CustomEvent;
     expect(call.detail.url).toEqual(src);
+  });
+
+  it('confirms and clears just-selected local image without network or event', async () => {
+    const eventListener = vi.fn();
+    window.addEventListener('avatar-updated', eventListener as EventListener);
+
+    const makeFile = (name: string, type: string, size = 10) =>
+      new File([new Uint8Array(size)], name, { type });
+
+    // Ensure any prior fetch mock from other tests doesn't interfere; use our own spy
+    const fetchMock = vi.fn();
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    render(<AvatarUpload />);
+    const input = screen.getByLabelText(/choose avatar image/i) as HTMLInputElement;
+    const file = makeFile('avatar.png', 'image/png');
+    fireEvent.change(input, { target: { files: [file] } });
+
+    // Click Clear, expect confirm dialog
+    const clearBtn = screen.getByRole('button', { name: /clear/i });
+    fireEvent.click(clearBtn);
+    await screen.findByRole('dialog');
+
+    // Confirm clear using the dialog scope to avoid matching the toolbar Clear button
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: /^clear$/i });
+    fireEvent.click(confirm);
+
+    // No network call should be made
+    expect(fetchMock).not.toHaveBeenCalled();
+    // No event dispatched
+    expect(eventListener).not.toHaveBeenCalled();
+    // Status message
+    expect(await screen.findByRole('status')).toHaveTextContent(/selection cleared/i);
   });
 });

@@ -59,6 +59,22 @@
 
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
+## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE
+
+- Summary
+  - Added a confirmation step to `AvatarUpload` when clearing a just-selected local image. This avoids accidental loss before upload and aligns with the tenant logo removal UX. Clearing only affects the local selection and preview; no server-side delete is performed (no DELETE avatar endpoint yet).
+  - Improved accessibility and feedback: success status uses `role="status"`; errors use `role="alert"`. Ensured object URLs are revoked on clear/unmount to prevent memory leaks.
+
+- Files changed
+  - apps/web/src/components/AvatarUpload.tsx — add Clear button, `ConfirmDialog` integration, status messaging, and safe object URL revocation.
+  - apps/web/src/components/AvatarUpload.test.tsx — new test for confirm-and-clear flow using scoped dialog queries; avoids ambiguous selectors; asserts no network call and no global `avatar-updated` event.
+
+- Quality gates
+  - Web tests: PASS via `make fetest` (59 files, 188 tests). Coverage remains ~85% lines. Existing MUI X license warnings remain non-fatal.
+
+- Notes
+  - When a DELETE endpoint for avatars is introduced, we can extend this to full server-side removal with a matching confirmation.
+
 - Summary
   - Simplified the avatar upload/processing pipeline to avoid perceived corruption: we no longer force-convert images to WebP. Instead, we preserve the original format (PNG/JPEG/WebP), apply only minimal transforms when needed (AutoOrient, optional center-crop for near-square, optional downscale with max side 512), and then re-encode using the original format’s encoder when a transform occurs; otherwise we pass through the original bytes. The API now returns an absolute URL (`scheme://host/...`) to prevent dev server relative path issues.
   - Storage keys now use the correct extension to match the source mime (e.g., `users/{id}/avatar.png|jpg|webp`), and response metadata includes `{ url, key, mime, width, height }`. Tests were updated from expecting `image/webp` to expecting the original mime, and to ensure the returned URL is absolute and still contains `/media/users/`.

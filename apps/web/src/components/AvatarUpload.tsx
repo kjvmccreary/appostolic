@@ -9,6 +9,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 
 /**
  * AvatarUpload
@@ -25,11 +27,9 @@ export function AvatarUpload({ onUploaded }: Props) {
   const [file, setFile] = React.useState<File | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  /**
-   * preview — always the URL currently displayed in the Avatar component.
-   *  - Starts as an object URL for local file selection
-   *  - Replaced with the final server URL (cache-busted) after successful upload
-   */
+  const [statusMsg, setStatusMsg] = React.useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  // preview — URL shown in Avatar. Starts as object URL for local file, replaced with server URL on upload success.
   const [preview, setPreview] = React.useState<string | null>(null);
   const previousObjectUrlRef = React.useRef<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -40,6 +40,7 @@ export function AvatarUpload({ onUploaded }: Props) {
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
+    setStatusMsg(null);
     const f = e.target.files?.[0] ?? null;
     if (!f) {
       setFile(null);
@@ -57,13 +58,12 @@ export function AvatarUpload({ onUploaded }: Props) {
     setFile(f);
     // Revoke any prior blob URL to avoid memory leak.
     if (previousObjectUrlRef.current) {
-      // jsdom does not implement revokeObjectURL; guard before calling.
       try {
         if (typeof URL.revokeObjectURL === 'function') {
           URL.revokeObjectURL(previousObjectUrlRef.current);
         }
       } catch {
-        // Ignore revoke failures (jsdom or unexpected environment without implementation)
+        // Ignore revoke failures in test envs
       }
     }
     const objectUrl = URL.createObjectURL(f);
@@ -87,11 +87,8 @@ export function AvatarUpload({ onUploaded }: Props) {
       const data = (await res.json()) as { avatar?: { url?: string } };
       const url = data?.avatar?.url;
       if (url) {
-        // Simple cache bust: timestamp; if desired later we can add a content hash.
         const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
-        // Replace preview with server URL so user sees the canonical stored version (not local blob)
         setPreview(cacheBusted);
-        // Revoke prior object URL if any now that we no longer need the local blob preview.
         if (previousObjectUrlRef.current) {
           try {
             if (typeof URL.revokeObjectURL === 'function') {
@@ -106,8 +103,8 @@ export function AvatarUpload({ onUploaded }: Props) {
           window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { url: cacheBusted } }));
         }
         onUploaded?.(cacheBusted);
-        // Clear file selection (so user can re-upload same filename again if desired)
         setFile(null);
+        setStatusMsg('Avatar updated.');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -116,7 +113,30 @@ export function AvatarUpload({ onUploaded }: Props) {
     }
   }
 
-  // Cleanup any lingering object URL on unmount.
+  function requestClear() {
+    setError(null);
+    setStatusMsg(null);
+    const isBlob = typeof preview === 'string' && preview.startsWith('blob:');
+    if (!file && !isBlob) return;
+    setConfirmOpen(true);
+  }
+
+  function handleClearConfirmed() {
+    if (previousObjectUrlRef.current) {
+      try {
+        if (typeof URL.revokeObjectURL === 'function') {
+          URL.revokeObjectURL(previousObjectUrlRef.current);
+        }
+      } catch {
+        // ignore
+      }
+      previousObjectUrlRef.current = null;
+    }
+    setFile(null);
+    setPreview(null);
+    setStatusMsg('Selection cleared.');
+  }
+
   React.useEffect(() => {
     return () => {
       if (previousObjectUrlRef.current) {
@@ -125,7 +145,7 @@ export function AvatarUpload({ onUploaded }: Props) {
             URL.revokeObjectURL(previousObjectUrlRef.current);
           }
         } catch {
-          // Ignore revoke failures
+          // ignore
         }
         previousObjectUrlRef.current = null;
       }
@@ -133,87 +153,118 @@ export function AvatarUpload({ onUploaded }: Props) {
   }, []);
 
   return (
-    <Stack
-      direction="row"
-      spacing={2}
-      alignItems="center"
-      component="section"
-      aria-label="Avatar upload"
-    >
-      <Box position="relative">
-        <Avatar
-          src={preview || undefined}
-          alt="Avatar preview"
-          sx={{
-            width: 56,
-            height: 56,
-            border: '1px solid',
-            borderColor: 'divider',
-            overflow: 'hidden',
-            '& img': {
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-            },
-          }}
-        />
-        {submitting && (
-          <LinearProgress
-            color="primary"
-            sx={{ position: 'absolute', bottom: -4, left: 0, width: '100%', height: 4 }}
+    <>
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        component="section"
+        aria-label="Avatar upload"
+      >
+        <Box position="relative">
+          <Avatar
+            src={preview || undefined}
+            alt="Avatar preview"
+            sx={{
+              width: 56,
+              height: 56,
+              border: '1px solid',
+              borderColor: 'divider',
+              overflow: 'hidden',
+              '& img': {
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              },
+            }}
           />
-        )}
-      </Box>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        onChange={onChange}
-        aria-label="Choose avatar image"
-        hidden
-        disabled={submitting}
-      />
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Tooltip title="Select image">
-          <span>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<PhotoCameraIcon />}
-              onClick={chooseFile}
-              disabled={submitting}
-            >
-              Choose
-            </Button>
-          </span>
-        </Tooltip>
-        <Tooltip title="Upload selected image">
-          <span>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<CloudUploadIcon />}
-              onClick={handleUpload}
-              disabled={!file || submitting}
-            >
-              {submitting ? 'Uploading…' : 'Upload'}
-            </Button>
-          </span>
-        </Tooltip>
+          {submitting && (
+            <LinearProgress
+              color="primary"
+              sx={{ position: 'absolute', bottom: -4, left: 0, width: '100%', height: 4 }}
+            />
+          )}
+        </Box>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={onChange}
+          aria-label="Choose avatar image"
+          hidden
+          disabled={submitting}
+        />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip title="Select image">
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<PhotoCameraIcon />}
+                onClick={chooseFile}
+                disabled={submitting}
+              >
+                Choose
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Upload selected image">
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<CloudUploadIcon />}
+                onClick={handleUpload}
+                disabled={!file || submitting}
+              >
+                {submitting ? 'Uploading…' : 'Upload'}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Clear selection">
+            <span>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={requestClear}
+                disabled={submitting || (!file && !(preview && preview.startsWith('blob:')))}
+                aria-label="Clear selection"
+              >
+                Clear
+              </Button>
+            </span>
+          </Tooltip>
+        </Stack>
+        <Box minWidth={160}>
+          {file && !error && (
+            <Typography variant="caption" color="text.secondary" display="block" noWrap>
+              {file.name} ({(file.size / 1024).toFixed(0)} KB)
+            </Typography>
+          )}
+          {statusMsg && !error && (
+            <Typography role="status" variant="caption" color="success.main" display="block">
+              {statusMsg}
+            </Typography>
+          )}
+          {error && (
+            <Typography role="alert" variant="caption" color="error.main" display="block">
+              {error}
+            </Typography>
+          )}
+        </Box>
       </Stack>
-      <Box minWidth={160}>
-        {file && !error && (
-          <Typography variant="caption" color="text.secondary" display="block" noWrap>
-            {file.name} ({(file.size / 1024).toFixed(0)} KB)
-          </Typography>
-        )}
-        {error && (
-          <Typography role="alert" variant="caption" color="error.main" display="block">
-            {error}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Clear selection?"
+        description="This will discard the image you just selected."
+        confirmLabel="Clear"
+        cancelLabel="Cancel"
+        onConfirm={handleClearConfirmed}
+        onClose={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
