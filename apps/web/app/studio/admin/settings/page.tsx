@@ -6,6 +6,8 @@ import { computeBooleansForTenant } from '../../../../src/lib/roles';
 import { fetchFromProxy } from '../../../lib/serverFetch';
 import TenantSettingsForm from './TenantSettingsForm';
 import { TenantLogoUpload } from './TenantLogoUpload';
+import TenantGuardrailsForm from './TenantGuardrailsForm';
+import TenantBioEditor from './TenantBioEditor';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -48,6 +50,17 @@ export default async function TenantSettingsPage() {
     social: { twitter: '', facebook: '', instagram: '', youtube: '', linkedin: '' },
   };
   let logoUrl: string | undefined;
+  let guardrailsInitial: {
+    denominationAlignment?: string;
+    favoriteAuthors?: string[];
+    favoriteBooks?: string[];
+    notes?: string;
+    lessonFormat?: string;
+    denominations?: string[];
+  } = {};
+  let bioInitial: { format?: string; content?: string } | undefined = undefined;
+  let denominationPresets: Array<{ id: string; name: string; notes?: string }> | undefined =
+    undefined;
   try {
     const res = await fetchFromProxy('/api-proxy/tenants/settings');
     if (res.ok) {
@@ -78,9 +91,43 @@ export default async function TenantSettingsPage() {
         },
       };
       logoUrl = get(json, ['settings', 'branding', 'logo', 'url']) as string | undefined;
+      guardrailsInitial = {
+        denominationAlignment:
+          (get(json, ['settings', 'guardrails', 'denominationAlignment']) as string) || '',
+        favoriteAuthors:
+          (get(json, ['settings', 'guardrails', 'favoriteAuthors']) as string[]) || [],
+        favoriteBooks: (get(json, ['settings', 'guardrails', 'favoriteBooks']) as string[]) || [],
+        notes: (get(json, ['settings', 'guardrails', 'notes']) as string) || '',
+        lessonFormat: (get(json, ['settings', 'preferences', 'lessonFormat']) as string) || '',
+        denominations: (get(json, ['settings', 'presets', 'denominations']) as string[]) || [],
+      };
+      const bio = get(json, ['settings', 'bio']) as
+        | { format?: string; content?: string }
+        | null
+        | undefined;
+      if (bio && typeof bio === 'object') {
+        bioInitial = {
+          format: (bio.format as string) || 'markdown',
+          content: (bio.content as string) || '',
+        };
+      } else {
+        bioInitial = undefined;
+      }
     }
   } catch {
     // Leave defaults; form will show blank values
+  }
+  // Load denomination presets used by guardrails section
+  try {
+    const res = await fetchFromProxy('/api-proxy/metadata/denominations');
+    if (res.ok) {
+      const js = (await res.json()) as {
+        presets?: Array<{ id: string; name: string; notes?: string }>;
+      };
+      if (Array.isArray(js.presets)) denominationPresets = js.presets;
+    }
+  } catch {
+    // ignore preset load failures; section will show without options
   }
 
   return (
@@ -109,6 +156,26 @@ export default async function TenantSettingsPage() {
           Organization Information
         </h2>
         <TenantSettingsForm initial={initial} />
+      </section>
+
+      <section
+        className="rounded-lg border border-line bg-[var(--color-canvas)] p-6 shadow-sm space-y-4"
+        aria-labelledby="tenant-guardrails-heading"
+      >
+        <h2 id="tenant-guardrails-heading" className="text-lg font-medium">
+          Guardrails & Preferences
+        </h2>
+        <TenantGuardrailsForm initial={guardrailsInitial} presets={denominationPresets} />
+      </section>
+
+      <section
+        className="rounded-lg border border-line bg-[var(--color-canvas)] p-6 shadow-sm space-y-4"
+        aria-labelledby="tenant-bio-heading"
+      >
+        <h2 id="tenant-bio-heading" className="text-lg font-medium">
+          Organization Bio
+        </h2>
+        <TenantBioEditor initial={bioInitial} />
       </section>
     </main>
   );

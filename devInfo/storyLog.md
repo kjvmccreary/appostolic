@@ -1,3 +1,11 @@
+2025-09-18 — Org Settings parity with Profile (Guardrails + Bio)
+
+- Added tenant‑level Guardrails & Preferences and Bio sections to Org Settings at `apps/web/app/studio/admin/settings/page.tsx`.
+- New components: `TenantGuardrailsForm` (denominations, alignment, favorites, notes, lesson format) and `TenantBioEditor` (Markdown editor, minimal merge patch, preview), both wired to `/api-proxy/tenants/settings`.
+- Server page now loads denomination presets from `/api-proxy/metadata/denominations` and existing tenant guardrails/bio from `GET /api/tenants/settings`.
+- Tests added: `TenantGuardrailsForm.test.tsx`, `TenantBioEditor.test.tsx`.
+- Full web test suite PASS via `make fetest`.
+
 ## 2025-09-18 — Nav — Tenant selector role labels (canonical) + legacy tolerance — ✅ DONE
 
 ## 2025-09-18 — Web — Org Settings scaffold (Tenant Settings UI) — ✅ DONE

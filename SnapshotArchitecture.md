@@ -17,6 +17,12 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Upload endpoint now preserves the original image format (PNG/JPEG/WebP) rather than forcing WebP. Minimal transforms remain (AutoOrient; optional center-crop to near-square; optional downscale to max 512px). When mutated, re-encodes using the original format encoder with sane quality defaults; otherwise passes through original bytes.
   - Storage keys include the correct extension (e.g., `users/{id}/avatar.png|jpg|webp`) and the response metadata includes `{ url, key, mime, width, height }` with the URL now absolute (`scheme://host/...`) to avoid dev-server relative path confusion.
 
+- Web — Org Settings parity with Profile (Guardrails + Bio) (2025-09-18)
+  - Added tenant‑level Guardrails & Preferences and Bio sections to `/studio/admin/settings`.
+  - New components: `TenantGuardrailsForm` (denominations, alignment, favorites, notes, lesson format) and `TenantBioEditor` (Markdown with preview). Both submit minimal merge patches to `/api-proxy/tenants/settings`.
+  - Server page now loads denomination presets from `/api-proxy/metadata/denominations` and initial values from `GET /api/tenants/settings`.
+  - Tests added for both components; full web suite PASS.
+
 - User Profile — Avatar upload UX: Clear confirmation (2025-09-18)
   - Added a "Clear" action to `AvatarUpload` that asks for confirmation via the shared `ConfirmDialog` and clears a just-selected local image without making a network call. This mirrors the new Tenant logo removal UX where applicable, while server-side delete remains deferred for avatars.
   - Accessibility: inline status message uses `role="status"`; errors use `role="alert"`. Object URLs are revoked to prevent leaks.
