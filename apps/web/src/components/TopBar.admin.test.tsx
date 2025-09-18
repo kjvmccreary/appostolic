@@ -35,7 +35,7 @@ describe('TopBar tenant-scoped admin gating', () => {
   };
 
   it('hides all nav/actions when authed but no tenant claim', () => {
-    renderWithSession({ ...baseSession, memberships: [{ tenantSlug: 'acme', role: 'admin' }] });
+    renderWithSession({ ...baseSession, memberships: [{ tenantSlug: 'acme', role: 'Admin' }] });
     // Dashboard link should not appear because tenant not yet selected
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
     expect(screen.queryByText('Agents')).not.toBeInTheDocument();
@@ -52,30 +52,30 @@ describe('TopBar tenant-scoped admin gating', () => {
       ...baseSession,
       tenant: 'acme',
       memberships: [
-        { tenantSlug: 'acme', role: 'member' },
-        { tenantSlug: 'other', role: 'admin' },
+        { tenantSlug: 'acme', role: 'Viewer' },
+        { tenantSlug: 'other', role: 'Admin' },
       ],
     });
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
 
-  it('shows Admin when selected tenant membership has role admin', () => {
+  it('shows Admin when selected tenant membership has legacy role Admin', () => {
     renderWithSession({
       ...baseSession,
       tenant: 'acme',
       memberships: [
-        { tenantSlug: 'acme', role: 'admin' },
-        { tenantSlug: 'other', role: 'member' },
+        { tenantSlug: 'acme', role: 'Admin' },
+        { tenantSlug: 'other', role: 'Viewer' },
       ],
     });
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
-  it('shows Admin when selected tenant membership roles[] contains admin', () => {
+  it("shows Admin when selected tenant membership roles[] contains 'TenantAdmin' flag", () => {
     renderWithSession({
       ...baseSession,
       tenant: 'acme',
-      memberships: [{ tenantSlug: 'acme', roles: ['editor', 'ADMIN'] }],
+      memberships: [{ tenantSlug: 'acme', roles: ['Creator', 'TenantAdmin'] }],
     });
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
@@ -95,7 +95,7 @@ describe('TopBar tenant-scoped admin gating', () => {
     renderWithSession({
       ...baseSession,
       tenant: 'missing',
-      memberships: [{ tenantSlug: 'acme', role: 'admin' }],
+      memberships: [{ tenantSlug: 'acme', role: 'Admin' }],
     });
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
@@ -108,11 +108,35 @@ describe('TopBar tenant-scoped admin gating', () => {
       isAdmin: true,
       tenant: 'acme',
       memberships: [
-        { tenantSlug: 'acme', role: 'member' },
-        { tenantSlug: 'other', role: 'admin' },
+        { tenantSlug: 'acme', role: 'Viewer' },
+        { tenantSlug: 'other', role: 'Admin' },
       ],
     } as unknown as SessionLike;
     renderWithSession(sessionWithGlobalFlag);
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
+  });
+
+  it('shows Admin when selected tenant membership has legacy Owner role', () => {
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      memberships: [
+        { tenantSlug: 'acme', role: 'Owner' },
+        { tenantSlug: 'other', role: 'Viewer' },
+      ],
+    });
+    expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  it('shows Admin when session.tenant is tenantId and membership is Admin by id match', () => {
+    renderWithSession({
+      ...baseSession,
+      tenant: 'tid-123',
+      memberships: [
+        { tenantId: 'tid-123', tenantSlug: 'acme', role: 'Admin' },
+        { tenantId: 'tid-999', tenantSlug: 'other', role: 'Viewer' },
+      ],
+    });
+    expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 });

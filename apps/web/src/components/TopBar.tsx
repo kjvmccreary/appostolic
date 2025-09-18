@@ -9,6 +9,7 @@ import { NewAgentButton } from './NewAgentButton';
 import { NavDrawer } from './NavDrawer';
 import { ProfileMenu } from './ProfileMenu';
 import { cn } from '../lib/cn';
+import { computeBooleansForTenant } from '../lib/roles';
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname() || '';
@@ -38,20 +39,31 @@ export function TopBar() {
   // IMPORTANT: Do NOT trust a global session.isAdmin. Admin visibility must be
   // tenant-scoped. We compute admin strictly from the membership that matches
   // the currently selected tenant to avoid leakage from stale or global flags.
-  type Membership = { tenantId?: string; tenantSlug?: string; role?: string; roles?: string[] };
-  const memberships: Membership[] =
-    (session as unknown as { memberships?: Membership[] })?.memberships || [];
-  const fallbackIsAdmin = memberships.some((m) => {
-    if (!selectedTenant) return false;
-    const matches = m.tenantSlug === selectedTenant || m.tenantId === selectedTenant;
-    if (!matches) return false;
-    const roles = [m.role, ...(Array.isArray(m.roles) ? m.roles : [])]
-      .filter(Boolean)
-      .map((r) => String(r).toLowerCase());
-    // Accept legacy 'admin' and roles[] containing 'admin'
-    return roles.includes('admin');
-  });
-  const isAdmin = fallbackIsAdmin;
+  // Use shared roles helper to determine tenant-scoped admin based on flags/legacy role.
+  // This supports both legacy role values (Owner/Admin/Editor/Viewer) and
+  // the newer roles flags array (e.g., ['TenantAdmin', 'Approver', ...]).
+  type RolesMembership = {
+    tenantId: string;
+    tenantSlug: string;
+    role: string;
+    roles?: string[];
+  };
+  const rawMemberships = (session as unknown as { memberships?: RolesMembership[] })?.memberships;
+  const memberships = Array.isArray(rawMemberships) ? rawMemberships : [];
+  // Support session.tenant being either a slug or an id by resolving to slug if needed.
+  const effectiveSlug = React.useMemo(() => {
+    if (!selectedTenant) return null;
+    // If it already matches a slug, keep as-is; otherwise, try to find by id and use its slug.
+    const bySlug = memberships.find((m) => m.tenantSlug === selectedTenant);
+    if (bySlug) return bySlug.tenantSlug;
+    const byId = memberships.find((m) => m.tenantId === selectedTenant);
+    return byId ? byId.tenantSlug : selectedTenant; // fall back to provided value
+  }, [selectedTenant, memberships]);
+
+  const { isAdmin } = computeBooleansForTenant(
+    memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
+    effectiveSlug,
+  );
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
   // Centralized primary nav items for desktop. Agents is now a first-class entry.

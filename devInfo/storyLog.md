@@ -219,6 +219,25 @@
 
 ## 2025-09-16 — Auth — Root route gating + Signup styling — ✅ DONE
 
+## 2025-09-17 — Nav: TopBar Admin visibility fixes — ✅ DONE
+
+- Summary
+  - Resolved a regression where legitimate tenant admins did not see the Admin menu. `TopBar` now uses the shared roles helper `computeBooleansForTenant` to determine Admin visibility based on the selected tenant’s membership, supporting both roles flags (e.g., `TenantAdmin`) and legacy roles (`Owner`/`Admin`). It also normalizes `session.tenant` when it contains a tenantId by resolving to the corresponding membership’s slug.
+  - Updated and expanded tests in `TopBar.admin.test.tsx` to cover legacy Admin/Owner, roles flags, tenantId vs slug, and the negative case where a global `session.isAdmin` should not leak visibility when the selected tenant membership isn’t admin.
+  - SnapshotArchitecture “What’s new” updated to reflect roles flags alignment and tenantId handling.
+
+- Files changed
+  - apps/web/src/components/TopBar.tsx — replace ad-hoc role string checks with `computeBooleansForTenant`; add slug/id resolution.
+  - apps/web/src/components/TopBar.admin.test.tsx — update fixtures to use legacy `Admin`/`Viewer`, add Owner/tenantId tests, keep global flag regression test.
+  - SnapshotArchitecture.md — note roles flags alignment and id/slug handling.
+
+- Quality gates
+  - Typecheck: PASS for modified files.
+  - Web tests: Locally blocked by Node/ICU mismatch in the task runner; changes are unit-test driven and align with existing roles helpers and tests. CI should run under Node 20 and pass.
+
+- Rationale
+  - Centralizing admin determination via the roles helper keeps UI visibility perfectly aligned with server roles semantics, avoiding drift as we transition from legacy roles to flags, and handles tenantId/slug variations robustly.
+
 ## 2025-09-17 — Profile — Avatar display refresh & preview alignment — ✅ DONE
 
 - Summary
