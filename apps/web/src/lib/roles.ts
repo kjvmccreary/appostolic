@@ -16,6 +16,12 @@ export type Membership = {
   roles?: Array<FlagRole | string>;
 };
 
+// Optional safety: prefer legacy role for Admin escalation when flags conflict.
+// Enable by setting NEXT_PUBLIC_PREFER_LEGACY_ROLES=true to avoid accidental TenantAdmin grants
+// if the API temporarily over-assigns roles flags. Default is false to trust flags when present.
+const PREFER_LEGACY_FOR_ADMIN =
+  (process.env.NEXT_PUBLIC_PREFER_LEGACY_ROLES ?? 'false').toLowerCase() === 'true';
+
 /**
  * Derive Roles flags from a legacy membership role.
  * Matches server-side RoleAuthorizationHandler mapping for compatibility.
@@ -77,7 +83,14 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
           break;
       }
     }
-    const normalized = dedupe(acc);
+    let normalized = dedupe(acc);
+    // Safety guard: if enabled, prevent elevating to TenantAdmin via flags when legacy role
+    // indicates a non-admin (Viewer/Editor). This mitigates transient server-side flag issues.
+    if (PREFER_LEGACY_FOR_ADMIN && normalized.includes('TenantAdmin')) {
+      const legacy = String(m.role).trim().toLowerCase();
+      const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
+      if (!legacyIsAdmin) normalized = normalized.filter((r) => r !== 'TenantAdmin');
+    }
     if (normalized.length) return normalized;
     // If normalization produced nothing (e.g., unexpected labels), fall back to legacy role.
     // Be tolerant of case: accept lowercase legacy role strings as well.
@@ -127,7 +140,16 @@ export function computeBooleansForTenant(
 } {
   const list = memberships ?? [];
   const mem = tenantSlug ? (list.find((m) => m.tenantSlug === tenantSlug) ?? null) : null;
-  const roles = getFlagRoles(mem);
+  let roles = getFlagRoles(mem);
+  // Single-tenant safety: if the user has exactly one membership and the legacy role
+  // is not admin/owner, do not allow flags to elevate to TenantAdmin.
+  if (list.length === 1 && mem) {
+    const legacy = String(mem.role).trim().toLowerCase();
+    const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
+    if (!legacyIsAdmin && roles.includes('TenantAdmin')) {
+      roles = roles.filter((r) => r !== 'TenantAdmin');
+    }
+  }
   const has = (r: FlagRole) => roles.includes(r);
   return {
     isAdmin: has('TenantAdmin'),

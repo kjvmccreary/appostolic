@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../src/lib/auth';
+import { getFlagRoles, type FlagRole } from '../../src/lib/roles';
 import type { Session } from 'next-auth';
 
 const TENANT_COOKIE = 'selected_tenant';
@@ -94,11 +95,32 @@ export default async function SelectTenantPage(props: {
           <option value="" disabled>
             Select…
           </option>
-          {memberships.map((m) => (
-            <option key={m.tenantId} value={m.tenantSlug}>
-              {m.tenantSlug} — {m.role}
-            </option>
-          ))}
+          {memberships.map((m) => {
+            // Derive canonical role label from flags (prefer roles[] if present),
+            // falling back to legacy role mapping via getFlagRoles.
+            const flags = getFlagRoles({
+              tenantId: m.tenantId,
+              tenantSlug: m.tenantSlug,
+              role: (m.role as unknown as 'Owner' | 'Admin' | 'Editor' | 'Viewer') ?? 'Viewer',
+              roles: (m as unknown as { roles?: Array<FlagRole | string> }).roles,
+            } as unknown as {
+              tenantId: string;
+              tenantSlug: string;
+              role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+              roles?: Array<FlagRole | string>;
+            });
+            const precedence: FlagRole[] = ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
+            const label = (() => {
+              for (const r of precedence)
+                if (flags.includes(r)) return r === 'TenantAdmin' ? 'Admin' : r;
+              return 'Learner';
+            })();
+            return (
+              <option key={m.tenantId} value={m.tenantSlug}>
+                {m.tenantSlug} — {label}
+              </option>
+            );
+          })}
         </select>
         <button type="submit" className="inline-flex rounded border border-line px-3 py-1">
           Continue

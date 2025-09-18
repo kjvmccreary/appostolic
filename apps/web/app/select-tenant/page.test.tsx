@@ -108,4 +108,29 @@ describe('/select-tenant page', () => {
       `/api/tenant/select?tenant=t1-personal&next=${encodeURIComponent('/studio/agents')}`,
     );
   });
+
+  it('renders canonical role labels instead of legacy names', async () => {
+    // Multi-tenant, ensure server component returns options labeled with canonical roles
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [
+        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer' }, // -> Learner
+        { tenantId: 't2', tenantSlug: 'beta', role: 'Editor' }, // -> Creator
+        { tenantId: 't3', tenantSlug: 'gamma', role: 'Owner' }, // -> Admin
+      ],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+
+    // Render the server component by invoking it; it returns JSX we can snapshot as string
+    const node = (await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+      searchParams: {},
+    })) as unknown as { props?: { children?: unknown } };
+    const serialized = JSON.stringify(node);
+    // Ensure canonical labels present (Learner/Creator/Admin) and legacy names not present
+    expect(serialized).toContain('Learner');
+    expect(serialized).toContain('Creator');
+    expect(serialized).toContain('Admin');
+    expect(serialized).not.toContain('Viewer');
+    expect(serialized).not.toContain('Editor');
+    expect(serialized).not.toContain('Owner');
+  });
 });

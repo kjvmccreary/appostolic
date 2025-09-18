@@ -4,6 +4,11 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Nav — Single-tenant admin gating safeguard (2025-09-18)
+  - To address a field report where a non-admin user with exactly one tenant membership saw the Admin menu, the shared roles helper now includes a single-tenant safety: when there is exactly one membership and its legacy role is non-admin, the derived TenantAdmin flag is suppressed for UI gating. This prevents accidental elevation when backend flags are inconsistent.
+  - An optional env switch `NEXT_PUBLIC_PREFER_LEGACY_ROLES=true` further prefers the legacy role over flags when they conflict, adding a belt-and-suspenders protection during the transition. A dev-only console warning surfaces mismatches for quick diagnosis.
+  - Tests updated: the flags-based admin visibility test now uses a multi-tenant session to validate the intended behavior while respecting the single-tenant safeguard; full web suite PASS.
+
 - User Profile — Avatar pipeline simplification & absolute URLs (2025-09-17)
 - Web — Org Settings (Tenant Settings) scaffold (2025-09-18)
   - Page `/studio/admin/settings` now renders a server-gated (TenantAdmin) UI:

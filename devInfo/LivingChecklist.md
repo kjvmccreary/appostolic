@@ -26,6 +26,7 @@ How to use
 - [x] Web typecheck/lint green; tests passing; coverage thresholds satisfied
 - [x] Accessibility basics upheld (labels, focus, aria-current/expanded, color contrast)
 - [x] Server‑first auth/role guards for any new routes (avoid client-only gating) — Tenant settings & logo endpoints added with TenantAdmin policy
+  - Note: Added single-tenant admin gating safeguard in web roles helper to prevent accidental elevation when flags conflict with legacy roles.
 - [x] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
 
 ---
@@ -40,12 +41,14 @@ How to use
 - [x] Role policies enforced; uniform 403 ProblemDetails; last‑admin invariant (409) with audit trail
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
+  - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
 
 ### Tenant & Org Management
 
 - [x] Tenant creation and membership flows (personal + invited)
 - [x] Role management UI (flags) with last‑admin guard surfaced
 - [ ] Basic Tenant settings UI — In 1.0 scope
+  - [x] Implemented (Org Settings) with server guards; follow-ups: feature toggles
 
 ### Guardrails & Denomination Profiles
 

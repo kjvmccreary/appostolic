@@ -64,6 +64,18 @@ export function TopBar() {
     memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
+  // Dev-only: warn if admin visibility may be due to flags while legacy role suggests otherwise.
+  if (process.env.NODE_ENV !== 'production' && isAdmin) {
+    const mem = memberships.find((m) => m.tenantSlug === effectiveSlug) ?? null;
+    const legacy = String(mem?.role ?? '').toLowerCase();
+    const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
+    if (!legacyIsAdmin) {
+      console.warn(
+        '[TopBar] Admin menu visible due to roles flags; legacy role is non-admin. Check API roles for tenant',
+        effectiveSlug,
+      );
+    }
+  }
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
   // Centralized primary nav items for desktop. Agents is now a first-class entry.

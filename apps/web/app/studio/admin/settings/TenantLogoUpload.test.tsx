@@ -81,4 +81,29 @@ describe('TenantLogoUpload', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(await screen.findByText(/Selection cleared\./i)).toBeInTheDocument();
   });
+
+  it('shows friendly message when server returns HTML error on upload', async () => {
+    const userFile = new File(['data'], 'logo.png', { type: 'image/png' });
+    const html =
+      '<!doctype html><html><head><title>Error</title></head><body>Big stack</body></html>';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+      text: async () => html,
+    });
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    render(<TenantLogoUpload initialUrl={null} />);
+    const input = screen.getByLabelText('Choose tenant logo image') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [userFile] } });
+    fireEvent.click(screen.getByText('Upload'));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(
+      await screen.findByText(/Upload failed \(500\)\. Please try again\./i),
+    ).toBeInTheDocument();
+    // Ensure we did not inject raw HTML (sanity: caption only shows the message text)
+    expect(screen.queryByText(/<!doctype html>/i)).not.toBeInTheDocument();
+  });
 });

@@ -1,3 +1,4 @@
+2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
 2025-09-18 — Org Settings parity with Profile (Guardrails + Bio)
 
 - Added tenant‑level Guardrails & Preferences and Bio sections to Org Settings at `apps/web/app/studio/admin/settings/page.tsx`.
@@ -183,6 +184,26 @@
 - Notes
   - Strength rules are intentionally minimal for MVP; follow-up may add a configurable policy (length/classes/deny list) and rate-limit per user/tenant.
   - No user-facing audit record yet; telemetry trace provides operational visibility. Consider adding an audit ledger entry post‑1.0 if required.
+
+2025-09-18 — Nav — Admin gating hardening and role labels normalization — ✅ DONE
+
+- Summary
+  - Fixed a regression where a non-admin user with a single tenant membership could see the Admin menu. Added a single-tenant safeguard in `computeBooleansForTenant` to suppress `TenantAdmin` when exactly one membership exists and the legacy role is non-admin. Added an optional env safety `NEXT_PUBLIC_PREFER_LEGACY_ROLES=true` to prefer legacy over conflicting flags and a dev-only warning when mismatches are detected.
+  - Normalized role labels in tenant UIs to canonical names (Admin/Approver/Creator/Learner) using `getFlagRoles` and updated the Select Tenant page accordingly.
+  - Updated `TopBar.admin.test.tsx`: the flags-based admin visibility test now uses a multi-tenant session to validate intended behavior while respecting the new single-tenant safeguard. Added a regression test ensuring no Admin menu for single-tenant non-admin users.
+
+- Files changed
+  - apps/web/src/lib/roles.ts — single-tenant safeguard in `computeBooleansForTenant`; env-based legacy precedence in `getFlagRoles`.
+  - apps/web/src/components/TopBar.tsx — use roles helper; add dev mismatch warning.
+  - apps/web/app/select-tenant/page.tsx — canonical role labels.
+  - apps/web/src/components/TopBar.admin.test.tsx — test adjustments and regression add.
+  - apps/web/app/select-tenant/page.test.tsx — new label assertions.
+
+- Quality gates
+  - Web tests: PASS (61 files, 196 tests). Coverage ~85% lines. MUI X license warnings remain non-fatal.
+
+- Notes
+  - If backend roles flags remain inconsistent in some environments, set `NEXT_PUBLIC_PREFER_LEGACY_ROLES=true` to further avoid accidental elevation until data is cleaned.
 
 ## 2025-09-16 — UPROF-04: Avatar upload endpoint + local storage — ✅ DONE
 

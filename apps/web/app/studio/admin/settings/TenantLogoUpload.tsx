@@ -25,6 +25,60 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
+  // Determine if a string looks like HTML content
+  function looksLikeHtml(text: string) {
+    return /^\s*</.test(text);
+  }
+
+  /**
+   * Reads a human-friendly error message from a failed Response without dumping
+   * raw HTML into the UI. Logs verbose bodies to the console for debugging.
+   */
+  async function extractFriendlyError(res: Response, context: 'upload' | 'delete') {
+    const ct = res.headers.get('content-type') || '';
+    try {
+      if (ct.includes('application/json')) {
+        let data: Record<string, unknown> | null = null;
+        try {
+          data = (await res.json()) as Record<string, unknown>;
+        } catch {
+          data = null;
+        }
+        const get = (obj: Record<string, unknown> | null | undefined, key: string): string => {
+          const v = obj && (obj as Record<string, unknown>)[key];
+          return typeof v === 'string' ? v : '';
+        };
+        const errorObj = (data && (data['error'] as Record<string, unknown> | undefined)) || null;
+        const msg = [
+          errorObj && get(errorObj, 'message'),
+          get(data, 'message'),
+          get(data, 'detail'),
+        ]
+          .find((s) => !!s)
+          ?.toString()
+          .trim();
+        if (msg)
+          return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}): ${msg}`;
+        return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}).`;
+      }
+      const text = await res.text();
+      if (looksLikeHtml(text)) {
+        // Avoid surfacing HTML to the user; keep details in console for devs.
+        console.error(
+          `[TenantLogoUpload] ${context} failed with HTML response (${res.status}). Body (truncated):`,
+          text.slice(0, 4000),
+        );
+        return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}). Please try again.`;
+      }
+      const trimmed = text.trim();
+      if (trimmed)
+        return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}): ${trimmed}`;
+      return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}).`;
+    } catch {
+      return `${context === 'upload' ? 'Upload' : 'Delete'} failed (${res.status}).`;
+    }
+  }
+
   function chooseFile() {
     inputRef.current?.click();
   }
@@ -68,11 +122,16 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
       fd.set('file', file);
       const res = await fetch('/api-proxy/tenants/logo', { method: 'POST', body: fd });
       if (!res.ok) {
-        const text = await res.text();
-        setError(`Upload failed (${res.status}): ${text || 'Unknown error'}`);
+        setError(await extractFriendlyError(res, 'upload'));
         return;
       }
-      const data = (await res.json()) as { logo?: { url?: string } };
+      let data: { logo?: { url?: string } } | null = null;
+      try {
+        data = (await res.json()) as { logo?: { url?: string } };
+      } catch {
+        setError('Upload succeeded but response could not be parsed. Please refresh.');
+        return;
+      }
       const url = data?.logo?.url;
       if (url) {
         const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
@@ -130,8 +189,7 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
     try {
       const res = await fetch('/api-proxy/tenants/logo', { method: 'DELETE' });
       if (!res.ok) {
-        const text = await res.text();
-        setError(`Delete failed (${res.status}): ${text || 'Unknown error'}`);
+        setError(await extractFriendlyError(res, 'delete'));
         return;
       }
       setPreview(null);

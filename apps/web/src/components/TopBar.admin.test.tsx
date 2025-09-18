@@ -71,11 +71,15 @@ describe('TopBar tenant-scoped admin gating', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
-  it("shows Admin when selected tenant membership roles[] contains 'TenantAdmin' flag", () => {
+  it("shows Admin when selected tenant membership roles[] contains 'TenantAdmin' flag (multi-tenant)", () => {
+    // Multi-tenant user: single-tenant safeguard should not apply; flags-based admin should gate.
     renderWithSession({
       ...baseSession,
       tenant: 'acme',
-      memberships: [{ tenantSlug: 'acme', roles: ['Creator', 'TenantAdmin'] }],
+      memberships: [
+        { tenantSlug: 'acme', roles: ['Creator', 'TenantAdmin'] },
+        { tenantSlug: 'other', role: 'Viewer' },
+      ],
     });
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
@@ -138,5 +142,16 @@ describe('TopBar tenant-scoped admin gating', () => {
       ],
     });
     expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  it('does NOT show Admin for single-tenant non-admin users (auto-selected)', () => {
+    // Simulate a user with exactly one membership, which the auth layer will auto-select.
+    // Role is Viewer -> should not show Admin in TopBar.
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      memberships: [{ tenantSlug: 'acme', role: 'Viewer' }],
+    });
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
 });
