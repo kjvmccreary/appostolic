@@ -48,4 +48,36 @@ describe('/studio/admin/settings', () => {
     const { getByText } = render(ui);
     expect(getByText(/Tenant Settings/i)).toBeInTheDocument();
   });
+
+  it('accepts legacy Owner role (case-insensitive)', async () => {
+    const session = {
+      user: { email: 'user@example.com' },
+      tenant: 'acme',
+      memberships: [
+        { tenantSlug: 'acme', role: 'Owner' },
+        { tenantSlug: 'beta', role: 'viewer' },
+      ],
+    };
+    getServerSessionMock.mockResolvedValue(session);
+    const Page = await importPage();
+    const ui = await Page();
+    const { getByText } = render(ui);
+    expect(getByText(/Tenant Settings/i)).toBeInTheDocument();
+  });
+
+  it('resolves tenantId in session.tenant to matching membership slug', async () => {
+    const session = {
+      user: { email: 'user@example.com' },
+      tenant: 't-123',
+      memberships: [
+        { tenantId: 't-123', tenantSlug: 'acme', role: 'admin' },
+        { tenantId: 't-999', tenantSlug: 'beta', role: 'viewer' },
+      ],
+    };
+    getServerSessionMock.mockResolvedValue(session);
+    const Page = await importPage();
+    const ui = await Page();
+    const { getByText } = render(ui);
+    expect(getByText(/Tenant Settings — acme/i)).toBeInTheDocument();
+  });
 });

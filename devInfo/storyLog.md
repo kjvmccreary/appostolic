@@ -1,5 +1,43 @@
 ## 2025-09-18 — Nav — Tenant selector role labels (canonical) + legacy tolerance — ✅ DONE
 
+## 2025-09-18 — Web — Org Settings scaffold (Tenant Settings UI) — ✅ DONE
+
+- Summary
+  - Implemented the initial Org Settings page at `/studio/admin/settings` by cloning the successful patterns from `/profile`. The page now fetches current tenant settings server-side and renders:
+    - `TenantLogoUpload` for branding logo (accepts PNG/JPEG/WebP ≤2MB) via `/api-proxy/tenants/logo` with cache-busted preview.
+    - `TenantSettingsForm` for organization display name, contact (email, website), and social links; submits a minimal merge patch to `/api-proxy/tenants/settings` following deep-merge semantics (objects merge; scalars/arrays replace; null clears).
+  - Server guard remains tenant-scoped using `computeBooleansForTenant` with id/slug normalization; non-admins see a 403 stub.
+
+- Files changed
+  - apps/web/app/studio/admin/settings/page.tsx — server page now loads settings and renders form + logo upload.
+  - apps/web/app/studio/admin/settings/TenantSettingsForm.tsx — new client form component with normalization and error/success feedback.
+  - apps/web/app/studio/admin/settings/TenantLogoUpload.tsx — new client logo uploader aligned to avatar UX.
+  - apps/web/app/studio/admin/settings/TenantSettingsForm.test.tsx — unit tests for success, website normalization, and failure.
+
+- Quality gates
+  - Web tests: PASS (`pnpm --filter @appostolic/web test`). Coverage remains above thresholds; non-fatal MUI license warnings unchanged.
+  - Typecheck/Lint: PASS for new files.
+
+- Notes
+  - Next iterations: add DELETE logo action, surface privacy toggle when ready, and consider extracting a shared deep-merge patch builder for tenant/user to remove duplication.
+
+## 2025-09-18 — Web — Org Settings quick wins: Remove logo + tests — ✅ DONE
+
+- Summary
+  - Enhanced `TenantLogoUpload` with a Remove button that clears a just-selected image locally without network, and issues `DELETE /api-proxy/tenants/logo` to remove an existing server logo. Added progress, error, and success status messaging with accessible roles. Wires cache-busted preview updates consistently. Expanded admin settings page tests to accept legacy `Owner` (case-insensitive) and handle `session.tenant` being a tenantId.
+
+- Files changed
+  - apps/web/app/studio/admin/settings/TenantLogoUpload.tsx — add remove action, deleting state, status messaging, a11y.
+  - apps/web/app/studio/admin/settings/TenantLogoUpload.test.tsx — new tests for POST upload, DELETE remove, and local clear.
+  - apps/web/app/studio/admin/settings/page.test.tsx — add legacy Owner and tenantId→slug tests.
+
+- Quality gates
+  - Web tests: PASS locally with Node 20 using `pnpm --filter @appostolic/web test`.
+  - Typecheck/Lint: PASS for new/updated files.
+
+- Notes
+  - Server already supports `DELETE /api/tenants/logo` (TEN‑02). This completes the basic branding lifecycle. A follow-up can surface logo dimensions or variants when image processing lands.
+
 - Summary
   - Updated the tenant selector UI to display canonical role labels derived from roles flags (Admin, Approver, Creator, Learner) instead of legacy strings (Owner/Viewer). Centralized label computation via getFlagRoles to normalize both canonical flags and legacy names, case-insensitive. Also fixed an admin-gating edge case by tolerating lowercase legacy role strings in the roles helper so TopBar visibility remains correct.
   - Fixed a small a11y nit in TenantSwitcher (aria-busy boolean). SnapshotArchitecture updated in "What’s new" to reflect selector label normalization and shared roles helper usage.

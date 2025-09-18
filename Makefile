@@ -75,3 +75,6 @@ test:
 	  -p:CoverletOutput=./TestResults/coverage.cobertura.xml \
 	  --logger "trx;LogFileName=TestResults.trx"
 	cd apps/web && pnpm test -- --coverage
+
+fetest:
+	pnpm --filter @appostolic/web test

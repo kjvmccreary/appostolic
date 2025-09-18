@@ -5,6 +5,15 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - User Profile — Avatar pipeline simplification & absolute URLs (2025-09-17)
+- Web — Org Settings (Tenant Settings) scaffold (2025-09-18)
+  - Page `/studio/admin/settings` now renders a server-gated (TenantAdmin) UI:
+    - Branding logo upload client (`TenantLogoUpload`) wired to `/api-proxy/tenants/logo` with validation and cache-busted preview.
+    - Organization details form (`TenantSettingsForm`) for display name, contact (email/website), and social links; submits minimal merge patch to `/api-proxy/tenants/settings`.
+  - Server selects effective tenant via membership match (slug/id) and gates using `computeBooleansForTenant` shared helper.
+  - Tests added for the form; overall web suite remains green using Node 20.
+  - Quick win (2025-09-18): Added Remove Logo action to `TenantLogoUpload` calling `DELETE /api-proxy/tenants/logo`, including local-blob clear without network, progress state, and accessible status messages. Added unit tests for POST upload, DELETE remove, and local clear.
+  - Tests: Expanded `/studio/admin/settings/page.test.tsx` to include legacy role acceptance (Owner, case-insensitive) and tenantId→slug resolution in `session.tenant`.
+
   - Upload endpoint now preserves the original image format (PNG/JPEG/WebP) rather than forcing WebP. Minimal transforms remain (AutoOrient; optional center-crop to near-square; optional downscale to max 512px). When mutated, re-encodes using the original format encoder with sane quality defaults; otherwise passes through original bytes.
   - Storage keys include the correct extension (e.g., `users/{id}/avatar.png|jpg|webp`) and the response metadata includes `{ url, key, mime, width, height }` with the URL now absolute (`scheme://host/...`) to avoid dev-server relative path confusion.
 
