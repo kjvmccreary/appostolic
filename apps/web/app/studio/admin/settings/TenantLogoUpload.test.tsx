@@ -52,6 +52,9 @@ describe('TenantLogoUpload', () => {
     render(<TenantLogoUpload initialUrl={'https://cdn/existing.png'} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Remove/i }));
+    // confirm dialog
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, opts] = fetchMock.mock.calls[0];
@@ -71,6 +74,8 @@ describe('TenantLogoUpload', () => {
     fireEvent.change(input, { target: { files: [userFile] } });
 
     fireEvent.click(screen.getByRole('button', { name: /Remove/i }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     // No network call should be made
     expect(fetchMock).not.toHaveBeenCalled();

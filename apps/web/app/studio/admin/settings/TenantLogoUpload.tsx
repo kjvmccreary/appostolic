@@ -10,8 +10,9 @@ import Typography from '@mui/material/Typography';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { ConfirmDialog } from '../../../../src/components/ui/ConfirmDialog';
 
-type Props = { initialUrl?: string | null; onUploaded?: (url: string) => void };
+type Props = { initialUrl?: string | null; onUploaded?: (url: string | null) => void };
 
 export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
   const [file, setFile] = React.useState<File | null>(null);
@@ -22,6 +23,7 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
   const [preview, setPreview] = React.useState<string | null>(initialUrl || null);
   const prevObjUrlRef = React.useRef<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   function chooseFile() {
     inputRef.current?.click();
@@ -95,7 +97,15 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
     }
   }
 
-  async function handleRemove() {
+  function requestRemove() {
+    setError(null);
+    setStatusMsg(null);
+    // If nothing to remove, ignore
+    if (!file && !preview) return;
+    setConfirmOpen(true);
+  }
+
+  async function handleRemoveConfirmed() {
     setError(null);
     setStatusMsg(null);
     // If a local file is selected (blob preview), clear selection without network
@@ -125,6 +135,7 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
         return;
       }
       setPreview(null);
+      onUploaded?.(null);
       setStatusMsg('Logo removed.');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Delete failed');
@@ -147,96 +158,107 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
   }, []);
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center" aria-label="Tenant logo upload">
-      <Box position="relative">
-        <Avatar
-          src={preview || undefined}
-          alt="Logo preview"
-          sx={{
-            width: 56,
-            height: 56,
-            border: '1px solid',
-            borderColor: 'divider',
-            overflow: 'hidden',
-            '& img': { width: '100%', height: '100%', objectFit: 'contain', display: 'block' },
-          }}
-        />
-        {(submitting || deleting) && (
-          <LinearProgress
-            color="primary"
-            sx={{ position: 'absolute', bottom: -4, left: 0, width: '100%', height: 4 }}
+    <>
+      <Stack direction="row" spacing={2} alignItems="center" aria-label="Tenant logo upload">
+        <Box position="relative">
+          <Avatar
+            src={preview || undefined}
+            alt="Logo preview"
+            sx={{
+              width: 56,
+              height: 56,
+              border: '1px solid',
+              borderColor: 'divider',
+              overflow: 'hidden',
+              '& img': { width: '100%', height: '100%', objectFit: 'contain', display: 'block' },
+            }}
           />
-        )}
-      </Box>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        onChange={onChange}
-        aria-label="Choose tenant logo image"
-        hidden
-        disabled={submitting}
-      />
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Tooltip title="Select image">
-          <span>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<PhotoCameraIcon />}
-              onClick={chooseFile}
-              disabled={submitting || deleting}
-            >
-              Choose
-            </Button>
-          </span>
-        </Tooltip>
-        <Tooltip title="Upload selected image">
-          <span>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<CloudUploadIcon />}
-              onClick={handleUpload}
-              disabled={!file || submitting || deleting}
-            >
-              {submitting ? 'Uploading…' : 'Upload'}
-            </Button>
-          </span>
-        </Tooltip>
-        <Tooltip title="Remove logo">
-          <span>
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              startIcon={<DeleteOutlineIcon />}
-              onClick={handleRemove}
-              disabled={submitting || deleting || (!preview && !file)}
-              aria-label="Remove logo"
-            >
-              {deleting ? 'Removing…' : 'Remove'}
-            </Button>
-          </span>
-        </Tooltip>
+          {(submitting || deleting) && (
+            <LinearProgress
+              color="primary"
+              sx={{ position: 'absolute', bottom: -4, left: 0, width: '100%', height: 4 }}
+            />
+          )}
+        </Box>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={onChange}
+          aria-label="Choose tenant logo image"
+          hidden
+          disabled={submitting}
+        />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip title="Select image">
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<PhotoCameraIcon />}
+                onClick={chooseFile}
+                disabled={submitting || deleting}
+              >
+                Choose
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Upload selected image">
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<CloudUploadIcon />}
+                onClick={handleUpload}
+                disabled={!file || submitting || deleting}
+              >
+                {submitting ? 'Uploading…' : 'Upload'}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Remove logo">
+            <span>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={requestRemove}
+                disabled={submitting || deleting || (!preview && !file)}
+                aria-label="Remove logo"
+              >
+                {deleting ? 'Removing…' : 'Remove'}
+              </Button>
+            </span>
+          </Tooltip>
+        </Stack>
+        <Box minWidth={160}>
+          {file && !error && (
+            <Typography variant="caption" color="text.secondary" display="block" noWrap>
+              {file.name} ({(file.size / 1024).toFixed(0)} KB)
+            </Typography>
+          )}
+          {statusMsg && !error && (
+            <Typography role="status" variant="caption" color="success.main" display="block">
+              {statusMsg}
+            </Typography>
+          )}
+          {error && (
+            <Typography role="alert" variant="caption" color="error.main" display="block">
+              {error}
+            </Typography>
+          )}
+        </Box>
       </Stack>
-      <Box minWidth={160}>
-        {file && !error && (
-          <Typography variant="caption" color="text.secondary" display="block" noWrap>
-            {file.name} ({(file.size / 1024).toFixed(0)} KB)
-          </Typography>
-        )}
-        {statusMsg && !error && (
-          <Typography role="status" variant="caption" color="success.main" display="block">
-            {statusMsg}
-          </Typography>
-        )}
-        {error && (
-          <Typography role="alert" variant="caption" color="error.main" display="block">
-            {error}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Remove logo?"
+        description="This will remove your current organization logo. You can upload a new one anytime."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        onConfirm={handleRemoveConfirmed}
+        onClose={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
