@@ -3,6 +3,10 @@ import { authOptions } from '../../../../src/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { fetchFromProxy } from '../../../lib/serverFetch';
+import {
+  computeBooleansForTenant,
+  type Membership as RolesMembership,
+} from '../../../../src/lib/roles';
 import ConfirmSubmitButton from '../../../../src/components/ui/ConfirmSubmitButton';
 import ClientToasts from './ClientToasts';
 import EmailField from './EmailField';
@@ -32,7 +36,7 @@ export default async function InvitesAdminPage() {
   const memberships =
     (
       session as unknown as {
-        memberships?: { tenantSlug: string; tenantId: string; role: string }[];
+        memberships?: RolesMembership[];
       }
     ).memberships ?? [];
   const currentTenant =
@@ -42,9 +46,8 @@ export default async function InvitesAdminPage() {
     redirect('/select-tenant');
     return null;
   }
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
-    return <div>403 — Access denied</div>;
-  }
+  const { isAdmin } = computeBooleansForTenant(memberships as RolesMembership[], mine.tenantSlug);
+  if (!isAdmin) return <div>403 — Access denied</div>;
 
   // Capture for server actions (TypeScript can't narrow across closures)
   const tenantId = mine.tenantId;
@@ -106,9 +109,9 @@ export default async function InvitesAdminPage() {
     method: 'GET',
     cache: 'no-store',
   });
-  if (!res.ok) {
-    return <div>Failed to load invites</div>;
-  }
+  if (res.status === 401) redirect('/select-tenant');
+  if (res.status === 403) return <div>403 — Access denied</div>;
+  if (!res.ok) return <div>Failed to load invites</div>;
   const invites = (await res.json()) as Invite[];
 
   // ok/err handled by client-side toasts; keep SSR stable

@@ -4,7 +4,11 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
-import type { FlagRole } from '../../../../src/lib/roles';
+import {
+  computeBooleansForTenant,
+  type Membership as RolesMembership,
+  type FlagRole,
+} from '../../../../src/lib/roles';
 import ClientToasts from './ClientToasts';
 import AutoSubmitCheckbox from './AutoSubmitCheckbox';
 
@@ -36,22 +40,23 @@ export default async function MembersPage() {
   const memberships =
     (
       session as unknown as {
-        memberships?: { tenantId: string; tenantSlug: string; role: LegacyRole }[];
+        memberships?: RolesMembership[];
       }
     ).memberships ?? [];
   const currentTenant =
     (session as unknown as { tenant?: string }).tenant || cookies().get('selected_tenant')?.value;
   const mine = memberships.find((m) => m.tenantSlug === currentTenant);
   if (!mine) redirect('/select-tenant');
-  if (mine.role !== 'Owner' && mine.role !== 'Admin') {
-    // Non-admin: render a simple 403 message per acceptance
-    return <div>403 — Access denied</div>;
-  }
+  // Flags-based gating to match proxy guard logic
+  const { isAdmin } = computeBooleansForTenant(memberships as RolesMembership[], mine.tenantSlug);
+  if (!isAdmin) return <div>403 — Access denied</div>;
 
   // Fetch role-aware memberships via proxy
   const listRes = await fetchFromProxy(`/api-proxy/tenants/${mine.tenantId}/memberships`, {
     cache: 'no-store',
   });
+  if (listRes.status === 401) redirect('/select-tenant');
+  if (listRes.status === 403) return <div>403 — Access denied</div>;
   if (!listRes.ok) return <div>Failed to load members</div>;
   const members = (await listRes.json()) as MemberRow[];
 

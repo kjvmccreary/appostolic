@@ -9,7 +9,8 @@ import { NewAgentButton } from './NewAgentButton';
 import { NavDrawer } from './NavDrawer';
 import { ProfileMenu } from './ProfileMenu';
 import { cn } from '../lib/cn';
-import { computeBooleansForTenant } from '../lib/roles';
+import { computeBooleansForTenant, getFlagRoles } from '../lib/roles';
+import type { Membership as RolesLibMembership } from '../lib/roles';
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname() || '';
@@ -31,6 +32,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 export function TopBar() {
   // const pathname = usePathname() || '';
   const { data: session } = useSession();
+  const DEBUG = (process.env.NEXT_PUBLIC_DEBUG_ADMIN_GATING ?? 'false').toLowerCase() === 'true';
+  const FLAGS_ONLY =
+    (process.env.NEXT_PUBLIC_UI_ADMIN_FROM_FLAGS_ONLY ?? 'false').toLowerCase() === 'true';
   const isAuthed = Boolean(
     (session as unknown as { user?: { email?: string } } | null)?.user?.email,
   );
@@ -60,7 +64,7 @@ export function TopBar() {
     return byId ? byId.tenantSlug : selectedTenant; // fall back to provided value
   }, [selectedTenant, memberships]);
 
-  const { isAdmin } = computeBooleansForTenant(
+  const { isAdmin, roles: effectiveRoles } = computeBooleansForTenant(
     memberships as unknown as Parameters<typeof computeBooleansForTenant>[0],
     effectiveSlug,
   );
@@ -70,13 +74,51 @@ export function TopBar() {
   const legacyIsAdmin = legacy === 'owner' || legacy === 'admin';
   // Client-side safety: suppress Admin in the UI when flags grant admin but legacy role is non-admin.
   // This avoids accidental elevation in the TopBar while preserving server-first guards.
-  const isAdminGated = isAdmin && legacyIsAdmin;
+  const adminFromFlags = isAdmin; // isAdmin already reflects flags via computeBooleansForTenant
+  const isAdminGated = FLAGS_ONLY ? adminFromFlags : isAdmin && legacyIsAdmin;
   // Dev-only: warn when suppression occurs due to mismatch.
   if (process.env.NODE_ENV !== 'production' && isAdmin && !legacyIsAdmin) {
     console.warn(
       '[TopBar] Admin menu suppressed: roles flags grant admin but legacy role is non-admin. Check API roles for tenant',
       effectiveSlug,
     );
+  }
+  // Optional detailed diagnostics to trace gating. Enable by setting
+  // NEXT_PUBLIC_DEBUG_ADMIN_GATING=true (recommended: apps/web/.env.local) and restarting dev.
+  if (DEBUG && isAuthed && selectedTenant) {
+    const mem = selectedMembership;
+    const rawRoles = Array.isArray(mem?.roles) ? mem?.roles : undefined;
+    const normalizedRoles = getFlagRoles(mem as unknown as RolesLibMembership);
+    // Detect suspicious legacy labels present in roles[] that could expand to TenantAdmin
+    const hasLegacyInRoles = (rawRoles ?? []).some((r) => {
+      const v = String(r).toLowerCase();
+      return v === 'admin' || v === 'owner' || v === 'editor' || v === 'viewer';
+    });
+    // Group logs for readability
+    console.groupCollapsed(
+      `%c[AdminGate] tenant=%s email=%s gated=%s`,
+      'color:#888',
+      String(effectiveSlug ?? selectedTenant),
+      (session as unknown as { user?: { email?: string } } | null)?.user?.email ?? '(unknown)',
+      String(isAdminGated),
+    );
+    console.log('selectedTenant (raw):', selectedTenant);
+    console.log('effectiveSlug (resolved):', effectiveSlug);
+    console.log('memberships.count:', memberships.length);
+    console.log('selectedMembership:', mem);
+    console.log('legacy role:', mem?.role);
+    console.log('roles[] (raw from session):', rawRoles);
+    console.log('roles (normalized via getFlagRoles):', normalizedRoles);
+    console.log('roles (effective from computeBooleansForTenant):', effectiveRoles);
+    console.log('isAdmin (from flags):', isAdmin);
+    console.log('legacyIsAdmin (owner/admin):', legacyIsAdmin);
+    console.log('isAdminGated (UI will show Admin?):', isAdminGated);
+    if (hasLegacyInRoles) {
+      console.warn(
+        '[AdminGate] roles[] contains legacy labels (admin/owner/editor/viewer). These expand to flags; verify they reflect current authority.',
+      );
+    }
+    console.groupEnd();
   }
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
