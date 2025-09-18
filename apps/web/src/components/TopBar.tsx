@@ -35,9 +35,9 @@ export function TopBar() {
   );
   const canCreate = Boolean((session as unknown as { canCreate?: boolean } | null)?.canCreate);
   const selectedTenant = (session as unknown as { tenant?: string })?.tenant;
-  // Prefer tenant-scoped admin flag computed in auth session callbacks; fallback to client-side
-  // derivation from memberships for robustness in tests and edge cases.
-  const computedIsAdmin = Boolean((session as unknown as { isAdmin?: boolean } | null)?.isAdmin);
+  // IMPORTANT: Do NOT trust a global session.isAdmin. Admin visibility must be
+  // tenant-scoped. We compute admin strictly from the membership that matches
+  // the currently selected tenant to avoid leakage from stale or global flags.
   type Membership = { tenantId?: string; tenantSlug?: string; role?: string; roles?: string[] };
   const memberships: Membership[] =
     (session as unknown as { memberships?: Membership[] })?.memberships || [];
@@ -51,7 +51,7 @@ export function TopBar() {
     // Accept legacy 'admin' and roles[] containing 'admin'
     return roles.includes('admin');
   });
-  const isAdmin = computedIsAdmin || fallbackIsAdmin;
+  const isAdmin = fallbackIsAdmin;
   // Tenant switcher moved into ProfileMenu; keep logic for potential future use
 
   // Centralized primary nav items for desktop. Agents is now a first-class entry.
@@ -169,7 +169,7 @@ export function TopBar() {
           isAdmin={isAdmin}
           navItems={navItems as unknown as { label: string; href: string }[]}
           adminItems={[
-            { label: 'Settings', href: '/studio/admin/settings' },
+            { label: 'Org Settings', href: '/studio/admin/settings' },
             { label: 'Members', href: '/studio/admin/members' },
             { label: 'Invites', href: '/studio/admin/invites' },
             { label: 'Audits', href: '/studio/admin/audits' },
@@ -217,7 +217,7 @@ function AdminDropdown() {
             className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
             onClick={() => router.push('/studio/admin/settings')}
           >
-            Settings
+            Org Settings
           </button>
           <button
             role="menuitem"

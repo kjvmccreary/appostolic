@@ -246,6 +246,23 @@
   - apps/web/app/signup/SignupClient.tsx — style tweaks and a11y; invite-aware banner.
   - apps/web/app/signup/styles.module.css — new CSS module for layout/buttons/messages.
 
+## 2025-09-17 — Nav — Tenant-scoped Admin gating regression fix — ✅ DONE
+
+- Summary
+  - Fixed a regression where users could still see the Admin menu after losing admin rights in the selected tenant. We now ignore any global `session.isAdmin` flag and compute admin strictly from the membership that matches the selected tenant (`tenantSlug` or `tenantId`) and includes role `admin`. This closes leakage from stale/global flags across tenant switches.
+  - Added a regression unit test asserting that when `session.isAdmin=true` but the selected tenant membership is non-admin, the Admin menu does not render.
+  - Renamed Admin dropdown link label from “Settings” to “Org Settings” (still `/studio/admin/settings`).
+
+- Files changed
+  - apps/web/src/components/TopBar.tsx — enforce tenant-scoped check only; label rename to “Org Settings”.
+  - apps/web/src/components/TopBar.admin.test.tsx — new negative-case test for global flag with non-admin membership.
+
+- Quality gates
+  - Web tests: PASS (176/176). Coverage stable; unrelated MUI license warnings remain unchanged.
+
+- Rationale
+  - Guarantees least-privilege UI visibility aligned with the currently selected tenant; prevents regressions from cached/global admin indicators.
+
 - Quality gates
   - Typecheck (web): PASS
   - Unit tests (web): Local runner currently blocked by Node mismatch; updated test compiles under typecheck. Will re-run vitest when Node >= 20 is active.

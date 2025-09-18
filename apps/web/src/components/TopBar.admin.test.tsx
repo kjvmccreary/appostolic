@@ -99,4 +99,20 @@ describe('TopBar tenant-scoped admin gating', () => {
     });
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
+
+  it('hides Admin when global session.isAdmin=true but selected tenant membership is not admin', () => {
+    // Simulate a user who used to be an admin (global flag remains true),
+    // but no longer has admin role on the currently selected tenant.
+    const sessionWithGlobalFlag = {
+      ...baseSession,
+      isAdmin: true,
+      tenant: 'acme',
+      memberships: [
+        { tenantSlug: 'acme', role: 'member' },
+        { tenantSlug: 'other', role: 'admin' },
+      ],
+    } as unknown as SessionLike;
+    renderWithSession(sessionWithGlobalFlag);
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument();
+  });
 });

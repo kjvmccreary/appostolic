@@ -10,6 +10,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Tests updated to assert original mime and absolute URL; full API suite green.
 
 - Nav — Multi-tenant explicit selection hardening (2025-09-17)
+- Nav — Tenant‑scoped Admin gating regression fix (2025-09-17)
+  - Fixed a leakage where `TopBar` could show the Admin menu based on a global `session.isAdmin` even when the user no longer has admin rights for the selected tenant. Admin visibility is now derived strictly from the membership that matches the currently selected tenant (`tenantSlug` or `tenantId`) with role `admin`. A regression unit test was added to lock this behavior.
+  - Admin dropdown label updated from “Settings” to “Org Settings” (route unchanged: `/studio/admin/settings`).
+
   - Removed multi-tenant auto-selection heuristic in NextAuth `jwt` callback that previously picked an arbitrary/high-privilege membership and populated `token.tenant` on initial sign-in. Multi-membership users now always start with `tenant` unset until they explicitly select one via `/select-tenant` (which persists the `selected_tenant` cookie) or the tenant switcher modal. Single-membership users still auto-select for ergonomics.
   - Middleware no longer silently sets `selected_tenant` for multi-tenant users; it only auto-sets when exactly one membership exists. Authenticated requests lacking a valid selection are redirected to `/select-tenant`.
   - Server layout gating (`app/layout.tsx`) already required both a `selected_tenant` cookie and a matching session tenant claim; with the heuristic removed, the TopBar cannot appear prematurely for multi-tenant accounts.
