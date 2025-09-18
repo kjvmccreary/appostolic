@@ -6,14 +6,24 @@ import type { LegacyRole } from './roles';
 
 describe('NextAuth session derivation (roles-aware)', () => {
   it('derives booleans from memberships and selected tenant', async () => {
-    type TestMembership = { tenantId: string; tenantSlug: string; role: LegacyRole };
+    type TestMembership = {
+      tenantId: string;
+      tenantSlug: string;
+      role: LegacyRole;
+      roles?: string[];
+    };
     const u: NextAuthUser & { memberships: TestMembership[] } = {
       id: 'u1',
       email: 'a@example.com',
       name: 'a@example.com',
       memberships: [
-        { tenantId: 'tid-1', tenantSlug: 'acme', role: 'Admin' },
-        { tenantId: 'tid-2', tenantSlug: 'beta', role: 'Viewer' },
+        {
+          tenantId: 'tid-1',
+          tenantSlug: 'acme',
+          role: 'Viewer',
+          roles: ['TenantAdmin', 'Creator', 'Approver', 'Learner'],
+        },
+        { tenantId: 'tid-2', tenantSlug: 'beta', role: 'Viewer', roles: ['Learner'] },
       ],
     } as NextAuthUser & { memberships: TestMembership[] };
 

@@ -11,8 +11,8 @@ vi.mock('next-auth/react', () => ({
       user: { email: 'u@example.com' },
       tenant: 't1',
       memberships: [
-        { tenantId: 't1', tenantSlug: 't1', role: 'Admin' },
-        { tenantId: 't2', tenantSlug: 't2', role: 'Viewer' },
+        { tenantId: 't1', tenantSlug: 't1', role: 'Viewer', roles: ['TenantAdmin'] },
+        { tenantId: 't2', tenantSlug: 't2', role: 'Viewer', roles: [] },
       ],
     },
     update: updateMock,
@@ -49,7 +49,7 @@ describe('TenantSwitcher', () => {
     global.fetch = originalFetch;
   });
 
-  it('renders canonical role labels for legacy roles', () => {
+  it('renders canonical role labels from flags only', () => {
     render(<TenantSwitcher />);
     const opt1 = screen.getByRole('option', { name: /t1 —/i });
     const opt2 = screen.getByRole('option', { name: /t2 —/i });

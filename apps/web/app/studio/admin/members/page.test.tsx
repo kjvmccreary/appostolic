@@ -32,8 +32,8 @@ describe('/studio/admin/members page', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [
-        { tenantId: 't-1', tenantSlug: 't1', role: 'Viewer' },
-        { tenantId: 't-2', tenantSlug: 't2', role: 'Admin' },
+        { tenantId: 't-1', tenantSlug: 't1', role: 'Viewer', roles: [] },
+        { tenantId: 't-2', tenantSlug: 't2', role: 'Viewer', roles: ['TenantAdmin'] },
       ],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
@@ -46,24 +46,26 @@ describe('/studio/admin/members page', () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'admin@example.com' },
       tenant: 't1',
-      memberships: [{ tenantId: 't-1', tenantSlug: 't1', role: 'Admin' }],
+      memberships: [
+        { tenantId: 't-1', tenantSlug: 't1', role: 'Viewer', roles: ['TenantAdmin', 'Creator'] },
+      ],
     } as unknown as Parameters<typeof getServerSession>[0]);
 
     const members = [
       {
         userId: 'u1',
         email: 'admin@example.com',
-        role: 'Admin',
+        role: 'Viewer',
         roles: 'TenantAdmin,Creator',
-        rolesValue: 5,
+        rolesValue: 1 | 4 | 8, // bitmask including Learner for completeness
         joinedAt: new Date().toISOString(),
       },
       {
         userId: 'u2',
         email: 'creator@example.com',
-        role: 'Editor',
+        role: 'Viewer',
         roles: 'Creator',
-        rolesValue: 4,
+        rolesValue: 4 | 8, // creator + learner
         joinedAt: new Date().toISOString(),
       },
     ];

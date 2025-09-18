@@ -12,7 +12,7 @@ import { getServerSession } from 'next-auth';
 import { guardByFlags } from './roleGuard';
 
 function sessionWith(
-  memberships: Array<{ tenantId: string; tenantSlug: string; role: string }>,
+  memberships: Array<{ tenantId: string; tenantSlug: string; role: string; roles?: string[] }>,
 ): Session {
   return { user: { email: 'u@example.com' }, memberships } as unknown as Session;
 }
@@ -38,7 +38,7 @@ describe('guardByFlags', () => {
 
   it('returns 403 when not admin for Owner/Admin requirement', async () => {
     vi.mocked(getServerSession).mockResolvedValue(
-      sessionWith([{ tenantId: 't1', tenantSlug: 'acme', role: 'Viewer' }]),
+      sessionWith([{ tenantId: 't1', tenantSlug: 'acme', role: 'Viewer', roles: [] }]),
     );
     const res = await guardByFlags({ tenantIdOrSlug: { id: 't1' }, require: 'isAdmin' });
     expect(res?.status).toBe(403);
@@ -46,7 +46,14 @@ describe('guardByFlags', () => {
 
   it('allows when admin via id resolution', async () => {
     vi.mocked(getServerSession).mockResolvedValue(
-      sessionWith([{ tenantId: 't1', tenantSlug: 'acme', role: 'Owner' }]),
+      sessionWith([
+        {
+          tenantId: 't1',
+          tenantSlug: 'acme',
+          role: 'Viewer',
+          roles: ['TenantAdmin'],
+        },
+      ]),
     );
     const res = await guardByFlags({ tenantIdOrSlug: { id: 't1' }, require: 'isAdmin' });
     expect(res).toBeNull();
@@ -54,7 +61,14 @@ describe('guardByFlags', () => {
 
   it('allows canCreate for Editor-derived role', async () => {
     vi.mocked(getServerSession).mockResolvedValue(
-      sessionWith([{ tenantId: 't1', tenantSlug: 'acme', role: 'Editor' }]),
+      sessionWith([
+        {
+          tenantId: 't1',
+          tenantSlug: 'acme',
+          role: 'Viewer',
+          roles: ['Creator'],
+        },
+      ]),
     );
     const res = await guardByFlags({ tenantIdOrSlug: { slug: 'acme' }, require: 'canCreate' });
     expect(res).toBeNull();
