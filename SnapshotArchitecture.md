@@ -4,6 +4,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Auth — API RoleAuthorization prefers Roles flags (2025-09-18)
+  - Updated the authorization handler to treat Roles flags as the source of truth and only fall back to the legacy MembershipRole when Roles == None. This fixes a field issue where a tenant originator could remain effectively admin after demotion because legacy role and flags were previously OR-ed together.
+  - Outcome: Admin-only endpoints now deny access appropriately after roles demotion; UI already layers additional safety (single-tenant safeguard + legacy-aligned TopBar suppress). API tests PASS (180/180) post-change.
+
 - Nav — Single-tenant admin gating safeguard (2025-09-18)
   - To address a field report where a non-admin user with exactly one tenant membership saw the Admin menu, the shared roles helper now includes a single-tenant safety: when there is exactly one membership and its legacy role is non-admin, the derived TenantAdmin flag is suppressed for UI gating. This prevents accidental elevation when backend flags are inconsistent.
   - An optional env switch `NEXT_PUBLIC_PREFER_LEGACY_ROLES=true` further prefers the legacy role over flags when they conflict, adding a belt-and-suspenders protection during the transition. A dev-only console warning surfaces mismatches for quick diagnosis.

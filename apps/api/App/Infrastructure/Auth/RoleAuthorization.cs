@@ -54,21 +54,31 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
             .Select(m => new { m.Roles, m.Role })
             .SingleOrDefaultAsync(http.RequestAborted);
 
-        // Map legacy MembershipRole to Roles flags for backward-compat with existing endpoints/tests
-        var have = membership is null ? Roles.None : membership.Roles;
-        if (membership is not null)
+        // Prefer Roles flags as the source of truth. Fall back to legacy Role only when Roles == None.
+        // This ensures demotions performed via roles flags take effect even if the legacy Role was not updated.
+        var have = Roles.None;
+        if (membership is null)
+        {
+            have = Roles.None;
+        }
+        else if (membership.Roles != Roles.None)
+        {
+            have = membership.Roles;
+        }
+        else
         {
             switch (membership.Role)
             {
                 case MembershipRole.Owner:
                 case MembershipRole.Admin:
-                    have |= Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
+                    have = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
                     break;
                 case MembershipRole.Editor:
-                    have |= Roles.Creator | Roles.Learner;
+                    have = Roles.Creator | Roles.Learner;
                     break;
                 case MembershipRole.Viewer:
-                    have |= Roles.Learner;
+                default:
+                    have = Roles.Learner;
                     break;
             }
         }

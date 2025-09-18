@@ -23,10 +23,12 @@ How to use
 ## Global quality gates (always on)
 
 - [x] API build green; tests passing (unit/integration); EF migrations applied
+- Note: RoleAuthorization updated to prefer Roles flags (source of truth) with fallback to legacy only when Roles == None; API tests PASS after change.
 - [x] Web typecheck/lint green; tests passing; coverage thresholds satisfied
 - [x] Accessibility basics upheld (labels, focus, aria-current/expanded, color contrast)
 - [x] Server‑first auth/role guards for any new routes (avoid client-only gating) — Tenant settings & logo endpoints added with TenantAdmin policy
   - Note: Added single-tenant admin gating safeguard in web roles helper to prevent accidental elevation when flags conflict with legacy roles.
+  - Note: Backend policy aligned — prefer Roles flags in authorization; legacy is fallback only. Fixes originator-stays-admin edge.
 - [x] Docs updated: SnapshotArchitecture.md, devInfo/storyLog.md, and this LivingChecklist
 
 ---

@@ -205,6 +205,17 @@
 - Notes
   - If backend roles flags remain inconsistent in some environments, set `NEXT_PUBLIC_PREFER_LEGACY_ROLES=true` to further avoid accidental elevation until data is cleaned.
 
+2025-09-18 — Auth — API RoleAuthorization prefers Roles flags — ✅ DONE
+
+- Summary
+  - Updated the API authorization handler to treat Roles flags as the source of truth for tenant policies (TenantAdmin, Approver, Creator, Learner) and fall back to legacy `MembershipRole` only when `Roles == None`. This resolves a report where the tenant originator appeared to retain admin after demotion because legacy and flags were previously OR-ed. The web UI already has layered protections (single-tenant safeguard and TopBar suppression when legacy role is non-admin); this server-side fix ensures policies enforce flag demotions.
+
+- Quality gates
+  - API: Build + tests PASS (180/180) after the change.
+
+- Notes
+  - No contract changes to endpoints; behavior is stricter in line with flags being the canonical source. Legacy compatibility remains when flags are absent.
+
 ## 2025-09-16 — UPROF-04: Avatar upload endpoint + local storage — ✅ DONE
 
 - Summary
