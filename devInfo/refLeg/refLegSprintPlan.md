@@ -70,7 +70,7 @@ Tasks:
   Tests:
 - New API test project file: `SchemaLegacyColumnTests.cs`.
 
-### Story 2: Data Convergence Migration (refLeg-02)
+### Story 2: Data Convergence Migration (refLeg-02) — ✅ DONE
 
 Goal: Ensure every membership's flags reflect canonical mapping so removal is safe.
 Tasks:
@@ -239,7 +239,7 @@ Parallelization: Stories 5 & 6 can proceed after 4 lands. Story 7 only after 5 &
 ## Acceptance Sign-Off Checklist
 
 - [x] Inventory committed
-- [ ] Convergence migration applied
+- [x] Convergence migration applied
 - [ ] Feature flag validation complete
 - [ ] Legacy writes disabled
 - [ ] Auth handler purged

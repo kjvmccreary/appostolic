@@ -1048,3 +1048,19 @@
   - Lint/Compile: No new warnings/errors introduced.
 - Next
   - Proceed to Story 2: formal convergence migration & (optional) CHECK constraint prep for flags integrity before disabling fallback paths.
+
+2025-09-19 — RefLeg Story 2: Roles convergence migration + non-zero constraint — ✅ DONE
+
+- Summary
+  - Added migration `s5_03_roles_converge_to_flags` performing a canonical overwrite convergence of legacy `MembershipRole` to flags bitmasks: Owner/Admin→15, Editor→12, Viewer→8 for any row with `roles=0` OR a mismatched bitmask relative to its legacy enum value. Added RLS‑safe block to temporarily disable row level security (if active) during bulk update, then re-enable. Introduced CHECK constraint `ck_memberships_roles_nonzero` to forbid future zero bitmask inserts.
+- Files changed
+  - apps/api/Migrations/20250919123355_s5_03_roles_converge_to_flags.cs — convergence + conditional constraint.
+  - apps/api.tests/Api/LegacyRolesConvergedTests.cs — verifies no zero or mismatched rows remain post-migration.
+- Rationale
+  - Ensures all memberships are in a consistent canonical state before disabling and ultimately removing legacy fallbacks. Overwrites (vs additive OR) were acceptable given only test data currently present; no intentional flag customizations lost.
+- Quality gates
+  - Targeted test run: `LegacyRolesConvergedTests` PASS.
+  - Migration applied locally (`dotnet ef database update`) without error.
+  - Constraint present in schema (manual inspection / psql).
+- Follow-ups
+  - Proceed to Story 3 (feature flag to disable legacy fallbacks) using now-canonical bitmasks.
