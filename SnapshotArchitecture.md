@@ -4,6 +4,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Auth/Data — Backfill zero roles memberships to full flags (2025-09-19)
+  - Data-only migration `s5_02_membership_roles_backfill_zero_to_all` updates any lingering `app.memberships.roles = 0` rows to `15` (TenantAdmin|Approver|Creator|Learner) established during the legacy→flags transition. Idempotent (`roles=0` predicate) and non-reversible (Down no-op) to prevent reintroducing invalid state. Rationale: guarantee all memberships have a non-zero bitmask before disabling the temporary web legacy fallback and proceeding to drop the legacy `role` column.
+
 - Auth/API — Auth endpoints now emit numeric roles bitmask (2025-09-19)
   - `/api/auth/login` and magic token consume (signup+auto-login path) now serialize membership roles flags as an integer (`roles = (int)m.Roles`) instead of the enum flags string. This guarantees the frontend roles helper (which decodes numeric bitmasks or arrays) receives a canonical machine-friendly representation, eliminating reliance on the temporary legacy role fallback. Tests added to assert presence and numeric type.
 

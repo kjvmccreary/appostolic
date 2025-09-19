@@ -1,4 +1,17 @@
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
+2025-09-19 — Auth/Data: Backfill zero roles memberships to full flags — ✅ DONE
+
+- Summary
+  - Added migration `s5_02_membership_roles_backfill_zero_to_all` executing `UPDATE app.memberships SET roles = 15 WHERE roles = 0;` to remediate a small set of memberships created during the legacy→flags transition with an unset (`0`) roles bitmask. Assigning `15` grants all four canonical flags (TenantAdmin|Approver|Creator|Learner) to avoid accidental under‑privilege prior to legacy role column removal.
+- Files changed
+  - apps/api/Migrations/20250919030923_s5_02_membership_roles_backfill_zero_to_all.cs — data migration with idempotent update (no Down reversal).
+- Quality gates
+  - Migration applied locally via `make migrate` (build succeeded; database update completed without errors). No code paths depend on zero roles state; existing auth serialization tests remain green.
+- Rationale
+  - Ensures all active memberships possess a non-zero, machine-decodable flags bitmask before disabling the temporary legacy fallback in the web client, reducing risk of privilege mismatches.
+- Follow-ups
+  - Add a guard test asserting no future insert results in `roles=0` (optional) and proceed with removal of legacy `role` field after staging verification.
+
 2025-09-19 — Auth/API: Auth endpoints include numeric roles bitmask — ✅ DONE
 
 - Summary
