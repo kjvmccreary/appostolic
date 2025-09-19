@@ -193,7 +193,9 @@ public static class V1
                 {
                     tenantId = tn.Id,
                     tenantSlug = tn.Name,
-                    role = m.Role.ToString()
+                    role = m.Role.ToString(),
+                    // NOTE: serialize roles flags as numeric bitmask for frontend; enum string form breaks web decoder
+                    roles = (int)m.Roles
                 })
                 .ToListAsync();
 
@@ -335,7 +337,9 @@ public static class V1
                 {
                     tenantId = t.Id,
                     tenantSlug = t.Name,
-                    role = m.Role.ToString()
+                    role = m.Role.ToString(),
+                    // NOTE: explicit cast to int to force numeric JSON (System.Text.Json would otherwise emit flag names string)
+                    roles = (int)m.Roles // bitmask flags (int) serialized for client
                 })
                 .ToListAsync();
 

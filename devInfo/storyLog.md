@@ -1,4 +1,20 @@
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
+2025-09-19 — Auth/API: Auth endpoints include numeric roles bitmask — ✅ DONE
+
+- Summary
+  - Added explicit numeric roles flags bitmask (`roles: int`) to membership objects returned by `/api/auth/login` and the magic token consume path (signup + login flow) so the web client can decode `TenantAdmin | Approver | Creator | Learner` without relying on legacy `role` fallback. Previously the server serialized the enum as a string (e.g., `"TenantAdmin, Approver, Creator, Learner"`) which the new web numeric/array decoder rejected, causing admin users to appear with only Learner privileges under transitional logic.
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — cast `m.Roles` to int in anonymous projections for login and magic consume (`roles = (int)m.Roles`) with comments clarifying contract.
+  - apps/api.tests/Auth/LoginRolesSerializationTests.cs — new test asserting `memberships[0].roles` is a number > 0.
+  - apps/api.tests/Auth/MagicConsumeRolesSerializationTests.cs — new test asserting magic consume flow yields numeric roles bitmask.
+- Quality gates
+  - Targeted auth serialization tests PASS locally (post-change) and no regressions observed in other auth tests.
+- Rationale
+  - Ensures frontend flags-only gating receives a stable numeric representation; avoids brittle parsing of enum flag name strings and prevents privilege downgrades masked by legacy fallbacks.
+- Follow-ups
+  - Remove temporary legacy role fallback in web (`NEXT_PUBLIC_LEGACY_ROLE_FALLBACK`) once production confirms all memberships now include non-zero numeric `roles`.
+  - Consider normalizing server to always include both `roles` (int) and `rolesLabel[]` (array of canonical strings) for DX clarity (optional; not required for current migration).
+
 2025-09-18 — Nav — Admin gating tightening (explicit TenantAdmin flag) — ✅ DONE
 
 - Summary

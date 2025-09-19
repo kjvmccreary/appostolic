@@ -1,8 +1,11 @@
-# Appostolic — Architecture Snapshot (2025-09-17)
+# Appostolic — Architecture Snapshot (2025-09-19)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
 ## What’s new
+
+- Auth/API — Auth endpoints now emit numeric roles bitmask (2025-09-19)
+  - `/api/auth/login` and magic token consume (signup+auto-login path) now serialize membership roles flags as an integer (`roles = (int)m.Roles`) instead of the enum flags string. This guarantees the frontend roles helper (which decodes numeric bitmasks or arrays) receives a canonical machine-friendly representation, eliminating reliance on the temporary legacy role fallback. Tests added to assert presence and numeric type.
 
 - Nav — Admin gating tightening (2025-09-18)
   - UI Admin menu now requires explicit presence of `TenantAdmin` in the selected membership’s roles flags (`isAdmin && roles.includes('TenantAdmin')`). Composite non-admin flag sets (e.g., Approver+Creator+Learner — bitmask 14) no longer qualify even if upstream boolean derivation is broadened. Regression test added to lock behavior. Rationale: eliminate privilege inflation risk during transitional legacy fallback period.
