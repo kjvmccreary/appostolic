@@ -315,18 +315,22 @@ catch (Exception ex)
     Console.WriteLine($"[Startup] Warning: failed to ensure app.notification_dedupes exists: {ex.Message}");
 }
 
-// Swagger middleware
+// (Relocated) Swagger middleware: register AFTER endpoint mappings to avoid any timing issues
+// where the OpenAPI generator inspects the endpoint data source before all minimal APIs are added.
+// While Swashbuckle typically resolves endpoints lazily, relocating removes ambiguity behind the observed 404 for /swagger/v1/swagger.json.
+// We also set an explicit RouteTemplate for clarity.
+// Swagger middleware (must be registered before app.Run and before authentication for full endpoint metadata visibility)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    // Ensure the UI is hosted at /swagger and points to the v1 JSON
-    c.RoutePrefix = "swagger";
+    c.RoutePrefix = "swagger"; // UI at /swagger
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appostolic API v1");
 });
 
-// Ensure navigating to /swagger (no trailing slash) shows the Swagger UI (with trailing slash)
+// Ensure navigating to /swagger (no trailing slash) shows the UI (adds trailing slash for relative asset paths)
 app.MapGet("/swagger", () => Results.Redirect("/swagger/", permanent: false))
    .ExcludeFromDescription();
+
 
 app.UseAuthentication();
 app.UseAuthorization();

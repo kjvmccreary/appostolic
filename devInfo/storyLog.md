@@ -429,11 +429,11 @@
   ## 2025-09-16 — UPROF-12 (A–E): PII hashing & redaction foundation — ✅ PARTIAL
   - Summary
     - Implemented privacy configuration and core utilities for PII hashing & redaction. Added `PrivacyOptions` (pepper + enable flag), `IPIIHasher` with `Sha256PIIHasher` (email lowercase+trim; phone digits-only), unified `PIIRedactor` (email + phone) and deprecated legacy `EmailRedactor` (now delegates). Introduced `LoggingPIIScope` helper to attach structured redacted/hashed fields without emitting raw PII. Updated notification senders and hosted services to use `PIIRedactor`. Unit tests added for hashing determinism, pepper variance, normalization, and redaction edge cases; all passing.
-  - Files changed
-    - `apps/api/Application/Privacy/PrivacyOptions.cs`, `IPIIHasher.cs`, `PIIRedactor.cs`, `LoggingPIIScope.cs`
-    - `apps/api/App/Notifications/*` swapped `EmailRedactor` → `PIIRedactor`; legacy file marked `[Obsolete]`.
-    - `apps/api/Program.cs` added options binding + DI registration.
-    - `apps/api.tests/Privacy/PIIHasherTests.cs`, `PIIRedactorTests.cs` new test coverage.
+    - Files changed
+      - `apps/api/Application/Privacy/PrivacyOptions.cs`, `IPIIHasher.cs`, `PIIRedactor.cs`, `LoggingPIIScope.cs`
+      - `apps/api/App/Notifications/*` swapped `EmailRedactor` → `PIIRedactor`; legacy file marked `[Obsolete]`.
+      - `apps/api/Program.cs` added options binding + DI registration.
+      - `apps/api.tests/Privacy/PIIHasherTests.cs`, `PIIRedactorTests.cs` new test coverage.
   - Quality gates
     - Build (API): PASS (existing unrelated warnings).
     - Tests (API): PASS for new PII suite (10/10). Full suite not yet re-run post-change (will run after integration sub-stories).
@@ -544,8 +544,7 @@
   - Typecheck (web): PASS
 
 ## 2025-09-16 — Nav — Strengthen multi-tenant TopBar gating — ✅ DONE
-
-- 2025-09-16 — Nav — Tenant-scoped Admin gating — ✅ DONE
+  - 2025-09-16 — Nav — Tenant-scoped Admin gating — ✅ DONE
   - Summary: Replaced flat `session.isAdmin` usage in `TopBar` with derived admin status from the currently selected tenant membership (matching on `tenantSlug` or `tenantId` and checking `role` or `roles[]` for `admin`). Prevents Admin menu leakage when user is admin in a different tenant or no selection yet. Added `TopBar.admin.test.tsx` covering positive & negative cases and mixed role arrays.
   - Files changed: `apps/web/src/components/TopBar.tsx`, `apps/web/src/components/TopBar.admin.test.tsx` (new).
   - Rationale: Prior implementation surfaced Admin navigation across tenants because `isAdmin` was a global boolean, violating least privilege after tenant switch or when selecting a non-admin tenant.
@@ -597,7 +596,8 @@
 
 - Summary
   - After tenant selection, users landed on the target route (e.g. `/studio/agents`) but the TopBar remained hidden until a manual full page refresh because the server layout required a matching `session.tenant` and `selected_tenant` cookie; the JWT/session claim lagged behind the cookie write by one redirect cycle. Added a client `TenantSessionHydrator` enhancement that, when a cookie is present but the client session lacks a tenant claim, performs `session.update({ tenant })` followed by a `router.refresh()` to trigger a server component re-render, making the TopBar appear immediately without user reload.
-  - Middleware stale cookie detection was too aggressive: it treated any cookie mismatch (including the interim state where the token had no tenant claim yet) as stale and redirected back to `/select-tenant`, risking a loop. Adjusted logic to only flag stale when BOTH a cookie and a token tenant claim exist and differ.
+  - Middleware stale cookie detection was too aggressive: it treated any cookie mismatch (including the interim state where the token had no tenant claim yet) as stale and redirected back to `/select-tenant`, remapping the page and repeatedly fetching `/api/auth/csrf`.
+  - Adjusted logic to only flag stale when BOTH a cookie and a token tenant claim exist and differ.
 
 - Files changed
   - `apps/web/src/components/TenantSessionHydrator.tsx` — add one‑shot guard + `router.refresh()` after `session.update` with microtask delay; comment explaining rationale.
@@ -644,6 +644,7 @@
 - Summary
   - Resolved two failing tenant logo tests (`Upload_Logo_Succeeds_And_Stores_Metadata`, `Delete_Logo_Removes_Metadata`) that began returning 400 BadRequest after avatar fixture remediation. Root cause: tenant logo tests used an unvalidated 1x1 PNG base64 string (different from the validated avatar/MinimalPngDecode fixture) which ImageSharp rejected as invalid. Replaced with the known-good 1x1 PNG already covered by `MinimalPngDecodeTests`, centralizing it as a private const inside the test class.
   - Restored the full API test suite to green (179/179). Added guard rationale to comments; deferred extracting a shared `TestImageFixtures` helper until another binary fixture is needed.
+
 - Files changed
   - `apps/api.tests/Api/TenantSettingsEndpointsTests.cs` — swap corrupt base64 for validated PNG; factor into `ValidMinimalPngBase64` const.
 - Quality gates
@@ -694,7 +695,7 @@
   - Web tests: to be re-run under Node 20; targeted tests compile. Full suite expected green.
   - Typecheck: PASS (lint cleaned in new files).
 - Notes
-- The Tenant Settings page is a placeholder; future work will surface settings and branding logo management, aligning with existing API endpoints.
+  - The Tenant Settings page is a placeholder; future work will surface settings and branding logo management, aligning with existing API endpoints.
 
 - Quality gates
   - Typecheck (web): PASS
@@ -917,7 +918,7 @@
     - Web tests: PASS (150/150)
     - Coverage: Lines 84.38%, Branches 72.4%, Functions 65.51%, Statements 84.38% (meets configured global thresholds)
   - Follow-up
-    - Consider adding a small test asserting no network request occurs when `ProfileGuardrailsForm` submits unchanged data (dirty=false). Optional enhancement for diff clarity.
+    - Optional: Add integration test on API side asserting null clears survive normalization and are stored as `null` (not removed) for audit/history clarity. Consider centralizing diff logic if tenant settings adopt similar semantics.
 
 ## 2025-09-16 — Web — Profile Bio diff patch & preview soft breaks — ✅ DONE
 
@@ -940,130 +941,6 @@
   - Prevent redundant saves when unchanged: Done.
   - Render soft line breaks like GFM: Done.
   - Provide test coverage for diff, clear, and preview: Done.
-
-- Deferred / Follow-ups
-  - Potential XSS sanitization layer for rendered markdown (currently relying on react-markdown defaults; consider rehype-sanitize for untrusted content).
-  - Draft autosave and richer formatting toolbar (emoji, slash commands) remain future enhancements.
-
-## 2025-09-16 — Web — Profile name clearing semantics fix — ✅ DONE
-
-- Summary
-  - Fixed inability to clear first/last/display name in the profile form. Previous client patch builder omitted the entire `name` object when all subfields were emptied, causing the backend deep merge to retain old values. Implemented a diff-based patch builder that compares current form values to a baseline (initial or last-saved) and sends explicit `null` for fields that transition from non-empty → empty. Non-changed fields are omitted; changed non-empty fields are trimmed and included. Applied the same clear semantics to contact (phone/timezone) and social links for consistency.
-- Files changed
-  - apps/web/app/profile/ProfileEditForm.tsx — replaced `toPatch` with `buildPatch(baseline, current)` diff logic; added baseline state, explicit null handling, and extended patch interfaces to allow `null`.
-  - apps/web/app/profile/ProfileEditForm.test.tsx — updated clearing test to assert `null` values are sent; added new test for mixed clear/change (first cleared, last changed).
-- Quality gates
-  - Typecheck (web): PASS (local). Vitest run requires Node >=20; see prior Node 20 requirement entry. Existing Node 19 Corepack issue persists but unrelated to logic.
-- Behavior
-  - Clearing any previously set name/contact/social field now persists removal (field becomes `null` in stored JSON). Updating and partial clears work independently; no-op edits produce an empty patch (no request body changes).
-- Follow-up
-  - Optional: Add integration test on API side asserting null clears survive normalization and are stored as `null` (not removed) for audit/history clarity. Consider centralizing diff logic if tenant settings adopt similar semantics.
-
-## 2025-09-16 — UPROF-05: Rich Bio Editor + Styled Avatar Upload — ✅ DONE
-
-- Summary
-  - Replaced the plain textarea bio editor with a richer Markdown experience featuring Write/Preview tabs, GitHub-flavored Markdown (GFM) support via `react-markdown` + `remark-gfm`, character count, copy + clear actions, and contextual helper/error messaging. Maintains flat merge‑patch schema (`{ bio: { format:'markdown', content } }` or `{ bio: null }` when cleared).
-  - Upgraded `AvatarUpload` from raw HTML `<input type="file">` + button to a MUI-styled component using `Avatar`, `Button`, progress indicator, tooltips, and accessible hidden file input trigger. Preserves validation (type whitelist, 2MB limit) and cache-busting global `avatar-updated` event dispatch.
-- Files changed
-  - `apps/web/app/profile/BioEditor.tsx` — new MUI-based tabbed editor, preview rendering, toolbar actions, GFM plugin wiring.
-  - `apps/web/src/components/AvatarUpload.tsx` — refactored to MUI components, added progress bar, improved accessibility, kept global event semantics.
-- Dependencies
-  - Added `react-markdown@^10.1.0` and `remark-gfm@^4.0.1` to `apps/web/package.json`.
-- Quality gates
-  - Typecheck (web): PASS for modified files (one unrelated SDK import error noted pre-existing in `app/dev/page.tsx`).
-  - Unit tests: Not added in this increment; follow-up will add coverage for preview rendering and avatar success path.
-- Notes
-  - Editor intentionally avoids adding a heavier full WYSIWYG library; leverages lightweight Markdown preview for performance. Future enhancement could add a slash command palette or syntax shortcuts if needed.
-  - Avatar uploader resets file selection after successful upload but keeps the displayed preview (now reflecting the updated avatar) for continuity.
-
-- Quality gates
-  - Typecheck (web): PASS for changed files
-  - Unit tests (web): Deferred — local runner blocked by Node v19; repo expects Node >=20. Will re‑run when Node matches workspace settings.
-
-- Requirements coverage
-  - Tenant Switcher modal not cut off: Done
-  - Accepted invites show as Accepted and hide actions: Done
-  - Fix import path error blocking build: Done
-
-## 2025-09-16 — Invites: existing users redirected to Login — ✅ DONE
-
-- Summary
-  - Fixed invite workflow for cross-tenant invitations. Previously, invite emails linked to `/signup?invite=...`, which took existing users to “Create your account.” Now, emails link to `/invite/accept?token=...`. The accept page already redirects unauthenticated users to `/login?next=/invite/accept?token=...`, so existing users will authenticate and then accept the invite, while brand-new users can still sign up from the login page if needed.
-  - Added a small hint to the Signup page: when an invite token is present in the URL, it shows a banner suggesting existing users log in to accept the invite, linking to the correct login flow.
-
-- Files changed
-  - apps/api/App/Endpoints/V1.cs — invite and resend email links now point to `/invite/accept?token=...` instead of `/signup?invite=...`.
-  - apps/web/app/signup/SignupClient.tsx — shows “Already have an account? Log in to accept your invite.” banner when invite token present, linking to `/login?next=/invite/accept?token=...`.
-
-- Quality gates
-  - Typecheck (workspace): PASS
-  - Tests: Deferred; behavior validated by code path review. E2E can be added to ensure correct redirect chain.
-
-- Requirements coverage
-  - Existing users invited to another tenant are navigated to Login (not Signup): Done
-  - New users can still create accounts with invite token: Done
-
-### 2025-09-16 — Invites email copy updated
-
-- Clarified email instructions for invite acceptance. Email now says:
-
-## 2025-09-16 — UPROF-07: Web avatar upload UX & cache-bust — ✅ DONE
-
-- Summary
-  - Completed web portion of avatar story: replaced full-page reload after upload with an event-driven cache-bust flow. `AvatarUpload` now dispatches `avatar-updated` with a `?v=<timestamp>` URL variant on success. `ProfileMenu` subscribes and swaps its button image live; placeholder Profile alert replaced by link to `/profile`.
-  - Added tests: `AvatarUpload.test.tsx` covers mime/size validation and successful upload (mocked fetch), `ProfileMenu.test.tsx` extended for avatar update event. Removed temporary coverage exclusion; AvatarUpload now >90% lines covered.
-
-- Files changed
-  - apps/web/src/components/AvatarUpload.tsx — dispatch event + cache-bust, invoke optional callback
-  - apps/web/src/components/ProfileMenu.tsx — show avatar image, listen for event, link to `/profile`
-  - apps/web/src/components/ProfileMenu.test.tsx — avatar-updated event test (act-wrapped)
-  - apps/web/src/components/AvatarUpload.test.tsx — new component tests
-  - apps/web/vitest.config.ts — removed `AvatarUpload.tsx` from coverage exclude list
-  - apps/web/test/setup.ts — stub `URL.createObjectURL` for jsdom
-  - SnapshotArchitecture.md — added UPROF‑07 entry to "What’s new"
-
-- Quality gates
-  - Web tests: PASS (122/122) with no unhandled errors; cache-bust event path verified.
-  - Coverage: Overall lines ~84%; AvatarUpload ~90.4%; thresholds satisfied.
-
-- Notes
-  - Remaining UPROF‑09 will introduce MinIO/S3 provider; event-driven UI requires no further changes. Consider lifting profile page coverage exclusion once page-level SSR tests are added.
-
-  - “To proceed, open this link: Accept invite. If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.”
-
-- Files changed: `apps/api/App/Endpoints/V1.cs` (invite + resend email bodies)
-
-- Summary
-  - Improved `/studio/admin/invites` UX by adding redirect-driven status banners (ok/err) for create/resend/revoke actions and a client-side confirmation step for revoking invites using a small `ConfirmSubmitButton` helper that programmatically submits the corresponding server-action form after `window.confirm`. Preserved server-first redirects and added early returns after redirects to keep tests deterministic. Next phase will introduce toast notifications, empty states, and an accessible confirm dialog.
-
-- Files changed
-  - apps/web/app/studio/admin/invites/page.tsx — add searchParams handling, ok/err status banners, and confirm-based revoke flow
-  - apps/web/app/studio/admin/invites/page.test.tsx — tests for ok/err banners and failed fetch state
-
-## 2025-09-16 — UPROF-10: Rich profile bio editor — ✅ DONE
-
-- Summary
-  - Added a markdown-based bio editor to the user profile page (`/profile`) allowing users to create, update, or clear a rich textual bio. The client stores markdown source; server (existing profile PUT) will continue to sanitize on render (follow-up hardening story will add explicit server-side markdown → safe HTML tests). Editor enforces a soft 4000 character limit with live counter, disables submit when unchanged or over limit, and supports clearing (sending `bio: null`) via deep merge semantics. Accessible status & error regions (role=status/alert) and inline helper/counter via `aria-describedby` included.
-  - Submission issues surface generic retry errors; success path shows a transient status message. Only the minimal JSON patch subtree is sent: either `{ profile: { bio: { format: 'markdown', content } } }` or `{ profile: { bio: null } }` when cleared.
-
-- Files changed
-  - `apps/web/app/profile/BioEditor.tsx` — new client component (stateful editor, length guard, submit & clear actions, accessibility attributes, code comments).
-  - `apps/web/app/profile/page.tsx` — integrated `BioEditor`, ensured profile DTO includes `bio` payload when present.
-  - `apps/web/app/profile/BioEditor.test.tsx` — tests covering unchanged disabled state, create/update submit, clear-to-null semantics, over-limit prevention, and server error path.
-  - `apps/web/app/change-password/ChangePasswordPage.test.tsx` — adjusted mismatch test to tolerate multiple `role=alert` elements (prevents false failure after BioEditor introduction increased alert count on the page).
-  - `apps/web/app/profile/ProfileView.tsx` & `apps/web/app/profile/ProfileView.test.tsx` — added `data-testid="avatar-img"` for stable querying after alt="" (presentation role) caused role-based test to fail.
-
-- Quality gates
-  - Web tests: PASS (full suite 138/138) under Node 20; new tests added (5) with coverage thresholds maintained (lines ~84%).
-  - Typecheck: PASS (no new TS errors). Lint: PASS (aria attributes validated; removed temporary any casts).
-  - Accessibility: Input labeled, helper text + counter referenced; status & error regions use appropriate roles; over-limit path blocks submission rather than truncating silently.
-
-- Requirements coverage
-  - Markdown input & storage of raw markdown: Done (client collects; server reuse assumed).
-  - Ability to clear bio (null semantics): Done.
-  - Submit only changed fields (minimal patch body): Done.
-  - Over-limit prevention & user feedback: Done (soft >4000 disables submit + alert).
-  - Server-side sanitization verification: Deferred (follow-up—will add explicit API test and mention in UPROF-11 or guardrails validation story).
 
 - Deferred / Follow-ups
   - Potential XSS sanitization layer for rendered markdown (currently relying on react-markdown defaults; consider rehype-sanitize for untrusted content).
@@ -1102,43 +979,19 @@
   - Maintains minimal patch philosophy: only the `profile` subtree sent; unrelated fields omitted
   - Endpoint fast path (<5ms typical) so caching deferred until demand demonstrated
 
-  ## 2025-09-16 — UPROF-04.1: Avatar pipeline simplification (preserve format, absolute URLs) — ✅ DONE
+2025-09-19 — Tooling/API: Swagger UI restored after middleware placement & port conflict — ✅ DONE
 
 - Summary
-  - Simplified the avatar upload/processing pipeline to maximize fidelity and remove potential artifact sources observed as a “red saw blade” in some previews. Dropped forced WebP conversion and related heuristics; the server now preserves the original file format (PNG/JPEG/WebP) and only re-encodes when transforms are applied (auto-orient, optional center-crop to near-square, max-dimension clamp to 512). The storage key extension matches the source format (`users/{userId}/avatar.<ext>`), and the response now returns an absolute URL (`{scheme}://{host}/media/...`) to avoid dev path base issues. Tests updated accordingly.
-
-- Files changed
-  - apps/api/App/Endpoints/UserProfileEndpoints.cs — remove WebP-only encoder path and heuristics; preserve original format; emit absolute URL in response.
-  - apps/api.tests/Api/UserAvatarEndpointsTests.cs — adjust expectations to source mime (e.g., `image/png`) and assert absolute URL prefix.
-
+  - Restored the interactive Swagger UI at `/swagger/` after prior refactor inadvertently moved `UseSwagger()` / `UseSwaggerUI()` below `app.Run()` and a stale running process on port 5198 masked subsequent fixes (serving only JSON or 404). Killed the stale listener, reintroduced middleware before `app.Run()`, and verified both the JSON spec (`/swagger/v1/swagger.json` -> 200) and UI root path return expected responses.
+- Root Cause
+  - Swagger middleware was temporarily relocated after endpoint mappings and (in one iteration) after `app.Run()`, which is never executed. Concurrently, an existing process continued to bind port 5198 causing new runs to fail with address-in-use; curls hit the old process instance lacking UI wiring.
+- Resolution Steps
+  - Identified and terminated PID holding 5198 (`lsof` + `kill`).
+  - Ensured `builder.Services.AddEndpointsApiExplorer()` and `AddSwaggerGen()` remained in service registration.
+  - Placed `app.UseSwagger()` and `app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appostolic API v1"))` before other terminal middleware and prior to `app.Run()`.
+  - Verified 200 OK for spec and HTML UI load manually via curl.
 - Quality gates
-  - Build (API): PASS
-  - Tests (API): PASS — full suite 180/180 after changes
-  - Web: No code changes required; avatar preview/refresh logic already consumes the returned URL.
-
-- Rationale
-  - Eliminates avoidable transcoding and complexity while keeping basic orientation/size normalization. Returning an absolute URL prevents mis-resolved relative URLs in dev and tests.
-
-- Notes
-  - S3/MinIO storage seam remains compatible. Future follow-up could add width/height metadata to the profile payload; not required for current UI.
-
-## 2025-09-17 — Nav Debug: Show user/tenant in TopBar + logout cookie alert — ✅ DONE
-
-- Summary
-  - To help diagnose potential cross-tenant login/cookie persistence issues, added two temporary debugging aids in the web UI:
-    - TopBar now displays the current user's email immediately to the left of the avatar (desktop) and shows the selected tenant slug just below the Appostolic brand.
-    - The logout page now presents a temporary JavaScript alert after sign out and cookie clear, indicating whether the `selected_tenant` cookie is still present and showing a short preview of the NextAuth session-token cookie if visible to JS (often 'none' due to HttpOnly in real browsers). This is purely diagnostic and will be removed after investigation.
-  - Added/updated tests: `TopBar.test.tsx` asserts the new labels, and `logout/page.test.tsx` verifies the alert trigger and message shape.
-
-- Files changed
-  - apps/web/src/components/TopBar.tsx — show tenant label under brand and user email next to avatar; small accessibility attributes and data-testid hooks.
-  - apps/web/app/logout/page.tsx — add post-logout cookie/session-token alert wrapped in try/catch; keep tenant cookie clearing.
-  - apps/web/src/components/TopBar.test.tsx — new expectations for tenant+email.
-  - apps/web/app/logout/page.test.tsx — add alert verification test and mock cookie surface.
-
-- Quality gates
-  - Web tests: PASS — 173/173 under Node 20 (Vitest). Some jsdom warnings logged for unmocked alert in a prior run; current tests now stub alert and pass.
-  - Typecheck: PASS for edited files.
-
-- Notes
-  - The alert is temporary and will be removed once cross-tenant cookie persistence concerns are resolved. The tenant label uses the selected slug from session; if a friendly name is later available, we can render it instead.
+  - API build succeeded (no new warnings beyond existing ImageSharp advisory). Manual curl confirmed spec size (~40KB) and content-type `application/json;charset=utf-8`.
+- Follow-ups
+  - Consider adding a lightweight integration test asserting `/swagger/v1/swagger.json` returns 200 in non-production environments to catch future regressions.
+  - Evaluate updating ImageSharp dependency to address vulnerability advisories (tracked separately in LivingChecklist if not already noted).
