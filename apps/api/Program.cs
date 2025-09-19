@@ -323,13 +323,14 @@ catch (Exception ex)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.RoutePrefix = "swagger"; // UI at /swagger
+    // Serve the UI at /swagger/ (with or without trailing slash).
+    // Setting RoutePrefix = "swagger" normally serves index at /swagger; the extra redirect we previously had
+    // caused some clients to land on the JSON when path logic collided. Keep it simple: no custom redirect.
+    c.RoutePrefix = "swagger"; // UI root: /swagger/
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Appostolic API v1");
+    c.DocumentTitle = "Appostolic API Docs";
 });
-
-// Ensure navigating to /swagger (no trailing slash) shows the UI (adds trailing slash for relative asset paths)
-app.MapGet("/swagger", () => Results.Redirect("/swagger/", permanent: false))
-   .ExcludeFromDescription();
+// Remove custom redirect that interfered with UI loading (browser now hits /swagger or /swagger/ and gets index.html)
 
 
 app.UseAuthentication();
