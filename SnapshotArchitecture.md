@@ -7,6 +7,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Nav — Admin gating tightening (2025-09-18)
   - UI Admin menu now requires explicit presence of `TenantAdmin` in the selected membership’s roles flags (`isAdmin && roles.includes('TenantAdmin')`). Composite non-admin flag sets (e.g., Approver+Creator+Learner — bitmask 14) no longer qualify even if upstream boolean derivation is broadened. Regression test added to lock behavior. Rationale: eliminate privilege inflation risk during transitional legacy fallback period.
 
+- Auth/Web — Numeric roles bitmask support (2025-09-18)
+  - `membership.roles` may now arrive as an integer bitmask (or numeric string) matching API `[Flags] Roles` enum. Web helper `getFlagRoles` interprets numeric/ string values directly (`1` => TenantAdmin, `15` => all). A value of `0` yields empty roles without invoking legacy fallback (explicit empty). Prevents admin users represented solely by a numeric bitmask from appearing as Learner-only.
+
 - Auth / Web — Removal of legacy MembershipRole fallback; flags-only authorization (2025-09-18)
   - Fully removed UI and helper fallbacks that previously considered the legacy `role` string (`Owner`/`Admin`/`Editor`/`Viewer`). Authorization and gating now rely solely on the `roles[]` flags bitmask (`TenantAdmin`, `Approver`, `Creator`, `Learner`).
   - Deleted legacy expansion logic (`deriveFlagsFromLegacy`, `PREFER_LEGACY_FOR_ADMIN`, single-tenant safety) from `apps/web/src/lib/roles.ts` and simplified `computeBooleansForTenant` to interpret only provided flags.

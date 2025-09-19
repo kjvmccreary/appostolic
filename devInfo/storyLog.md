@@ -15,6 +15,20 @@
 
 2025-09-18 — Auth/Web: Flags-only authorization test alignment — ✅ DONE
 
+2025-09-18 — Auth/Web: Numeric roles bitmask support — ✅ DONE
+
+- Summary
+  - Extended web roles helper `getFlagRoles` to accept a numeric (or numeric string) bitmask directly in `membership.roles` (e.g., `1` => `['TenantAdmin']`, `15` => all flags). Added defensive behavior: a bitmask of `0` yields an empty roles array (no fallback to legacy). This restores TenantAdmin UI access for users whose API payload now emits an integer bitmask instead of an array (previously rendered only Learner due to unsupported type).
+- Files changed
+  - apps/web/src/lib/roles.ts — broaden `roles` type to `number | string | (Array<...>)`, map numeric/ numeric-string via `roleNamesFromFlags`, skip legacy fallback when bitmask explicitly 0.
+  - apps/web/src/lib/roles.numericFlags.test.ts — new tests: 1 (TenantAdmin), 7 (TenantAdmin+Approver+Creator), 15 (all), and 0 (empty, no legacy fallback).
+- Quality gates
+  - Web tests: PASS (suite re-run locally) with new file; coverage unchanged (~85% lines) minimal positive delta.
+- Rationale
+  - Aligns client with API serializer variant emitting bitmask; prevents silent privilege downgrade (admin appearing only as learner) when roles flags transmitted numerically during migration.
+- Follow-ups
+  - Measure prevalence of numeric vs array forms; when array form guaranteed, consider normalizing server output for consistency or coercing to array in session callback.
+
 - Summary
   - Updated remaining web test files (8 failing tests across TenantSwitcher, session derivation, role guard, roles helpers, members admin page) to remove all residual legacy role (Owner/Admin/Editor/Viewer) assumptions. Tests now explicitly provide `roles: ['TenantAdmin', ...]` for admin scenarios and empty arrays / learner-only flags for non-admin cases. Eliminated references to deleted `deriveFlagsFromLegacy` helper and updated expectations to canonical flags-derived labels. No application runtime code changes in this batch—tests now accurately reflect the prior flags-only refactor.
 - Files changed
