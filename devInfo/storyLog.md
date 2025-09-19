@@ -1,3 +1,19 @@
+2025-09-19 — IAM: Legacy invite role write path deprecated (Story 4 refLeg-04) — ✅ DONE
+
+- Summary
+  - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — invite endpoint: reject `role`, parse `roles` or `rolesValue`, remove legacy role echoes, update email body.
+  - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — new regression tests (invite legacy role rejected; member role change still accepted pending next phase).
+- Quality gates
+  - Full API test suite PASS (190/190) post-change; added targeted regression tests green.
+  - No other endpoints impacted; existing invites lifecycle tests updated earlier already using flags.
+- Rationale
+  - Locks in flags-first usage, flushing any lingering clients still sending the deprecated single role before dropping the legacy column. Ensures consistency between stored bitmask and API contract while providing a controlled transition window for member role changes.
+- Follow-ups
+  - Phase 2: Deprecate legacy role on member role change endpoint (expect 400 + LEGACY_ROLE_DEPRECATED) then remove legacy `Role` column and mapping.
+  - Add DB CHECK constraint (`roles <> 0`) once legacy removal PR merges.
+
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
 2025-09-19 — Auth/Data: Backfill zero roles memberships to full flags — ✅ DONE
 

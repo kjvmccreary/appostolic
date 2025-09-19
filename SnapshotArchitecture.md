@@ -4,6 +4,13 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- IAM — Legacy invite `role` write path deprecated (Story 4 refLeg-04) (2025-09-19)
+  - The invite creation endpoint `POST /api/tenants/{tenantId}/invites` now rejects any request providing the legacy single `role` field. Clients MUST supply granular roles via either `roles: ["TenantAdmin", ...]` or `rolesValue: int` (bitmask of flags). A BadRequest is returned with `{ code: "LEGACY_ROLE_DEPRECATED" }` when `role` is present. This locks in the flags-first contract ahead of physically dropping the legacy `role` column.
+  - Legacy `Membership.Role` column and member role change endpoint still accept the legacy role name during the transitional window; convergence + seeds ensure `Roles` bitmask stays authoritative. A follow-up story will extend the deprecation to the member role change endpoint and then remove the legacy column + mapping.
+  - Response payload for invites no longer echoes a legacy `role`; it returns `{ email, roles: "FlagsString", rolesValue, expiresAt }` (string representation of flags for readability + numeric for machine use).
+  - Added regression tests (`LegacyRoleWritePathDeprecationTests`) asserting: (1) invite with legacy `role` is rejected with `LEGACY_ROLE_DEPRECATED`; (2) member role change with legacy `role` is CURRENTLY accepted (documenting transitional behavior) so we can intentionally flip expectation in a future commit without silent breakage.
+  - Email template for invites now lists the composite roles flags (e.g., `TenantAdmin, Creator`) instead of a single legacy role name.
+
 - Auth/Data — Role change preserves flags bitmask (2025-09-19)
   - The member role mutation endpoint (`PUT /api/tenants/{tenantId}/members/{userId}`) previously recreated the `Membership` record without copying the `Roles` flags, risking `roles=0` after a legacy `MembershipRole` change. All replacement paths now assign `Roles = DeriveFlagsFromLegacy(newRole)`, keeping the bitmask authoritative. Test seeding (`WebAppFactory`) updated to include full flags for the default owner membership; an integration test asserts role change Owner→Editor yields `Creator|Learner` flags (non-zero). Positions us to optionally add a DB constraint (`roles <> 0`) and ultimately remove legacy `Role` column.
 
