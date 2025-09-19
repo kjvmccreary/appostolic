@@ -26,13 +26,31 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   const rawRoles = m.roles as unknown;
   const legacyFallbackEnabled =
     (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
+  const TRACE = (process.env.NEXT_PUBLIC_DEBUG_ROLE_TRACE ?? '').toLowerCase() === 'true';
+  const trace = (...args: unknown[]) => {
+    if (TRACE && typeof window !== 'undefined') {
+      console.log('[roles][trace]', ...args);
+    }
+  };
+  trace('input-membership', {
+    tenantId: m.tenantId,
+    tenantSlug: m.tenantSlug,
+    role: m.role,
+    rolesType: typeof rawRoles,
+    rolesValue: rawRoles,
+  });
 
   // Accept numeric bitmask (number) or numeric string directly.
   if (typeof rawRoles === 'number' && Number.isFinite(rawRoles)) {
-    return roleNamesFromFlags(rawRoles);
+    const names = roleNamesFromFlags(rawRoles);
+    trace('numeric-bitmask→names', rawRoles, names);
+    return names;
   }
   if (typeof rawRoles === 'string' && /^\d+$/.test(rawRoles.trim())) {
-    return roleNamesFromFlags(Number(rawRoles.trim()));
+    const bit = Number(rawRoles.trim());
+    const names = roleNamesFromFlags(bit);
+    trace('string-numeric-bitmask→names', bit, names);
+    return names;
   }
 
   // If roles[] missing or empty array, optionally fall back to legacy role mapping during transition.
@@ -42,11 +60,14 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
     switch (m.role) {
       case 'Owner':
       case 'Admin':
+        trace('legacy-fallback-admin-like');
         return ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
       case 'Editor':
+        trace('legacy-fallback-editor');
         return ['Creator', 'Learner'];
       case 'Viewer':
       default:
+        trace('legacy-fallback-viewer');
         return ['Learner'];
     }
   }
@@ -81,9 +102,11 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
         acc.push('Learner');
         break;
       default:
+        trace('ignore-unknown-role-token', raw);
         break; // ignore unknown strings silently
     }
   }
+  trace('deduped-return', acc);
   return dedupe(acc);
 }
 

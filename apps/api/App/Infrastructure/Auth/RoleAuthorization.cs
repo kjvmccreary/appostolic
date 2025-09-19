@@ -25,6 +25,7 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
         var http = _http.HttpContext;
         if (http is null)
             return;
+        var traceEnabled = Environment.GetEnvironmentVariable("ROLE_TRACE")?.ToLower() == "true";
 
         var userIdStr = context.User.FindFirstValue("sub");
         if (!Guid.TryParse(userIdStr, out var userId))
@@ -81,6 +82,11 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
                     have = Roles.Learner;
                     break;
             }
+        }
+
+        if (traceEnabled)
+        {
+            Console.WriteLine($"[api][roles][trace] user={userId} tenant={tenantId} required={requirement.Required} have={have} rawRoles={(membership?.Roles).GetValueOrDefault()} legacyRole={(membership?.Role).GetValueOrDefault()}" );
         }
 
         // Record the required roles for downstream error formatting (status code pages)

@@ -90,8 +90,13 @@ export const authOptions: NextAuthOptions & {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       const t = token as AppToken;
+      const TRACE = (process.env.DEBUG_ROLE_TRACE ?? '').toLowerCase() === 'true';
+      const srvTrace = (...args: unknown[]) => {
+        if (TRACE) console.log('[auth][jwt][trace]', ...args);
+      };
       if (user && (user as unknown as { memberships?: MembershipDto[] }).memberships) {
         t.memberships = (user as unknown as { memberships?: MembershipDto[] }).memberships;
+        srvTrace('user.memberships(set)', t.memberships);
       }
       if (user?.email) t.email = user.email;
       // Fresh sign-in (user present) with multiple memberships: ensure we do NOT carry over any stale
@@ -99,6 +104,7 @@ export const authOptions: NextAuthOptions & {
       // selection is always required. Single membership auto-select still handled below.
       if (user && t.memberships && t.memberships.length > 1) {
         delete t.tenant;
+        srvTrace('multi-tenant sign-in -> clearing tenant claim');
       }
       // Auto-selection (LOW IMPACT RESTRICTION):
       // Only auto-select when there is exactly one membership. For multi-tenant users
@@ -122,11 +128,16 @@ export const authOptions: NextAuthOptions & {
       t.canCreate = canCreate;
       t.isLearner = isLearner;
       t.rolesForTenant = roles;
+      srvTrace('derived', { currentTenant, roles, isAdmin, canApprove, canCreate, isLearner });
       return t;
     },
     async session({ session, token }) {
       const s = session as AppSession;
       const t = token as AppToken;
+      const TRACE = (process.env.DEBUG_ROLE_TRACE ?? '').toLowerCase() === 'true';
+      const srvTrace = (...args: unknown[]) => {
+        if (TRACE) console.log('[auth][session][trace]', ...args);
+      };
       if (t?.email && s.user) s.user.email = t.email as string;
       s.memberships = t.memberships ?? [];
       s.tenant = t.tenant;
@@ -135,6 +146,18 @@ export const authOptions: NextAuthOptions & {
       s.canCreate = t.canCreate;
       s.isLearner = t.isLearner;
       s.rolesForTenant = t.rolesForTenant;
+      srvTrace('session-out', {
+        tenant: s.tenant,
+        memberships: s.memberships?.map((m) => ({
+          tenantSlug: m.tenantSlug,
+          tenantId: m.tenantId,
+          role: m.role,
+          rolesType: Array.isArray(m.roles) ? 'array' : typeof m.roles,
+          rolesValue: m.roles,
+        })),
+        rolesForTenant: s.rolesForTenant,
+        isAdmin: s.isAdmin,
+      });
       return s;
     },
   },

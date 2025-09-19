@@ -17,6 +17,18 @@
 
 2025-09-18 — Auth/Web: Numeric roles bitmask support — ✅ DONE
 
+- 2025-09-18 — Auth/Nav: Roles trace instrumentation (temporary) — ✅ DONE
+  - Summary
+    - Added focused, env‑gated tracing to diagnose mismatch where admin bitmask users appear as Learner. Web: `getFlagRoles` now logs input shape, numeric decoding, legacy fallbacks, and final deduped roles when `NEXT_PUBLIC_DEBUG_ROLE_TRACE=true`. NextAuth `jwt` & `session` callbacks log raw memberships and derived booleans when `DEBUG_ROLE_TRACE=true`. API: authorization handler logs required vs have flags plus raw legacy role when `ROLE_TRACE=true`.
+  - Files changed
+    - apps/web/src/lib/roles.ts — trace hooks.
+    - apps/web/src/lib/auth.ts — jwt/session trace output.
+    - apps/api/App/Infrastructure/Auth/RoleAuthorization.cs — targeted trace line.
+  - Usage
+    - Set `NEXT_PUBLIC_DEBUG_ROLE_TRACE=true` (web) and `DEBUG_ROLE_TRACE=true` (server runtime) plus `ROLE_TRACE=true` (API) to correlate client session derivation with server policy evaluation.
+  - Removal Plan
+    - Remove after root cause resolved and roles payload uniform (array or numeric bitmask). Guarded by env so production unaffected when vars unset.
+
 - Summary
   - Extended web roles helper `getFlagRoles` to accept a numeric (or numeric string) bitmask directly in `membership.roles` (e.g., `1` => `['TenantAdmin']`, `15` => all flags). Added defensive behavior: a bitmask of `0` yields an empty roles array (no fallback to legacy). This restores TenantAdmin UI access for users whose API payload now emits an integer bitmask instead of an array (previously rendered only Learner due to unsupported type).
 - Files changed
