@@ -11,19 +11,33 @@ export type Membership = {
   tenantId: string;
   tenantSlug: string;
   role: LegacyRole; // ignored for authority; kept for display / backward visibility only
-  roles?: Array<FlagRole | string>; // authoritative source of truth
+  /**
+   * Authoritative source of truth. During transition may appear as:
+   * - Array<FlagRole|string> (canonical form)
+   * - number (bitmask sent directly from API serializer)
+   * - string numeric (e.g., "1"), treated like bitmask
+   */
+  roles?: number | string | Array<FlagRole | string>;
 };
 
 /** Return roles flags (canonical) from membership.roles; ignore legacy role completely. */
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
-  const rawRoles = m.roles;
+  const rawRoles = m.roles as unknown;
   const legacyFallbackEnabled =
     (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
 
-  // If roles[] is missing or empty, optionally fall back to legacy role mapping during transition.
-  // This ensures users retain expected privileges until all API memberships emit explicit flags.
-  if (!rawRoles || !Array.isArray(rawRoles) || rawRoles.length === 0) {
+  // Accept numeric bitmask (number) or numeric string directly.
+  if (typeof rawRoles === 'number' && Number.isFinite(rawRoles)) {
+    return roleNamesFromFlags(rawRoles);
+  }
+  if (typeof rawRoles === 'string' && /^\d+$/.test(rawRoles.trim())) {
+    return roleNamesFromFlags(Number(rawRoles.trim()));
+  }
+
+  // If roles[] missing or empty array, optionally fall back to legacy role mapping during transition.
+  // (Important: a numeric 0 bitmask should yield empty roles, not fallback to legacy.)
+  if (!rawRoles || (Array.isArray(rawRoles) && rawRoles.length === 0)) {
     if (!legacyFallbackEnabled) return [];
     switch (m.role) {
       case 'Owner':
@@ -36,6 +50,8 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
         return ['Learner'];
     }
   }
+
+  if (!Array.isArray(rawRoles)) return []; // Defensive: unknown shape
 
   const acc: FlagRole[] = [];
   for (const raw of rawRoles) {
