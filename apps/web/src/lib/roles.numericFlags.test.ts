@@ -31,4 +31,14 @@ describe('roles numeric bitmask support', () => {
     const m = make({ role: 'Admin', roles: 0 });
     expect(getFlagRoles(m)).toEqual([]); // Explicit empty, no fallback
   });
+
+  it('parses comma-separated roles string into canonical flags', () => {
+    const m = make({ roles: 'TenantAdmin, Approver, Creator, Learner' });
+    expect(getFlagRoles(m)).toEqual(['TenantAdmin', 'Approver', 'Creator', 'Learner']);
+    const { isAdmin, canApprove, canCreate, isLearner } = computeBooleansForTenant([m], 'acme');
+    expect(isAdmin).toBe(true);
+    expect(canApprove).toBe(true);
+    expect(canCreate).toBe(true);
+    expect(isLearner).toBe(true);
+  });
 });

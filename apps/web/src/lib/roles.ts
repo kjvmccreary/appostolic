@@ -56,6 +56,44 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   // If roles[] missing or empty array, optionally fall back to legacy role mapping during transition.
   // (Important: a numeric 0 bitmask should yield empty roles, not fallback to legacy.)
   if (!rawRoles || (Array.isArray(rawRoles) && rawRoles.length === 0)) {
+    // Accept a comma-separated string of role tokens (e.g., "TenantAdmin, Approver, Creator, Learner")
+    if (typeof rawRoles === 'string' && rawRoles.includes(',')) {
+      const parts = rawRoles
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+      const parsed: FlagRole[] = [];
+      for (const p of parts) {
+        const lower = p.toLowerCase();
+        switch (lower) {
+          case 'tenantadmin':
+            parsed.push('TenantAdmin');
+            break;
+          case 'approver':
+            parsed.push('Approver');
+            break;
+          case 'creator':
+            parsed.push('Creator');
+            break;
+          case 'learner':
+            parsed.push('Learner');
+            break;
+          case 'admin':
+          case 'owner':
+            parsed.push('TenantAdmin', 'Approver', 'Creator', 'Learner');
+            break;
+          case 'editor':
+            parsed.push('Creator', 'Learner');
+            break;
+          case 'viewer':
+            parsed.push('Learner');
+            break;
+          default:
+            break; // ignore unknown token
+        }
+      }
+      return dedupe(parsed);
+    }
     if (!legacyFallbackEnabled) return [];
     switch (m.role) {
       case 'Owner':

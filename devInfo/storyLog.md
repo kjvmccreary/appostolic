@@ -118,6 +118,19 @@
 - Follow-ups
   - Add instrumentation to log (dev only) when fallback path is exercised to measure residual legacy dependency before removal.
 
+  2025-09-19 — Auth/Web: Comma-separated roles string parsing to prevent admin 403 — ✅ DONE
+  - Summary
+    - Addressed a 403 access denial on `/studio/admin/invites` for an admin whose session carried a legacy comma-separated roles string (e.g., `"TenantAdmin, Approver, Creator, Learner"`) instead of an array or numeric bitmask. `getFlagRoles` previously treated any non-array, non-numeric string (even comma-delimited) as missing roles, triggering legacy fallback only when enabled or producing empty roles (no `TenantAdmin`) leading to `isAdmin=false`. Added parsing for comma-separated values prior to legacy fallback so canonical flags are correctly recognized regardless of serialization variant.
+  - Files changed
+    - apps/web/src/lib/roles.ts — detect comma in string, split, normalize tokens (including legacy names) to canonical flag roles, dedupe, return early.
+    - apps/web/src/lib/roles.numericFlags.test.ts — added regression test `parses comma-separated roles string into canonical flags` asserting admin booleans resolve properly.
+  - Rationale
+    - Ensures resilient decoding across transient serialization formats during migration (string enum list → numeric bitmask). Prevents inadvertent admin privilege loss and 403 responses in admin pages.
+  - Quality gates
+    - Web unit tests updated; new test passes locally (fast run). No other role-related tests regress.
+  - Follow-ups
+    - After full transition to numeric bitmask or array, consider removing the comma-string compatibility path and failing fast to reduce complexity.
+
 2025-09-18 — Org Settings parity with Profile (Guardrails + Bio)
 
 - Added tenant‑level Guardrails & Preferences and Bio sections to Org Settings at `apps/web/app/studio/admin/settings/page.tsx`.
