@@ -544,11 +544,12 @@
   - Typecheck (web): PASS
 
 ## 2025-09-16 — Nav — Strengthen multi-tenant TopBar gating — ✅ DONE
-  - 2025-09-16 — Nav — Tenant-scoped Admin gating — ✅ DONE
-  - Summary: Replaced flat `session.isAdmin` usage in `TopBar` with derived admin status from the currently selected tenant membership (matching on `tenantSlug` or `tenantId` and checking `role` or `roles[]` for `admin`). Prevents Admin menu leakage when user is admin in a different tenant or no selection yet. Added `TopBar.admin.test.tsx` covering positive & negative cases and mixed role arrays.
-  - Files changed: `apps/web/src/components/TopBar.tsx`, `apps/web/src/components/TopBar.admin.test.tsx` (new).
-  - Rationale: Prior implementation surfaced Admin navigation across tenants because `isAdmin` was a global boolean, violating least privilege after tenant switch or when selecting a non-admin tenant.
-  - Quality gates: Unit tests updated (new test file) — full suite to be re-run in next CI pass; local targeted tests pass.
+
+- 2025-09-16 — Nav — Tenant-scoped Admin gating — ✅ DONE
+- Summary: Replaced flat `session.isAdmin` usage in `TopBar` with derived admin status from the currently selected tenant membership (matching on `tenantSlug` or `tenantId` and checking `role` or `roles[]` for `admin`). Prevents Admin menu leakage when user is admin in a different tenant or no selection yet. Added `TopBar.admin.test.tsx` covering positive & negative cases and mixed role arrays.
+- Files changed: `apps/web/src/components/TopBar.tsx`, `apps/web/src/components/TopBar.admin.test.tsx` (new).
+- Rationale: Prior implementation surfaced Admin navigation across tenants because `isAdmin` was a global boolean, violating least privilege after tenant switch or when selecting a non-admin tenant.
+- Quality gates: Unit tests updated (new test file) — full suite to be re-run in next CI pass; local targeted tests pass.
 
 - 2025-09-16 — Nav — Hide nav until tenant claim present — ✅ DONE
   - Summary: Suppress all primary navigation links, creation CTA buttons, and profile menu until the JWT includes a tenant claim (`session.tenant`). Prevents early navigation before explicit tenant context is established, even if the user is authenticated and memberships are known.
@@ -751,7 +752,7 @@
 
 - Summary
   - Prevented stale tenant context from leaking navigation after logout/login for multi-tenant users. Explicitly clear `selected_tenant` cookie both in the client logout page and in middleware on `/logout`, and remove any lingering `tenant` claim for fresh sign-ins with >1 memberships so users must select a tenant again. Added regression test ensuring no `TopBar` renders when session has memberships but no tenant claim.
-- Files changed
+  - Files changed
   - apps/web/src/lib/auth.ts — clear `token.tenant` on multi-membership sign-in.
   - apps/web/middleware.ts — purge `selected_tenant` cookie on `/logout` irrespective of auth enforcement flag.
   - apps/web/app/logout/page.tsx — client-side cookie deletion after `signOut` prior to redirect.
@@ -907,18 +908,18 @@
   ## 2025-09-16 — Web Fix: Profile guardrails & bio tests alignment — ✅ DONE
   - Summary
     - Updated web unit tests to reflect evolved merge patch semantics for profile guardrails and bio editor components. `ProfileGuardrailsForm` now emits a top-level merge patch without a nested `profile` wrapper (arrays and objects submitted directly). Adjusted its test to assert `presets.denominations` under the root patch and verify empty favorite arrays are still present for intentional full replacement semantics. Refactored `BioEditor` soft line break test to account for `remark-breaks` rendering a single `<p>` with `<br/>`, preventing brittle multi-node expectations. Updated `AvatarUpload` test to click the explicit Upload button instead of assuming a form submit event after internal component refactor (component no longer wrapped in a form). All targeted tests now pass; full web suite: 47 files, 150 tests, coverage ~84% lines (thresholds satisfied).
-  - Files changed
-    - `apps/web/app/profile/ProfileGuardrailsForm.test.tsx` — patch body assertion updated (root-level `presets.denominations`, guardrails arrays expectations) with explanatory comment.
-    - `apps/web/app/profile/BioEditor.test.tsx` — soft line break test revised to select combined paragraph, ensure one `<br/>` node, and assert line text presence.
-    - `apps/web/src/components/AvatarUpload.test.tsx` — removed `form` submit usage; now simulates file selection + Upload button click.
-  - Rationale
-    - Keeps tests aligned with minimal merge patch strategy (avoid nested wrappers) and robust against markdown rendering structure. Prevents false negatives on UI refactors (form removal) and ensures intentional full-replacement array semantics are asserted.
-  - Quality gates
-    - Typecheck: PASS
-    - Web tests: PASS (150/150)
-    - Coverage: Lines 84.38%, Branches 72.4%, Functions 65.51%, Statements 84.38% (meets configured global thresholds)
-  - Follow-up
-    - Optional: Add integration test on API side asserting null clears survive normalization and are stored as `null` (not removed) for audit/history clarity. Consider centralizing diff logic if tenant settings adopt similar semantics.
+    - Files changed
+      - `apps/web/app/profile/ProfileGuardrailsForm.test.tsx` — patch body assertion updated (root-level `presets.denominations`, guardrails arrays expectations) with explanatory comment.
+      - `apps/web/app/profile/BioEditor.test.tsx` — soft line break test revised to select combined paragraph, ensure one `<br/>` node, and assert line text presence.
+      - `apps/web/src/components/AvatarUpload.test.tsx` — removed `form` submit usage; now simulates file selection + Upload button click.
+    - Rationale
+      - Keeps tests aligned with minimal merge patch strategy (avoid nested wrappers) and robust against markdown rendering structure. Prevents false negatives on UI refactors (form removal) and ensures intentional full-replacement array semantics are asserted.
+    - Quality gates
+      - Typecheck: PASS
+      - Web tests: PASS (150/150)
+      - Coverage: Lines 84.38%, Branches 72.4%, Functions 65.51%, Statements 84.38% (meets configured global thresholds)
+    - Follow-up
+      - Optional: Add integration test on API side asserting null clears survive normalization and are stored as `null` (not removed) for audit/history clarity. Consider centralizing diff logic if tenant settings adopt similar semantics.
 
 ## 2025-09-16 — Web — Profile Bio diff patch & preview soft breaks — ✅ DONE
 
@@ -993,5 +994,4 @@
 - Quality gates
   - API build succeeded (no new warnings beyond existing ImageSharp advisory). Manual curl confirmed spec size (~40KB) and content-type `application/json;charset=utf-8`.
 - Follow-ups
-  - Consider adding a lightweight integration test asserting `/swagger/v1/swagger.json` returns 200 in non-production environments to catch future regressions.
-  - Evaluate updating ImageSharp dependency to address vulnerability advisories (tracked separately in LivingChecklist if not already noted).
+  - Added automated integration tests (`SwaggerEndpointTests`) asserting 200 + OpenAPI content for JSON and HTML for UI to prevent regressions.
