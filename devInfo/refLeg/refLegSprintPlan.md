@@ -55,7 +55,7 @@ Rollback: If Phase B issues occur, revert to tag prior to column drop (Phase A s
 
 ## Story Breakdown
 
-### Story 1: Inventory & Guard Baseline (refLeg-01)
+### Story 1: Inventory & Guard Baseline (refLeg-01) — ✅ DONE
 
 Goal: Capture authoritative list of every legacy `MembershipRole` usage; freeze baseline with snapshot tests.
 Tasks:
@@ -238,7 +238,7 @@ Parallelization: Stories 5 & 6 can proceed after 4 lands. Story 7 only after 5 &
 
 ## Acceptance Sign-Off Checklist
 
-- [ ] Inventory committed
+- [x] Inventory committed
 - [ ] Convergence migration applied
 - [ ] Feature flag validation complete
 - [ ] Legacy writes disabled
