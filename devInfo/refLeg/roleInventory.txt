@@ -1,0 +1,58 @@
+# Legacy MembershipRole Inventory (Baseline)
+# Generated: 2025-09-19
+# Purpose: Snapshot every active reference to legacy MembershipRole enum or memberships.role column prior to decommission.
+# This file SHOULD NOT be manually edited after Story 1 completion; later stories will remove these and then delete this file.
+
+[Legend]
+CODE: Application code reference (API)
+TEST: Test code reference (api.tests or other test projects)
+AUTH: Authorization handler / security logic
+DB: Database schema / migration / raw SQL mention
+WEB: Web (Next.js) usage (none expected for direct enum, only fallback logic separate)
+DOC: Documentation / planning artifact
+
+[Summary Counts]
+CODE: TBD (update after listing)
+TEST: TBD
+AUTH: TBD
+DB: TBD
+WEB: 0
+DOC: TBD
+
+[References]
+
+## Enum Declaration & Models (CODE)
+apps/api/Program.cs : enum MembershipRole { Owner, Admin, Editor, Viewer }
+apps/api/Program.cs : Membership.Role property declarations (init/set)
+
+## Endpoint & Business Logic (CODE)
+apps/api/App/Endpoints/V1.cs : Legacy seeding & invite creation referencing MembershipRole.Owner
+apps/api/App/Endpoints/V1.cs : Role parse Enum.TryParse<MembershipRole>
+apps/api/App/Endpoints/V1.cs : Admin gating if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin)
+
+## Authorization Handler (AUTH)
+apps/api/App/Infrastructure/Auth/RoleAuthorization.cs : switch cases on MembershipRole.(Owner|Admin|Editor|Viewer) fallback mapping to flags
+
+## Tests (TEST)
+apps/api.tests/WebAppFactory.cs : Seed membership Role = MembershipRole.Owner
+apps/api.tests/E2E/* : Multiple seeds with Role = MembershipRole.Owner
+apps/api.tests/Api/* : Various tests seeding Role = MembershipRole.(Viewer|Admin)
+
+## Database (DB)
+Schema: memberships table includes legacy column `role` plus new `roles`
+Migrations: (Existing) legacy column created historically; current plan will introduce constraint/migration in Story 2 then drop later.
+
+## Documentation / Plans (DOC)
+devInfo/refLeg/refLegSprintPlan.md : Multiple narrative references
+SnapshotArchitecture.md : Mentions legacy column and backfill migration rationale
+
+[Planned Removals]
+1. Constrain + disable fallback (Story 2/3)
+2. Strip write path usage / seed code (Story 4)
+3. Remove handler fallback (Story 5)
+4. Web helper legacy branches (Story 6)
+5. Drop column + enum (Story 7)
+6. Post-drop constraint hardening (Story 8)
+
+[Integrity Note]
+A schema presence test will assert the legacy column exists until Story 7. Deletions earlier will intentionally fail CI.

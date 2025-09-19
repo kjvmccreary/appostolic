@@ -1033,3 +1033,18 @@
   - API build succeeded (no new warnings beyond existing ImageSharp advisory). Manual curl confirmed spec size (~40KB) and content-type `application/json;charset=utf-8`.
 - Follow-ups
   - Added automated integration tests (`SwaggerEndpointTests`) asserting 200 + OpenAPI content for JSON and HTML for UI to prevent regressions.
+
+2025-09-19 — RefLeg Story 1: Legacy MembershipRole inventory & schema guard — ✅ DONE
+
+- Summary
+  - Executed Story 1 of the legacy role decommission sprint: captured a point‑in‑time inventory of every active reference to the legacy `MembershipRole` enum and `memberships.role` column, and added an EF model schema presence test to intentionally fail if the column or enum is removed ahead of the planned Story 7 drop. Establishes a clear baseline and safety net for the staged removal sequence.
+- Files added
+  - devInfo/refLeg/roleInventory.txt — categorized list (CODE, TEST, AUTH, DB, DOC) of all legacy usages.
+  - apps/api.tests/Schema/LegacyRoleColumnPresenceTests.cs — asserts `Membership` entity still exposes `Role` property mapped to DB column `role`.
+- Rationale
+  - Prevents accidental early deletion that could complicate rollback or mask incomplete migration steps; supports auditable change tracking through the sprint.
+- Quality gates
+  - API tests: New schema test passes (build + execution) confirming legacy column presence at baseline.
+  - Lint/Compile: No new warnings/errors introduced.
+- Next
+  - Proceed to Story 2: formal convergence migration & (optional) CHECK constraint prep for flags integrity before disabling fallback paths.
