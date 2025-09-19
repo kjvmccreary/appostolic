@@ -727,6 +727,8 @@ public static class V1
                     TenantId = target.TenantId,
                     UserId = target.UserId,
                     Role = newRole,
+                    // Assign flags derived from new legacy role to keep bitmask in sync
+                    Roles = DeriveFlagsFromLegacy(newRole),
                     Status = target.Status,
                     CreatedAt = target.CreatedAt
                 };
@@ -747,6 +749,8 @@ public static class V1
                         TenantId = target.TenantId,
                         UserId = target.UserId,
                         Role = newRole,
+                        // Assign flags derived from new legacy role to keep bitmask in sync
+                        Roles = DeriveFlagsFromLegacy(newRole),
                         Status = target.Status,
                         CreatedAt = target.CreatedAt
                     };
@@ -766,6 +770,8 @@ public static class V1
                         TenantId = target.TenantId,
                         UserId = target.UserId,
                         Role = newRole,
+                        // Assign flags derived from new legacy role to keep bitmask in sync
+                        Roles = DeriveFlagsFromLegacy(newRole),
                         Status = target.Status,
                         CreatedAt = target.CreatedAt
                     };

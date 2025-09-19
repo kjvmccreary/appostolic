@@ -83,6 +83,8 @@ public class WebAppFactory : WebApplicationFactory<Program>
                     TenantId = tenant.Id,
                     UserId = user.Id,
                     Role = MembershipRole.Owner,
+                    // Ensure full roles bitmask for owner in tests to mirror production seeding
+                    Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                     Status = MembershipStatus.Active,
                     CreatedAt = DateTime.UtcNow
                 };

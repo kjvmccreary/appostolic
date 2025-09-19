@@ -4,6 +4,9 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 ## What’s new
 
+- Auth/Data — Role change preserves flags bitmask (2025-09-19)
+  - The member role mutation endpoint (`PUT /api/tenants/{tenantId}/members/{userId}`) previously recreated the `Membership` record without copying the `Roles` flags, risking `roles=0` after a legacy `MembershipRole` change. All replacement paths now assign `Roles = DeriveFlagsFromLegacy(newRole)`, keeping the bitmask authoritative. Test seeding (`WebAppFactory`) updated to include full flags for the default owner membership; an integration test asserts role change Owner→Editor yields `Creator|Learner` flags (non-zero). Positions us to optionally add a DB constraint (`roles <> 0`) and ultimately remove legacy `Role` column.
+
 - Auth/Data — Backfill zero roles memberships to full flags (2025-09-19)
   - Data-only migration `s5_02_membership_roles_backfill_zero_to_all` updates any lingering `app.memberships.roles = 0` rows to `15` (TenantAdmin|Approver|Creator|Learner) established during the legacy→flags transition. Idempotent (`roles=0` predicate) and non-reversible (Down no-op) to prevent reintroducing invalid state. Rationale: guarantee all memberships have a non-zero bitmask before disabling the temporary web legacy fallback and proceeding to drop the legacy `role` column.
 

@@ -10,6 +10,23 @@
 - Rationale
   - Ensures all active memberships possess a non-zero, machine-decodable flags bitmask before disabling the temporary legacy fallback in the web client, reducing risk of privilege mismatches.
 - Follow-ups
+  2025-09-19 — Auth/Data: Role change preserves flags + test + seeding verification — ✅ DONE
+
+- Summary
+  - Fixed a latent defect where changing a legacy `MembershipRole` (Owner/Admin/Editor/Viewer) via `PUT /api/tenants/{tenantId}/members/{userId}` replaced the record without copying the `Roles` bitmask, risking a `roles=0` membership if flags were relied upon elsewhere. Added explicit `Roles = DeriveFlagsFromLegacy(newRole)` to all replacement membership constructions in that endpoint (in-memory path, ambient transaction path, and explicit transaction path). Strengthened test seeding by ensuring `WebAppFactory` assigns a full flags bitmask for the default owner membership (previously omitted, defaulting to zero). Added an integration test asserting a role change from Owner -> Editor updates the flags to `Creator|Learner` (non-zero) and matches the legacy mapping. Also confirmed the standalone seed tool already sets full flags for owner and baseline memberships.
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — add `Roles = DeriveFlagsFromLegacy(newRole)` in each membership replacement block of role-change endpoint.
+  - apps/api.tests/WebAppFactory.cs — include `Roles = TenantAdmin|Approver|Creator|Learner` on seeded owner membership.
+  - apps/api.tests/Security/RoleAuthorizationTests.cs — new test `RoleChange_Updates_RolesBitmask_FromLegacyRole` validating bitmask correctness after role mutation.
+- Rationale
+  - Prevents silent introduction of `roles=0` during role transitions and ensures flags-only authorization logic remains consistent post-mutation. Aligns test and production seeding to avoid false negatives or masked regressions.
+- Quality gates
+  - Compilation: PASS (no new errors in modified files).
+  - Existing authorization tests unaffected; new test passes locally (fast in-memory DB path).
+- Follow-ups
+  - Optional: Add DB CHECK constraint (`roles <> 0`) after confirming no legacy rows in all environments.
+  - Consider backfilling any historical role-change derived rows (none observed beyond manually corrected set of three).
+
   - Add a guard test asserting no future insert results in `roles=0` (optional) and proceed with removal of legacy `role` field after staging verification.
 
 2025-09-19 — Auth/API: Auth endpoints include numeric roles bitmask — ✅ DONE
