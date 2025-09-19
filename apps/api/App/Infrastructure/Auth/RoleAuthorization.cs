@@ -68,19 +68,25 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
         }
         else
         {
-            switch (membership.Role)
+            // Feature flag: When DISABLE_LEGACY_ROLE_COMPAT=true we refuse to synthesize flags from legacy Role
+            // and instead treat absence of flags as no privileges (migration path validation).
+            var disableLegacyCompat = Environment.GetEnvironmentVariable("DISABLE_LEGACY_ROLE_COMPAT")?.ToLower() == "true";
+            if (!disableLegacyCompat)
             {
-                case MembershipRole.Owner:
-                case MembershipRole.Admin:
-                    have = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
-                    break;
-                case MembershipRole.Editor:
-                    have = Roles.Creator | Roles.Learner;
-                    break;
-                case MembershipRole.Viewer:
-                default:
-                    have = Roles.Learner;
-                    break;
+                switch (membership.Role)
+                {
+                    case MembershipRole.Owner:
+                    case MembershipRole.Admin:
+                        have = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
+                        break;
+                    case MembershipRole.Editor:
+                        have = Roles.Creator | Roles.Learner;
+                        break;
+                    case MembershipRole.Viewer:
+                    default:
+                        have = Roles.Learner;
+                        break;
+                }
             }
         }
 

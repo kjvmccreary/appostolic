@@ -330,32 +330,33 @@ public static class V1
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
 
-            // Fetch memberships for convergence (legacy role -> flags bitmask) prior to projection.
+            // Fetch memberships for potential convergence (legacy role -> flags bitmask) prior to projection.
             var rawMemberships = await db.Memberships.Where(m => m.UserId == user.Id).ToListAsync();
 
-            // Runtime convergence: if any membership has a flags bitmask that does not match the canonical mapping
-            // derived from its legacy Role value, correct it in-place. This protects users who still have
-            // stale / incorrect historical data (e.g., Owner with roles=6) from downgraded privileges until a
-            // full data migration / legacy column removal is completed.
-            bool changed = false;
-            foreach (var mm in rawMemberships)
+            // Feature flag: DISABLE_LEGACY_ROLE_COMPAT=true short-circuits runtime convergence so we can
+            // validate pure flags behavior in staging before removing legacy paths entirely.
+            var disableLegacyCompat = Environment.GetEnvironmentVariable("DISABLE_LEGACY_ROLE_COMPAT")?.ToLower() == "true";
+            if (!disableLegacyCompat)
             {
-                var expected = DeriveFlagsFromLegacy(mm.Role);
-                if (mm.Roles != expected && mm.Roles != Roles.None)
+                bool changed = false;
+                foreach (var mm in rawMemberships)
                 {
-                    mm.Roles = expected;
-                    changed = true;
+                    var expected = DeriveFlagsFromLegacy(mm.Role);
+                    if (mm.Roles != expected && mm.Roles != Roles.None)
+                    {
+                        mm.Roles = expected;
+                        changed = true;
+                    }
+                    if (mm.Roles == Roles.None)
+                    {
+                        mm.Roles = expected;
+                        changed = true;
+                    }
                 }
-                // Also converge zero (None) up to expected to avoid empty privilege set.
-                if (mm.Roles == Roles.None)
+                if (changed)
                 {
-                    mm.Roles = expected;
-                    changed = true;
+                    await db.SaveChangesAsync();
                 }
-            }
-            if (changed)
-            {
-                await db.SaveChangesAsync();
             }
 
             // Project with tenants after convergence.

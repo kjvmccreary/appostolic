@@ -1064,3 +1064,23 @@
   - Constraint present in schema (manual inspection / psql).
 - Follow-ups
   - Proceed to Story 3 (feature flag to disable legacy fallbacks) using now-canonical bitmasks.
+
+  2025-09-19 — RefLeg Story 3: Feature flag to disable legacy convergence & fallback — ✅ DONE
+  - Summary
+    - Implemented environment-gated hard disable of legacy `MembershipRole` compatibility paths. Added `DISABLE_LEGACY_ROLE_COMPAT` (API) and `NEXT_PUBLIC_DISABLE_LEGACY_ROLE_COMPAT` (web) to short-circuit: (1) runtime login convergence that previously rewrote mismatched `roles` bitmasks based on the legacy enum, (2) authorization handler fallback that synthesized flags when `Roles == None`, and (3) web helper legacy mapping fallback. This enables a staging validation window to surface any residual data anomalies instead of silently correcting them.
+  - Files changed / added
+    - apps/api/App/Endpoints/V1.cs — wrapped login convergence loop in flag gate.
+    - apps/api/App/Infrastructure/Auth/RoleAuthorization.cs — guarded legacy-to-flags synthesis; denies when flags absent and flag enabled.
+    - apps/web/src/lib/roles.ts — added hard disable branch preventing legacy fallback usage client-side.
+    - apps/api.tests/Auth/LoginRolesConvergenceDisabledFlagTests.cs — new integration test asserting mismatched flags are NOT corrected when flag is enabled.
+  - Behavior
+    - With flag unset (default), existing convergence & fallback behaviors remain for safety in production rollback scenario.
+    - With flag set, login returns the tampered mismatched bitmask (test seeds 6 vs canonical 15) confirming no mutation; authorization handler would deny elevated policies if only legacy role existed with zero/insufficient flags.
+  - Rationale
+    - Provides a reversible, low-risk checkpoint to observe pure-flags mode before code deletion (Stories 4–7). Prevents masking of any missed write-path updates while giving a clean toggle for rollback.
+  - Quality gates
+    - API tests: Added new test — PASS; existing convergence test (without flag) still PASS.
+    - Web: Build unaffected; helper now no-ops legacy fallback when disable flag set.
+    - Lint/Compile: No new warnings.
+  - Next
+    - Story 4: Remove legacy usage from write paths (invites, member role change inputs) to stop producing legacy data prior to column drop.

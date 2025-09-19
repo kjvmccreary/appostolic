@@ -24,8 +24,12 @@ export type Membership = {
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
   const rawRoles = m.roles as unknown;
-  const legacyFallbackEnabled =
-    (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
+  const legacyFallbackEnabled = (() => {
+    const hardDisable =
+      (process.env.NEXT_PUBLIC_DISABLE_LEGACY_ROLE_COMPAT ?? '').toLowerCase() === 'true';
+    if (hardDisable) return false;
+    return (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
+  })();
   const TRACE = (process.env.NEXT_PUBLIC_DEBUG_ROLE_TRACE ?? '').toLowerCase() === 'true';
   const trace = (...args: unknown[]) => {
     if (TRACE && typeof window !== 'undefined') {
