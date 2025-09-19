@@ -330,18 +330,46 @@ public static class V1
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
 
-            // Include memberships (tenant + role) to support two-stage tenant selection in web.
-            var memberships = await db.Memberships.AsNoTracking()
-                .Where(m => m.UserId == user.Id)
-                .Join(db.Tenants.AsNoTracking(), m => m.TenantId, t => t.Id, (m, t) => new
+            // Fetch memberships for convergence (legacy role -> flags bitmask) prior to projection.
+            var rawMemberships = await db.Memberships.Where(m => m.UserId == user.Id).ToListAsync();
+
+            // Runtime convergence: if any membership has a flags bitmask that does not match the canonical mapping
+            // derived from its legacy Role value, correct it in-place. This protects users who still have
+            // stale / incorrect historical data (e.g., Owner with roles=6) from downgraded privileges until a
+            // full data migration / legacy column removal is completed.
+            bool changed = false;
+            foreach (var mm in rawMemberships)
+            {
+                var expected = DeriveFlagsFromLegacy(mm.Role);
+                if (mm.Roles != expected && mm.Roles != Roles.None)
                 {
-                    tenantId = t.Id,
-                    tenantSlug = t.Name,
-                    role = m.Role.ToString(),
-                    // NOTE: explicit cast to int to force numeric JSON (System.Text.Json would otherwise emit flag names string)
-                    roles = (int)m.Roles // bitmask flags (int) serialized for client
-                })
-                .ToListAsync();
+                    mm.Roles = expected;
+                    changed = true;
+                }
+                // Also converge zero (None) up to expected to avoid empty privilege set.
+                if (mm.Roles == Roles.None)
+                {
+                    mm.Roles = expected;
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                await db.SaveChangesAsync();
+            }
+
+            // Project with tenants after convergence.
+            var tenantIds = rawMemberships.Select(r => r.TenantId).Distinct().ToList();
+            var tenantLookup = await db.Tenants.AsNoTracking()
+                .Where(t => tenantIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Name);
+            var memberships = rawMemberships.Select(m => new
+            {
+                tenantId = m.TenantId,
+                tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var name) ? name : string.Empty,
+                role = m.Role.ToString(),
+                roles = (int)m.Roles
+            }).ToList();
 
             return Results.Ok(new { user.Id, user.Email, memberships });
         }).AllowAnonymous();

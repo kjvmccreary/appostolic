@@ -119,6 +119,14 @@
   - Add instrumentation to log (dev only) when fallback path is exercised to measure residual legacy dependency before removal.
 
   2025-09-19 — Auth/Web: Comma-separated roles string parsing to prevent admin 403 — ✅ DONE
+
+  2025-09-19 — Auth/Data: Runtime roles convergence at login — ✅ DONE
+  - Added runtime convergence logic inside `/api/auth/login` that recalculates the granular roles bitmask from the legacy `Role` enum when a mismatch is detected (including `roles=0`). This corrects historical stale data (e.g., `Owner` with `roles=6`) on demand, ensuring admin privileges reflect canonical flags without waiting for a full data migration. Converged flags are persisted immediately so subsequent requests (API or web) see the corrected state.
+  - apps/api/App/Endpoints/V1.cs — inject convergence loop before projecting memberships.
+  - apps/api.tests/Auth/LoginRolesConvergenceTests.cs — new test tampers with membership to simulate stale flags and asserts login returns corrected bitmask (=15 for Owner) post-convergence.
+  - Partial `AppDbContext` cleanup: expose IAM DbSets in a single partial (removed duplicate definitions to avoid ambiguity).
+  - Rationale: Prevents privilege downgrade / inconsistent UI gating during the transitional period before a one-time DB convergence + legacy column removal. Provides immediate safety net for existing accounts encountering mismatched bitmasks.
+
   - Summary
     - Addressed a 403 access denial on `/studio/admin/invites` for an admin whose session carried a legacy comma-separated roles string (e.g., `"TenantAdmin, Approver, Creator, Learner"`) instead of an array or numeric bitmask. `getFlagRoles` previously treated any non-array, non-numeric string (even comma-delimited) as missing roles, triggering legacy fallback only when enabled or producing empty roles (no `TenantAdmin`) leading to `isAdmin=false`. Added parsing for comma-separated values prior to legacy fallback so canonical flags are correctly recognized regardless of serialization variant.
   - Files changed
