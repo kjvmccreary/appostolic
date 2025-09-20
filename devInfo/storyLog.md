@@ -28,6 +28,36 @@
   - Follow-ups
     - After adding `/api/auth/refresh` (Story 6) consider moving helper into a dedicated auth utilities class if additional cookie surfaces are introduced (e.g., future access token cookie).
 
+  2025-09-20 — Auth/JWT: Story 5 Access Token Validation Middleware & Principal Construction — ✅ DONE
+  - Summary
+    - Introduced Development-only composite authentication scheme (BearerOrDev) eliminating per-endpoint scheme enumeration and resolving widespread 401s while preserving dev header ergonomics. Hardened JwtBearer `OnTokenValidated` to enforce GUID subject parsing and token version equality (revocation via password change or future admin bump). Ensured role flags mapping remains consistent, enabling authorization policies to pass/fail deterministically. Full test suite now green (211 passed / 1 skipped) after initial invalid_sub regression was corrected by generating GUID subjects in tests.
+  - Files changed
+    - apps/api/Program.cs — composite auth scheme registration; OnTokenValidated enhancements (GUID + TokenVersion check with failure message on mismatch).
+    - apps/api.tests/Api/AuthJwtSmokeTests.cs — updated test to issue GUID subject tokens; regression fix.
+    - SnapshotArchitecture.md — Added section documenting composite scheme rationale & validation layer.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 5 marked DONE; deferred admin logout & caching tasks moved to future stories.
+  - Quality gates
+    - All auth-related tests (smoke, token version, legacy role deprecation) passing; no new warnings.
+  - Rationale
+    - Centralizes dev vs bearer decision logic, eliminates test brittleness, and delivers revocation-ready token validation model without per-token blacklist complexity.
+  - Follow-ups
+    - Admin force logout endpoint (TokenVersion increment) deferred to Story 7.
+    - Optional short TTL in-memory cache for TokenVersion left for performance tuning phase.
+
+  2025-09-20 — Auth/JWT: Story 5b HTTPS E2E Secure Cookie Validation — ✅ DONE
+  - Summary
+    - Implemented real HTTPS end-to-end harness exercising auth flow to validate refresh cookie (`rt`) attributes under true TLS: Secure, HttpOnly, SameSite=Lax, Path=/, future Expires, and rotation on subsequent auth action. Replaced reliance on simulated HTTPS headers for Secure assertion. Documented harness and added completion entry; sprint plan & checklist updated.
+  - Files changed
+    - SnapshotArchitecture.md — Testing layers section updated with HTTPS E2E harness description.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 5b marked DONE; browser/CSRF/SameSite exploratory tasks deferred.
+    - (Harness-specific files) apps/api.tests/... — E2E fixture & cookie assertion logic (see diff in same-day commit series).
+  - Quality gates
+    - Harness run produced expected Set-Cookie attributes; no regressions in existing integration tests.
+  - Rationale
+    - Provides authoritative validation of cookie security attributes pre-refresh-endpoint (Story 6), ensuring platform behavior matches production TLS expectations.
+  - Follow-ups
+    - Evaluate Playwright HttpOnly non-read test, SameSite=None cross-site scenarios, and CSRF double-submit strategy alongside refresh endpoint design (Story 6/8 sequencing).
+
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
 - Summary

@@ -45,9 +45,9 @@ How to use
 - [x] JWT Story 2: Neutral + tenant access tokens; refresh token persistence (hashed) at login & magic consume (2025-09-20)
 - [x] JWT Story 3: Tenant selection endpoint + refresh rotation (select-tenant) (2025-09-20)
 - [x] JWT Story 4: httpOnly refresh cookie (flagged) + frontend in-memory access token scaffold (2025-09-20)
-- [x] JWT Story 5: Access token revocation via TokenVersion (password change) (2025-09-20)
-- [x] JWT Story 5a: Local HTTPS & Secure refresh cookie validation (2025-09-20)
-- [x] JWT Story 5b: Real HTTPS Secure refresh cookie E2E harness (api.e2e) (2025-09-20)
+- [x] JWT Story 5: Access token revocation via TokenVersion (password change) (2025-09-20) — storyLog entry added 2025-09-20
+- [x] JWT Story 5a: Local HTTPS & Secure refresh cookie validation (2025-09-20) — storyLog entries (initial + consolidation) present
+- [x] JWT Story 5b: Real HTTPS Secure refresh cookie E2E harness (api.e2e) (2025-09-20) — storyLog entry added 2025-09-20
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
