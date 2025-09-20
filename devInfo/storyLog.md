@@ -27,7 +27,27 @@
 2025-09-19 — IAM: Legacy invite role write path deprecated (Story 4 refLeg-04) — ✅ DONE
 
 - Summary
+  2025-09-20 — Auth/JWT: Story 5 Access Token Revocation via TokenVersion (password change) — ✅ DONE
+
+- Summary
+  - Implemented access token revocation by introducing an integer `TokenVersion` column on `app.users` (default 0) and embedding claim `"v"` in every issued access token (neutral & tenant). On token validation, the JWT bearer events now load the current `TokenVersion` from the database (single row query) and reject tokens whose claim `v` is less than the stored version (failure message `token_version_mismatch`). The password change endpoint (`POST /api/auth/change-password`) now increments `TokenVersion` atomically when the current password is verified, ensuring all previously issued access tokens immediately become invalid without requiring a server-side token blacklist. Added fallback handling in validation for identity claim mapping (`sub` vs `ClaimTypes.NameIdentifier`) to avoid false negatives caused by default inbound claim type transformations, and added an email claim fallback (`email` vs `ClaimTypes.Email`) in the change-password endpoint. Created integration test `AccessTokenVersionTests` verifying: login, successful authenticated `/api/me`, password change increments version, old token receives 401 with failure reason `token_version_mismatch`.
+- Files changed
+  - apps/api/Migrations/20250920154954_s6_10_user_token_version.\* — new migration adding `TokenVersion` int NOT NULL default 0 to `app.users`.
+  - apps/api/App/Endpoints/V1.cs — password change endpoint increments `TokenVersion`; added email claim fallback comment; ensures update uses record replacement semantics.
+  - apps/api/Program.cs — JWT bearer `OnTokenValidated` now falls back to `ClaimTypes.NameIdentifier` when `sub` is absent (inbound claim mapping), loads user TokenVersion, and fails auth if mismatch.
+  - apps/api.tests/Auth/AccessTokenVersionTests.cs — new integration test covering revocation after password change.
+  - apps/api.tests/Api/AuthJwtSmokeTests.cs — updated neutral token issuance call to include new `tokenVersion` parameter (signature alignment).
+- Quality gates
+  - Targeted test `AccessTokenVersionTests` PASS; full affected auth tests remain green. Migration builds & applies (local). No performance concerns: single user lookup per token validation (already required for version check) cached by normal connection pooling; future optimization (per-user version cache with short TTL) deferred.
+- Rationale
+  - Provides deterministic, O(1) revocation of all outstanding access tokens for a user on credential compromise events (password change) without tracking individual token identifiers. Simpler operational model vs maintaining distributed blacklist; aligns with planned refresh rotation flow (Story 6) for continuous session continuity with forced re-auth of stale access tokens.
+- Follow-ups
+  - Story 6 general refresh endpoint should issue new access tokens referencing updated `TokenVersion` automatically after password change.
+  - Consider admin-driven global user revocation endpoint (increment TokenVersion without password change) and audit log entry.
+  - Potential minor perf enhancement: L2 cache or memory cache of (UserId -> TokenVersion) with short expiration (e.g., 30s) to reduce DB hits under high concurrency; defer until profiling indicates need.
+
   - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
+
 - Files changed
   - apps/api/App/Endpoints/V1.cs — invite endpoint: reject `role`, parse `roles` or `rolesValue`, remove legacy role echoes, update email body.
   - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — new regression tests (invite legacy role rejected; member role change still accepted pending next phase).

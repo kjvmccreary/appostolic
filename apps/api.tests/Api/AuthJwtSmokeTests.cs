@@ -16,7 +16,8 @@ public class AuthJwtSmokeTests : IClassFixture<WebAppFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var jwt = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Infrastructure.Auth.Jwt.IJwtTokenService>();
-        var token = jwt.IssueNeutralToken("test-user", "test@example.com");
+        // Provide tokenVersion = 0 for test issued token
+        var token = jwt.IssueNeutralToken("test-user", 0, "test@example.com");
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

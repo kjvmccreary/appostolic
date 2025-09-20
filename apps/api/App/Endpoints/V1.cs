@@ -570,7 +570,8 @@ public static class V1
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
                 return Results.BadRequest(new { error = "currentPassword and newPassword are required" });
-            var email = principal.FindFirstValue("email");
+            // Some inbound claim mappings may translate the raw 'email' claim into ClaimTypes.Email; support both.
+            var email = principal.FindFirstValue("email") ?? principal.FindFirstValue(System.Security.Claims.ClaimTypes.Email);
             if (string.IsNullOrWhiteSpace(email)) return Results.Unauthorized();
             var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
             if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
@@ -578,7 +579,9 @@ public static class V1
             var ok = hasher.Verify(dto.CurrentPassword, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
             var (hash, salt, iterations) = hasher.HashPassword(dto.NewPassword);
-            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+            // Increment TokenVersion so all previously issued access tokens (with old 'v' claim) become invalid.
+            // Refresh cookie will obtain a new access token on next use; clients must re-authenticate with new token.
+            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow, TokenVersion = user.TokenVersion + 1 };
             db.Users.Update(updated);
             await db.SaveChangesAsync();
             return Results.NoContent();

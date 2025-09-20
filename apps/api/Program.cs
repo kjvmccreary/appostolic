@@ -181,7 +181,9 @@ if (jwtEnabled)
         {
             OnTokenValidated = async ctx =>
             {
-                var sub = ctx.Principal?.FindFirst("sub")?.Value;
+                // Some handlers map 'sub' to ClaimTypes.NameIdentifier; attempt both before failing
+                var sub = ctx.Principal?.FindFirst("sub")?.Value
+                          ?? ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (!Guid.TryParse(sub, out var userId)) { ctx.Fail("invalid_sub"); return; }
                 var tokenVersionClaim = ctx.Principal?.FindFirst("v")?.Value;
                 if (!int.TryParse(tokenVersionClaim, out var tokenVersion)) tokenVersion = 0;
