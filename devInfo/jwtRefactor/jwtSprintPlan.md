@@ -219,6 +219,45 @@ Follow-ups / Deferred:
 - Potential enhancement: spin an actual HTTPS TestServer (custom host builder) to assert Secure deterministically instead of header simulation (optional, low priority).
 - Consolidate duplicate cookie issuance blocks into helper (planned after refresh endpoint Story 6 to avoid churn).
 
+### Story 5b: HTTPS E2E Secure Cookie Validation — IN PROGRESS (2025-09-20)
+
+Acceptance:
+
+- Spin up the API under real Kestrel HTTPS (dev cert) inside an E2E test harness (new `api.e2e` project or `tests/e2e` folder) without relying on in-memory TestServer.
+- Execute a representative auth flow (signup/login or existing seeded user login) over HTTPS and capture `Set-Cookie` headers.
+- Assert refresh cookie `rt` contains: `Secure; HttpOnly; SameSite=Lax; Path=/` and a valid future `Expires` (UTC) timestamp.
+- Rotation scenario: second auth flow (e.g., login again or select-tenant) issues a different cookie value preserving attributes.
+- Negative integration test (existing) for absence of Secure over HTTP remains (skip for positive Secure until E2E is authoritative).
+- Document harness in `SnapshotArchitecture.md` (testing layers) and add Story 5b entry to `storyLog.md` & `LivingChecklist`.
+
+Implementation Notes:
+
+- Reuse dev certificate (`dotnet dev-certs https --trust`). Harness should gracefully warn if cert untrusted and optionally bypass only in CI.
+- Dynamic port allocation preferred to avoid conflicts (fallback fixed 5199). Export chosen port via environment variable for test logs.
+- Provide reusable `E2EHostFixture` encapsulating process start, readiness probe (`/health`), and disposal.
+- Parsing: filter `Set-Cookie` collection for name `rt=`; splitting on `;` tokens trimmed for attribute checks.
+- Leave existing skipped Secure integration test in place referencing this story; removal decision post-Stories 6–7.
+
+Out of Scope (Deferred Enhancements):
+
+- Browser-level (Playwright) validation of HttpOnly behavior.
+- Cross-site SameSite=None scenario.
+- CSRF token double-submit validation (Story 4 follow-up).
+
+Risks & Mitigations:
+
+- Flaky startup timing → add exponential backoff (max 30s) when polling `/health`.
+- Port collisions → attempt up to 5 random ports before failing.
+- Certificate trust variance in CI → use self-signed ephemeral cert with handler bypass limited to test harness code.
+
+References:
+
+- Detailed E2E plan: see section "E2E HTTPS Secure Cookie Validation Plan (Added 2025-09-20)" below.
+
+Status:
+
+- Planning phase committed; implementation steps queued (Makefile target `api-https-test`, fixture, test class).
+
 ### Story 6: Refresh Flow & Rotation
 
 Acceptance:
@@ -348,6 +387,7 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 5) Add admin API endpoint to force immediate logout for a user (increments TokenVersion) with audit event.
 - (Story 5) Lightweight in-memory or distributed cache of (userId -> TokenVersion) with short TTL (e.g., 30s) to reduce DB hits under very high auth load.
 - (Story 5a) Automate dev HTTPS enablement in Makefile (target: `make trust-dev-certs`) and document fallback for environments where trust prompt fails.
+  - Executed 2025-09-20: Added `trust-dev-certs` target and consolidated cookie issuance helper (`IssueRefreshCookie`).
 - (Story 6) Support sliding refresh expiration (extend expires_at on active usage) with max absolute lifetime cap.
 - (Story 6) Add reuse detection metric / alert (refresh token replay attempts) for security monitoring.
 - (Story 7) Bulk logout by tenant (invalidate all user sessions belonging to a compromised tenant) — may require tenant-scoped refresh entries enumeration.
@@ -357,3 +397,97 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 9a) Provide containerized Caddy alternative config (automatic certs) as an alternative to nginx for simpler local TLS.
 - (Story 10) Publish upgrade guide snippet on rotating signing key with minimal downtime (manual dual issuance procedure pre multi-key support).
 - (Story 11) Final sweep to remove any dead constants/flags (e.g., legacy invite role error codes) and prune obsolete test helpers replaced by TestAuthClient.
+
+## E2E HTTPS Secure Cookie Validation Plan (Added 2025-09-20)
+
+Context:
+Current integration tests run on ASP.NET Core TestServer (in-memory, no real TLS). Even when `Request.IsHttps` is forced (middleware or startup filter) and logs confirm `Request.IsHttps=true`, the emitted `Set-Cookie` header for the refresh cookie (`rt`) does not include `Secure`. This appears to be a TestServer limitation—Secure is only serialized for actual HTTPS transports (Kestrel + certificate) or certain hosting pipelines.
+
+Goals:
+
+1. Positively assert that in a real HTTPS scenario the refresh cookie includes `Secure; HttpOnly; SameSite=Lax` (and future attributes if added).
+2. Ensure regression protection for cookie attributes across environments (Dev over HTTPS, staging, production).
+3. Provide a portable harness developers can run locally after trusting dev certs (`make trust-dev-certs`).
+
+Non-Goals:
+
+- Browser automation of the entire login UX (handled by broader web E2E tests later) beyond what is required to capture cookies.
+- Testing SameSite cross-site behavior (future CSRF story).
+
+Approach Overview:
+We layer an HTTPS E2E test tier above the unit/integration suite:
+
+- Spin up the API with Kestrel HTTPS using dev cert (via `dotnet run` or a dedicated Makefile target `api-https` already partially in place; add headless mode).
+- Use an HTTP client that disables cert validation only if the dev cert trust step was skipped (fallback) while encouraging proper trust.
+- Execute: signup -> login (JSON flow) and capture `Set-Cookie` headers. Assert `rt` cookie contains required attributes.
+- (Optional) Add negative case: plain HTTP request to same endpoint (if dual binding enabled) lacks `Secure`.
+
+Test Layers:
+
+1. Integration (current): Verifies absence of `Secure` over HTTP and structural cookie issuance. (Positive Secure test skipped with rationale.)
+2. E2E HTTPS (new): Validates presence of `Secure` and (later) `SameSite` / `Path` / `Expires` semantics under real TLS.
+
+Tooling Additions:
+
+- New Makefile targets:
+  - `api-https-test`: Runs the API on an ephemeral port with HTTPS only, minimal logging.
+- New test project (or folder) `apps/api.e2e` (if separation desired) using xUnit or Playwright (Node) depending on broader E2E direction.
+  - Lightweight .NET console test harness is sufficient if we only need HTTP semantics; adopt Playwright if we need browser cookie store validation.
+
+Option A: Pure .NET HttpClient Harness
+Pros: Fast, no browser dependency. Cons: Does not prove browser acceptance rules (but Secure flag presence is enough for server responsibility).
+
+Option B: Playwright Browser Test (Recommended Medium Term)
+Pros: Ensures cookie appears in browser devtools context only over HTTPS; can later extend to UI login flow. Cons: Slower, adds Node dependency.
+
+Initial Implementation Recommendation: Option A (upgrade later if needed).
+
+Planned Artifacts:
+
+- `tests/e2e/AuthCookieHttpsTests.cs` (or new `api.e2e` project):
+  - Fixture launches API process with `DOTNET_URLS=https://127.0.0.1:5199` (or dynamic free port) and waits for readiness (`/health`).
+  - Test 1: `Signup_And_Login_Sets_Secure_RefreshCookie`.
+  - Assertions: `rt` cookie string contains `Secure`, `HttpOnly`, `SameSite=Lax`, and `Path=/`.
+  - Parse `Expires` -> ensure future UTC.
+  - If environment variable `E2E_CHECK_HTTP_FALLBACK=true`, issue same login over `http://127.0.0.1:5199` (if dual) and assert absence of `Secure` (optional, only if dual protocol configured; skip otherwise).
+
+Edge Cases / Additional Assertions:
+
+- Ensure no duplicate `rt` cookies.
+- Rotation scenario: perform second login or tenant selection, capture new cookie; assert value changed (if rotation policy continues issuing new refresh on re-auth) while attributes persist.
+
+Environment & Config:
+
+- Requires `dotnet dev-certs https --trust` beforehand (documented in README / Makefile help). Test harness should detect certificate validation failures and emit actionable guidance.
+- CI: Use self-signed ephemeral cert generation step (non-trusted) plus custom HttpClient handler bypass only inside CI, never in production code.
+
+Future Enhancements:
+
+- Introduce Playwright flow validating that JavaScript cannot read the `rt` cookie (HttpOnly) while the browser sends it automatically on subsequent same-site requests.
+- Add negative test ensuring cookie omitted or different when feature flag `AUTH__REFRESH_COOKIE_ENABLED=false`.
+- Validate `SameSite=None` scenario if cross-site embedding becomes necessary (switching assertion based on config).
+
+Open Questions:
+
+- Should we centralize process orchestration (API spin-up) in a reusable test utility for other HTTPS-dependent tests (logout, refresh)? (Likely yes—create `E2EHostFixture`.)
+- Port allocation strategy: fixed (simpler) vs dynamic (reduces collision in parallel CI). Suggest dynamic with retry count.
+
+Action Items:
+
+1. Add Makefile target `api-https-test` (HTTPS-only minimal logging mode).
+2. Create `tests/e2e` (or `apps/api.e2e`) project & fixture launching API with HTTPS.
+3. Implement first Secure cookie E2E test (Option A).
+4. Wire into CI workflow (GitHub Action) gating merges when failing.
+5. (Optional) Add Playwright later for browser-level confirmation.
+
+Skip Rationale Removal Plan:
+Once E2E test is green and reliable, we can:
+
+- Keep current integration Secure test skipped (document linking to E2E) OR delete it to avoid redundancy.
+- Reference E2E test in this plan and in `LivingChecklist` under security hardening.
+
+Tracking:
+
+- Add new story: "Story 5b: HTTPS E2E Secure Cookie Validation" referencing this section and mark dependency on Story 5a completion.
+
+---

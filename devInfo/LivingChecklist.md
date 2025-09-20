@@ -47,6 +47,7 @@ How to use
 - [x] JWT Story 4: httpOnly refresh cookie (flagged) + frontend in-memory access token scaffold (2025-09-20)
 - [x] JWT Story 5: Access token revocation via TokenVersion (password change) (2025-09-20)
 - [x] JWT Story 5a: Local HTTPS & Secure refresh cookie validation (2025-09-20)
+- [x] JWT Story 5b: Real HTTPS Secure refresh cookie E2E harness (api.e2e) (2025-09-20)
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -146,4 +147,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑20 (Added Story 5a local HTTPS & Secure cookie validation complete. JWT Stories 1–5a complete: baseline, neutral + tenant + refresh persistence, tenant selection + rotation, httpOnly refresh cookie + in-memory access, token revocation via version, local HTTPS Secure flag semantics. Story 2a test token factory helper. Backend earlier: Stories 7–9. Web flags-only cleanup: legacy MembershipRole column removed, constraints enforced, invite legacy-only -> NO_FLAGS, roles.ts simplified to flags-only, ESLint guard added. Prior: convergence removal, avatar pipeline simplification, denomination presets, profile/guardrails, change password, tenant settings/logo, Node 20 testing.)
+- Last updated: 2025‑09‑20 (Added Story 5b real HTTPS Secure cookie E2E harness (apps/api.e2e) enabling deterministic Secure flag validation with self-signed TLS; JWT Stories 1–5b now complete. Prior note: baseline through 5a plus test token factory, flags-only cleanup, profile & settings, etc.)

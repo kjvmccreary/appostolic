@@ -62,12 +62,25 @@ var configuration = builder.Configuration;
     }
 }
 
-// Add DbContext
-builder.Services.AddDbContext<AppDbContext>(options =>
+// Add DbContext (E2E override: allow in-memory provider when E2E_INMEM_DB=true to avoid requiring Postgres for HTTPS cookie tests)
+var useE2EInMem = (Environment.GetEnvironmentVariable("E2E_INMEM_DB") ?? configuration["E2E_INMEM_DB"] ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
+if (useE2EInMem)
 {
-    var cs = Appostolic.Api.Infrastructure.Database.ConnectionStringHelper.BuildFromEnvironment(configuration);
-    options.UseNpgsql(cs, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema: "app"));
-});
+    builder.Services.AddDbContext<AppDbContext>(options =>
+    {
+        options.UseInMemoryDatabase("e2e-db");
+    });
+    Console.WriteLine("[Startup] Using InMemory DB (E2E_INMEM_DB=true)");
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+    {
+        var cs = Appostolic.Api.Infrastructure.Database.ConnectionStringHelper.BuildFromEnvironment(configuration);
+        options.UseNpgsql(cs, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema: "app"));
+    });
+}
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -166,8 +179,14 @@ builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
 var allowDevHeaders = builder.Environment.IsDevelopment() || (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
 
+// In Development we introduce a composite policy scheme that chooses Dev header auth when
+// the x-dev-user header is present, otherwise falls back to standard Bearer (JWT). This
+// removes the need to enumerate AuthenticationSchemes="Dev,Bearer" on every endpoint group
+// and fixes 401 responses observed in tests that relied on dev headers for endpoints which
+// previously only listed the default Bearer scheme.
 var authBuilder = builder.Services.AddAuthentication(options =>
 {
+    // Default to Bearer everywhere; we may override with policy scheme in Development below.
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 });
@@ -209,6 +228,27 @@ if (jwtEnabled)
 if (allowDevHeaders)
 {
     authBuilder.AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
+
+    if (builder.Environment.IsDevelopment())
+    {
+        // Register a policy scheme that inspects the request to decide which underlying scheme to use.
+        // If x-dev-user header exists -> Dev, else Bearer. Keeps production behavior untouched.
+        authBuilder.AddPolicyScheme("BearerOrDev", "Bearer or Dev (auto)", opts =>
+        {
+            opts.ForwardDefaultSelector = ctx =>
+            {
+                if (ctx.Request.Headers.ContainsKey("x-dev-user"))
+                    return DevHeaderAuthHandler.DevScheme;
+                return JwtBearerDefaults.AuthenticationScheme;
+            };
+        });
+        // Make the composite the default for Development so RequireAuthorization() triggers selector.
+        builder.Services.PostConfigure<AuthenticationOptions>(o =>
+        {
+            o.DefaultAuthenticateScheme = "BearerOrDev";
+            o.DefaultChallengeScheme = "BearerOrDev";
+        });
+    }
 }
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
@@ -525,6 +565,24 @@ app.Use(async (context, next) =>
 app.MapGet("/", () => Results.Ok(new { name = "appostolic-api", version = "0.0.0" }));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+
+// E2E helper endpoint for HTTPS cookie attribute validation (Story 5b)
+if (useE2EInMem)
+{
+    app.MapGet("/e2e/issue-cookie", (HttpContext http) =>
+    {
+        var expires = DateTimeOffset.UtcNow.AddDays(30);
+        http.Response.Cookies.Append("rt", Guid.NewGuid().ToString("N"), new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = http.Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            Expires = expires
+        });
+        return Results.Ok(new { issued = true, expires });
+    }).WithTags("e2e").WithDescription("Issues a dummy refresh cookie for E2E HTTPS Secure attribute validation (InMemory mode only).");
+}
 
 // Auth smoke endpoint (Story 1) - requires authentication (JWT or dev headers)
 app.MapGet("/auth-smoke/ping", (ClaimsPrincipal user) =>

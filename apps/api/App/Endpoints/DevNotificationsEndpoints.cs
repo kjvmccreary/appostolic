@@ -32,7 +32,14 @@ public static class DevNotificationsEndpoints
     {
         if (!app.Environment.IsDevelopment()) return;
 
-        var group = app.MapGroup("/api/dev/notifications").RequireAuthorization().WithTags("DevNotifications");
+        // Allow both standard (Bearer/JWT) and Dev header auth when in Development. The Dev header scheme
+        // is only registered when allowed via environment flag in Program.cs. Explicitly listing the schemes
+        // ensures the authentication handler for Dev headers is executed; previously only the default scheme
+        // (Bearer) was attempted which yielded 401 in tests using x-dev-user.
+        var authSchemes = app.Environment.IsDevelopment() ? "Dev,Bearer" : null; // null -> default
+        var group = app.MapGroup("/api/dev/notifications")
+            .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = authSchemes })
+            .WithTags("DevNotifications");
 
         // GET /api/dev/notifications/health — exposes transport mode and (when redis) subscriber state
         group.MapGet("/health", (

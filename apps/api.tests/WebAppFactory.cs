@@ -1,5 +1,7 @@
 using System.Linq;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -32,6 +34,14 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 ["AUTH__REFRESH_COOKIE_ENABLED"] = "true"
             };
             cfg.AddInMemoryCollection(dict!);
+        });
+
+        // Add early middleware to allow tests to simulate HTTPS by sending X-Test-HTTPS: 1 header.
+        // Implemented as a dedicated middleware class to avoid signature mismatch with Use(Func<RequestDelegate,RequestDelegate>).
+        // Register startup filter that injects HTTPS simulation middleware without replacing the Program.cs pipeline.
+        builder.ConfigureServices(svcs =>
+        {
+            svcs.AddTransient<IStartupFilter, TestHttpsStartupFilter>();
         });
 
         builder.ConfigureServices(services =>
@@ -98,3 +108,33 @@ public class WebAppFactory : WebApplicationFactory<Program>
         });
     }
 }
+
+/// <summary>
+/// Startup filter injecting a middleware that converts requests with header X-Test-HTTPS:1 into HTTPS (sets Request.Scheme).
+/// Ensures it runs early while preserving the rest of the application's pipeline defined in Program.cs.
+/// </summary>
+internal sealed class TestHttpsStartupFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+    {
+        return app =>
+        {
+            app.Use(async (context, nxt) =>
+            {
+                if (context.Request.Headers.TryGetValue("X-Test-HTTPS", out var vals) && vals.ToString() == "1")
+                {
+                    context.Request.Scheme = "https";
+                    if (!context.Request.Headers.ContainsKey("X-Forwarded-Proto"))
+                        context.Request.Headers["X-Forwarded-Proto"] = "https";
+                }
+                await nxt();
+            });
+            next(app);
+        };
+    }
+}
+/// <summary>
+/// Test-only middleware that forces Request.Scheme = https when header X-Test-HTTPS: 1 is present.
+/// Enables Secure cookie verification in integration tests without standing up TLS.
+/// </summary>
+// (Old dedicated middleware class removed; inline middleware above keeps file concise for tests.)

@@ -46,6 +46,19 @@ api-https:
 	./scripts/kill-port.sh 5198 || true
 	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://localhost:5198 dotnet watch
 
+# HTTPS test harness (Story 5b). Launches API once (no watch) on dynamic or fixed port for E2E cookie validation.
+# Usage: `make api-https-test [PORT=5199]` (defaults to 5199). Requires trusted dev cert (see trust-dev-certs target).
+api-https-test:
+	@PORT=$${PORT:-5199}; \
+	echo "Starting API for HTTPS E2E on https://localhost:$$PORT"; \
+	./scripts/kill-port.sh $$PORT || true; \
+	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://localhost:$$PORT dotnet run --no-build
+
+# One-time (or renewal) trust of local HTTPS development certificate.
+trust-dev-certs:
+	dotnet dev-certs https --trust
+	@echo "If macOS prompts for Keychain access, approve to trust the dev certificate."
+
 web:
 	cd apps/web && pnpm dev
 

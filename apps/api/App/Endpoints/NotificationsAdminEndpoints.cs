@@ -45,7 +45,13 @@ public static class NotificationsAdminEndpoints
 
     public static void MapNotificationsAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/notifications").RequireAuthorization().WithTags("Notifications");
+        // Enable Dev header auth (scheme "Dev") alongside Bearer in Development so integration tests using
+        // x-dev-user + x-tenant headers authenticate successfully. In production only the default (Bearer) applies.
+        var env = (app as WebApplication)?.Environment; // attempt cast; if null we fallback to default behavior
+        var authSchemes = env is not null && env.IsDevelopment() ? "Dev,Bearer" : null;
+        var group = app.MapGroup("/api/notifications")
+            .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = authSchemes })
+            .WithTags("Notifications");
 
         // GET /api/notifications/dlq — list Failed/DeadLetter (tenant-scoped or superadmin)
         group.MapGet("/dlq", async (
