@@ -23,6 +23,8 @@ Transition the platform from development-only header-based authentication (x-dev
 8. Observability: structured logs for auth events, minimal metrics counters, optional trace attributes.
 9. Backward compatibility period (short, behind feature flag) allowing Dev headers only in Development.
 10. Documentation & rollback plan (ability to re-enable Dev headers quickly if needed).
+11. Secure httpOnly cookie strategy for refresh (and optional access) tokens with environment-aware Secure/SameSite semantics validated via local HTTPS.
+12. Optional nginx reverse proxy (local + production example) for TLS termination, compression, standardized security headers.
 
 ## Architectural Decisions
 
@@ -32,6 +34,7 @@ Transition the platform from development-only header-based authentication (x-dev
   - User (neutral) Token (after login/magic): `{ sub, email, memberships:[{tenant_id, tenant_slug, roles_value}], iat, exp }` (no roles array per membership unless needed; client selects tenant).
   - Refresh Token: opaque random 256-bit value, stored hashed (SHA-256 + pepper) in `app.refresh_tokens` table with status + expiry + fingerprint.
 - Rotation Strategy: One refresh token per device/session (rotate on each refresh, previous becomes inactive). Access tokens non-revocable except via version bump or refresh blacklist.
+- Cookie Strategy: Refresh token stored in httpOnly `rt` cookie (Secure+SameSite=Lax in prod; Secure may be false in pure HTTP dev; SameSite=None if future cross-site embedding required). Access token returned in JSON and held only in memory (preferred) OR optionally also via short‑lived httpOnly cookie (`at`) for SSR endpoints (decision deferred to Story 4). CSRF mitigation approach (double-submit vs header secret) finalized in Story 4.
 - Revocation Mechanism: Increment `users.token_version` on password change / explicit admin revoke; middleware denies access if token `v` < current version.
 - Clock Skew: Accept ±60 seconds.
 - Expiries: Access 15m, Refresh 30d (configurable).
@@ -102,7 +105,7 @@ Acceptance:
 
 Acceptance:
 
-- Frontend stores neutral token + refresh (httpOnly cookie or memory—choose cookie for XSS mitigation) after login.
+- Frontend stores neutral token + refresh (httpOnly cookie) after login (cookie name `rt`, httpOnly, Secure in prod, SameSite=Lax). Neutral access token kept only in memory (not localStorage) for minimized XSS persistence.
 - Tenant selection triggers call to /api/auth/select-tenant; sets tenant-scoped access token for subsequent API calls.
 - Remove reliance on x-dev-user/x-tenant for runtime API fetch wrapper except when `AUTH__ALLOW_DEV_HEADERS && process.env.NODE_ENV === 'development'`.
 - Role decoding uses claims roles_value directly; fallback removed.
@@ -116,6 +119,17 @@ Acceptance:
 - Token version mismatch triggers 401 with problem+json payload.
 - Missing tenant_id on an endpoint requiring tenant scope returns 400 or 403 (decide: 400 invalid context).
 - Tests: role policy pass/fail, version mismatch.
+
+### Story 5a: Local HTTPS Enablement & Secure Cookie Validation (NEW)
+
+Acceptance:
+
+- Kestrel configured for HTTPS locally (trust dev cert) enabling Secure cookie end-to-end validation.
+- Quick start documented (`dotnet dev-certs https --trust`) and Makefile target (e.g., `make api-https`).
+- Demonstrate: Secure cookie sent over HTTPS, omitted when attempting HTTP.
+  Deliverables:
+- appsettings.Development.json / Program.cs Kestrel config snippet.
+- README / upgrade guide additions for local HTTPS.
 
 ### Story 6: Refresh Flow & Rotation
 
@@ -152,6 +166,18 @@ Acceptance:
 - Optional trace attributes for auth actions.
 - Basic rate limiting (optional) on login, select-tenant, refresh (3–5 per second per IP). Document if deferred.
 
+### Story 9a: Nginx Reverse Proxy & Security Headers (OPTIONAL)
+
+Acceptance:
+
+- Provide `infra/nginx/` sample config proxying API + web, enabling gzip/br compression, HSTS (prod), security headers (X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy minimal), request size limit, and disabled buffering for streaming endpoints.
+- Local run instructions via docker-compose or documented command; Makefile target optional.
+- Docs enumerating which headers rely on nginx vs Kestrel.
+  Deliverables:
+- nginx.conf (local & prod sample) + README snippet.
+  Notes:
+- Optional if platform ingress already supplies equivalent features (document detection checklist).
+
 ### Story 10: Documentation & Upgrade Guide
 
 Acceptance:
@@ -159,6 +185,7 @@ Acceptance:
 - Upgrade doc: enabling JWT, generating signing key, rolling out alongside dev headers, rollback steps.
 - SnapshotArchitecture updated with new component diagram (TokenService, RefreshToken table, flows).
 - LivingChecklist updated (auth section). StoryLog entry appended.
+- Include secure cookie rollout instructions, local HTTPS enablement, CSRF mitigation rationale, and optional nginx integration notes.
 
 ### Story 11: Cleanup & Legacy Removal
 
@@ -168,6 +195,7 @@ Acceptance:
 - Remove unused environment flags or compatibility fallbacks.
 - Final test suite run: API & Web green.
 - Tag `jwt-auth-rollout-complete` annotated with summary.
+- Confirm optional nginx story either merged or explicitly deferred with rationale in StoryLog.
 
 ## Risk & Mitigation
 
@@ -205,15 +233,17 @@ Backend infra (Stories 1–3) must precede frontend refactor (Story 4). Validati
 ## Story Pointing (Relative)
 
 (Indicative: XS=1, S=2, M=3, L=5, XL=8)
-1: M, 2: M, 3: M, 4: L, 5: S, 6: M, 7: S, 8: S, 9: S, 10: S, 11: XS
-Total ~30–32 points (1–1.5 focused sprint depending on capacity).
+1: M, 2: M, 3: M, 4: L, 5: S, 5a: XS, 6: M, 7: S, 8: S, 9: S, 9a: S (optional), 10: S, 11: XS
+Total (w/out 9a) ~32–34 points; with 9a ~34–36 (still feasible with capacity).
 
 ## Open Questions (To Resolve Early)
 
 - Cookie vs Authorization header: choose cookie (httpOnly, secure) for production; keep header variant for Swagger.
 - Neutral token needed long-term? Potentially yes for multi-tenant UX; else collapse by always issuing tenant token with ability to switch via reissue.
 - Multi-tenant session concurrency: Are parallel tenant contexts required? (If yes, keep neutral + multiple tenant tokens; out of scope now.)
+- CSRF mitigation technique: double-submit cookie vs custom header secret? (Decide Story 4.)
+- If nginx deferred, enumerate ingress feature parity checklist (compression, HSTS, security headers) to ensure no silent gap.
 
 ## Next Action
 
-Begin Story 1: add JwtBearer auth, token service skeleton, configuration keys (behind feature flag AUTH**JWT**ENABLED). Frontend untouched until Story 4.
+Begin Story 1: add JwtBearer auth, token service skeleton, configuration keys (behind feature flag AUTH**JWT**ENABLED). Schedule Story 5a shortly after Story 5 to validate Secure cookie behavior before broad frontend reliance.

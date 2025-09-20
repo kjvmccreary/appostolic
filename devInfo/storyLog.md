@@ -298,6 +298,20 @@
 - Follow-ups
   - None required; consider removing coverage artifacts referencing deleted file on next clean run (turbo/CI will regenerate without the stub).
 
+2025-09-20 — Auth/JWT: Sprint plan augmented with secure cookies & nginx optional layer — ✅ DONE
+
+- Summary
+  - Updated `devInfo/jwtRefactor/jwtSprintPlan.md` to incorporate: (1) explicit secure httpOnly cookie strategy for refresh tokens (and optional access token cookie), (2) Story 5a for local HTTPS enablement & Secure cookie validation, and (3) optional Story 9a introducing an nginx reverse proxy for TLS termination, compression, and standardized security headers. Added architectural cookie strategy description, CSRF mitigation decision placeholder, updated story pointing, and new open questions around CSRF approach and ingress parity if nginx deferred.
+- Files changed
+  - devInfo/jwtRefactor/jwtSprintPlan.md — added cookie strategy section, stories 5a & 9a, new outcomes (11–12), updated pointing, open questions, and next action scheduling Story 5a post Story 5.
+- Quality gates
+  - Documentation-only change; no code/test impact. Plan now reflects security hardening trajectory prior to implementation of Story 1.
+- Rationale
+  - Ensures early alignment on token storage (mitigating XSS via httpOnly) and prepares an infrastructure option for consistent security headers & TLS without mandating it if platform ingress already covers needs.
+- Follow-ups
+  - Decide CSRF mitigation pattern (double-submit vs header secret) during Story 4.
+  - Determine whether to pursue nginx Story 9a or document ingress parity checklist if deferring.
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE
