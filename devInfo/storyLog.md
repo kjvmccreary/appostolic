@@ -1113,3 +1113,17 @@
   - File compiles cleanly (no errors). Broader test suite not yet re-run pending remaining legacy test refactors.
 - Next
   - Retire `LegacyRolesConvergedTests` (obsolete), update E2E seeds to remove `Role`, then remove enum from `Program.cs` and run full test pass.
+
+2025-09-20 — RefLeg Story 4 (partial): Retire legacy convergence test & add flags integrity test — IN PROGRESS
+
+- Summary
+  - Removed obsolete `LegacyRolesConvergedTests` (which compared legacy `MembershipRole` vs flags) and added `FlagsIntegrityTests` asserting no membership has a zero roles bitmask. This aligns tests with the flags-only model and avoids perpetuating legacy comparison logic ahead of enum removal.
+- Files changed
+  - Deleted: apps/api.tests/Api/LegacyRolesConvergedTests.cs
+  - Added: apps/api.tests/Api/FlagsIntegrityTests.cs
+- Rationale
+  - Legacy role parity checks are no longer meaningful; enforcing invariant (non-zero flags) is the enduring requirement.
+- Quality gates
+  - New test compiles. Full suite run deferred until remaining legacy seed references are purged.
+- Next
+  - Update E2E seeds & Notifications test to drop `Role`, then remove enum from Program.cs and re-run full suite.
