@@ -89,6 +89,22 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Accessibility: inline status message uses `role="status"`; errors use `role="alert"`. Object URLs are revoked to prevent leaks.
   - Tests: Updated `AvatarUpload.test.tsx` to cover confirmation flow (scoped dialog query) and ensure no network/event fires when clearing a local selection. Full web suite PASS.
 
+## Auth/JWT — Story 4 Refresh Cookie & Frontend In-Memory Access Token (2025-09-20)
+
+- Feature flag `AUTH__REFRESH_COOKIE_ENABLED` (config or env) governs issuance of secure httpOnly refresh cookie `rt` (SameSite=Lax, Path=/, Secure except in Development) on `/api/auth/login`, `/api/auth/magic/consume`, and `/api/auth/select-tenant`.
+- Rotation: `POST /api/auth/select-tenant` rotates the neutral refresh token (revokes old, issues new) and overwrites the cookie when enabled; tests assert old token reuse returns 401.
+- Tests: `RefreshCookieTests` (green) cover initial issuance and rotation – header parsing normalized to be case‑insensitive (`httponly`).
+- Frontend: Added `authClient.ts` for neutral access token kept only in memory (not persisted). `primeNeutralAccess` primes token post credential & magic login flows. `getAccessToken` (scaffold) will attempt refresh once available.
+- Fetch wrapper `withAuthFetch` injects `Authorization: Bearer <access>` and sets `credentials: 'include'` so the refresh cookie accompanies requests when future refresh endpoint lands.
+- Temporary internal Next.js route `/api/_auth/refresh-neutral` is a placeholder (explicit comments) and will be replaced by real `/api/auth/refresh` (Story 6). It is intentionally not part of standard user flows to avoid accidental production reliance.
+- Security improvement: Moves refresh token out of JSON/localStorage and into httpOnly cookie (defense against XSS exfiltration). Access token remains short‑lived and ephemeral in JS memory only.
+- Backwards compatibility: Current auth JSON still includes `refresh.token` for clients while flag incubation proceeds; removal planned post refresh endpoint rollout (grace window with dual support).
+- Follow-ups (next stories):
+  - Story 5 / 5a: Local HTTPS enablement + secure cookie enforcement hardening.
+  - Story 6: General refresh endpoint returning a new access (and rotated refresh) token; remove JSON refresh after adoption.
+  - Story 7+: Logout / global revocation improvements and observability counters (issuance / validation / failures).
+  - Refactor: Consolidate duplicated cookie issuance blocks in endpoints into a small helper (deferred until refresh endpoint lands to reduce churn).
+
 ### What’s new
 
 - Web: Tenant selector labels now derive from roles flags (Admin/Approver/Creator/Learner) instead of legacy Owner/Viewer strings. This uses `getFlagRoles` to normalize roles[] or legacy role names (case-insensitive) ensuring consistent UX across components (TopBar, TenantSwitcher, TenantSwitcherModal).
@@ -420,17 +436,6 @@ appostolic/
 │  │  │  │  │  ├─ IAgentTaskQueue.cs
 │  │  │  │  │  ├─ InMemoryAgentTaskQueue.cs
 │  │  │  │  │  └─ AgentTaskWorker.cs
-│  │  │  │  ├─ Tools/                     # Deterministic dev tools
-│  │  │  │  │  ├─ WebSearchTool.cs
-│  │  │  │  │  ├─ DbQueryTool.cs
-│  │  │  │  │  └─ FsWriteTool.cs
-│  │  │  │  └─ Model/                     # Mock model adapter
-│  │  │  │     └─ MockModelAdapter.cs
-│  │  │  └─ Validation/
-│  │  │     └─ Guard.cs
-│  │  ├─ Domain/
-│  │  │  └─ Agents/
-│  │  │     ├─ Agent.cs
 │  │  │     ├─ AgentTask.cs
 │  │  │     ├─ AgentTrace.cs
 │  │  │     ├─ AgentStatus.cs

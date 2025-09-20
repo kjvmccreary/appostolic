@@ -1,3 +1,29 @@
+2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
+
+- Summary
+  - Implemented secure httpOnly refresh cookie delivery behind feature flag `AUTH__REFRESH_COOKIE_ENABLED` on `/api/auth/login`, `/api/auth/magic/consume`, and `/api/auth/select-tenant`. Cookie name `rt`; attributes: HttpOnly; SameSite=Lax; Path=/; Secure except in Development. Rotation logic in tenant selection endpoint revokes old neutral refresh token and overwrites cookie with the new one. Added frontend in-memory neutral access token client (`authClient.ts`) so access tokens are never persisted (reduces XSS exfiltration risk). Added `withAuthFetch` wrapper to inject `Authorization: Bearer <access>` and always include credentials for future refresh requests. Created placeholder internal route `/api/_auth/refresh-neutral` (clearly documented) to scaffold upcoming general refresh flow (Story 6). Tests `RefreshCookieTests` verify issuance and rotation (case-insensitive cookie attribute match). Architecture docs and LivingChecklist updated; story flagged complete.
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
+  - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.
+  - apps/api.tests/WebAppFactory.cs — injects in-memory configuration `AUTH__REFRESH_COOKIE_ENABLED=true` for deterministic test enablement.
+  - apps/web/src/lib/authClient.ts — new in-memory neutral access token store & helper functions (`primeNeutralAccess`, `getAccessToken`, `withAuthFetch`).
+  - apps/web/src/lib/auth.ts — integrate `primeNeutralAccess` in credentials & magic login callbacks.
+  - apps/web/src/pages/api/\_auth/refresh-neutral.ts (or app route equivalent) — temporary stub refresh route (to be replaced by real backend refresh endpoint in Story 6).
+  - apps/web/src/lib/**tests**/authClient.test.ts, withAuthFetch.test.ts (naming per existing pattern) — unit tests ensuring bearer header injection and prime logic.
+  - SnapshotArchitecture.md — Story 4 section added (marked complete; follow-ups enumerated).
+  - devInfo/LivingChecklist.md — added Story 4 checklist line (done) and updated last updated banner.
+- Quality gates
+  - API: RefreshCookieTests passing alongside existing auth suites (no regressions observed).
+  - Web: New unit tests passing (authorization header injection, token priming). Existing Vitest suite green under Node 20.
+  - Lint/Typecheck: No new issues introduced (scoped additions followed existing tsconfig and eslint baselines).
+- Rationale
+  - Moves refresh token storage to an httpOnly cookie to mitigate XSS exfiltration and enables future silent refresh via standard credentialed requests. Keeps access token ephemeral in memory (short-lived) aligning with principle of least persistence.
+- Follow-ups
+  - Story 6: Implement `/api/auth/refresh` endpoint; retire placeholder route; remove `refresh.token` from JSON when cookie enabled (grace window for clients).
+  - Story 5 / 5a: Local HTTPS & cookie secure enforcement; potential SameSite tightening after cross-origin flows evaluated.
+  - Refactor: DRY cookie issuance blocks into helper once refresh endpoint centralizes logic.
+  - Observability: Add counters for refresh issuance/rotation/failure (later story) plus structured revocation logging.
+
 2025-09-19 — IAM: Legacy invite role write path deprecated (Story 4 refLeg-04) — ✅ DONE
 
 - Summary
