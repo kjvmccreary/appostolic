@@ -166,27 +166,26 @@ Acceptance:
 - Neutral refresh token can be converted; previous refresh is revoked with replaced_by_token_id chain.
 - Tests: success path, unauthorized tenant, revoked prior refresh cannot be reused.
 
-### Story 4: Frontend Auth Client Refactor (Neutral Token Phase) — IN PROGRESS (2025-09-20)
+### Story 4: Frontend Auth Client Refactor (Neutral Token Phase) — ✅ DONE (2025-09-20)
 
-Progress:
+Summary:
 
-- Backend: httpOnly refresh cookie issuance behind `AUTH__REFRESH_COOKIE_ENABLED` added to `/api/auth/login`, `/api/auth/magic/consume`, `/api/auth/select-tenant` with rotation.
-- Tests: Added `RefreshCookieTests` validating Set-Cookie presence & rotation (green).
-- Frontend: Introduced `authClient.ts` (in-memory neutral access token), `withAuthFetch` wrapper attaches `Authorization` header, unit tests passing.
-- Integrated `primeNeutralAccess` into NextAuth credentials & magic flows when `access` object present in API response.
-- Added `withAuthFetch` integration test to ensure bearer header set.
+- Implemented frontend neutral access token handling (`authClient.ts`) storing access token only in memory and a `withAuthFetch` helper that attaches the Bearer token and includes credentials for refresh cookie propagation.
+- Backend now issues httpOnly refresh cookie `rt` (feature flagged `AUTH__REFRESH_COOKIE_ENABLED`) on login, magic consume, and tenant selection with rotation semantics validated by tests.
+- Added integration/unit tests: `RefreshCookieTests` (cookie issuance & rotation) and `withAuthFetch` behavior tests (authorization header set).
+- Integrated neutral access priming (`primeNeutralAccess`) into NextAuth auth flows when access token present in API responses.
+- Documentation (SnapshotArchitecture, LivingChecklist, storyLog) updated in prior commits to reflect refresh cookie & in-memory strategy.
 
-Remaining:
+Deferred to Story 6 / Later:
 
-- Replace placeholder refresh proxy route with real `/api/auth/refresh` endpoint (future Story 6) and update client refresh logic accordingly.
-- Remove / phase out reliance on `x-dev-user` / `x-tenant` headers except gated dev fallback (post Story 5 once full JWT validation integrated on API side for web requests).
-- Update `SnapshotArchitecture.md` and `LivingChecklist` after Story 4 completion.
-- Document cookie strategy + SSR considerations (potential future access token cookie) in architecture notes.
+- Real `/api/auth/refresh` endpoint and client silent refresh loop.
+- Removal of refresh token from JSON payload once refresh endpoint is active (grace period approach).
+- Phase-out of dev headers usage in web codepaths (tracking under Dev Headers Decommission Story 8 after refresh path stabilized).
+- Extended SSR access token cookie decision and CSRF double-submit vs SameSite strategy (documented in Optional Followups).
 
-Risks / Notes:
+Notes:
 
-- Current placeholder refresh-neutral route calls login with empty body (will fail in production) – safe stub not wired by UI yet; must be replaced before enabling cookie-only refresh in production.
-- Need dedicated refresh endpoint prior to removing refresh token from JSON responses.
+- Placeholder internal refresh-neutral route remains intentionally inert; safe to keep until Story 6 introduces the proper refresh flow.
 
 ### Story 5: Access Token Validation Middleware & Principal Construction
 
