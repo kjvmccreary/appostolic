@@ -261,14 +261,82 @@ Status:
 
 - Planning phase committed; implementation steps queued (Makefile target `api-https-test`, fixture, test class).
 
-### Story 6: Refresh Flow & Rotation
+### Story 6: General Refresh Endpoint & Silent Rotation — IN PROGRESS (2025-09-20)
 
-Acceptance:
+Goal:
 
-- POST /api/auth/refresh { refreshToken } returns new access + refresh tokens; prior refresh revoked.
-- Attempting to reuse old refresh returns 401.
-- Expired refresh returns 401.
-- Tests: rotation, reuse attempt, expiry simulation.
+Establish a first-class `/api/auth/refresh` endpoint that (a) rotates the refresh token chain, (b) issues a fresh neutral access token (and optionally tenant-scoped token upon explicit param), and (c) transitions clients off JSON-provided refresh tokens toward cookie-only delivery.
+
+Acceptance (MVP):
+
+- Endpoint: `POST /api/auth/refresh` supports two input surfaces:
+  1. Preferred: httpOnly cookie `rt=<refreshToken>` (required in production once rollout completes).
+  2. Transitional: JSON `{ "refreshToken": "<token>" }` body (grace window; emits deprecation header `Deprecation: true` and `Sunset: <RFC1123 date>` after cutover flag).
+- Successful call returns JSON:
+  `{ user, memberships, access, refresh, tenantToken? }` (same shape as login/select-tenant) where:
+  - `access` = new neutral access token reflecting current `TokenVersion`.
+  - `refresh` = new refresh token (plaintext only during grace; after deprecation window, exclude `refresh.token` when cookie path active).
+  - `tenantToken` (optional) returned only if client specifies `?tenant=<slug|id>` and the membership is valid; triggers rotation just like neutral flow.
+- Old refresh token becomes invalid immediately (revoked_at timestamp set) prior to issuing the new one — single active chain guarantee.
+- Reuse of old refresh returns 401 with problem+json `{ code: "refresh_reuse" }` (idempotent detection, logs security warning).
+- Expired refresh (expires_at < now) returns 401 `{ code: "refresh_expired" }`.
+- Revoked refresh returns 401 `{ code: "refresh_revoked" }` (distinct from reuse if previously flagged).
+- TokenVersion bump (e.g., password change) before refresh ensures newly issued access token carries updated version claim.
+- Secure cookie rotation: response sets new `Set-Cookie: rt=...; HttpOnly; SameSite=Lax; Path=/; Secure(if https)` replacing prior value.
+- All 401 responses omit Set-Cookie for `rt`.
+- Logging: structured log (Information) for success `auth.refresh.rotate` with user_id & refresh_token_id (internal id only, never plaintext); Warning for reuse attempt `auth.refresh.reuse_detected`.
+- Tests (integration):
+  - Success path (cookie) issues new access & refresh; old fails.
+  - Success path (JSON body) allowed during grace; includes Deprecation header when flag set.
+  - Reuse attempt yields 401 reuse code.
+  - Expired token 401 expired code (simulate via seeded expired row or clock override).
+  - Revoked token 401 revoked code.
+  - Tenant param returns tenantToken with `tenant_id` claim; unauthorized tenant returns 403.
+  - Missing token (no cookie & no body) returns 400 `{ code: "missing_refresh" }`.
+
+Security / Hardening Considerations:
+
+- CSRF: For initial Lax cookie strategy, refresh endpoint requires a refresh token (not guessable) + is same-site; still evaluate future double-submit token if moving to `SameSite=None` (deferred to Security Hardening bucket / Story 8 linkage).
+- Abuse Mitigation: Add lightweight rate limiting (graceful 429) if refresh storms observed (optional in this story; placeholder in Observability Story 9).
+- Replay: Reuse detection (already implemented via revoked_at check + reason) returns distinct error code; consider exponential backoff logging if repeated from same IP.
+
+Rollout Flags:
+
+- `AUTH__REFRESH_COOKIE_ENABLED` (existing) must be ON for cookie path.
+- New: `AUTH__REFRESH_JSON_GRACE_ENABLED` controls inclusion & acceptance of `refresh.token` in JSON responses and request body. Default true; set false to enforce cookie-only.
+- New: `AUTH__REFRESH_DEPRECATION_DATE` (RFC1123) used to populate `Sunset` header when grace active; absence omits header.
+
+Deprecation Plan:
+
+1. Phase 1 (current): Accept body + cookie; return `refresh.token` always.
+2. Phase 2 (set deprecation date): Accept both; add `Deprecation` + `Sunset` headers to body-based responses & still include `refresh.token`.
+3. Phase 3 (grace disabled): Reject body token with 400; omit `refresh.token` from response when cookie enabled.
+
+Implementation Outline:
+
+1. Data: Ensure refresh tokens already carry `RevokedAt`, `ExpiresAt` (present). No schema change expected.
+2. Endpoint logic:
+   - Extract token string from cookie or body; prefer cookie when both provided.
+   - Lookup hashed token (Base64 SHA256) row.
+   - Validate (not revoked, not expired) else return 401 code.
+   - Begin transaction: revoke old (set revoked_at=now, reason='rotated'), insert new row, commit.
+   - Issue new access (neutral or tenant) with current TokenVersion.
+   - If grace disabled & cookie path used: omit plaintext refresh token from JSON; else include.
+3. Cookie issuance: reuse existing `IssueRefreshCookie` helper with new token value.
+4. Logging & metrics stubs (counters deferred to Story 9) but insert structured log events.
+5. Tests covering above matrix.
+
+Frontend Follow-up (not in this story’s backend scope):
+
+- Add silent refresh loop invoking `/api/auth/refresh` shortly before access expiry using `withAuthFetch` + backoff; handle 401 reuse/expired by forcing re-login.
+- Remove reliance on placeholder `/api/_auth/refresh-neutral` route.
+
+Definition of Done:
+
+- Endpoint passes all specified integration tests.
+- Sprint plan updated (this section) & SnapshotArchitecture What's New includes entry.
+- storyLog appended with start (and completion later) summary.
+- LivingChecklist: add line "JWT Story 6: General refresh endpoint…" (unchecked initially, checked on completion).
 
 ### Story 7: Logout & Global Revocation
 

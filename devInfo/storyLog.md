@@ -45,6 +45,14 @@
     - Optional short TTL in-memory cache for TokenVersion left for performance tuning phase.
 
   2025-09-20 — Auth/JWT: Story 5b HTTPS E2E Secure Cookie Validation — ✅ DONE
+  2025-09-20 — Auth/JWT: Story 6 Refresh Endpoint kickoff — 🚧 IN PROGRESS
+  - Summary
+    - Implemented initial `/api/auth/refresh` endpoint: cookie-first retrieval of `rt` refresh token with fallback body token during grace period; rotates (revokes old + issues new) neutral refresh token and returns new neutral access token plus optional tenant token when `?tenant=` provided. Structured JSON error responses for invalid (`refresh_invalid`), reuse (`refresh_reuse`), and expired (`refresh_expired`) tokens. Integration tests cover: success rotation, reuse unauthorized, missing token (400), expired, revoked reuse, tenant token issuance, body-based refresh under grace.
+  - Follow-ups
+    - Implement deprecation headers (Deprecation/Sunset) once `AUTH__REFRESH_DEPRECATION_DATE` configured.
+    - Frontend silent refresh loop & removal of placeholder `_auth/refresh-neutral` route.
+    - Disable JSON body/grace flag and remove plaintext refresh.token from response after adoption.
+    - CSRF strategy review if SameSite=None considered later (Story 8 / Security Hardening bucket).
   - Summary
     - Implemented real HTTPS end-to-end harness exercising auth flow to validate refresh cookie (`rt`) attributes under true TLS: Secure, HttpOnly, SameSite=Lax, Path=/, future Expires, and rotation on subsequent auth action. Replaced reliance on simulated HTTPS headers for Secure assertion. Documented harness and added completion entry; sprint plan & checklist updated.
   - Files changed

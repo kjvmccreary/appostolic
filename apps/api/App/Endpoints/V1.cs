@@ -542,6 +542,143 @@ public static class V1
         }).AllowAnonymous();
 
         var api = apiRoot.RequireAuthorization();
+        // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
+        // POST /api/auth/refresh
+        // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
+        // Returns: { user, memberships, access, refresh, tenantToken? }
+        // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
+        apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc) =>
+        {
+            var now = DateTime.UtcNow;
+            var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
+            var deprecationDate = config["AUTH__REFRESH_DEPRECATION_DATE"]; // RFC1123 date string optional
+            string? bodyToken = null;
+            // Attempt to read small JSON body if content-type indicates JSON and grace is enabled
+            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                try
+                {
+                    using var doc = await System.Text.Json.JsonDocument.ParseAsync(http.Request.Body);
+                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        bodyToken = rtProp.GetString();
+                    }
+                }
+                catch { /* swallow parse errors; treat as missing */ }
+            }
+            var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
+            var suppliedToken = cookieToken ?? bodyToken;
+            if (string.IsNullOrWhiteSpace(suppliedToken))
+            {
+                return Results.BadRequest(new { code = "missing_refresh" });
+            }
+
+            // Reject body token usage if grace disabled and no cookie present
+            if (!graceEnabled && cookieToken is null)
+            {
+                return Results.BadRequest(new { code = "refresh_body_disallowed" });
+            }
+
+            // Hash same way as RefreshTokenService (Base64(SHA256))
+            static string HashRefresh(string t)
+            {
+                using var sha = SHA256.Create();
+                var bytes = Encoding.UTF8.GetBytes(t);
+                return Convert.ToBase64String(sha.ComputeHash(bytes));
+            }
+            var hash = HashRefresh(suppliedToken.Trim());
+            var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
+            if (rt is null)
+            {
+                return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+            if (rt.RevokedAt.HasValue)
+            {
+                // Reuse (token was previously rotated or explicitly revoked)
+                return Results.Json(new { code = "refresh_reuse" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+            if (rt.ExpiresAt <= now)
+            {
+                return Results.Json(new { code = "refresh_expired" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == rt.UserId);
+            if (user is null)
+            {
+                return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            // Load memberships (slug + roles) for response parity & optional tenant param
+            var memberships = await db.Memberships.AsNoTracking()
+                .Where(m => m.UserId == user.Id)
+                .Join(db.Tenants.AsNoTracking(), m => m.TenantId, t => t.Id, (m, t) => new
+                {
+                    tenantId = m.TenantId,
+                    tenantSlug = t.Name,
+                    roles = (int)m.Roles
+                })
+                .ToListAsync();
+
+            object? tenantToken = null;
+            string? tenantParam = http.Request.Query["tenant"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(tenantParam))
+            {
+                var match = memberships.FirstOrDefault(m => string.Equals(m.tenantSlug, tenantParam, StringComparison.OrdinalIgnoreCase) || m.tenantId.ToString() == tenantParam);
+                if (match is null)
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+                var accessExpiresPreview = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var mm) ? mm : 15);
+                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), match.tenantId, match.tenantSlug, match.roles, user.TokenVersion, user.Email);
+                tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpiresPreview, type = "tenant", tenantId = match.tenantId, tenantSlug = match.tenantSlug } };
+            }
+
+            // Rotate refresh (revocation + new issuance) inside a transaction boundary
+            using var tx = await db.Database.BeginTransactionAsync();
+            await refreshSvc.RevokeAsync(rt.Id); // sets revoked_at & reason="rotated"
+            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            var (newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            await tx.CommitAsync();
+
+            var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+            // Existing service issues neutral access tokens via IssueAccessToken (used in login). Reuse neutral path (no tenant claims).
+            var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
+
+            // Cookie issuance if enabled
+            var refreshCookieEnabled = config.GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
+                string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
+            if (refreshCookieEnabled)
+            {
+                IssueRefreshCookie(http, newRefresh, newRefreshExpires);
+            }
+
+            // Deprecation headers if body token used and grace still enabled & date provided
+            if (graceEnabled && bodyToken is not null && !string.IsNullOrWhiteSpace(deprecationDate))
+            {
+                http.Response.Headers["Deprecation"] = "true";
+                http.Response.Headers["Sunset"] = deprecationDate!;
+            }
+
+            var includePlaintextRefresh = graceEnabled || !refreshCookieEnabled; // after grace & when cookie on, omit token
+            object refreshObj = includePlaintextRefresh
+                ? new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" }
+                : new { expiresAt = newRefreshExpires, type = "neutral" };
+            var response = new
+            {
+                user = new { user.Id, user.Email },
+                memberships,
+                access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" },
+                refresh = refreshObj,
+                tenantToken
+            };
+
+            // Basic structured log (counters deferred to Story 9)
+            var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Refresh");
+            logger.LogInformation("auth.refresh.rotate user={UserId} refreshId={RefreshId}", user.Id, rt.Id);
+
+            return Results.Ok(response);
+        }).AllowAnonymous();
         // Change password (authenticated)
         api.MapPost("/auth/change-password", async (ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ChangePasswordDto dto) =>
         {
