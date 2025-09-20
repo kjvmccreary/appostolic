@@ -312,6 +312,18 @@
   - Decide CSRF mitigation pattern (double-submit vs header secret) during Story 4.
   - Determine whether to pursue nginx Story 9a or document ingress parity checklist if deferring.
 
+2025-09-20 — Auth/JWT: Sprint plan test ergonomics (Story 2a) added — ✅ DONE
+
+- Summary
+  - Updated JWT sprint plan to mitigate historical two-stage login test friction by: enhancing Story 2 acceptance (single-membership auto tenant token + optional `tenant=` query) and adding new Story 2a introducing an internal test-only token mint helper (`ITestTokenFactory` / endpoint) plus a `TestAuthClient` utility. Plan now specifies production gating to ensure helper is not exposed outside Test/Development environments and outlines required regression tests for absence in Production.
+- Files changed
+  - devInfo/jwtRefactor/jwtSprintPlan.md — modified Story 2 acceptance; inserted Story 2a section with acceptance, deliverables, notes.
+- Rationale
+  - Reduces boilerplate and flakiness in integration tests that previously required sequential login + select-tenant calls for every authenticated scenario, improving test velocity and clarity.
+- Follow-ups
+  - Implement Story 2a after baseline Stories 1–2 to keep helper semantics aligned with final token shapes.
+  - Decide on final gating strategy (`#if DEBUG` vs env flag) before merging to maintain clean production binary.
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE

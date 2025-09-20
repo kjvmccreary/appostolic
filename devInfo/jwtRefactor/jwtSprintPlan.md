@@ -86,13 +86,36 @@ Acceptance:
 
 - /api/auth/login (password) and /api/auth/magic/consume now return a neutral JWT (no tenant_id) and refresh token (neutral) plus memberships array.
 - Legacy JSON response preserved behind `includeLegacy=true` query param for 1 sprint (optional). Default returns tokens.
-- Tests: login success returns valid JWT (decode + claims), invalid password 401, magic token consume issues tokens.
+- If user has exactly one membership, response ALSO includes an auto-issued tenant-scoped access token object (and optionally its refresh token if we keep rotation consistent) to skip an immediate select-tenant round-trip (`tenantToken` property). Multi-tenant users do NOT receive a tenant token unless explicitly requested.
+- Optional query parameter `tenant=` (slug or id) may be supplied; if provided and user is a member, the response includes `tenantToken` even for multi-tenant user. If ambiguous (`tenant=auto` with >1 memberships) return 409 with problem details.
+- Tests: login success (neutral only), single-membership auto-tenant token presence, multi-membership + tenant param yields tenant token, invalid password 401, magic consume issues neutral token.
   Deliverables:
 - Modify endpoints in `V1.cs`.
 - Add password login if not present or adjust existing.
 - Refresh token creation & persistence.
 
 ### Story 3: Tenant Selection → Tenant-Scoped Token Pair
+
+### Story 2a: Test Ergonomics & Helper Shortcuts (NEW)
+
+Acceptance:
+
+- Introduce internal (Test/Development only) token mint endpoint OR assembly-internal `ITestTokenFactory` service exposed to test project that can directly create a tenant-scoped access+refresh pair given (userId, tenantId) bypassing login + selection. Guarded by compile symbol or `AUTH__TEST_HELPERS_ENABLED` env only in non-production.
+- Provide a test helper class (`TestAuthClient`) in `apps/api.tests` wrapping: `GetTenantAccessTokenAsync(email, tenantSlug)` → auto user lookup/creation (if seeding supports) + direct token mint.
+- Ensure helper NOT registered when `ASPNETCORE_ENVIRONMENT=Production` (integration test asserting 404 on helper endpoint or DI resolution failure).
+- Update Story 2 tests to use helper for non-auth-flow scenarios (reduce boilerplate) while preserving dedicated tests for login/select flows.
+- Documentation (plan + future upgrade doc section) includes “Writing Authenticated Tests” guidance referencing helper and discouraging raw multi-step flow except when explicitly testing it.
+
+Deliverables:
+
+- Internal service/endpoint source file with `#if DEBUG || TESTING` (or environment gate) guards + comments.
+- `TestAuthClient` utility in test project.
+- New tests: (1) helper issues valid tenant token; (2) helper unavailable in production environment simulation.
+
+Notes:
+
+- Does not replace select-tenant endpoint; ensures production semantics untouched.
+- Minimizes friction that motivated earlier test complexity.
 
 Acceptance:
 
