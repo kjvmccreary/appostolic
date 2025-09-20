@@ -1427,6 +1427,68 @@ public static class V1
                 return Results.Text(wrapped, "application/json", Encoding.UTF8);
             }
         }).WithName("GetDenominationPresets").WithSummary("List denomination presets").WithDescription("Returns an array of denomination preset definitions (id, name, notes)");
+        // ---------------------------------------------------------------------
+        // TEST HELPERS (Story 2a)
+        // ---------------------------------------------------------------------
+        var config = app.ServiceProvider.GetRequiredService<IConfiguration>();
+        var env = app.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var testHelpersEnabled = !env.IsProduction() && (config["AUTH__TEST_HELPERS_ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (testHelpersEnabled)
+        {
+            apiRoot.MapPost("/test/mint-tenant-token", async (AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MintTenantTokenRequest dto) =>
+            {
+                if (dto is null || string.IsNullOrWhiteSpace(dto.Email)) return Results.BadRequest(new { error = "email is required" });
+                var email = dto.Email.Trim();
+                var now = DateTime.UtcNow;
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+                if (user is null)
+                {
+                    user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = now };
+                    db.Users.Add(user);
+                    await db.SaveChangesAsync();
+                }
+                var memberships = await db.Memberships.AsNoTracking().Where(m => m.UserId == user.Id).ToListAsync();
+                if (memberships.Count == 0)
+                {
+                    // Create personal tenant + membership
+                    var local = email.Split('@')[0].ToLowerInvariant();
+                    var baseSlug = $"{local}-personal"; var slug = baseSlug; var attempt = 1;
+                    while (await db.Tenants.AsNoTracking().AnyAsync(x => x.Name == slug)) { attempt++; slug = $"{baseSlug}-{attempt}"; }
+                    var tenant = new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = now };
+                    db.Tenants.Add(tenant); await db.SaveChangesAsync();
+                    var membership = new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = user.Id, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = now };
+                    db.Memberships.Add(membership); await db.SaveChangesAsync();
+                    memberships = new List<Membership> { membership };
+                }
+                var tenantIds = memberships.Select(m => m.TenantId).Distinct().ToList();
+                var tenantLookup = await db.Tenants.AsNoTracking().Where(t => tenantIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Name);
+                var proj = memberships.Select(m => new { tenantId = m.TenantId, tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var n) ? n : string.Empty, roles = (int)m.Roles }).ToList();
+                var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+                var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+                var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+                var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+                object? tenantToken = null; Guid? selectedTenant = null; int rolesBitmask = 0; string tenantSlugSel = string.Empty;
+                if (proj.Count == 1 && (dto.AutoTenant == true || string.IsNullOrWhiteSpace(dto.Tenant)))
+                {
+                    selectedTenant = proj[0].tenantId; tenantSlugSel = proj[0].tenantSlug; rolesBitmask = proj[0].roles;
+                }
+                else if (!string.IsNullOrWhiteSpace(dto.Tenant))
+                {
+                    var match = proj.FirstOrDefault(p => string.Equals(p.tenantSlug, dto.Tenant, StringComparison.OrdinalIgnoreCase) || p.tenantId.ToString() == dto.Tenant);
+                    if (match != null) { selectedTenant = match.tenantId; tenantSlugSel = match.tenantSlug; rolesBitmask = match.roles; }
+                }
+                else if (dto.AutoTenant == true && proj.Count > 1)
+                {
+                    return Results.StatusCode(StatusCodes.Status409Conflict);
+                }
+                if (selectedTenant.HasValue)
+                {
+                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.Email);
+                    tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel } };
+                }
+                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" }, tenantToken });
+            }).WithTags("TestHelpers").WithDescription("Non-production test-only token mint helper").AllowAnonymous();
+        }
 
         return app;
     }
@@ -1463,6 +1525,7 @@ public static class V1
     public record UpdateMemberStatusDto(bool Active);
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
+    internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant);
 
     // Helper: parse roles flag names into bitfield; invalid names result in BadRequest at call sites
     private static bool TryParseRoleNames(string[]? names, out Roles flags, out string? invalidName)

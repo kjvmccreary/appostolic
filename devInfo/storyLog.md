@@ -343,6 +343,24 @@
     - Add negative tests for expired/consumed magic token and refresh token misuse (post Story 3 once rotation semantics land).
     - Documentation: Update `SnapshotArchitecture.md` (JWT section) & `LivingChecklist.md` for refresh_tokens table presence.
 
+  2025-09-20 — Auth/JWT: Story 2a Test Token Factory Helper — ✅ DONE
+  - Summary
+    - Implemented gated internal test helper endpoint `POST /api/test/mint-tenant-token` (maps only when `AUTH__TEST_HELPERS_ENABLED=true` and environment != Production) to mint neutral + refresh (and optional tenant) tokens for an arbitrary email, auto-provisioning a personal tenant/membership when absent. Added `TestAuthClient` utility and `TestTokenFactoryTests` covering: (1) single-membership auto tenant token issuance; (2) multi-membership explicit selection with partial slug mismatch (no tenant token); (3) helper absence (404) when flag disabled via derived factory configuration override.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — added gated mapping + `MintTenantTokenRequest` record.
+    - apps/api.tests/Auth/TestAuthClient.cs — new helper encapsulating mint logic.
+    - apps/api.tests/Auth/TestTokenFactoryTests.cs — new tests validating helper behavior & gating.
+    - apps/api.tests/WebAppFactory.cs — inject in-memory configuration enabling helper (`AUTH__TEST_HELPERS_ENABLED=true`).
+    - devInfo/jwtRefactor/jwtSprintPlan.md — mark Story 2a DONE; update Next Action to begin Story 3.
+    - SnapshotArchitecture.md — appended Story 2a description under What’s New (Auth/JWT section).
+  - Quality gates
+    - Targeted test run (TestTokenFactoryTests) PASS (3/3). Endpoint absent returns 404 when disabled factory used. No regressions to prior Story 2 tests (spot run limited to new tests; full suite run pending before merge batch commit).
+  - Rationale
+    - Reduces integration test friction by eliminating mandatory login + optional tenant selection round trips for tests not exercising auth flow semantics, improving speed and determinism. Maintains production safety through explicit config/environment gate.
+  - Follow-ups
+    - Gradually refactor existing authenticated integration tests to leverage `TestAuthClient` where appropriate.
+    - Proceed with Story 3 (tenant selection endpoint) and Story 6 (refresh rotation) prior to implementing cookie/httpOnly delivery (Stories 4 & 5a).
+
 2025-09-20 — Auth/JWT: Sprint plan augmented with secure cookies & nginx optional layer — ✅ DONE
 
 - Summary

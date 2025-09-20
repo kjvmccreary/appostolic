@@ -107,7 +107,7 @@ Implementation Notes (Completed):
 
 ### Story 3: Tenant Selection → Tenant-Scoped Token Pair
 
-### Story 2a: Test Ergonomics & Helper Shortcuts (NEW)
+### Story 2a: Test Ergonomics & Helper Shortcuts (NEW) — ✅ DONE (2025-09-20)
 
 Acceptance:
 
@@ -280,4 +280,4 @@ Total (w/out 9a) ~32–34 points; with 9a ~34–36 (still feasible with capacity
 
 ## Next Action
 
-Begin Story 2a (Test Ergonomics Helper) to streamline authenticated integration tests, then proceed to Story 3 (tenant selection endpoint for explicit reissue) and Story 6 (refresh rotation) — keeping cookie/httpOnly implementation targeted for Stories 4 & 5a after core issuance & selection flows are stable.
+Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh pair with membership validation and refresh rotation prep), then plan Story 6 (refresh rotation implementation) before moving into Stories 4 & 5a for frontend refactor + secure cookie handling.

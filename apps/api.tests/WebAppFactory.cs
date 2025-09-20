@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Appostolic.Api.App.Notifications;
 using Appostolic.Api.App.Options;
@@ -17,6 +18,19 @@ public class WebAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+
+        // Inject test helper configuration flags BEFORE services run so endpoint mapping sees them
+        builder.ConfigureAppConfiguration((ctx, cfg) =>
+        {
+            var dict = new Dictionary<string, string?>
+            {
+                // Enable JWT test helper endpoints (Story 2a)
+                ["AUTH__TEST_HELPERS_ENABLED"] = "true",
+                // Ensure JWT itself is enabled for tests (defensive)
+                ["AUTH__JWT__ENABLED"] = "true"
+            };
+            cfg.AddInMemoryCollection(dict!);
+        });
 
         builder.ConfigureServices(services =>
         {
