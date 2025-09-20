@@ -438,6 +438,8 @@ app.MapDevAgentsEndpoints(app.Services.GetRequiredService<IHostEnvironment>());
 app.MapDevAgentsDemoEndpoints();
 app.MapDevNotificationsEndpoints();
 app.MapNotificationsWebhookEndpoints();
+// Development-only auth helper endpoints for Swagger (login -> token -> tenant selection)
+app.MapDevAuthEndpoints();
 app.MapNotificationsAdminEndpoints();
 app.MapAgentTasksEndpoints();
 app.MapAgentTasksExportEndpoints();

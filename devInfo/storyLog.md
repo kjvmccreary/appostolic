@@ -1225,3 +1225,17 @@
   - Finalize operational readiness for flags-only model with explicit, rehearsable rollback path, ensuring low MTTR if unexpected downstream dependency on legacy column surfaces.
 - Follow-ups
   - Create and push tag `roles-removal-complete` (separate git step) then proceed to Story 11 (frontend deprecation toggle) after verifying zero fallback usage in staging.
+
+  2025-09-20 — Dev Swagger Auth Helper Endpoints — ✅ DONE
+  - Summary
+    - Added development-only endpoints to streamline manual authentication flow in Swagger: `POST /dev/auth/login` issues an opaque dev token for a user (by email) along with their memberships; `POST /dev/auth/select-tenant` exchanges that token plus a tenant slug for a tenant-scoped dev token embedding tenant context. This removes the need to manually craft `x-dev-user` and `x-tenant` headers during exploratory API usage.
+  - Files changed
+    - apps/api/App/Endpoints/DevAuthEndpoints.cs — new endpoints and in-memory dev token store.
+    - apps/api/Program.cs — map `app.MapDevAuthEndpoints()` after core mappings.
+  - Quality gates
+    - Build succeeds; existing API test suite unchanged (dev-only code path mapped only in Development environment).
+  - Rationale
+    - Improves DX when using Swagger by approximating a bearer-token style flow without introducing full JWT issuance. Keeps production surface area unchanged (endpoints not mapped outside Development).
+  - Follow-ups
+    - Optionally add automated tests for the dev endpoints (low priority since dev-only).
+    - Consider future replacement with real JWT issuance for parity with non-dev scenarios.
