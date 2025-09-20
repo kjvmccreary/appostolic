@@ -311,10 +311,10 @@ This document describes the structure, runtime, and conventions of the Appostoli
 
 - IAM — Sprint 1.1: Membership Roles flags (Completed)
   - Added hardcoded tenant-scoped Roles as a [Flags] enum: TenantAdmin, Approver, Creator, Learner (None=0).
-  - Extended `Membership` with an `roles` column (int) to store role flags per user per tenant.
+  - Extended `Membership` with a `roles` column (int) to store role flags per user per tenant.
   - EF Core migration: `20250915130937_s4_01_membership_roles_flags` adds `roles integer not null default 0` to `app.memberships`.
-  - Existing `MembershipRole` enum (Owner/Admin/Editor/Viewer) remains for legacy compatibility; new authorization will use `Roles` going forward.
-  - 2025-09-19 Update: Major API test suites (authorization, members list, members management) now run exclusively on `Roles` flags; legacy enum usage in tests being phased out ahead of enum removal.
+  - (Historical) Legacy `MembershipRole` enum (Owner/Admin/Editor/Viewer) existed for backward compatibility during transition; fully removed 2025-09-20 alongside deletion of obsolete convergence test.
+  - 2025-09-19 Update: Major API test suites (authorization, members list, members management) ran exclusively on `Roles` flags; legacy enum usage in tests phased out ahead of removal.
   - No behavior change yet; enforcement and APIs will land in subsequent stories.
 
 - Mig‑07: Transport privacy hardening — Redis subscriber no longer logs raw Pub/Sub payloads on warning/error paths; logs include channel and payload length only. Publisher and subscriber continue to send/accept GUID IDs only; no PII is present in transport payloads.

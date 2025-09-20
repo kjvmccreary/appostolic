@@ -1118,6 +1118,21 @@
 
 - Summary
   - Removed obsolete `LegacyRolesConvergedTests` (which compared legacy `MembershipRole` vs flags) and added `FlagsIntegrityTests` asserting no membership has a zero roles bitmask. This aligns tests with the flags-only model and avoids perpetuating legacy comparison logic ahead of enum removal.
+
+2025-09-20 — RefLeg Story 4 Phase 2: Legacy MembershipRole enum removal — ✅ DONE
+
+- Removed deprecated `MembershipRole` enum from `apps/api/Program.cs` and deleted remaining legacy convergence parity test (`LegacyRolesConvergedTests`). All authorization, membership management, invites, audits, and E2E flows now operate solely on `Roles` flags (TenantAdmin|Approver|Creator|Learner). Documentation updated (`SnapshotArchitecture.md`, `LivingChecklist.md`) to reflect flags-only model; historical references retained for context. No runtime code paths parse or map legacy roles; database migration `DropLegacyMembershipRole` already present to finalize schema cleanup.
+- Files changed
+  - Modified: apps/api/Program.cs (removed enum)
+  - Deleted: apps/api.tests/Api/LegacyRolesConvergedTests.cs
+  - Updated docs: SnapshotArchitecture.md, LivingChecklist.md, storyLog.md
+- Quality gates
+  - API test suite green pre- and post-removal (190/190). FlagsIntegrityTests ensures invariant (no Roles.None memberships) persists.
+- Rationale
+  - Eliminates dual-source ambiguity and future-proofs role expansion without schema churn. Reduces auth branching complexity and test maintenance overhead.
+- Follow-ups
+  - Apply and verify production DB migration to drop legacy column/type. Remove `roleInventory.txt` once schema drop confirmed.
+
 - Files changed
   - Deleted: apps/api.tests/Api/LegacyRolesConvergedTests.cs
   - Added: apps/api.tests/Api/FlagsIntegrityTests.cs

@@ -701,11 +701,6 @@ public record User
     public JsonDocument? Profile { get; init; }
 }
 
-// Legacy enum retained temporarily during migration window; will be removed once the database column is dropped
-// and all code paths rely exclusively on Roles flags. DO NOT use in new code.
-// Deprecated legacy single-role enum retained temporarily for test fixtures; removed post-migration (Story 4 Phase 2)
-[Obsolete("Legacy single role model deprecated; use Roles flags.")]
-public enum MembershipRole { Owner, Admin, Editor, Viewer }
 public enum MembershipStatus { Active, Invited, Suspended, Revoked }
 
 [Flags]
