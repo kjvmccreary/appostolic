@@ -41,6 +41,7 @@ How to use
 - [x] Magic Link (request/consume) with hashed tokens and email
 - [x] Invitations with Roles flags (TenantAdmin, Approver, Creator, Learner) and acceptance page
 - [x] Role policies enforced; uniform 403 ProblemDetails; last‑admin invariant (409) with audit trail
+- [x] JWT baseline infrastructure (access token issuance + validation smoke) — Story 1 complete (2025-09-20)
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -140,4 +141,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑20 (Backend Stories 7–9 complete + Web flags-only cleanup: legacy MembershipRole column removed, constraints enforced, invite legacy-only -> NO_FLAGS, frontend legacy stubs & fallback tests removed, roles.ts simplified to flags-only, ESLint guard added. Rollback script/tag pending. Prior: convergence removal, avatar pipeline simplification, denomination presets, profile/guardrails, change password, tenant settings/logo, Node 20 testing.)
+- Last updated: 2025‑09‑20 (JWT Story 1 baseline added; Backend Stories 7–9 earlier; Web flags-only cleanup: legacy MembershipRole column removed, constraints enforced, invite legacy-only -> NO_FLAGS, frontend legacy stubs & fallback tests removed, roles.ts simplified to flags-only, ESLint guard added. Rollback script/tag pending. Prior: convergence removal, avatar pipeline simplification, denomination presets, profile/guardrails, change password, tenant settings/logo, Node 20 testing.)

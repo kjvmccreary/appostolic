@@ -198,6 +198,27 @@
 
 - Quality gates
   - Web tests: PASS locally with Node 20 using `pnpm --filter @appostolic/web test`.
+    2025-09-20 — Auth/API: Story 1 JWT Baseline Infrastructure — ✅ DONE
+
+  - Summary
+    - Introduced baseline JWT authentication stack (Story 1) while retaining development header auth for convenience. Added `AuthJwtOptions`, `JwtTokenService` (HS256 signing), Swagger Bearer security scheme, a protected `/auth-smoke/ping` endpoint, and an integration test issuing a neutral token and exercising the endpoint. Token issuance presently supports neutral (non-tenant) identity; later stories will add tenant scoping, refresh rotation, revocation via token_version, and secure httpOnly cookie handling. Validation parameters are applied via a post-configure pattern avoiding premature ServiceProvider builds.
+  - Files changed
+    - apps/api/App/Infrastructure/Auth/Jwt/AuthJwtOptions.cs — new strongly typed JWT options (issuer, audience, signing key, TTLs, skew) with dev ephemeral key fallback.
+    - apps/api/App/Infrastructure/Auth/Jwt/JwtTokenService.cs — neutral token issuance + validation parameters factory.
+    - apps/api/Program.cs — wire AddAuthentication(JwtBearer), conditional dev headers, Swagger Bearer scheme, `/auth-smoke/ping` endpoint.
+    - apps/api/Appostolic.Api.csproj & Directory.Packages.props — add JWT package references (central versioning).
+    - apps/api.tests/Api/AuthJwtSmokeTests.cs — integration test for Bearer auth.
+  - Quality gates
+    - Build: PASS (net8.0).
+    - Tests: New `AuthJwtSmokeTests` PASS; existing suites unaffected.
+    - Security: Dev-only ephemeral signing key generation guarded by environment; production requires configured base64 key (throws if missing).
+  - Rationale
+    - Establishes minimal viable JWT path enabling subsequent stories (tenant claims, refresh flow, rotation/revocation, secure cookies) with a verifying test to prevent regressions.
+  - Follow-ups
+    - Story 2: Tenant selection & auto-tenant ergonomics (test token factory) building on this service.
+    - Story 3+: Refresh tokens & cookie strategy (secure, httpOnly) per sprint plan.
+    - Add observability (counters: issued/validated/failed) and revocation logic in later stories.
+
   - Typecheck/Lint: PASS for new/updated files.
 
 - Notes

@@ -67,7 +67,7 @@ Transition the platform from development-only header-based authentication (x-dev
 
 ## Sprint Stories (Detailed)
 
-### Story 1: Baseline JWT Infrastructure (Signing & Validation)
+### Story 1: Baseline JWT Infrastructure (Signing & Validation) — ✅ DONE
 
 Acceptance:
 

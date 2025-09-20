@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Appostolic.Api.Infrastructure.Auth.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Appostolic.Api.Infrastructure.Auth;
 using Appostolic.Api.Infrastructure.MultiTenancy;
@@ -27,6 +29,8 @@ using Appostolic.Api.Application.Storage;
 using Microsoft.Extensions.FileProviders;
 using Amazon.S3;
 using Amazon;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +102,31 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // Bearer JWT (Story 1)
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme. Example: 'Authorization: Bearer {token}'"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new List<string>()
+        }
+    });
+
     // Include XML comments generated from triple-slash docs (///) in Swagger descriptions
     try
     {
@@ -111,10 +140,55 @@ builder.Services.AddSwaggerGen(c =>
     catch { /* best-effort; ignore file resolution errors */ }
 });
 
-// AuthN/Z
-builder.Services
-    .AddAuthentication(DevHeaderAuthHandler.DevScheme)
-    .AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
+// AuthN/Z (Story 1 JWT introduction)
+builder.Services.AddOptions<AuthJwtOptions>()
+    .Bind(builder.Configuration.GetSection("Auth:Jwt"))
+    .PostConfigure(o =>
+    {
+        if (string.IsNullOrWhiteSpace(o.SigningKeyBase64))
+        {
+            if (builder.Environment.IsDevelopment())
+            {
+                var random = new byte[32];
+                System.Security.Cryptography.RandomNumberGenerator.Fill(random);
+                o.SigningKeyBase64 = Convert.ToBase64String(random);
+                Console.WriteLine("[AuthJwt] Generated ephemeral dev signing key.");
+            }
+            else
+            {
+                throw new InvalidOperationException("Auth:Jwt:SigningKey is required in non-development environments.");
+            }
+        }
+    });
+builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+
+var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+var allowDevHeaders = builder.Environment.IsDevelopment() || (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+
+var authBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+});
+if (jwtEnabled)
+{
+    authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, opts =>
+    {
+        opts.RequireHttpsMetadata = false; // Harden in Story 5a
+        opts.SaveToken = false;
+    });
+    // Resolve validation parameters lazily via IOptionsMonitor callback pattern
+    builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp =>
+        new PostConfigureOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+        {
+            var svc = sp.GetRequiredService<IJwtTokenService>();
+            o.TokenValidationParameters = svc.CreateValidationParameters();
+        }));
+}
+if (allowDevHeaders)
+{
+    authBuilder.AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
+}
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthorizationHandler, Appostolic.Api.Infrastructure.Auth.RoleAuthorizationHandler>();
@@ -430,6 +504,16 @@ app.Use(async (context, next) =>
 app.MapGet("/", () => Results.Ok(new { name = "appostolic-api", version = "0.0.0" }));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+
+// Auth smoke endpoint (Story 1) - requires authentication (JWT or dev headers)
+app.MapGet("/auth-smoke/ping", (ClaimsPrincipal user) =>
+{
+    var sub = user.FindFirst("sub")?.Value
+              ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+              ?? user.Identity?.Name
+              ?? "anonymous";
+    return Results.Ok(new { pong = true, sub });
+}).RequireAuthorization();
 
 // v1 API
 app.MapV1Endpoints();

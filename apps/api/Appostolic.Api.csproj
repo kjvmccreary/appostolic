@@ -15,6 +15,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  <!-- JWT Auth -->
+  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <!-- Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <!-- Templating -->
