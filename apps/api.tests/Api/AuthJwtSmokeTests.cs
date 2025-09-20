@@ -16,8 +16,10 @@ public class AuthJwtSmokeTests : IClassFixture<WebAppFactory>
         // Arrange
         using var scope = _factory.Services.CreateScope();
         var jwt = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Infrastructure.Auth.Jwt.IJwtTokenService>();
-        // Provide tokenVersion = 0 for test issued token
-        var token = jwt.IssueNeutralToken("test-user", 0, "test@example.com");
+        // Provide tokenVersion = 0 for test issued token. Subject must be a GUID because
+        // OnTokenValidated enforces Guid.TryParse(sub) for security consistency.
+        var subject = Guid.NewGuid().ToString();
+        var token = jwt.IssueNeutralToken(subject, 0, "test@example.com");
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -28,6 +30,6 @@ public class AuthJwtSmokeTests : IClassFixture<WebAppFactory>
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        Assert.Contains("test-user", body);
+        Assert.Contains(subject, body);
     }
 }

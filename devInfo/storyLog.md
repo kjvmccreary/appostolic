@@ -16,6 +16,18 @@
   - Follow-ups
     - Optional: full HTTPS TestServer instance for deterministic Secure assertion instead of header simulation; cookie helper consolidation after refresh endpoint lands.
 
+  2025-09-20 — Auth/JWT: Follow-up Consolidation (Story 5a extras) — ✅ DONE
+  - Summary
+    - Implemented post-Story 5a optional improvements: consolidated duplicated refresh cookie issuance logic into a single `IssueRefreshCookie` helper in `V1.cs` (login, magic consume, select-tenant). Added `trust-dev-certs` Makefile target to streamline local certificate trust (`dotnet dev-certs https --trust`). Upgraded `RefreshCookieHttpsTests` to create an HTTPS-based test client (base address `https://localhost`) for deterministic `Request.IsHttps` evaluation instead of relying on `X-Forwarded-Proto` simulation. This reduces drift, centralizes cookie semantics, and improves test reliability ahead of the general refresh endpoint (Story 6).
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — added `IssueRefreshCookie` helper; replaced three inline cookie blocks.
+    - Makefile — added `trust-dev-certs` target.
+    - apps/api.tests/Auth/RefreshCookieHttpsTests.cs — replaced simulated header approach with HTTPS client options; assertion now deterministic.
+  - Rationale
+    - DRYs cookie issuance, avoiding future attribute divergence during upcoming refresh/logout stories. Provides a clear local command for cert trust and strengthens test fidelity for Secure flag behavior.
+  - Follow-ups
+    - After adding `/api/auth/refresh` (Story 6) consider moving helper into a dedicated auth utilities class if additional cookie surfaces are introduced (e.g., future access token cookie).
+
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
 - Summary
@@ -107,7 +119,37 @@
   - Optional: Add DB CHECK constraint (`roles <> 0`) after confirming no legacy rows in all environments.
   - Consider backfilling any historical role-change derived rows (none observed beyond manually corrected set of three).
 
+2025-09-20 — Auth/JWT: Story 5b Real HTTPS Secure Refresh Cookie E2E Harness — ✅ DONE
+
+- Summary
+  - Implemented a dedicated transport-level E2E test harness to perform real HTTPS Secure cookie validation. Added new project `apps/api.e2e` containing `E2EHostFixture`, which spins up an in‑process minimal Kestrel host bound to a random localhost port with a runtime‑generated self‑signed ECDSA P‑256 certificate (SAN=localhost) via `Kestrel.ListenLocalhost(port).UseHttps(cert)`. This overcomes the limitation of `TestServer` (always reports `Request.IsHttps=false`, so Secure cookies cannot be asserted) and replaces a prior abandoned attempt to spawn the full API process plus InMemory EF (which was timing out during readiness probing). A lightweight endpoint `GET /e2e/issue-cookie` issues a refresh cookie `rt` (`HttpOnly; SameSite=Lax; Path=/; Secure=Request.IsHttps; Expires=+30d`). The test `SecureRefreshCookieTests` requests the endpoint and asserts (case-insensitive) presence of `secure`, `httponly`, `samesite=lax`, `path=/`, and a future Expires (>10 minutes). Headers are normalized to lowercase to tolerate server casing. Certificate validation is bypassed only for the test client via a custom `HttpClientHandler`. Harness logs its listen address (`[E2E] Listening https://localhost:{port}`) for troubleshooting.
+  - Pivot rationale: Full API process approach added brittle dependencies (DB, migration timing) for a narrow concern (TLS + Set-Cookie). The minimal host eliminates DB overhead and accelerates feedback while keeping production code untouched.
+  - Files changed
+    - Added: `apps/api.e2e/Appostolic.Api.E2E.csproj`, `E2EHostFixture.cs`, `SecureRefreshCookieTests.cs`, `README.md` (harness usage docs).
+    - Modified: `SnapshotArchitecture.md` (What’s New + Testing Layers section), `devInfo/LivingChecklist.md` (added Story 5b line & updated timestamp).
+  - Quality gates
+    - api.e2e project builds; test passes (1/1). No regressions expected—no production assemblies altered besides doc updates. Existing API & Web suites unaffected (pending full matrix run before merge).
+  - Rationale
+    - Provides deterministic, real TLS validation path ensuring the Secure attribute is genuinely set only under HTTPS transport, preventing false positives from simulated headers. Keeps integration suite lean while adding a focused layer for transport/security assertions.
+  - Follow-ups
+    - Extend harness to exercise real auth flows post refresh endpoint (Story 6) or potentially migrate cookie issuance helper behind conditional compilation. Consider integrating api.e2e into CI (separate job) to guard against regressions in cookie security semantics.
+
   - Add a guard test asserting no future insert results in `roles=0` (optional) and proceed with removal of legacy `role` field after staging verification.
+
+  2025-09-20 — Auth/JWT: Development Composite Auth Policy (BearerOrDev) & Regression Fix — ✅ DONE
+  - Summary
+    - Introduced a Development-only composite authentication policy scheme ("BearerOrDev") that inspects each request for `x-dev-user`; when present it authenticates via the existing Dev header handler, otherwise it defers to standard JWT Bearer. This eliminated the need to redundantly annotate endpoint groups with `AuthenticationSchemes="Dev,Bearer"` and resolved a broad set of 401 Unauthorized test failures where dev-header authenticated requests hit endpoints registered only with the default Bearer scheme. Also tightened JWT subject validation (already present) by updating the auth smoke test to issue a GUID subject instead of a non-GUID string which previously triggered `invalid_sub` failures. After applying the composite scheme and test fix, the full API test suite passed (211 passed, 1 skipped, 0 failed — down from 65 failures pre-fix). Notifications admin tests (initially failing 7/7 with 401) now pass under the unified scheme without per-endpoint overrides.
+  - Files changed
+    - apps/api/Program.cs — Added policy scheme registration (`AddPolicyScheme("BearerOrDev")`), selector logic, and Development-only default authenticate/challenge override; retained existing Dev & Bearer scheme registrations.
+    - apps/api.tests/Api/AuthJwtSmokeTests.cs — Updated to issue GUID subject and assert dynamic subject presence.
+    - SnapshotArchitecture.md — Added What's New entry documenting rationale and impact.
+  - Quality gates
+    - Focused runs: Auth smoke (green), legacy role deprecation tests (green), then full suite (green). No production (non-Development) behavior changed — production still uses Bearer only.
+  - Rationale
+    - Centralizes dev ergonomics for header-based auth used heavily in integration tests and local tooling while avoiding repetitive scheme lists (reducing risk of future omissions). Ensures JWT validation logic can enforce GUID subjects consistently without breaking dev-header scenarios.
+  - Follow-ups
+    - Optional: Remove now-redundant explicit `AuthenticationSchemes` annotations from notifications/dev endpoint groups.
+    - Consider adding a small diagnostic log when selector routes to Dev vs Bearer for future troubleshooting (behind a verbose flag).
 
 2025-09-19 — Auth/API: Auth endpoints include numeric roles bitmask — ✅ DONE
 
