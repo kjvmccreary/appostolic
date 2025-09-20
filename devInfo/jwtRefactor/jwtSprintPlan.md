@@ -80,7 +80,7 @@ Acceptance:
 - Program.cs wiring: `.AddAuthentication("JwtBearer")...` plus policy chain unaffected.
 - Update Swagger: Bearer security scheme added.
 
-### Story 2: User Neutral Login & Magic Consume Issue Neutral Token
+### Story 2: User Neutral Login & Magic Consume Issue Neutral Token — ✅ DONE (2025-09-20)
 
 Acceptance:
 
@@ -93,6 +93,17 @@ Acceptance:
 - Modify endpoints in `V1.cs`.
 - Add password login if not present or adjust existing.
 - Refresh token creation & persistence.
+
+Implementation Notes (Completed):
+
+- Added `RefreshToken` entity + `refresh_tokens` migration (`s6_01_auth_refresh_tokens`) storing SHA256 hash of opaque refresh token (no pepper yet; future rotation story will consider).
+- Implemented `RefreshTokenService.IssueNeutralAsync` and extended `JwtTokenService` with `IssueTenantToken`.
+- Updated `/api/auth/login` and `/api/auth/magic/consume` to return structured JSON `{ user, memberships, access, refresh, tenantToken? }` and legacy fallback via `?includeLegacy=true`.
+- Auto-tenant token issuance when exactly one membership; conflict (409) when `tenant=auto` with >1 memberships; explicit `tenant=<slug|id>` selection works.
+- Magic consume path provisions personal tenant + membership for new users before token issuance.
+- Tests added: `LoginJwtNeutralTests`, `LoginTenantSelectionTests`, `MagicConsumeJwtTests` (structured + legacy shape) — all green.
+- Documentation: `SnapshotArchitecture.md`, `LivingChecklist.md`, `storyLog.md` updated with Story 2 summary.
+- Next stories will introduce rotation/reuse detection and test helper (Story 2a) — no cookie/httpOnly changes yet (planned Story 4/5a).
 
 ### Story 3: Tenant Selection → Tenant-Scoped Token Pair
 
@@ -269,4 +280,4 @@ Total (w/out 9a) ~32–34 points; with 9a ~34–36 (still feasible with capacity
 
 ## Next Action
 
-Begin Story 1: add JwtBearer auth, token service skeleton, configuration keys (behind feature flag AUTH**JWT**ENABLED). Schedule Story 5a shortly after Story 5 to validate Secure cookie behavior before broad frontend reliance.
+Begin Story 2a (Test Ergonomics Helper) to streamline authenticated integration tests, then proceed to Story 3 (tenant selection endpoint for explicit reissue) and Story 6 (refresh rotation) — keeping cookie/httpOnly implementation targeted for Stories 4 & 5a after core issuance & selection flows are stable.
