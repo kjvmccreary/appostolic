@@ -20,46 +20,35 @@ public class WebAppFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            // Option 1: keep real Npgsql but isolate by transaction/cleanup (not implemented here).
-            // Option 2: swap DB to InMemory for fast/safe tests.
-            // Remove any existing AppDbContext registrations (options + context) so we can swap to InMemory
+            // Remove existing AppDbContext registrations so we can swap to InMemory
             var dbDescriptors = services
                 .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>) || d.ServiceType == typeof(AppDbContext))
                 .ToList();
-            foreach (var d in dbDescriptors)
-            {
-                services.Remove(d);
-            }
+            foreach (var d in dbDescriptors) services.Remove(d);
 
-            // Use a unique in-memory database per factory instance to avoid cross-test interference
+            // Use unique in-memory DB per factory instance
             services.AddDbContext<AppDbContext>(opts => opts.UseInMemoryDatabase(_dbName));
 
-            // Remove background AgentTaskWorker to avoid flakiness in tests
+            // Remove background AgentTaskWorker to avoid flakiness
             var hostedToRemove = services.Where(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType != null && d.ImplementationType.Name.Contains("AgentTaskWorker")).ToList();
-            foreach (var d in hostedToRemove)
-            {
-                services.Remove(d);
-            }
+            foreach (var d in hostedToRemove) services.Remove(d);
 
-            // Also remove notification hosted services to keep tests deterministic
+            // Remove notification hosted services for deterministic tests
             var notifHosted = services.Where(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType != null && (
                 d.ImplementationType.Name.Contains("EmailDispatcherHostedService") ||
                 d.ImplementationType.Name.Contains("NotificationDispatcherHostedService") ||
                 d.ImplementationType.Name.Contains("NotificationsPurgeHostedService")
             )).ToList();
-            foreach (var d in notifHosted)
-            {
-                services.Remove(d);
-            }
+            foreach (var d in notifHosted) services.Remove(d);
 
-            // Explicitly disable dispatcher hosted services registered via options-driven wrappers
+            // Disable dispatcher hosted services
             services.PostConfigure<NotificationsRuntimeOptions>(o =>
             {
                 o.RunDispatcher = false;
                 o.RunLegacyEmailDispatcher = false;
             });
 
-            // Ensure notification outbox/enqueuer use scoped lifetime (DbContext dependency)
+            // Ensure notification outbox/enqueuer use scoped lifetime
             var outboxDesc = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationOutbox));
             if (outboxDesc != null) services.Remove(outboxDesc);
             services.AddScoped<INotificationOutbox, EfNotificationOutbox>();
@@ -68,7 +57,7 @@ public class WebAppFactory : WebApplicationFactory<Program>
             if (enqDesc != null) services.Remove(enqDesc);
             services.AddScoped<INotificationEnqueuer, NotificationEnqueuer>();
 
-            // Seed dev user/tenant/membership expected by DevHeaderAuthHandler
+            // Seed dev user/tenant/membership expected by DevHeaderAuthHandler (flags-only model)
             using var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -82,8 +71,7 @@ public class WebAppFactory : WebApplicationFactory<Program>
                     Id = Guid.NewGuid(),
                     TenantId = tenant.Id,
                     UserId = user.Id,
-                    Role = MembershipRole.Owner,
-                    // Ensure full roles bitmask for owner in tests to mirror production seeding
+                    // Full composite flags for initial admin user
                     Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                     Status = MembershipStatus.Active,
                     CreatedAt = DateTime.UtcNow

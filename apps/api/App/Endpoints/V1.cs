@@ -154,8 +154,8 @@ public static class V1
                         Id = Guid.NewGuid(),
                         TenantId = tenant.Id,
                         UserId = user.Id,
-                        Role = MembershipRole.Owner,
-                        Roles = DeriveFlagsFromLegacy(MembershipRole.Owner),
+                        // Legacy Role property removed (Story 4 Phase 2). Default flags derived from historical Owner mapping.
+                        Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                         Status = MembershipStatus.Active,
                         CreatedAt = now
                     };
@@ -171,8 +171,7 @@ public static class V1
                         Id = Guid.NewGuid(),
                         TenantId = tenant.Id,
                         UserId = user.Id,
-                        Role = MembershipRole.Owner,
-                        Roles = DeriveFlagsFromLegacy(MembershipRole.Owner),
+                        Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                         Status = MembershipStatus.Active,
                         CreatedAt = now
                     };
@@ -193,8 +192,7 @@ public static class V1
                 {
                     tenantId = tn.Id,
                     tenantSlug = tn.Name,
-                    role = m.Role.ToString(),
-                    // NOTE: serialize roles flags as numeric bitmask for frontend; enum string form breaks web decoder
+                    // Legacy single role removed; clients should rely on roles flags exclusively
                     roles = (int)m.Roles
                 })
                 .ToListAsync();
@@ -228,7 +226,6 @@ public static class V1
 
             // Handle invite path vs. self-serve personal tenant
             Guid tenantId;
-            MembershipRole role;
             Roles flags;
             if (!string.IsNullOrWhiteSpace(dto.InviteToken))
             {
@@ -237,8 +234,7 @@ public static class V1
                 if (invite is null || invite.ExpiresAt < DateTime.UtcNow)
                     return Results.BadRequest(new { error = "invalid or expired invite" });
                 tenantId = invite.TenantId;
-                role = invite.Role;
-                flags = invite.Roles == Roles.None ? DeriveFlagsFromLegacy(role) : invite.Roles;
+                flags = invite.Roles;
                 // Mark as accepted; save within the same transaction later
                 invite.AcceptedAt = DateTime.UtcNow;
             }
@@ -266,8 +262,7 @@ public static class V1
                 await db.SaveChangesAsync();
 
                 tenantId = tenant.Id;
-                role = MembershipRole.Owner;
-                flags = DeriveFlagsFromLegacy(role);
+                flags = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
             }
 
             // Create membership under RLS by setting tenant context within a transaction
@@ -276,7 +271,6 @@ public static class V1
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = user.Id,
-                Role = role,
                 Roles = flags,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -338,25 +332,7 @@ public static class V1
             var disableLegacyCompat = Environment.GetEnvironmentVariable("DISABLE_LEGACY_ROLE_COMPAT")?.ToLower() == "true";
             if (!disableLegacyCompat)
             {
-                bool changed = false;
-                foreach (var mm in rawMemberships)
-                {
-                    var expected = DeriveFlagsFromLegacy(mm.Role);
-                    if (mm.Roles != expected && mm.Roles != Roles.None)
-                    {
-                        mm.Roles = expected;
-                        changed = true;
-                    }
-                    if (mm.Roles == Roles.None)
-                    {
-                        mm.Roles = expected;
-                        changed = true;
-                    }
-                }
-                if (changed)
-                {
-                    await db.SaveChangesAsync();
-                }
+                // Legacy convergence removed (Story 4 Phase 2): Role column dropped; flags are authoritative.
             }
 
             // Project with tenants after convergence.
@@ -368,7 +344,6 @@ public static class V1
             {
                 tenantId = m.TenantId,
                 tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var name) ? name : string.Empty,
-                role = m.Role.ToString(),
                 roles = (int)m.Roles
             }).ToList();
 
@@ -463,7 +438,7 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
             if (me is null) return Results.Forbid();
-            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var members = await db.Memberships.AsNoTracking()
                 .Where(m => m.TenantId == tenantId)
@@ -471,7 +446,7 @@ public static class V1
                 {
                     userId = u.Id,
                     email = u.Email,
-                    role = m.Role.ToString(),
+                    roles = (int)m.Roles,
                     joinedAt = m.CreatedAt
                 })
                 .OrderBy(x => x.email)
@@ -480,6 +455,12 @@ public static class V1
         }).RequireAuthorization("TenantAdmin");
 
         // POST /api/tenants/{tenantId}/invites (Admin/Owner only)
+        // Story 4 (refLeg-04): Legacy `role` field deprecated — callers MUST provide roles flags via either
+        //   - roles[] (string names of flags, e.g., ["TenantAdmin","Approver","Creator","Learner"]) OR
+        //   - rolesValue (int bitmask)
+        // Requests including a non-null legacy `role` will be rejected with error code LEGACY_ROLE_DEPRECATED to flush
+        // lingering clients before the legacy column is dropped. We still persist the legacy column value (Viewer) only
+        // as inert placeholder until removal; runtime NEVER derives flags from it now.
         api.MapPost("/tenants/{tenantId:guid}/invites", async (
             Guid tenantId,
             ClaimsPrincipal user,
@@ -496,26 +477,36 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
             if (me is null) return Results.Forbid();
-            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email))
                 return Results.BadRequest(new { error = "email is required" });
 
+            // Legacy single Role field fully removed (Story 4 Phase 2). Clients must send roles flags (names or bitmask).
+
             var email = dto.Email.Trim();
             var emailLower = email.ToLowerInvariant();
-            var role = MembershipRole.Viewer;
-            if (!string.IsNullOrWhiteSpace(dto.Role))
+
+            // Parse roles from either names array OR rolesValue bitmask
+            Roles rolesFlags = Roles.None;
+            if (dto.Roles is not null && dto.Roles.Length > 0)
             {
-                if (!Enum.TryParse<MembershipRole>(dto.Role, true, out role))
-                    return Results.BadRequest(new { error = "invalid role" });
+                if (!TryParseRoleNames(dto.Roles, out rolesFlags, out var invalidName))
+                    return Results.BadRequest(new { error = $"invalid role flag: {invalidName}" });
+            }
+            else if (dto.RolesValue is not null)
+            {
+                var candidate = (Roles)dto.RolesValue.Value;
+                // Basic validation: no unknown bits (only lower 4 currently) and non-zero
+                var unknown = candidate & ~(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner);
+                if (unknown != 0)
+                    return Results.BadRequest(new { error = "rolesValue contains unknown bits" });
+                rolesFlags = candidate;
             }
 
-            // IAM 2.2: Parse optional roles flags array; if omitted/null/empty, derive from legacy role for compatibility.
-            if (!TryParseRoleNames(dto.Roles, out var rolesFlags, out var invalidName))
-                return Results.BadRequest(new { error = $"invalid role flag: {invalidName}" });
             if (rolesFlags == Roles.None)
             {
-                rolesFlags = DeriveFlagsFromLegacy(role);
+                return Results.BadRequest(new { error = "at least one role flag required", code = "NO_FLAGS" });
             }
 
             // If user already exists and is a member, conflict
@@ -539,7 +530,6 @@ public static class V1
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     Email = email,
-                    Role = role,
                     Roles = rolesFlags,
                     Token = token,
                     ExpiresAt = expiresAt,
@@ -551,7 +541,6 @@ public static class V1
             else
             {
                 existingInvite.Email = email; // normalize casing
-                existingInvite.Role = role;
                 existingInvite.Roles = rolesFlags;
                 existingInvite.Token = token;
                 existingInvite.ExpiresAt = expiresAt;
@@ -574,7 +563,8 @@ public static class V1
                 msg.Subject = $"You're invited to join tenant {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
                 var signupUrl = $"http://localhost:3000/invite/accept?token={token}";
                 msg.IsBodyHtml = true;
-                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{role}</b>.</p><p>To proceed, open this link: <a href='{signupUrl}'>Accept invite</a>.</p><p>If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.</p><p>This invite expires at {expiresAt:u}.</p>";
+                var roleFlagsLabel = rolesFlags.ToString();
+                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> with roles <b>{roleFlagsLabel}</b>.</p><p>To proceed, open this link: <a href='{signupUrl}'>Accept invite</a>.</p><p>If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.</p><p>This invite expires at {expiresAt:u}.</p>";
                 await client.SendMailAsync(msg);
             }
             catch
@@ -582,7 +572,7 @@ public static class V1
                 // Best-effort in dev; ignore email failures
             }
 
-            return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, role = role.ToString(), roles = rolesFlags.ToString(), rolesValue = (int)rolesFlags, expiresAt });
+            return Results.Created($"/api/tenants/{tenantId}/invites/{email}", new { email, roles = rolesFlags.ToString(), rolesValue = (int)rolesFlags, expiresAt });
         }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/invites (Admin/Owner only)
@@ -597,7 +587,8 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
             if (me is null) return Results.Forbid();
-            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+            // Flags-only authorization (legacy Role removed): require caller to have TenantAdmin flag
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var invites = await db.Invitations.AsNoTracking()
                 .Where(i => i.TenantId == tenantId)
@@ -605,7 +596,6 @@ public static class V1
                 .Select(i => new
                 {
                     email = i.Email,
-                    role = i.Role.ToString(),
                     roles = i.Roles.ToString(),
                     rolesValue = (int)i.Roles,
                     expiresAt = i.ExpiresAt,
@@ -634,7 +624,7 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
             if (me is null) return Results.Forbid();
-            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var lower = email.Trim().ToLowerInvariant();
             var invite = await db.Invitations.FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email.ToLower() == lower);
@@ -656,15 +646,16 @@ public static class V1
                 using var msg = new MailMessage();
                 msg.From = new MailAddress(from);
                 msg.To.Add(new MailAddress(invite.Email));
-                msg.Subject = $"Your invite was re-sent for {user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}";
+                var tenantSlug = user.FindFirstValue("tenant_slug") ?? tenantId.ToString();
+                msg.Subject = $"Your invite was re-sent for {tenantSlug}";
                 var signupUrl = $"http://localhost:3000/invite/accept?token={invite.Token}";
                 msg.IsBodyHtml = true;
-                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{user.FindFirstValue("tenant_slug") ?? tenantId.ToString()}</b> as <b>{invite.Role}</b>.</p><p>To proceed, open this link: <a href='{signupUrl}'>Accept invite</a>.</p><p>If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.</p><p>This invite expires at {invite.ExpiresAt:u}.</p>";
+                msg.Body = $"<p>Hello,</p><p>You were invited to join <b>{tenantSlug}</b> with roles <b>{invite.Roles}</b>.</p><p>To proceed, open this link: <a href='{signupUrl}'>Accept invite</a>.</p><p>If you already have an account, you’ll be asked to sign in first. After signing in, your invite will be applied automatically.</p><p>This invite expires at {invite.ExpiresAt:u}.</p>";
                 await client.SendMailAsync(msg);
             }
             catch { }
 
-            return Results.Ok(new { email = invite.Email, role = invite.Role.ToString(), roles = invite.Roles.ToString(), rolesValue = (int)invite.Roles, expiresAt = invite.ExpiresAt });
+            return Results.Ok(new { email = invite.Email, roles = invite.Roles.ToString(), rolesValue = (int)invite.Roles, expiresAt = invite.ExpiresAt });
         }).RequireAuthorization("TenantAdmin");
 
         // DELETE /api/tenants/{tenantId}/invites/{email} (Admin/Owner only)
@@ -683,7 +674,7 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
             if (me is null) return Results.Forbid();
-            if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var lower = email.Trim().ToLowerInvariant();
             var invite = await db.Invitations.FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email.ToLower() == lower);
@@ -694,124 +685,16 @@ public static class V1
             return Results.NoContent();
         }).RequireAuthorization("TenantAdmin");
 
-        // PUT /api/tenants/{tenantId}/members/{userId} — change member role (Admin/Owner only)
+        // PUT /api/tenants/{tenantId}/members/{userId} — change member role (DEPRECATED: legacy single-role path)
         api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}", async (
             Guid tenantId,
             Guid userId,
             ClaimsPrincipal user,
-            AppDbContext db,
-            UpdateMemberRoleDto dto) =>
+            AppDbContext db) =>
         {
-            if (dto is null || string.IsNullOrWhiteSpace(dto.Role))
-                return Results.BadRequest(new { error = "role is required" });
-
-            var callerIdStr = user.FindFirstValue("sub");
-            var tenantIdStr = user.FindFirstValue("tenant_id");
-            if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
-            if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
-            if (tenantId != currentTenantId) return Results.Forbid();
-
-            var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
-            if (me is null) return Results.Forbid();
-            var isCallerOwner = me.Role == MembershipRole.Owner;
-            var isCallerAdminOrOwner = isCallerOwner || me.Role == MembershipRole.Admin;
-            if (!isCallerAdminOrOwner) return Results.Forbid();
-
-            var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
-            if (target is null) return Results.NotFound();
-
-            if (!Enum.TryParse<MembershipRole>(dto.Role, true, out var newRole))
-                return Results.BadRequest(new { error = "invalid role" });
-
-            if (target.Role == newRole)
-                return Results.NoContent();
-
-            // Only Owner can assign Owner
-            if (newRole == MembershipRole.Owner && !isCallerOwner)
-                return Results.Forbid();
-
-            // Owner-specific demotion constraints are superseded by TenantAdmin invariant in Story 1.4
-
-            // Story 1.4: Enforce invariant — at least one TenantAdmin per tenant.
-            // If this change would result in zero TenantAdmins (Owner/Admin), block with 409.
-            bool isRemovingTenantAdminRole = target.Role is MembershipRole.Owner or MembershipRole.Admin;
-            bool becomesTenantAdmin = newRole is MembershipRole.Owner or MembershipRole.Admin;
-            if (isRemovingTenantAdminRole && !becomesTenantAdmin)
-            {
-                var currentAdmins = await db.Memberships.AsNoTracking()
-                    .CountAsync(m => m.TenantId == tenantId && (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin) && m.Status == MembershipStatus.Active);
-                if (currentAdmins <= 1)
-                {
-                    return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
-                }
-            }
-
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
-            {
-                // Replace immutable record with updated role, preserving CreatedAt
-                var replacement = new Membership
-                {
-                    Id = target.Id,
-                    TenantId = target.TenantId,
-                    UserId = target.UserId,
-                    Role = newRole,
-                    // Assign flags derived from new legacy role to keep bitmask in sync
-                    Roles = DeriveFlagsFromLegacy(newRole),
-                    Status = target.Status,
-                    CreatedAt = target.CreatedAt
-                };
-                db.Memberships.Remove(target);
-                await db.SaveChangesAsync();
-                db.Memberships.Add(replacement);
-                await db.SaveChangesAsync();
-                return Results.NoContent();
-            }
-            else
-            {
-                // If middleware already opened a tenant-scoped transaction, reuse it to avoid nesting
-                if (db.Database.CurrentTransaction is not null)
-                {
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Role = newRole,
-                        // Assign flags derived from new legacy role to keep bitmask in sync
-                        Roles = DeriveFlagsFromLegacy(newRole),
-                        Status = target.Status,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-                    return Results.NoContent();
-                }
-                else
-                {
-                    await using var tx = await db.Database.BeginTransactionAsync();
-                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Role = newRole,
-                        // Assign flags derived from new legacy role to keep bitmask in sync
-                        Roles = DeriveFlagsFromLegacy(newRole),
-                        Status = target.Status,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                    return Results.NoContent();
-                }
-            }
+            // Story 4 Phase 2: This legacy single-role mutation endpoint is deprecated.
+            // All clients must use the flags endpoint: POST /api/tenants/{tenantId}/memberships/{userId}/roles { roles: [..] }
+            return Results.BadRequest(new { error = "legacy member role change endpoint deprecated; use roles flags endpoint", code = "LEGACY_ROLE_DEPRECATED" });
         }).RequireAuthorization("TenantAdmin");
 
         // DELETE /api/tenants/{tenantId}/members/{userId} — remove member (Admin/Owner only)
@@ -829,16 +712,15 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
             if (me is null) return Results.Forbid();
-            var isCallerAdminOrOwner = me.Role == MembershipRole.Admin || me.Role == MembershipRole.Owner;
-            if (!isCallerAdminOrOwner) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
             if (target is null) return Results.NotFound();
 
             // Story 1.4 invariant: prevent removing the last TenantAdmin (Owner/Admin)
             var adminCount = await db.Memberships.AsNoTracking()
-                .CountAsync(m => m.TenantId == tenantId && (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin) && m.Status == MembershipStatus.Active);
-            if ((target.Role == MembershipRole.Owner || target.Role == MembershipRole.Admin) && adminCount <= 1)
+                .CountAsync(m => m.TenantId == tenantId && (m.Roles & Roles.TenantAdmin) != 0 && m.Status == MembershipStatus.Active);
+            if ((target.Roles & Roles.TenantAdmin) != 0 && adminCount <= 1)
             {
                 return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
             }
@@ -893,7 +775,6 @@ public static class V1
                 {
                     userId = u.Id,
                     email = u.Email,
-                    role = m.Role.ToString(),
                     roles = m.Roles.ToString(),
                     rolesValue = (int)m.Roles,
                     status = m.Status.ToString(),
@@ -920,8 +801,7 @@ public static class V1
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == callerId);
             if (me is null) return Results.Forbid();
-            var isCallerAdminOrOwner = me.Role == MembershipRole.Admin || me.Role == MembershipRole.Owner;
-            if (!isCallerAdminOrOwner) return Results.Forbid();
+            if ((me.Roles & Roles.TenantAdmin) == 0) return Results.Forbid();
 
             var target = await db.Memberships.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId);
             if (target is null) return Results.NotFound();
@@ -932,12 +812,12 @@ public static class V1
             // Enforce invariant: cannot deactivate the last TenantAdmin (hybrid definition).
             if (!dto.Active)
             {
-                bool targetIsTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin;
+                bool targetIsTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0;
                 if (targetIsTenantAdmin)
                 {
                     var otherActiveAdmins = await db.Memberships.AsNoTracking()
                         .Where(m => m.TenantId == tenantId && m.UserId != target.UserId && m.Status == MembershipStatus.Active)
-                        .CountAsync(m => ((m.Roles & Roles.TenantAdmin) != 0) || (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin));
+                        .CountAsync(m => (m.Roles & Roles.TenantAdmin) != 0);
                     if (otherActiveAdmins <= 0)
                     {
                         return Results.Conflict(new { error = "cannot deactivate the last TenantAdmin" });
@@ -953,7 +833,6 @@ public static class V1
                     Id = target.Id,
                     TenantId = target.TenantId,
                     UserId = target.UserId,
-                    Role = target.Role,
                     Roles = target.Roles,
                     Status = newStatus,
                     CreatedAt = target.CreatedAt
@@ -973,7 +852,6 @@ public static class V1
                         Id = target.Id,
                         TenantId = target.TenantId,
                         UserId = target.UserId,
-                        Role = target.Role,
                         Roles = target.Roles,
                         Status = newStatus,
                         CreatedAt = target.CreatedAt
@@ -993,7 +871,6 @@ public static class V1
                         Id = target.Id,
                         TenantId = target.TenantId,
                         UserId = target.UserId,
-                        Role = target.Role,
                         Roles = target.Roles,
                         Status = newStatus,
                         CreatedAt = target.CreatedAt
@@ -1118,14 +995,14 @@ public static class V1
 
             // Invariant: ensure at least one TenantAdmin remains when removing TenantAdmin from this target.
             // Admin status is determined by either legacy Role (Owner/Admin) OR flags including Roles.TenantAdmin.
-            bool targetWasTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin;
-            bool targetWillBeTenantAdmin = (newFlags & Roles.TenantAdmin) != 0 || target.Role is MembershipRole.Owner or MembershipRole.Admin; // legacy role still confers admin
+            bool targetWasTenantAdmin = (target.Roles & Roles.TenantAdmin) != 0;
+            bool targetWillBeTenantAdmin = (newFlags & Roles.TenantAdmin) != 0;
             if (targetWasTenantAdmin && !targetWillBeTenantAdmin)
             {
                 // Count other admins (active) across the tenant using the same hybrid definition.
                 var otherAdminsCount = await db.Memberships.AsNoTracking()
                     .Where(m => m.TenantId == tenantId && m.UserId != target.UserId && m.Status == MembershipStatus.Active)
-                    .CountAsync(m => ((m.Roles & Roles.TenantAdmin) != 0) || (m.Role == MembershipRole.Owner || m.Role == MembershipRole.Admin));
+                    .CountAsync(m => (m.Roles & Roles.TenantAdmin) != 0);
                 if (otherAdminsCount <= 0)
                 {
                     return Results.Conflict(new { error = "cannot remove the last TenantAdmin" });
@@ -1143,7 +1020,6 @@ public static class V1
                     Id = target.Id,
                     TenantId = target.TenantId,
                     UserId = target.UserId,
-                    Role = target.Role,
                     Roles = newFlags,
                     Status = target.Status,
                     CreatedAt = target.CreatedAt
@@ -1180,7 +1056,6 @@ public static class V1
                         Id = target.Id,
                         TenantId = target.TenantId,
                         UserId = target.UserId,
-                        Role = target.Role,
                         Roles = newFlags,
                         Status = target.Status,
                         CreatedAt = target.CreatedAt
@@ -1217,7 +1092,6 @@ public static class V1
                         Id = target.Id,
                         TenantId = target.TenantId,
                         UserId = target.UserId,
-                        Role = target.Role,
                         Roles = newFlags,
                         Status = target.Status,
                         CreatedAt = target.CreatedAt
@@ -1296,7 +1170,6 @@ public static class V1
                         Id = Guid.NewGuid(),
                         TenantId = tenantId,
                         UserId = userId,
-                        Role = invite.Role,
                         Roles = invite.Roles,
                         Status = MembershipStatus.Active,
                         CreatedAt = DateTime.UtcNow
@@ -1320,7 +1193,6 @@ public static class V1
                         Id = Guid.NewGuid(),
                         TenantId = tenantId,
                         UserId = userId,
-                        Role = invite.Role,
                         Roles = invite.Roles,
                         Status = MembershipStatus.Active,
                         CreatedAt = DateTime.UtcNow
@@ -1339,7 +1211,6 @@ public static class V1
             {
                 tenantId = tenant.Id,
                 tenantSlug = tenant.Name,
-                role = invite.Role.ToString(),
                 roles = invite.Roles.ToString(),
                 rolesValue = (int)invite.Roles,
                 membershipCreated = created,
@@ -1394,7 +1265,6 @@ public static class V1
                     Id = Guid.NewGuid(),
                     TenantId = tenant.Id,
                     UserId = user.Id,
-                    Role = MembershipRole.Viewer,
                     Roles = flags,
                     Status = MembershipStatus.Active,
                     CreatedAt = DateTime.UtcNow
@@ -1474,12 +1344,13 @@ public static class V1
     public record SignupDto(string Email, string Password, string? InviteToken = null);
     public record LoginDto(string Email, string Password);
     /// <summary>
-    /// Invite request payload to invite a user by email to a tenant.
+    /// Invite creation payload. Legacy <c>Role</c> is deprecated and rejected (LEGACY_ROLE_DEPRECATED). Supply either
+    /// <c>Roles</c> (array of flag names) or <c>RolesValue</c> (bitmask). At least one flag required.
     /// </summary>
-    /// <param name="Email">Invitee email address.</param>
-    /// <param name="Role">Legacy coarse role name (Owner/Admin/Editor/Viewer) for compatibility; used to derive flags when Roles are omitted.</param>
-    /// <param name="Roles">Optional granular role flags names (e.g., ["TenantAdmin","Creator"]). Case-insensitive; if omitted, flags are derived from Role.</param>
-    public record InviteRequest(string Email, string? Role, string[]? Roles = null);
+    /// <param name="Email">Invite target email.</param>
+    /// <param name="Roles">Array of role flag names (TenantAdmin, Approver, Creator, Learner).</param>
+    /// <param name="RolesValue">Integer bitmask of roles (OR of flag values).</param>
+    public record InviteRequest(string Email, string[]? Roles = null, int? RolesValue = null);
     public record AcceptInviteDto(string Token);
     /// <summary>
     /// Magic-link request payload.
@@ -1487,7 +1358,6 @@ public static class V1
     /// <param name="Email">Destination email to receive the sign-in link.</param>
     public record MagicRequestDto(string Email);
     public record MagicConsumeDto(string Token);
-    public record UpdateMemberRoleDto(string Role);
     public record SetRolesDto(string[] Roles);
     public record UpdateMemberStatusDto(bool Active);
     public record ResetPasswordDto(string Token, string NewPassword);
@@ -1512,17 +1382,7 @@ public static class V1
         return true;
     }
 
-    // Helper: derive default flags from legacy MembershipRole for compatibility
-    private static Roles DeriveFlagsFromLegacy(MembershipRole role)
-    {
-        return role switch
-        {
-            MembershipRole.Owner => Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-            MembershipRole.Admin => Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-            MembershipRole.Editor => Roles.Creator | Roles.Learner,
-            _ => Roles.Learner,
-        };
-    }
+    // Legacy role mapping helper removed (Story 4 Phase 2); callers now provide explicit flags.
 
     private static string HashToken(string token)
     {

@@ -38,7 +38,6 @@ namespace Appostolic.Api.Tests.Api
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     UserId = u.Id,
-                    Role = MembershipRole.Viewer,
                     Roles = Roles.None,
                     Status = MembershipStatus.Active,
                     CreatedAt = DateTime.UtcNow

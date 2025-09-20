@@ -24,7 +24,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         var admin = new User { Id = Guid.NewGuid(), Email = $"a-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
         var target = new User { Id = Guid.NewGuid(), Email = $"u-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
         db.AddRange(tenant, admin, target);
-        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Role = MembershipRole.Admin, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
 
         var baseTime = DateTime.UtcNow.AddMinutes(-5);
         db.Audits.AddRange(
@@ -65,7 +65,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         var target1 = new User { Id = Guid.NewGuid(), Email = $"u1-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
         var target2 = new User { Id = Guid.NewGuid(), Email = $"u2-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
         db.AddRange(tenant, admin, target1, target2);
-        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Role = MembershipRole.Admin, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
 
         var baseTime = DateTime.UtcNow.AddHours(-2);
         var a1 = new Audit { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = target1.Id, ChangedByUserId = admin.Id, ChangedByEmail = admin.Email, OldRoles = Roles.Creator, NewRoles = Roles.Creator | Roles.Learner, ChangedAt = baseTime.AddMinutes(10) };
@@ -112,7 +112,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         var tenant = new Tenant { Id = Guid.NewGuid(), Name = $"t-{Guid.NewGuid():N}", CreatedAt = DateTime.UtcNow };
         var admin = new User { Id = Guid.NewGuid(), Email = $"a-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
         db.AddRange(tenant, admin);
-        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Role = MembershipRole.Admin, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+        db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
         var client = _factory.CreateClient();

@@ -52,47 +52,15 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
 
         var membership = await _db.Memberships.AsNoTracking()
             .Where(m => m.UserId == userId && m.TenantId == tenantId)
-            .Select(m => new { m.Roles, m.Role })
+            .Select(m => new { m.Roles })
             .SingleOrDefaultAsync(http.RequestAborted);
 
-        // Prefer Roles flags as the source of truth. Fall back to legacy Role only when Roles == None.
-        // This ensures demotions performed via roles flags take effect even if the legacy Role was not updated.
-        var have = Roles.None;
-        if (membership is null)
-        {
-            have = Roles.None;
-        }
-        else if (membership.Roles != Roles.None)
-        {
-            have = membership.Roles;
-        }
-        else
-        {
-            // Feature flag: When DISABLE_LEGACY_ROLE_COMPAT=true we refuse to synthesize flags from legacy Role
-            // and instead treat absence of flags as no privileges (migration path validation).
-            var disableLegacyCompat = Environment.GetEnvironmentVariable("DISABLE_LEGACY_ROLE_COMPAT")?.ToLower() == "true";
-            if (!disableLegacyCompat)
-            {
-                switch (membership.Role)
-                {
-                    case MembershipRole.Owner:
-                    case MembershipRole.Admin:
-                        have = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
-                        break;
-                    case MembershipRole.Editor:
-                        have = Roles.Creator | Roles.Learner;
-                        break;
-                    case MembershipRole.Viewer:
-                    default:
-                        have = Roles.Learner;
-                        break;
-                }
-            }
-        }
+        // Flags-only authorization (Story 4 Phase 2): no legacy Role fallback.
+        var have = membership?.Roles ?? Roles.None;
 
         if (traceEnabled)
         {
-            Console.WriteLine($"[api][roles][trace] user={userId} tenant={tenantId} required={requirement.Required} have={have} rawRoles={(membership?.Roles).GetValueOrDefault()} legacyRole={(membership?.Role).GetValueOrDefault()}" );
+            Console.WriteLine($"[api][roles][trace] user={userId} tenant={tenantId} required={requirement.Required} have={have} rawRoles={(membership?.Roles).GetValueOrDefault()}" );
         }
 
         // Record the required roles for downstream error formatting (status code pages)

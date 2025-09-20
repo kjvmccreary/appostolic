@@ -539,7 +539,6 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.TenantId).HasColumnName("tenant_id");
             b.Property(x => x.UserId).HasColumnName("user_id");
-            b.Property(x => x.Role).HasColumnName("role");
             b.Property(x => x.Roles).HasColumnName("roles");
             b.Property(x => x.Status).HasColumnName("status");
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
@@ -585,7 +584,6 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.Id).HasColumnName("id");
             b.Property(x => x.TenantId).HasColumnName("tenant_id");
             b.Property(x => x.Email).HasColumnName("email").IsRequired();
-            b.Property(x => x.Role).HasColumnName("role");
             // New in IAM 2.2 — granular roles flags on invitations
             b.Property(x => x.Roles).HasColumnName("roles");
             b.Property(x => x.Token).HasColumnName("token").IsRequired();
@@ -703,6 +701,10 @@ public record User
     public JsonDocument? Profile { get; init; }
 }
 
+// Legacy enum retained temporarily during migration window; will be removed once the database column is dropped
+// and all code paths rely exclusively on Roles flags. DO NOT use in new code.
+// Deprecated legacy single-role enum retained temporarily for test fixtures; removed post-migration (Story 4 Phase 2)
+[Obsolete("Legacy single role model deprecated; use Roles flags.")]
 public enum MembershipRole { Owner, Admin, Editor, Viewer }
 public enum MembershipStatus { Active, Invited, Suspended, Revoked }
 
@@ -725,7 +727,6 @@ public record Membership
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid UserId { get; init; }
-    public MembershipRole Role { get; init; }
     /// <summary>
     /// Granular roles bitfield. Mutable by design ("pencil" model). We allow in-place updates because
     /// role assignments change frequently and EF tracked-entity mutation avoids duplicate-tracking issues
@@ -778,7 +779,6 @@ public record Invitation
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
     public string Email { get; set; } = string.Empty;
-    public MembershipRole Role { get; set; }
     // New in IAM 2.2 — granular roles flags captured at invite time
     public Roles Roles { get; set; }
     public string Token { get; set; } = string.Empty;

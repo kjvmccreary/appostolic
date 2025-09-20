@@ -26,13 +26,12 @@ public class AgentTasksFactory : WebApplicationFactory<Program>
             }
             services.AddDbContext<AppDbContext>(opts => opts.UseInMemoryDatabase(_dbName));
 
-            // Seed dev auth prerequisites expected by DevHeaderAuthHandler
+            // Seed dev auth prerequisites expected by DevHeaderAuthHandler (flags-only)
             using var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Database.EnsureCreated();
 
-            // Match the default headers below: x-dev-user: dev@example.com, x-tenant: acme
             var email = "dev@example.com";
             var slug = "acme";
             if (!db.Users.AsNoTracking().Any(u => u.Email == email))
@@ -44,7 +43,7 @@ public class AgentTasksFactory : WebApplicationFactory<Program>
                     Id = Guid.NewGuid(),
                     TenantId = tenant.Id,
                     UserId = user.Id,
-                    Role = MembershipRole.Owner,
+                    Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                     Status = MembershipStatus.Active,
                     CreatedAt = DateTime.UtcNow
                 };
