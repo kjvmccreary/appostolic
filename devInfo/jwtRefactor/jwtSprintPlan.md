@@ -239,10 +239,7 @@ Implementation Notes:
 - Leave existing skipped Secure integration test in place referencing this story; removal decision post-Stories 6–7.
 
 Out of Scope (Deferred Enhancements):
-
-- Browser-level (Playwright) validation of HttpOnly behavior.
-- Cross-site SameSite=None scenario.
-- CSRF token double-submit validation (Story 4 follow-up).
+// Moved to consolidated Optional Followups section at end of document.
 
 Risks & Mitigations:
 
@@ -397,6 +394,9 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 9a) Provide containerized Caddy alternative config (automatic certs) as an alternative to nginx for simpler local TLS.
 - (Story 10) Publish upgrade guide snippet on rotating signing key with minimal downtime (manual dual issuance procedure pre multi-key support).
 - (Story 11) Final sweep to remove any dead constants/flags (e.g., legacy invite role error codes) and prune obsolete test helpers replaced by TestAuthClient.
+- (Story 5b) Browser-level (Playwright) validation of HttpOnly behavior (deferred).
+- (Story 5b) Cross-site SameSite=None scenario investigation (deferred).
+- (Story 5b) CSRF token double-submit validation (complements future refresh endpoint and SameSite=None changes).
 
 ## E2E HTTPS Secure Cookie Validation Plan (Added 2025-09-20)
 
