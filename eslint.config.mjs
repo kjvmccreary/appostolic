@@ -65,5 +65,18 @@ export default [
       },
     },
   },
+  // Custom project rules
+  {
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'membership',
+          property: 'role',
+          message: 'membership.role is deprecated. Use membership.roles flags only.',
+        },
+      ],
+    },
+  },
   prettier,
 ];

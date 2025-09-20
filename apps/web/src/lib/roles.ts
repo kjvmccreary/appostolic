@@ -3,19 +3,17 @@
  */
 export type FlagRole = 'TenantAdmin' | 'Approver' | 'Creator' | 'Learner';
 
-/** Legacy membership role from API (pre-flags). */
-// Legacy role type retained only for typing incoming data; not used in logic anymore.
-export type LegacyRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
-
+// Deprecated legacy role property has been removed from the canonical Membership shape.
+// If older code still references membership.role it will now be a type error.
 export type Membership = {
   tenantId: string;
   tenantSlug: string;
-  role: LegacyRole; // ignored for authority; kept for display / backward visibility only
   /**
-   * Authoritative source of truth. During transition may appear as:
-   * - Array<FlagRole|string> (canonical form)
-   * - number (bitmask sent directly from API serializer)
-   * - string numeric (e.g., "1"), treated like bitmask
+   * Authoritative source of truth for tenant-scoped capabilities.
+   * Supported representations:
+   * - Array<FlagRole|string>
+   * - number (bitmask)
+   * - numeric string (coerced to bitmask)
    */
   roles?: number | string | Array<FlagRole | string>;
 };
@@ -24,101 +22,53 @@ export type Membership = {
 export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
   if (!m) return [];
   const rawRoles = m.roles as unknown;
-  const legacyFallbackEnabled = (() => {
-    const hardDisable =
-      (process.env.NEXT_PUBLIC_DISABLE_LEGACY_ROLE_COMPAT ?? '').toLowerCase() === 'true';
-    if (hardDisable) return false;
-    return (process.env.NEXT_PUBLIC_LEGACY_ROLE_FALLBACK ?? 'true').toLowerCase() !== 'false';
-  })();
   const TRACE = (process.env.NEXT_PUBLIC_DEBUG_ROLE_TRACE ?? '').toLowerCase() === 'true';
   const trace = (...args: unknown[]) => {
-    if (TRACE && typeof window !== 'undefined') {
-      console.log('[roles][trace]', ...args);
-    }
+    if (TRACE && typeof window !== 'undefined') console.log('[roles][trace]', ...args);
   };
-  trace('input-membership', {
-    tenantId: m.tenantId,
-    tenantSlug: m.tenantSlug,
-    role: m.role,
-    rolesType: typeof rawRoles,
-    rolesValue: rawRoles,
-  });
 
-  // Accept numeric bitmask (number) or numeric string directly.
+  // Numeric or numeric-string bitmask
   if (typeof rawRoles === 'number' && Number.isFinite(rawRoles)) {
-    const names = roleNamesFromFlags(rawRoles);
-    trace('numeric-bitmask→names', rawRoles, names);
-    return names;
+    return roleNamesFromFlags(rawRoles);
   }
-  if (typeof rawRoles === 'string' && /^\d+$/.test(rawRoles.trim())) {
-    const bit = Number(rawRoles.trim());
-    const names = roleNamesFromFlags(bit);
-    trace('string-numeric-bitmask→names', bit, names);
-    return names;
-  }
-
-  // If roles[] missing or empty array, optionally fall back to legacy role mapping during transition.
-  // (Important: a numeric 0 bitmask should yield empty roles, not fallback to legacy.)
-  if (!rawRoles || (Array.isArray(rawRoles) && rawRoles.length === 0)) {
-    // Accept a comma-separated string of role tokens (e.g., "TenantAdmin, Approver, Creator, Learner")
-    if (typeof rawRoles === 'string' && rawRoles.includes(',')) {
-      const parts = rawRoles
+  if (typeof rawRoles === 'string') {
+    const trimmed = rawRoles.trim();
+    if (/^\d+$/.test(trimmed)) return roleNamesFromFlags(Number(trimmed));
+    // Comma-separated canonical flag names supported for resilience (future removal possible)
+    if (trimmed.includes(',')) {
+      const acc: FlagRole[] = [];
+      for (const token of trimmed
         .split(',')
         .map((p) => p.trim())
-        .filter((p) => p.length > 0);
-      const parsed: FlagRole[] = [];
-      for (const p of parts) {
-        const lower = p.toLowerCase();
+        .filter(Boolean)) {
+        const lower = token.toLowerCase();
         switch (lower) {
           case 'tenantadmin':
-            parsed.push('TenantAdmin');
+            acc.push('TenantAdmin');
             break;
           case 'approver':
-            parsed.push('Approver');
+            acc.push('Approver');
             break;
           case 'creator':
-            parsed.push('Creator');
+            acc.push('Creator');
             break;
           case 'learner':
-            parsed.push('Learner');
-            break;
-          case 'admin':
-          case 'owner':
-            parsed.push('TenantAdmin', 'Approver', 'Creator', 'Learner');
-            break;
-          case 'editor':
-            parsed.push('Creator', 'Learner');
-            break;
-          case 'viewer':
-            parsed.push('Learner');
+            acc.push('Learner');
             break;
           default:
-            break; // ignore unknown token
+            trace('ignore-unknown-token', token);
+            break;
         }
       }
-      return dedupe(parsed);
+      return dedupe(acc);
     }
-    if (!legacyFallbackEnabled) return [];
-    switch (m.role) {
-      case 'Owner':
-      case 'Admin':
-        trace('legacy-fallback-admin-like');
-        return ['TenantAdmin', 'Approver', 'Creator', 'Learner'];
-      case 'Editor':
-        trace('legacy-fallback-editor');
-        return ['Creator', 'Learner'];
-      case 'Viewer':
-      default:
-        trace('legacy-fallback-viewer');
-        return ['Learner'];
-    }
+    return []; // non-numeric simple string unsupported now
   }
 
-  if (!Array.isArray(rawRoles)) return []; // Defensive: unknown shape
-
+  if (!Array.isArray(rawRoles)) return []; // Unknown shape
   const acc: FlagRole[] = [];
-  for (const raw of rawRoles) {
-    const lower = String(raw).trim().toLowerCase();
+  for (const r of rawRoles) {
+    const lower = String(r).trim().toLowerCase();
     switch (lower) {
       case 'tenantadmin':
         acc.push('TenantAdmin');
@@ -132,23 +82,11 @@ export function getFlagRoles(m: Membership | null | undefined): FlagRole[] {
       case 'learner':
         acc.push('Learner');
         break;
-      // Allow legacy names inside roles[] as a soft transition (e.g., ['Admin']).
-      case 'admin':
-      case 'owner':
-        acc.push('TenantAdmin', 'Approver', 'Creator', 'Learner');
-        break;
-      case 'editor':
-        acc.push('Creator', 'Learner');
-        break;
-      case 'viewer':
-        acc.push('Learner');
-        break;
       default:
-        trace('ignore-unknown-role-token', raw);
-        break; // ignore unknown strings silently
+        trace('ignore-unknown-role-token', r);
+        break;
     }
   }
-  trace('deduped-return', acc);
   return dedupe(acc);
 }
 

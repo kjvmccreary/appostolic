@@ -254,6 +254,22 @@
 - Follow-ups
   - Story 10: Provide rollback script and ops guidance tag (`roles-removal-complete`); optional deeper investigation into TRX omission of renamed test display name (non-blocking).
 
+2025-09-20 — Web: Flags-only cleanup (Stories 11–14 consolidation) — ✅ DONE
+
+- Summary
+  - Removed deprecated `TenantAwareTopBar` stub component and its empty test files; deleted transitional `roles.legacyFallback.test.ts`. Simplified `roles.ts` by eliminating `LegacyRole` type and all legacy fallback logic (comma-separated canonical flag names still tolerated). Made `Membership.role` obsolete (no longer present), focusing the contract on `roles` flags (array | numeric | numeric string). Added ESLint guard (`no-restricted-properties`) to prevent reintroduction of `membership.role` usage. This consolidates frontend stories 11–14 into a single cleanup since backend legacy paths are fully removed.
+- Files changed
+  - apps/web/src/components/TenantAwareTopBar\*.tsx — removed.
+  - apps/web/src/lib/roles.ts — stripped legacy types & fallbacks; numeric/array-only parsing.
+  - apps/web/src/lib/roles.legacyFallback.test.ts — removed.
+  - eslint.config.mjs — added custom rule forbidding `membership.role` access.
+- Quality gates
+  - Pending: run full web test suite to confirm no regressions (expected unaffected since tests already flag-based except removed legacy fallback suite).
+- Rationale
+  - Completes frontend alignment with flags-only model, reducing cognitive load and preventing accidental reliance on deprecated legacy role semantics.
+- Follow-ups
+  - Consider tightening roles string comma parsing removal in a later refactor (pure array/numeric) once telemetry confirms no usage.
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE
