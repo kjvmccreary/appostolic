@@ -7,6 +7,7 @@ import {
   type FlagRole,
   type Membership as RolesMembership,
 } from './roles';
+import { primeNeutralAccess } from './authClient';
 
 type MembershipDto = { tenantId: string; tenantSlug: string; role: string; roles?: FlagRole[] };
 type AppToken = JWT & {
@@ -177,10 +178,14 @@ export const authOptions: NextAuthOptions & {
           memberships?: MembershipDto[];
           id?: string; // backward-compat if API ever returned flat shape
           email?: string;
+          access?: { token: string; expiresAt: string | number; type: string };
         };
         const id = data.user?.id ?? data.id;
         const email = data.user?.email ?? data.email;
         if (!id || !email) return null;
+        if (data.access?.token && data.access?.expiresAt) {
+          primeNeutralAccess(data.access.token, data.access.expiresAt);
+        }
         const u: NextAuthUser & { memberships?: MembershipDto[] } = {
           id,
           email,
@@ -209,7 +214,11 @@ export const authOptions: NextAuthOptions & {
         id: string;
         email: string;
         memberships?: MembershipDto[];
+        access?: { token: string; expiresAt: string | number; type: string };
       };
+      if (data.access?.token && data.access?.expiresAt) {
+        primeNeutralAccess(data.access.token, data.access.expiresAt);
+      }
       const u: NextAuthUser & { memberships?: MembershipDto[] } = {
         id: data.id,
         email: data.email,

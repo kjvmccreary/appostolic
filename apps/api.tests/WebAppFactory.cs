@@ -27,7 +27,9 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Enable JWT test helper endpoints (Story 2a)
                 ["AUTH__TEST_HELPERS_ENABLED"] = "true",
                 // Ensure JWT itself is enabled for tests (defensive)
-                ["AUTH__JWT__ENABLED"] = "true"
+                ["AUTH__JWT__ENABLED"] = "true",
+                // Story 4: enable refresh cookie issuance in tests
+                ["AUTH__REFRESH_COOKIE_ENABLED"] = "true"
             };
             cfg.AddInMemoryCollection(dict!);
         });

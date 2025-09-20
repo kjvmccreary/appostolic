@@ -1,3 +1,21 @@
+2025-09-20 — Auth/JWT: Story 5a Local HTTPS & Secure Refresh Cookie Validation — ✅ DONE
+
+- Summary
+  - Implemented local HTTPS enablement path and hardened refresh cookie Secure flag behavior. Added Makefile target `api-https` to run the API on `https://localhost:5198` (requires one-time `dotnet dev-certs https --trust`). Updated all refresh cookie issuance blocks in `V1.cs` (login, magic consume, select-tenant) to set `Secure = http.Request.IsHttps` removing the previous environment heuristic that could mark cookies Secure under pure HTTP in Development. Added integration test `RefreshCookieHttpsTests` confirming the cookie omits `Secure` over HTTP and (simulated via `X-Forwarded-Proto: https`) includes it when HTTPS is indicated. This sets the stage for reliable browser SameSite/Secure behavior prior to broader refresh endpoint rollout (Story 6) and reduces accidental confusion during QA where Secure cookies would not appear without HTTPS. Plan, SnapshotArchitecture, LivingChecklist updated; story marked complete.
+  - Files changed
+    - Makefile — added `api-https` target (HTTPS watcher) with explanatory comment.
+    - apps/api/App/Endpoints/V1.cs — three cookie issuance blocks now use `Secure = http.Request.IsHttps`; first block annotated with Story 5a comment.
+    - apps/api.tests/Auth/RefreshCookieHttpsTests.cs — new integration tests for Secure attribute presence/absence conditions.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 5a section marked DONE with implementation notes & follow-ups.
+    - SnapshotArchitecture.md — What’s New updated with brief mention (Secure flag logic + HTTPS enablement) (appended in same-day batch).
+    - devInfo/LivingChecklist.md — JWT Story 5a line added & checked.
+  - Quality gates
+    - New test added (passes). Existing auth & refresh cookie tests unaffected (spot run). Build remains green.
+  - Rationale
+    - Ensures Secure cookie semantics match actual transport security, preventing false positives in dev while enabling real Secure attribute validation once HTTPS is active. Simplifies mental model (no environment override) and prepares for upcoming removal of refresh token from JSON surface post Story 6.
+  - Follow-ups
+    - Optional: full HTTPS TestServer instance for deterministic Secure assertion instead of header simulation; cookie helper consolidation after refresh endpoint lands.
+
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
 - Summary

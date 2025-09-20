@@ -254,12 +254,12 @@ public static class V1
                 string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
             if (refreshCookieEnabled)
             {
-                var envDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
-                var secure = http.Request.IsHttps || !envDev;
+                // Story 5a: Enforce Secure ONLY when the request is actually HTTPS. In Development over plain HTTP we intentionally
+                // omit Secure so the cookie is set during local non-TLS runs. Production/staging should always be HTTPS so Secure will be true.
                 http.Response.Cookies.Append("rt", refreshToken, new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = secure,
+                    Secure = http.Request.IsHttps,
                     SameSite = SameSiteMode.Lax,
                     Expires = refreshExpires,
                     Path = "/"
@@ -466,12 +466,10 @@ public static class V1
                 string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
             if (refreshCookieEnabled)
             {
-                var envDev2 = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
-                var secure = http.Request.IsHttps || !envDev2;
                 http.Response.Cookies.Append("rt", refreshToken, new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = secure,
+                    Secure = http.Request.IsHttps,
                     SameSite = SameSiteMode.Lax,
                     Expires = refreshExpires,
                     Path = "/"
@@ -545,12 +543,10 @@ public static class V1
                 string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
             if (refreshCookieEnabled)
             {
-                var envDev3 = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
-                var secure = http.Request.IsHttps || !envDev3;
                 http.Response.Cookies.Append("rt", newRefresh, new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = secure,
+                    Secure = http.Request.IsHttps,
                     SameSite = SameSiteMode.Lax,
                     Expires = newRefreshExpires,
                     Path = "/"

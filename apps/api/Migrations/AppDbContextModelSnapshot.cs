@@ -743,6 +743,9 @@ namespace Appostolic.Api.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("profile");
 
+                    b.Property<int>("TokenVersion")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")

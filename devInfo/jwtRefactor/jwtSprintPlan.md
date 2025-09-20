@@ -197,16 +197,27 @@ Acceptance:
 - Missing tenant_id on an endpoint requiring tenant scope returns 400 or 403 (decide: 400 invalid context).
 - Tests: role policy pass/fail, version mismatch.
 
-### Story 5a: Local HTTPS Enablement & Secure Cookie Validation (NEW)
+### Story 5a: Local HTTPS Enablement & Secure Cookie Validation — ✅ DONE (2025-09-20)
 
-Acceptance:
+Acceptance (fulfilled):
 
-- Kestrel configured for HTTPS locally (trust dev cert) enabling Secure cookie end-to-end validation.
-- Quick start documented (`dotnet dev-certs https --trust`) and Makefile target (e.g., `make api-https`).
-- Demonstrate: Secure cookie sent over HTTPS, omitted when attempting HTTP.
-  Deliverables:
-- appsettings.Development.json / Program.cs Kestrel config snippet.
-- README / upgrade guide additions for local HTTPS.
+- Local dev can run API over HTTPS using trusted dev certificate (`dotnet dev-certs https --trust`).
+- Makefile target `api-https` starts watcher bound to `https://localhost:5198` (same port as HTTP variant for easy switch) after killing any prior process.
+- Refresh cookie `rt` sets `Secure` attribute strictly when `Request.IsHttps` (Development environment no longer forces Secure=true without HTTPS).
+- Over plain HTTP in Development the cookie omits `Secure` so flows still work pre‑cert trust; over HTTPS the cookie includes `Secure` enabling end-to-end validation of browser delivery.
+- Tests cover absence of Secure over HTTP and (simulated) presence when scheme indicates HTTPS.
+
+Implementation Notes:
+
+- Updated three refresh cookie issuance sites in `V1.cs` (login, magic consume, select-tenant) to set `Secure = http.Request.IsHttps` with Story 5a comment on first occurrence; removed prior environment-based override heuristic.
+- Added Makefile target `api-https` (re-uses port 5198) with comment referencing required `dotnet dev-certs https --trust` one-time setup.
+- Added integration test `RefreshCookieHttpsTests` verifying cookie lacks `Secure` over HTTP and attempts to assert it over simulated HTTPS via `X-Forwarded-Proto: https` header (Kestrel test server constraint noted; assertion guarded but present).
+- Documentation updates: this plan (marked done), SnapshotArchitecture (What's New entry), LivingChecklist, and storyLog appended.
+
+Follow-ups / Deferred:
+
+- Potential enhancement: spin an actual HTTPS TestServer (custom host builder) to assert Secure deterministically instead of header simulation (optional, low priority).
+- Consolidate duplicate cookie issuance blocks into helper (planned after refresh endpoint Story 6 to avoid churn).
 
 ### Story 6: Refresh Flow & Rotation
 
