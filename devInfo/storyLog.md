@@ -270,6 +270,19 @@
 - Follow-ups
   - Consider tightening roles string comma parsing removal in a later refactor (pure array/numeric) once telemetry confirms no usage.
 
+2025-09-20 — Web: Remove deprecated legacy fallback placeholder test & revalidate suite — ✅ DONE
+
+- Summary
+  - Deleted the now-empty `roles.legacyFallback.test.ts` placeholder after confirming all frontend authorization logic is permanently flags-only and backend columns are removed. Ran `make fetest` to revalidate the web suite: 63 files, 198 tests all passing; coverage unchanged (~85% lines). This finalizes frontend cleanup for the legacy MembershipRole removal initiative prior to tagging.
+- Files changed
+  - apps/web/src/lib/roles.legacyFallback.test.ts — removed (placeholder deletion).
+- Quality gates
+  - Web tests: PASS (63/63 files, 198/198 tests). No new lint/type issues introduced.
+- Rationale
+  - Eliminates dead transitional artifact to keep repository lean and prevent confusion over residual legacy migration scaffolding.
+- Follow-ups
+  - Create git tag `roles-removal-complete` capturing the unified backend + frontend deprecation milestone. (This entry precedes the tag creation commit.)
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE
