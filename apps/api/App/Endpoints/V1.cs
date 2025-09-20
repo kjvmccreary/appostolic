@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
+using Appostolic.Api.Infrastructure.Auth.Jwt;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -105,7 +106,7 @@ public static class V1
             return Results.Accepted();
         }).AllowAnonymous();
 
-        apiRoot.MapPost("/auth/magic/consume", async (AppDbContext db, MagicConsumeDto dto) =>
+        apiRoot.MapPost("/auth/magic/consume", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MagicConsumeDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Token))
                 return Results.BadRequest(new { error = "token is required" });
@@ -185,19 +186,74 @@ public static class V1
             t.ConsumedAt = now;
             await db.SaveChangesAsync();
 
-            // Return minimal payload including memberships
+            // Build memberships projection
             var memberships = await db.Memberships.AsNoTracking()
                 .Where(m => m.UserId == user!.Id)
                 .Join(db.Tenants.AsNoTracking(), m => m.TenantId, tn => tn.Id, (m, tn) => new
                 {
                     tenantId = tn.Id,
                     tenantSlug = tn.Name,
-                    // Legacy single role removed; clients should rely on roles flags exclusively
                     roles = (int)m.Roles
                 })
                 .ToListAsync();
 
-            return Results.Ok(new { user = new { user!.Id, user.Email }, memberships });
+            // Legacy mode? (?includeLegacy=true)
+            var includeLegacy = http.Request.Query.TryGetValue("includeLegacy", out var legacyVals) && string.Equals(legacyVals.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+            if (includeLegacy)
+            {
+                return Results.Ok(new { user = new { user.Id, user.Email }, memberships });
+            }
+
+            // Neutral token pair
+            var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+
+            object? tenantToken = null;
+            var tenantParam = http.Request.Query.TryGetValue("tenant", out var tenantVals) ? tenantVals.ToString() : null;
+            var singleMembership = memberships.Count == 1;
+            if (!string.IsNullOrWhiteSpace(tenantParam) && tenantParam.Equals("auto", StringComparison.OrdinalIgnoreCase) && memberships.Count > 1)
+            {
+                return Results.StatusCode(StatusCodes.Status409Conflict);
+            }
+
+            Guid? targetTenantId = null;
+            int rolesBitmask = 0;
+            string tenantSlug = string.Empty;
+            if (singleMembership)
+            {
+                targetTenantId = memberships[0].tenantId;
+                tenantSlug = memberships[0].tenantSlug;
+                rolesBitmask = memberships[0].roles;
+            }
+            else if (!string.IsNullOrWhiteSpace(tenantParam))
+            {
+                var match = memberships.FirstOrDefault(m => string.Equals(m.tenantSlug, tenantParam, StringComparison.OrdinalIgnoreCase) || m.tenantId.ToString() == tenantParam);
+                if (match != null)
+                {
+                    targetTenantId = match.tenantId;
+                    tenantSlug = match.tenantSlug;
+                    rolesBitmask = match.roles;
+                }
+            }
+            if (targetTenantId.HasValue)
+            {
+                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.Email);
+                tenantToken = new
+                {
+                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
+                };
+            }
+
+            return Results.Ok(new
+            {
+                user = new { user.Id, user.Email },
+                memberships,
+                access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" },
+                refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" },
+                tenantToken
+            });
         }).AllowAnonymous();
 
         // (dev grant-roles endpoint moved near method end to ensure mapping executes during startup, not inside another endpoint lambda)
@@ -309,33 +365,21 @@ public static class V1
     }).AllowAnonymous();
 
         // POST /api/auth/login (AllowAnonymous)
-        // Verifies user credentials using Argon2id and returns minimal user payload on success.
-        apiRoot.MapPost("/auth/login", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, LoginDto dto) =>
+        // Story 2: returns neutral access+refresh token pair + memberships; optional tenant access token when single membership or tenant explicitly requested.
+        apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, LoginDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
                 return Results.BadRequest(new { error = "email and password are required" });
 
             var email = dto.Email.Trim();
-            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
             if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
                 return Results.Unauthorized();
 
-            // We currently don't persist iterations; pass 0 to use hasher's default.
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
 
-            // Fetch memberships for potential convergence (legacy role -> flags bitmask) prior to projection.
-            var rawMemberships = await db.Memberships.Where(m => m.UserId == user.Id).ToListAsync();
-
-            // Feature flag: DISABLE_LEGACY_ROLE_COMPAT=true short-circuits runtime convergence so we can
-            // validate pure flags behavior in staging before removing legacy paths entirely.
-            var disableLegacyCompat = Environment.GetEnvironmentVariable("DISABLE_LEGACY_ROLE_COMPAT")?.ToLower() == "true";
-            if (!disableLegacyCompat)
-            {
-                // Legacy convergence removed (Story 4 Phase 2): Role column dropped; flags are authoritative.
-            }
-
-            // Project with tenants after convergence.
+            var rawMemberships = await db.Memberships.AsNoTracking().Where(m => m.UserId == user.Id).ToListAsync();
             var tenantIds = rawMemberships.Select(r => r.TenantId).Distinct().ToList();
             var tenantLookup = await db.Tenants.AsNoTracking()
                 .Where(t => tenantIds.Contains(t.Id))
@@ -347,7 +391,64 @@ public static class V1
                 roles = (int)m.Roles
             }).ToList();
 
-            return Results.Ok(new { user.Id, user.Email, memberships });
+            // Legacy mode toggle ?includeLegacy=true
+            var includeLegacy = http.Request.Query.TryGetValue("includeLegacy", out var legacyVals) && string.Equals(legacyVals.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+            if (includeLegacy)
+            {
+                return Results.Ok(new { user.Id, user.Email, memberships });
+            }
+
+            // Issue neutral tokens
+            var accessToken = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+
+            object? tenantToken = null;
+            var tenantParam = http.Request.Query.TryGetValue("tenant", out var tenantVals) ? tenantVals.ToString() : null;
+            var singleMembership = memberships.Count == 1;
+            if (!string.IsNullOrWhiteSpace(tenantParam) && tenantParam.Equals("auto", StringComparison.OrdinalIgnoreCase) && memberships.Count > 1)
+            {
+                return Results.StatusCode(StatusCodes.Status409Conflict);
+            }
+
+            Guid? targetTenantId = null;
+            int rolesBitmask = 0;
+            string tenantSlug = string.Empty;
+            if (singleMembership)
+            {
+                targetTenantId = memberships[0].tenantId;
+                tenantSlug = memberships[0].tenantSlug;
+                rolesBitmask = memberships[0].roles;
+            }
+            else if (!string.IsNullOrWhiteSpace(tenantParam))
+            {
+                // Match by slug or id
+                var match = memberships.FirstOrDefault(m => string.Equals(m.tenantSlug, tenantParam, StringComparison.OrdinalIgnoreCase) || m.tenantId.ToString() == tenantParam);
+                if (match != null)
+                {
+                    targetTenantId = match.tenantId;
+                    tenantSlug = match.tenantSlug;
+                    rolesBitmask = match.roles;
+                }
+            }
+            if (targetTenantId.HasValue)
+            {
+                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.Email);
+                tenantToken = new
+                {
+                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
+                };
+            }
+
+            return Results.Ok(new
+            {
+                user = new { user.Id, user.Email },
+                memberships,
+                access = new { token = accessToken, expiresAt = accessExpires, type = "neutral" },
+                refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" },
+                tenantToken
+            });
         }).AllowAnonymous();
 
         var api = apiRoot.RequireAuthorization();

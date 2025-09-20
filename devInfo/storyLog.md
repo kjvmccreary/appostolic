@@ -319,6 +319,30 @@
 - Follow-ups
   - None required; consider removing coverage artifacts referencing deleted file on next clean run (turbo/CI will regenerate without the stub).
 
+  2025-09-20 — Auth/JWT: Story 2 Neutral + Tenant Access Tokens & Refresh Persistence — ✅ DONE
+  - Summary
+    - Implemented Story 2 delivering issuance of a neutral access token plus a hashed-persistence refresh token at both password login and magic link consumption, alongside conditional tenant-scoped access token (tenantToken) when a user has exactly one membership or explicitly selects a tenant via `?tenant=slug|{tenantId}`. Added `RefreshToken` entity (hashed SHA256 storage, jsonb metadata) with migration `s6_01_auth_refresh_tokens`, `RefreshTokenService` (IssueNeutralAsync), and extended `JwtTokenService` with `IssueTenantToken`. Updated `/api/auth/login` and `/api/auth/magic/consume` endpoints to return structured JSON `{ user, memberships, access, refresh, tenantToken? }` plus legacy fallback shape when `?includeLegacy=true`. Added integration tests covering neutral issuance, tenant auto-selection, multi-tenant explicit selection vs conflict, and magic consume parity + legacy mode.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — enhanced login & magic consume endpoints (structured response, tenant selection logic, legacy mode branch).
+    - apps/api/App/Infrastructure/Auth/Jwt/JwtTokenService.cs — add `IssueTenantToken` method.
+    - apps/api/App/Infrastructure/Auth/Jwt/RefreshTokenService.cs — new service issuing & hashing refresh tokens.
+    - apps/api/Domain/RefreshToken.cs — new entity definition.
+    - apps/api/Migrations/20250920144932_s6_01_auth_refresh_tokens.cs (+ Designer) — create `app.refresh_tokens` with indexes (user+created, unique token_hash) & FK.
+    - apps/api.tests/Auth/LoginJwtNeutralTests.cs — verifies neutral access+refresh issuance, hashed persistence, single-membership auto tenantToken.
+    - apps/api.tests/Auth/LoginTenantSelectionTests.cs — multi-membership: no implicit tenant token, `?tenant=auto` 409 conflict, explicit slug selection success.
+    - apps/api.tests/Auth/MagicConsumeJwtTests.cs — magic consume structured response & legacy mode shape tests.
+  - Quality gates
+    - Targeted test runs PASS: Login neutral (1), tenant selection (3), magic consume (2). All new tests green post-adjustment of legacy shape expectation.
+    - Migration applied locally (build succeeded, schema updated). No model validation errors introduced.
+    - No regressions observed in existing auth suites (spot run of new tests only; full suite run recommended before merge).
+  - Rationale
+    - Establishes foundation for refresh rotation & revocation (future Story 3) by persisting hashed refresh tokens. Provides ergonomic tenant auto-token for single-membership users reducing immediate extra round trips. Keeps legacy shape opt-in to avoid abrupt client breakage during phased rollout.
+  - Follow-ups
+    - Story 2a: Implement test token factory to eliminate multi-step auth boilerplate in integration tests.
+    - Story 3: Refresh rotation + reuse detection (invalidate on rotation, add token_version claim or hash revocation check).
+    - Add negative tests for expired/consumed magic token and refresh token misuse (post Story 3 once rotation semantics land).
+    - Documentation: Update `SnapshotArchitecture.md` (JWT section) & `LivingChecklist.md` for refresh_tokens table presence.
+
 2025-09-20 — Auth/JWT: Sprint plan augmented with secure cookies & nginx optional layer — ✅ DONE
 
 - Summary

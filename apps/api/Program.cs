@@ -161,6 +161,7 @@ builder.Services.AddOptions<AuthJwtOptions>()
         }
     });
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
 var allowDevHeaders = builder.Environment.IsDevelopment() || (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
@@ -737,6 +738,28 @@ public partial class AppDbContext : DbContext
             // Unique token hash; support lookups by email and created_at for rate-limiting
             b.HasIndex(x => x.TokenHash).IsUnique();
             b.HasIndex(x => new { x.Email, x.CreatedAt }).HasDatabaseName("ix_login_tokens_email_created");
+        });
+
+        // Refresh Tokens (Auth-JWT-02)
+        modelBuilder.Entity<Appostolic.Api.Infrastructure.Auth.Jwt.RefreshToken>(b =>
+        {
+            b.ToTable("refresh_tokens");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.TokenHash).HasColumnName("token_hash").IsRequired();
+            b.Property(x => x.Purpose).HasColumnName("purpose").IsRequired();
+            b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("timezone('utc', now())");
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            b.Property(x => x.Metadata).HasColumnName("metadata").HasColumnType("jsonb").IsRequired(false);
+            b.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("ix_refresh_tokens_user_created");
+            b.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("ux_refresh_tokens_token_hash");
+            // Future: partial index for active tokens (revoked_at IS NULL) if needed for performance
+            b.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Apply configurations for domain types (Agent runtime)
