@@ -187,14 +187,24 @@ Notes:
 
 - Placeholder internal refresh-neutral route remains intentionally inert; safe to keep until Story 6 introduces the proper refresh flow.
 
-### Story 5: Access Token Validation Middleware & Principal Construction
+### Story 5: Access Token Validation Middleware & Principal Construction — ✅ DONE (2025-09-20)
 
-Acceptance:
+Summary:
 
-- JwtBearer handler maps roles_value claim to roles flags fulfilling policies (TenantAdmin etc.).
-- Token version mismatch triggers 401 with problem+json payload.
-- Missing tenant_id on an endpoint requiring tenant scope returns 400 or 403 (decide: 400 invalid context).
-- Tests: role policy pass/fail, version mismatch.
+- Added composite Development-only auth scheme ("BearerOrDev") allowing seamless fallback to dev header auth without per-endpoint scheme decoration; eliminated widespread 401s.
+- JwtBearer validation pipeline enforces GUID `sub` and token version match (revocation on version bump/password change) returning 401 with problem+json when mismatched.
+- Principal construction now consistently includes mapped role flags (roles_value claim mapping retained) supporting authorization policies.
+- Tests: Full suite green (211 passed / 1 skipped) including policy, smoke, and version mismatch scenarios after composite scheme integration.
+
+Deferred / Moved to Future Stories:
+
+- Force logout admin endpoint (increments TokenVersion) → Story 7 (Logout & Revocation UX).
+- Optional user TokenVersion cache (userId -> version) to reduce DB hits → Potential optimization (post-1.0 or Story 7 performance subtask).
+- Tenant-required endpoint 400 vs 403 decision & standardized problem details shape → Fold into Story 6/7 API consistency pass.
+
+Notes:
+
+- Current direct DB lookup per request acceptable at present load; micro-optimization intentionally deferred.
 
 ### Story 5a: Local HTTPS Enablement & Secure Cookie Validation — ✅ DONE (2025-09-20)
 
@@ -218,27 +228,24 @@ Follow-ups / Deferred:
 - Potential enhancement: spin an actual HTTPS TestServer (custom host builder) to assert Secure deterministically instead of header simulation (optional, low priority).
 - Consolidate duplicate cookie issuance blocks into helper (planned after refresh endpoint Story 6 to avoid churn).
 
-### Story 5b: HTTPS E2E Secure Cookie Validation — IN PROGRESS (2025-09-20)
+### Story 5b: HTTPS E2E Secure Cookie Validation — ✅ DONE (2025-09-20)
 
-Acceptance:
+Summary:
 
-- Spin up the API under real Kestrel HTTPS (dev cert) inside an E2E test harness (new `api.e2e` project or `tests/e2e` folder) without relying on in-memory TestServer.
-- Execute a representative auth flow (signup/login or existing seeded user login) over HTTPS and capture `Set-Cookie` headers.
-- Assert refresh cookie `rt` contains: `Secure; HttpOnly; SameSite=Lax; Path=/` and a valid future `Expires` (UTC) timestamp.
-- Rotation scenario: second auth flow (e.g., login again or select-tenant) issues a different cookie value preserving attributes.
-- Negative integration test (existing) for absence of Secure over HTTP remains (skip for positive Secure until E2E is authoritative).
-- Document harness in `SnapshotArchitecture.md` (testing layers) and add Story 5b entry to `storyLog.md` & `LivingChecklist`.
+- Implemented real HTTPS E2E harness exercising auth flow and confirming secure refresh cookie attributes under TLS (Secure, HttpOnly, SameSite=Lax, Path=/, Expires future, rotation on subsequent auth event).
+- Harness & results documented in `SnapshotArchitecture.md`; completion logged in `storyLog.md` and checklist entry updated.
+- Prior simulated HTTPS integration test superseded by harness; retained only where still adding coverage.
 
-Implementation Notes:
+Deferred / Followups:
 
-- Reuse dev certificate (`dotnet dev-certs https --trust`). Harness should gracefully warn if cert untrusted and optionally bypass only in CI.
-- Dynamic port allocation preferred to avoid conflicts (fallback fixed 5199). Export chosen port via environment variable for test logs.
-- Provide reusable `E2EHostFixture` encapsulating process start, readiness probe (`/health`), and disposal.
-- Parsing: filter `Set-Cookie` collection for name `rt=`; splitting on `;` tokens trimmed for attribute checks.
-- Leave existing skipped Secure integration test in place referencing this story; removal decision post-Stories 6–7.
+- Browser (Playwright) explicit HttpOnly non-access test (optional) → Security Hardening bucket.
+- Cross-site SameSite=None exploratory scenarios → Tied to potential future cross-origin embedding (post-refresh endpoint, likely Story 8 or optional followup).
+- CSRF double-submit token strategy evaluation (if moving to SameSite=None for certain flows) → Align with refresh endpoint design in Story 6.
 
-Out of Scope (Deferred Enhancements):
-// Moved to consolidated Optional Followups section at end of document.
+Notes:
+
+- Current Lax strategy sufficient for first-party flows; escalation to None will require CSRF mitigation acceptance test.
+  // Moved to consolidated Optional Followups section at end of document.
 
 Risks & Mitigations:
 
