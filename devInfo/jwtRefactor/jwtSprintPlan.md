@@ -166,15 +166,27 @@ Acceptance:
 - Neutral refresh token can be converted; previous refresh is revoked with replaced_by_token_id chain.
 - Tests: success path, unauthorized tenant, revoked prior refresh cannot be reused.
 
-### Story 4: Frontend Auth Client Refactor (Neutral Token Phase)
+### Story 4: Frontend Auth Client Refactor (Neutral Token Phase) — IN PROGRESS (2025-09-20)
 
-Acceptance:
+Progress:
 
-- Frontend stores neutral token + refresh (httpOnly cookie) after login (cookie name `rt`, httpOnly, Secure in prod, SameSite=Lax). Neutral access token kept only in memory (not localStorage) for minimized XSS persistence.
-- Tenant selection triggers call to /api/auth/select-tenant; sets tenant-scoped access token for subsequent API calls.
-- Remove reliance on x-dev-user/x-tenant for runtime API fetch wrapper except when `AUTH__ALLOW_DEV_HEADERS && process.env.NODE_ENV === 'development'`.
-- Role decoding uses claims roles_value directly; fallback removed.
-- Tests updated (mocks for fetch adding Authorization header).
+- Backend: httpOnly refresh cookie issuance behind `AUTH__REFRESH_COOKIE_ENABLED` added to `/api/auth/login`, `/api/auth/magic/consume`, `/api/auth/select-tenant` with rotation.
+- Tests: Added `RefreshCookieTests` validating Set-Cookie presence & rotation (green).
+- Frontend: Introduced `authClient.ts` (in-memory neutral access token), `withAuthFetch` wrapper attaches `Authorization` header, unit tests passing.
+- Integrated `primeNeutralAccess` into NextAuth credentials & magic flows when `access` object present in API response.
+- Added `withAuthFetch` integration test to ensure bearer header set.
+
+Remaining:
+
+- Replace placeholder refresh proxy route with real `/api/auth/refresh` endpoint (future Story 6) and update client refresh logic accordingly.
+- Remove / phase out reliance on `x-dev-user` / `x-tenant` headers except gated dev fallback (post Story 5 once full JWT validation integrated on API side for web requests).
+- Update `SnapshotArchitecture.md` and `LivingChecklist` after Story 4 completion.
+- Document cookie strategy + SSR considerations (potential future access token cookie) in architecture notes.
+
+Risks / Notes:
+
+- Current placeholder refresh-neutral route calls login with empty body (will fail in production) – safe stub not wired by UI yet; must be replaced before enabling cookie-only refresh in production.
+- Need dedicated refresh endpoint prior to removing refresh token from JSON responses.
 
 ### Story 5: Access Token Validation Middleware & Principal Construction
 
@@ -312,3 +324,25 @@ Total (w/out 9a) ~32–34 points; with 9a ~34–36 (still feasible with capacity
 ## Next Action
 
 Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh pair with membership validation and refresh rotation prep), then plan Story 6 (refresh rotation implementation) before moving into Stories 4 & 5a for frontend refactor + secure cookie handling.
+
+## Optional Followups
+
+- (Story 2) Dual-key (old/new) signing validation window to support seamless key rotation without immediate token invalidation.
+- (Story 2) Add rolesLabel[] (human-readable flag names) alongside roles_value in neutral token memberships for DX clarity (currently deferred).
+- (Story 2a) Expand TestAuthClient to mint explicit expired / nearly-expired tokens for boundary condition tests (clock skew, refresh edge cases).
+- (Story 3) Extract shared Base64 SHA-256 hashing helper for refresh token hashing to prevent future divergence across endpoints/services.
+- (Story 3) Introduce per-refresh-token device fingerprint + display name; surface active sessions list + remote revoke UI.
+- (Story 4) Consider optional short-lived httpOnly access cookie (`at`) for SSR-only endpoints to reduce need for client in-memory forwarding.
+- (Story 4) Implement CSRF double-submit token or SameSite=None + anti-CSRF header secret once cross-site embedding use-cases clarified.
+- (Story 5) Add admin API endpoint to force immediate logout for a user (increments TokenVersion) with audit event.
+- (Story 5) Lightweight in-memory or distributed cache of (userId -> TokenVersion) with short TTL (e.g., 30s) to reduce DB hits under very high auth load.
+- (Story 5a) Automate dev HTTPS enablement in Makefile (target: `make trust-dev-certs`) and document fallback for environments where trust prompt fails.
+- (Story 6) Support sliding refresh expiration (extend expires_at on active usage) with max absolute lifetime cap.
+- (Story 6) Add reuse detection metric / alert (refresh token replay attempts) for security monitoring.
+- (Story 7) Bulk logout by tenant (invalidate all user sessions belonging to a compromised tenant) — may require tenant-scoped refresh entries enumeration.
+- (Story 8) Add explicit feature flag kill-switch for JWT path to temporarily re-enable Dev headers in staging if regression found (document emergency rollback).
+- (Story 9) Add Prometheus/OpenTelemetry histogram for token validation latency + cache hit ratio (if version cache added).
+- (Story 9) Implement structured security event log (JSON lines) shipped to SIEM with category `auth` (issue, revoke, mismatch, reuse_attempt).
+- (Story 9a) Provide containerized Caddy alternative config (automatic certs) as an alternative to nginx for simpler local TLS.
+- (Story 10) Publish upgrade guide snippet on rotating signing key with minimal downtime (manual dual issuance procedure pre multi-key support).
+- (Story 11) Final sweep to remove any dead constants/flags (e.g., legacy invite role error codes) and prune obsolete test helpers replaced by TestAuthClient.
