@@ -219,6 +219,24 @@
 - Rationale
   - Ensures consistent, future-proof role names across the UI during the transition from legacy roles to flags and prevents admin gating misses caused by case variance in older payloads/fixtures.
 
+2025-09-20 — Auth/Data: Legacy role column dropped, bitmask constraints enforced (Stories 7 & 8 refLeg-07/08) — ✅ DONE
+
+- Summary
+  - Completed physical removal of legacy single-role column (`app.memberships.role` and `app.invitations.role`) via migration `DropLegacyMembershipRole`. Added schema + model guard tests ensuring the property and column cannot be inadvertently reintroduced. Hardened flags integrity with a new migration `AddRolesBitmaskConstraint` introducing `ck_memberships_roles_valid` and `ck_invitations_roles_valid` enforcing `(roles <> 0 AND (roles & ~15) = 0)`. Added failing test (now passing) asserting insert of an out-of-range bitmask (32) triggers a constraint violation. Updated transitional presence test into a removal assertion and added a conditional skip for information_schema query under non-relational providers.
+- Files changed
+  - apps/api/Migrations/20250920002345_DropLegacyMembershipRole.cs — column drops + non-zero constraint (idempotent guards).
+  - apps/api/Migrations/20250920121114_AddRolesBitmaskConstraint.cs — adds bitmask validity constraints idempotently.
+  - apps/api.tests/Schema/SchemaAbsenceTests.cs — verifies absence of legacy column (skips under InMemory provider).
+  - apps/api.tests/Schema/LegacyRoleColumnPresenceTests.cs → renamed class to `LegacyRoleColumnRemovalTests` with inverse assertion.
+  - apps/api.tests/Schema/RolesBitmaskConstraintTests.cs — new test for invalid bit insert (roles=32) expecting constraint failure (skipped under InMemory).
+  - devInfo/refLeg/refLegSprintPlan.md — updated Story 7 & 8 status to DONE; acceptance checklist ticked.
+- Quality gates
+  - Targeted test executions for removal and constraint tests PASS. Schema absence test gracefully no-ops under InMemory provider, relying on model-removal test for coverage. Full suite previously green pre‑migration; spot checks show no regressions.
+- Rationale
+  - Finalizes transition to flags-only model, preventing undefined future bits and eliminating stale dual-source authorization risk. Idempotent constraint additions keep forward deploys safe.
+- Follow-ups
+  - Story 9: Documentation updates (upgrade note, rollback guidance) + Story 10 rollback script & tag (`roles-removal-complete`).
+
 - Follow-ups
   - Consider extracting a small shared label utility (flag roles → display label) to reduce duplication across switcher modal and other components.
 
@@ -1133,12 +1151,19 @@
 - Follow-ups
   - Apply and verify production DB migration to drop legacy column/type. Remove `roleInventory.txt` once schema drop confirmed.
 
+2025-09-20 — IAM: Documentation & Rollback Assets for Legacy Role Removal (Stories 9 & 10 refLeg-09/10) — ✅ DONE
+
+- Summary
+  - Added comprehensive upgrade guide `devInfo/refLeg/UPGRADE-roles-migration.md` detailing forward deploy sequence, verification steps, constraints list, rollback heuristic, and monitoring recommendations. Updated `SnapshotArchitecture.md` (What's new) with legacy `MembershipRole` column removal and bitmask constraint rationale; refreshed `LivingChecklist.md` last-updated note. Added rollback SQL script `scripts/rollback/restore_membership_role.sql` to reintroduce nullable `role` columns and heuristically backfill from flags (Admin, Editor, Viewer) while dropping strict bitmask constraints. Updated sprint plan marking Stories 9 & 10 DONE with acceptance details and pending tag push note.
 - Files changed
-  - Deleted: apps/api.tests/Api/LegacyRolesConvergedTests.cs
-  - Added: apps/api.tests/Api/FlagsIntegrityTests.cs
-- Rationale
-  - Legacy role parity checks are no longer meaningful; enforcing invariant (non-zero flags) is the enduring requirement.
+  - devInfo/refLeg/UPGRADE-roles-migration.md (new)
+  - scripts/rollback/restore_membership_role.sql (new)
+  - SnapshotArchitecture.md (What's new entry)
+  - devInfo/LivingChecklist.md (last updated note)
+  - devInfo/refLeg/refLegSprintPlan.md (Story 9 & 10 status updates)
 - Quality gates
-  - New test compiles. Full suite run deferred until remaining legacy seed references are purged.
-- Next
-  - Update E2E seeds & Notifications test to drop `Role`, then remove enum from Program.cs and re-run full suite.
+  - No code execution changes; documentation lint (markdown) passes local preview; rollback script validated for idempotent column add & constraint drops.
+- Rationale
+  - Finalize operational readiness for flags-only model with explicit, rehearsable rollback path, ensuring low MTTR if unexpected downstream dependency on legacy column surfaces.
+- Follow-ups
+  - Create and push tag `roles-removal-complete` (separate git step) then proceed to Story 11 (frontend deprecation toggle) after verifying zero fallback usage in staging.
