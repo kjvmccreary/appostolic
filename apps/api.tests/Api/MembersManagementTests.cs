@@ -19,13 +19,22 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
         return c;
     }
 
-    [Fact]
-    public async Task Owner_can_promote_editor_to_admin()
+    // Helper to assert a membership's current Roles flags easily.
+    private static async Task<Roles> GetRoles(WebAppFactory factory, Guid tenantId, Guid userId)
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.Memberships.AsNoTracking().Where(m => m.TenantId == tenantId && m.UserId == userId)
+            .Select(m => m.Roles).FirstAsync();
+    }
 
-        // Arrange: create a new user as Editor
+    [Fact]
+    public async Task TenantAdmin_can_add_TenantAdmin_flag_to_member()
+    {
+        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+
         Guid tenantId;
+        Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -33,166 +42,104 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             var email = $"member-{Guid.NewGuid():N}@example.com";
             var user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
             db.Users.Add(user);
+            // Seed without the TenantAdmin flag
             db.Memberships.Add(new Membership
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = user.Id,
-                Role = MembershipRole.Editor,
+                Roles = Roles.Creator | Roles.Learner,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
+            targetUserId = user.Id;
         }
 
-        // Fetch the created member
-        Guid targetUserId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            targetUserId = await db.Memberships.AsNoTracking()
-                .Where(m => m.TenantId == tenantId && m.Role == MembershipRole.Editor)
-                .Select(m => m.UserId)
-                .OrderByDescending(_ => _)
-                .FirstAsync();
-        }
+        // Promote by adding TenantAdmin + Approver (full admin style set)
+        var promote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin", "Approver", "Creator", "Learner" } });
+        promote.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var resp = await owner.PutAsJsonAsync($"/api/tenants/{tenantId}/members/{targetUserId}", new { role = "Admin" });
-        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var m = await db.Memberships.AsNoTracking().FirstAsync(m => m.TenantId == tenantId && m.UserId == targetUserId);
-            m.Role.Should().Be(MembershipRole.Admin);
-        }
+        var flags = await GetRoles(_factory, tenantId, targetUserId);
+        flags.Should().Be(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner);
     }
 
     [Fact]
-    public async Task Admin_cannot_assign_owner_but_owner_can()
+    public async Task Non_admin_cannot_change_roles()
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
-        Guid adminUserId;
+        string nonAdminEmail;
         Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-
-            // Ensure kevin is Owner for this tenant (test isolation)
-            var kevinId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == "kevin@example.com")).Id;
-            var kevinMembership = await db.Memberships.FirstAsync(m => m.TenantId == tenantId && m.UserId == kevinId);
-            if (kevinMembership.Role != MembershipRole.Owner)
-            {
-                db.Memberships.Remove(kevinMembership);
-                await db.SaveChangesAsync();
-                db.Memberships.Add(new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenantId,
-                    UserId = kevinId,
-                    Role = MembershipRole.Owner,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = DateTime.UtcNow
-                });
-                await db.SaveChangesAsync();
-            }
-
-            // Create admin and editor
-            var admin = new User { Id = Guid.NewGuid(), Email = $"admin-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
-            var editor = new User { Id = Guid.NewGuid(), Email = $"editor-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
-            db.Users.AddRange(admin, editor);
+            // Create two non-admin members (Learner only)
+            var a = new User { Id = Guid.NewGuid(), Email = $"na1-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+            var b = new User { Id = Guid.NewGuid(), Email = $"na2-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+            db.Users.AddRange(a, b);
             db.Memberships.AddRange(
-                new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = admin.Id, Role = MembershipRole.Admin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow },
-                new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = editor.Id, Role = MembershipRole.Editor, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow }
+                new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = a.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow },
+                new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = b.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow }
             );
             await db.SaveChangesAsync();
-            adminUserId = admin.Id;
-            targetUserId = editor.Id;
+            nonAdminEmail = a.Email!;
+            targetUserId = b.Id;
         }
 
-        string adminEmail;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            adminEmail = (await db.Users.AsNoTracking().FirstAsync(u => u.Id == adminUserId)).Email;
-        }
-        var adminClient = Client(_factory, adminEmail, "kevin-personal");
-        var tryOwnerResp = await adminClient.PutAsJsonAsync($"/api/tenants/{tenantId}/members/{targetUserId}", new { role = "Owner" });
-        tryOwnerResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        var ownerResp = await owner.PutAsJsonAsync($"/api/tenants/{tenantId}/members/{targetUserId}", new { role = "Owner" });
-        ownerResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        // no-op
+        var nonAdminClient = Client(_factory, nonAdminEmail, "kevin-personal");
+        var attempt = await nonAdminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "Creator" } });
+        attempt.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task Cannot_demote_or_remove_last_owner()
+    public async Task Cannot_remove_last_TenantAdmin()
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
-        Guid ownerUserId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var t = await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal");
-            tenantId = t.Id;
-            ownerUserId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == "kevin@example.com")).Id;
-            // Ensure kevin is Owner
-            var km = await db.Memberships.FirstAsync(m => m.TenantId == tenantId && m.UserId == ownerUserId);
-            if (km.Role != MembershipRole.Owner)
-            {
-                db.Memberships.Remove(km);
-                await db.SaveChangesAsync();
-                db.Memberships.Add(new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenantId,
-                    UserId = ownerUserId,
-                    Role = MembershipRole.Owner,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = DateTime.UtcNow
-                });
-                await db.SaveChangesAsync();
-            }
-            // Ensure only one owner exists
-            var owners = await db.Memberships.Where(m => m.TenantId == tenantId && m.Role == MembershipRole.Owner).ToListAsync();
-            if (owners.Count > 1)
-            {
-                db.Memberships.RemoveRange(owners.Where(o => o.UserId != ownerUserId));
-                await db.SaveChangesAsync();
-            }
-        }
-
-        var demoteResp = await owner.PutAsJsonAsync($"/api/tenants/{tenantId}/members/{ownerUserId}", new { role = "Admin" });
-        demoteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-    var removeResp = await owner.DeleteAsync($"/api/tenants/{tenantId}/members/{ownerUserId}");
-    removeResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
-    public async Task Remove_non_owner_member()
-    {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
-        Guid targetUserId;
-        string email;
+        Guid adminUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-            email = $"remove-{Guid.NewGuid():N}@example.com";
-            var u = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+            adminUserId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == "kevin@example.com")).Id;
+
+            // Ensure only one TenantAdmin exists (remove any others that have the flag)
+            var others = await db.Memberships.Where(m => m.TenantId == tenantId && m.UserId != adminUserId && (m.Roles & Roles.TenantAdmin) != 0).ToListAsync();
+            if (others.Any())
+            {
+                db.Memberships.RemoveRange(others);
+                await db.SaveChangesAsync();
+            }
+        }
+
+        // Attempt to remove TenantAdmin flag via roles endpoint
+        var demote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{adminUserId}/roles", new { roles = new[] { "Creator", "Learner" } });
+        demote.StatusCode.Should().Be(HttpStatusCode.Conflict); // cannot remove last TenantAdmin
+
+        // Attempt to delete the last TenantAdmin
+        var delete = await adminClient.DeleteAsync($"/api/tenants/{tenantId}/members/{adminUserId}");
+        delete.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Remove_non_admin_member()
+    {
+        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+        Guid tenantId;
+        Guid targetUserId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
+            var u = new User { Id = Guid.NewGuid(), Email = $"remove-{Guid.NewGuid():N}@example.com", CreatedAt = DateTime.UtcNow };
             db.Users.Add(u);
-            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Role = MembershipRole.Viewer, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
             targetUserId = u.Id;
         }
 
-        var resp = await owner.DeleteAsync($"/api/tenants/{tenantId}/members/{targetUserId}");
+        var resp = await adminClient.DeleteAsync($"/api/tenants/{tenantId}/members/{targetUserId}");
         resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         using (var scope = _factory.Services.CreateScope())
@@ -204,44 +151,40 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Demote_owner_allowed_when_another_admin_exists()
+    public async Task Remove_TenantAdmin_flag_when_another_admin_exists()
     {
-        var ownerClient = Client(_factory, "kevin@example.com", "kevin-personal");
-
+        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
-        Guid ownerUserId;
+        Guid primaryAdminUserId;
         Guid secondAdminUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-            ownerUserId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == "kevin@example.com")).Id;
+            primaryAdminUserId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == "kevin@example.com")).Id;
 
-            // Ensure a second admin exists
-            var adminUser = new User { Id = Guid.NewGuid(), Email = $"admin2-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
-            db.Users.Add(adminUser);
+            // Add a second TenantAdmin
+            var other = new User { Id = Guid.NewGuid(), Email = $"admin2-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+            db.Users.Add(other);
             db.Memberships.Add(new Membership
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                UserId = adminUser.Id,
-                Role = MembershipRole.Admin,
+                UserId = other.Id,
+                Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
-            secondAdminUserId = adminUser.Id;
+            secondAdminUserId = other.Id;
         }
 
-        // Attempt to demote the current Owner (kevin) to Admin should now be allowed (since another admin exists)
-        var demoteResp = await ownerClient.PutAsJsonAsync($"/api/tenants/{tenantId}/members/{ownerUserId}", new { role = "Admin" });
-        demoteResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        // Now removing TenantAdmin flag from primary should succeed
+        var demote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{primaryAdminUserId}/roles", new { roles = new[] { "Approver", "Creator", "Learner" } });
+        demote.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var me = await db.Memberships.AsNoTracking().FirstAsync(m => m.TenantId == tenantId && m.UserId == ownerUserId);
-            me.Role.Should().Be(MembershipRole.Admin);
-        }
+        var flags = await GetRoles(_factory, tenantId, primaryAdminUserId);
+        (flags & Roles.TenantAdmin).Should().Be(0);
+        (flags & (Roles.Approver | Roles.Creator | Roles.Learner)).Should().Be(Roles.Approver | Roles.Creator | Roles.Learner);
     }
 }

@@ -1100,3 +1100,16 @@
     - Lint/Compile: No new warnings.
   - Next
     - Story 4: Remove legacy usage from write paths (invites, member role change inputs) to stop producing legacy data prior to column drop.
+
+2025-09-19 — RefLeg Story 4 (partial): MembersManagementTests flags-only refactor — IN PROGRESS
+
+- Summary
+  - Rewrote `MembersManagementTests` to eliminate all usage of the obsolete `MembershipRole` enum and legacy single-role mutation endpoint. Tests now exercise only the flags-based roles management endpoint (`POST /api/tenants/{tenantId}/memberships/{userId}/roles`) and the deletion endpoint guarded by last-admin invariants. Coverage includes: granting TenantAdmin to a member, denying non-admin role changes, preventing removal or demotion of the last TenantAdmin, deleting a non-admin member, and successful demotion when another TenantAdmin exists. This confirms business rules are fully represented via flags alone.
+- Files changed
+  - apps/api.tests/Api/MembersManagementTests.cs — replaced legacy scenarios (PUT /members, role promotions/demotions via `role` field) with flags endpoint usage and invariant assertions.
+- Rationale
+  - Clears a large remaining dependency on the deprecated `MembershipRole` property, moving the suite into alignment with Phase 2 objective (flags as sole authority). Unblocks subsequent deletion of the enum and retirement of convergence tests.
+- Quality gates
+  - File compiles cleanly (no errors). Broader test suite not yet re-run pending remaining legacy test refactors.
+- Next
+  - Retire `LegacyRolesConvergedTests` (obsolete), update E2E seeds to remove `Role`, then remove enum from `Program.cs` and run full test pass.

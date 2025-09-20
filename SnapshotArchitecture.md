@@ -314,6 +314,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Extended `Membership` with an `roles` column (int) to store role flags per user per tenant.
   - EF Core migration: `20250915130937_s4_01_membership_roles_flags` adds `roles integer not null default 0` to `app.memberships`.
   - Existing `MembershipRole` enum (Owner/Admin/Editor/Viewer) remains for legacy compatibility; new authorization will use `Roles` going forward.
+  - 2025-09-19 Update: Major API test suites (authorization, members list, members management) now run exclusively on `Roles` flags; legacy enum usage in tests being phased out ahead of enum removal.
   - No behavior change yet; enforcement and APIs will land in subsequent stories.
 
 - Mig‑07: Transport privacy hardening — Redis subscriber no longer logs raw Pub/Sub payloads on warning/error paths; logs include channel and payload length only. Publisher and subscriber continue to send/accept GUID IDs only; no PII is present in transport payloads.
