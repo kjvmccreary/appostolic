@@ -78,7 +78,7 @@ public class NotificationsE2E_Mailhog
                             Id = Guid.NewGuid(),
                             TenantId = tenant.Id,
                             UserId = user.Id,
-                            Role = MembershipRole.Owner,
+                            Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
                             Status = MembershipStatus.Active,
                             CreatedAt = DateTime.UtcNow
                         };
