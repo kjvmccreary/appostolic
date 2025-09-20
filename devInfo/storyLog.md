@@ -134,6 +134,23 @@
 - Follow-ups
   - Add instrumentation to log (dev only) when fallback path is exercised to measure residual legacy dependency before removal.
 
+  2025-09-20 — Auth/JWT: Story 3 Tenant Selection & Refresh Rotation — ✅ DONE
+  - Summary
+    - Implemented `POST /api/auth/select-tenant` enabling a neutral session (user + memberships + neutral refresh) to select a tenant (by slug or id) and receive a tenant-scoped access token plus a rotated neutral refresh token. Response mirrors login shape: `{ user, memberships, access, refresh, tenantToken }`. The old neutral refresh is revoked prior to issuing the new one, enforcing single active refresh chain. Membership absence returns 403; invalid, expired, or revoked refresh tokens return 401 (ProblemDetails). During testing, discovered a hashing mismatch: endpoint originally hashed refresh token using existing hex helper (`HashToken`), while persisted hashes are Base64(SHA256). Adjusted endpoint to compute Base64 SHA256 inline (aligned with `RefreshTokenService`) resolving initial 401 failures. Added integration tests covering success + rotation (old token reuse 401), invalid token 401, forbidden tenant 403, expired refresh 401, and revoked reuse 401. Establishes foundation for general refresh endpoint (Story 6) and forthcoming secure httpOnly cookie delivery stories.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — added SelectTenant endpoint mapping, hashing alignment, rotation & membership validation logic (inline Base64 SHA256 hash).
+    - apps/api.tests/Auth/SelectTenantTests.cs (new) — success rotation, invalid refresh, forbidden tenant, expired refresh, revoked reuse cases.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 3 marked DONE with acceptance + implementation notes.
+    - SnapshotArchitecture.md — “What’s new” section updated with Story 3 summary (hashing nuance, rotation tests).
+  - Quality gates
+    - Targeted SelectTenant tests PASS; broader auth test suites unaffected and still green. Build clean aside from pre-existing benign warnings.
+  - Rationale
+    - Provides explicit tenant selection flow for multi-tenant users, rotates refresh to tighten session security, and locks in hashing consistency before expanding refresh/logout flows.
+  - Follow-ups
+    - Implement general refresh endpoint (Story 6) reusing shared hashing helper (consider refactor to eliminate duplicate inline hash).
+    - Secure httpOnly cookie strategy & local HTTPS (Stories 4/5a) to move refresh off JSON surface.
+    - Observability counters for issuance/rotation/revocation (Story 9) and consolidated hashing utility.
+
   2025-09-19 — Auth/Web: Comma-separated roles string parsing to prevent admin 403 — ✅ DONE
 
   2025-09-19 — Auth/Data: Runtime roles convergence at login — ✅ DONE

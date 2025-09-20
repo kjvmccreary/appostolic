@@ -105,7 +105,38 @@ Implementation Notes (Completed):
 - Documentation: `SnapshotArchitecture.md`, `LivingChecklist.md`, `storyLog.md` updated with Story 2 summary.
 - Next stories will introduce rotation/reuse detection and test helper (Story 2a) — no cookie/httpOnly changes yet (planned Story 4/5a).
 
-### Story 3: Tenant Selection → Tenant-Scoped Token Pair
+### Story 3: Tenant Selection → Tenant-Scoped Token Pair — ✅ DONE (2025-09-20)
+
+Acceptance (fulfilled):
+
+- POST /api/auth/select-tenant accepts body `{ tenant?: string, refreshToken: string }` where `tenant` may be a tenant slug or GUID (or omitted if only one membership—client can still supply explicitly for clarity).
+- Validates provided neutral refresh token (unexpired, not revoked, purpose neutral) and the caller's membership in the target tenant.
+- On success: returns `{ user, memberships, access, refresh, tenantToken }` where:
+  - `access` = new neutral access token (user scope, refreshed claims & token_version)
+  - `refresh` = new neutral refresh token (old one revoked & linked via `replaced_by_token_id` / RevokeAsync)
+  - `tenantToken.access` = tenant-scoped access token embedding `tenant_id`, `tenant_slug`, `roles_value`, and roles[]
+- Old refresh token is revoked before issuing new to enforce single active chain and prevent reuse.
+- Reuse of revoked/expired refresh returns 401; selecting a tenant without membership returns 403.
+
+Implementation Notes:
+
+- Added endpoint mapping in `V1.cs` with internal record `SelectTenantDto { string? Tenant; string RefreshToken; }`.
+- Fixed hashing mismatch discovered during testing: endpoint initially used existing hex hash helper; storage uses Base64(SHA256). Introduced inline Base64(SHA256) computation aligning with `RefreshTokenService` so lookups succeed.
+- Batch membership + tenant slugs fetch performed with a single join to avoid N+1 when projecting memberships for response.
+- Rotation flow: `ValidateNeutralAsync` for structural/expiry check, then explicit `RevokeAsync(oldId)` inside request scope prior to issuing new neutral (`IssueNeutralAsync`). Revocation sets `revoked_at`; (optional future) replaced_by linkage can be surfaced.
+- Tests added (apps/api.tests): success rotation (new refresh differs; old unusable), invalid refresh 401, forbidden tenant 403, expired refresh 401, revoked reuse 401.
+- All new tests green; existing auth suites unaffected.
+
+Follow-ups:
+
+- Story 6 will introduce general refresh endpoint (neutral + tenant flows) reusing the same hashing & rotation pattern.
+- Consider extracting shared Base64 SHA256 hashing helper to avoid accidental divergence in future endpoints (refresh/logout).
+- Future Story: deliver refresh token via secure httpOnly cookie once HTTPS local (Story 5a) established.
+
+Risk Mitigations:
+
+- Hash format discrepancy documented here to prevent regressions.
+- Tests explicitly assert revoked refresh reuse returns 401 to guard rotation invariant.
 
 ### Story 2a: Test Ergonomics & Helper Shortcuts (NEW) — ✅ DONE (2025-09-20)
 

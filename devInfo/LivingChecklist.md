@@ -43,6 +43,7 @@ How to use
 - [x] Role policies enforced; uniform 403 ProblemDetails; last‑admin invariant (409) with audit trail
 - [x] JWT baseline infrastructure (access token issuance + validation smoke) — Story 1 complete (2025-09-20)
 - [x] JWT Story 2: Neutral + tenant access tokens; refresh token persistence (hashed) at login & magic consume (2025-09-20)
+- [x] JWT Story 3: Tenant selection endpoint + refresh rotation (select-tenant) (2025-09-20)
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
