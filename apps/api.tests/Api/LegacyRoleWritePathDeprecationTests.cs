@@ -8,9 +8,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Appostolic.Api.Tests.Api;
 
 /// <summary>
-/// Story 4 (refLeg-04/Phase 2) regression tests ensuring legacy write-path inputs using the deprecated
-/// 'role' field are rejected for invites AND member role changes. Member role change endpoint now returns
-/// 400 LEGACY_ROLE_DEPRECATED (flags-only model enforced).
+/// Story 4 (refLeg-04/Phase 2) regression tests around legacy write-path inputs using the removed
+/// single 'role' field.
+///
+/// Current behavior (post legacy convergence removal):
+///  - Invite creation: the DTO no longer defines a legacy 'role' field. Supplying only 'role' therefore
+///    results in zero parsed flags and the generic NO_FLAGS validation error (the earlier
+///    LEGACY_ROLE_DEPRECATED code was only emitted while the transitional legacy field still existed).
+///  - Member role change (legacy single-role endpoint): endpoint itself is now hard‑deprecated and always
+///    returns 400 LEGACY_ROLE_DEPRECATED to force client migration to flags endpoint.
+///
+/// These tests lock the above invariants so future refactors don't accidentally re‑introduce legacy
+/// mutation paths.
 /// </summary>
 public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
 {
@@ -26,7 +35,7 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Invite_with_legacy_role_only_is_rejected()
+    public async Task Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS()
     {
         var client = Client(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
@@ -40,7 +49,8 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var payload = await resp.Content.ReadFromJsonAsync<JsonElement>();
         payload.TryGetProperty("code", out var codeEl).Should().BeTrue();
-        codeEl.GetString().Should().Be("LEGACY_ROLE_DEPRECATED");
+    // Legacy 'role' value is ignored; absence of flags yields NO_FLAGS validation code.
+    codeEl.GetString().Should().Be("NO_FLAGS");
     }
 
     [Fact]

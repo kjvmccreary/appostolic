@@ -240,6 +240,20 @@
 - Follow-ups
   - Consider extracting a small shared label utility (flag roles → display label) to reduce duplication across switcher modal and other components.
 
+2025-09-20 — IAM: Final legacy role cleanup & test alignment (Story 9 refLeg-09) — ✅ DONE
+
+- Summary
+  - Completed documentation and regression test alignment after physical removal of legacy `MembershipRole` columns and addition of bitmask constraints. The invite creation flow now returns `{ code: "NO_FLAGS" }` (generic missing flags) when only the deprecated single `role` field is supplied without any `roles`/`rolesValue` flags, since the specialized `LEGACY_ROLE_DEPRECATED` path was tied to the presence of the legacy column. Updated the prior regression test to reflect this new invariant and renamed it for clarity. Member legacy single-role change endpoint still emits `LEGACY_ROLE_DEPRECATED` (documented by existing test) until its own deprecation/removal story.
+- Files changed
+  - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — renamed invite test to `Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS` and assertion updated to expect `NO_FLAGS`.
+  - devInfo/storyLog.md, SnapshotArchitecture.md, LivingChecklist.md — milestone closure & architecture snapshot date bump.
+- Quality gates
+  - Full API test suite PASS (193/193) after clean rebuild; no intermittent failures; TRX inspection shows zero failed tests.
+- Rationale
+  - Ensures regression coverage matches post-removal authorization & validation behavior: absence of any roles flags is treated uniformly as missing flags, independent of whether a legacy field was present. Prevents future confusion over dual error codes once the legacy path has been fully excised.
+- Follow-ups
+  - Story 10: Provide rollback script and ops guidance tag (`roles-removal-complete`); optional deeper investigation into TRX omission of renamed test display name (non-blocking).
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE

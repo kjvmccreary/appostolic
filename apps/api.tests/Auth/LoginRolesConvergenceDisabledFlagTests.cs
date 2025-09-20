@@ -26,16 +26,18 @@ public class LoginRolesConvergenceDisabledFlagTests : IClassFixture<WebAppFactor
     private sealed record LoginPayload(Guid Id, string Email, MembershipDto[] memberships);
 
     [Fact]
-    public async Task Login_DoesNotCorrect_MismatchedRolesBitmask_WhenFlagEnabled()
+    public async Task Login_DoesNotMutate_MismatchedRolesBitmask_WhenFlagEnabled()
     {
+        // With convergence removed globally, the flag is effectively redundant but we keep the test to
+        // document that no mutation occurs and the legacy role string is absent/null in the payload.
+
         using var client = _factory.CreateClient();
         var email = "rolesconverge-flag-disabled@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
         signup.EnsureSuccessStatusCode();
 
-        // Tamper membership to simulate stale/mismatched data (Owner with flags missing bits)
+        int tamperedValue = 6; // (Creator | Approver) subset
         var scopeFactory = _factory.Services.GetRequiredService<IServiceScopeFactory>();
-        int tamperedValue = 6; // (Creator | Approver) for example, missing TenantAdmin & Learner relative to canonical 15
         using (var scope = scopeFactory.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -50,7 +52,7 @@ public class LoginRolesConvergenceDisabledFlagTests : IClassFixture<WebAppFactor
         var payload = await login.Content.ReadFromJsonAsync<LoginPayload>();
         payload.Should().NotBeNull();
         var m = payload!.memberships.Single();
-        m.role.Should().Be("Owner");
-        m.roles.Should().Be(tamperedValue, "runtime convergence should be disabled by DISABLE_LEGACY_ROLE_COMPAT flag");
+        m.role.Should().BeNull();
+        m.roles.Should().Be(tamperedValue, "runtime convergence removed, flag ensures no hidden mutation");
     }
 }

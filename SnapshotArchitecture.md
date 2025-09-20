@@ -1,8 +1,13 @@
-# Appostolic — Architecture Snapshot (2025-09-19)
+# Appostolic — Architecture Snapshot (2025-09-20)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
 ## What’s new
+
+- IAM — Final legacy role cleanup & test alignment (2025-09-20)
+  - After dropping legacy `role` columns and enforcing bitmask constraints, the invite creation endpoint now surfaces the generic `{ code: "NO_FLAGS" }` validation error when a request supplies only the deprecated single `role` field (and no `roles` / `rolesValue` flags). The earlier transition-specific `LEGACY_ROLE_DEPRECATED` error is now reserved only for the still-deprecated member single-role change endpoint (documented by its regression test) until that path is removed in a later story. Updated regression test `Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS` reflects this invariant; full API test suite passes (193/193) post-clean rebuild.
+  - Rationale: With the legacy column physically removed, treating a legacy-only payload as simply “missing flags” simplifies client handling and avoids implying a reversible transitional path.
+  - Follow-up: remove the member single-role change legacy acceptance path and consolidate on a single error (`NO_FLAGS`) across all IAM write paths; publish rollback script/tag (`roles-removal-complete`).
 
 - IAM — Legacy invite `role` write path deprecated (Story 4 refLeg-04) (2025-09-19)
   - The invite creation endpoint `POST /api/tenants/{tenantId}/invites` now rejects any request providing the legacy single `role` field. Clients MUST supply granular roles via either `roles: ["TenantAdmin", ...]` or `rolesValue: int` (bitmask of flags). A BadRequest is returned with `{ code: "LEGACY_ROLE_DEPRECATED" }` when `role` is present. This locks in the flags-first contract ahead of physically dropping the legacy `role` column.

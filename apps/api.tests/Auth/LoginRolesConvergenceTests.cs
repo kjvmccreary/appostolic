@@ -16,21 +16,25 @@ public class LoginRolesConvergenceTests : IClassFixture<WebAppFactory>
     private sealed record LoginPayload(Guid Id, string Email, MembershipDto[] memberships);
 
     [Fact]
-    public async Task Login_Corrects_MismatchedRolesBitmask()
+    public async Task Login_DoesNotMutate_MismatchedRolesBitmask_AfterLegacyConvergenceRemoval()
     {
+        // NOTE: Legacy runtime convergence (adjusting bitmask to match legacy role string) has been removed.
+        // This test now asserts that tampering the stored Roles value is surfaced as-is (defensive transparency)
+        // and no attempt is made to "correct" it at login time.
+
         using var client = _factory.CreateClient();
         var email = "rolesconverge@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
         signup.EnsureSuccessStatusCode();
 
-        // Directly tamper with membership to simulate historical bad data (Owner with wrong flags 6 instead of 15)
+        const int tamperedValue = 6; // (Creator | Approver) missing TenantAdmin & Learner bits (original full set was 15 for historical "Owner")
         var scopeFactory = _factory.Services.GetRequiredService<IServiceScopeFactory>();
         using (var scope = scopeFactory.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = await db.Users.AsNoTracking().FirstAsync(u => u.Email == email);
             var membership = await db.Memberships.FirstAsync(m => m.UserId == user.Id);
-            membership.Roles = (Roles)6; // e.g., stale flags missing TenantAdmin & Learner
+            membership.Roles = (Roles)tamperedValue;
             await db.SaveChangesAsync();
         }
 
@@ -39,7 +43,8 @@ public class LoginRolesConvergenceTests : IClassFixture<WebAppFactory>
         var payload = await login.Content.ReadFromJsonAsync<LoginPayload>();
         payload.Should().NotBeNull();
         var m = payload!.memberships.Single();
-        m.role.Should().Be("Owner");
-        m.roles.Should().Be(15); // Runtime convergence should correct to full flags for Owner
+        // The legacy string role field is no longer projected by the API; if present via deserialization it will be null.
+        m.role.Should().BeNull();
+        m.roles.Should().Be(tamperedValue, "runtime convergence logic has been retired");
     }
 }
