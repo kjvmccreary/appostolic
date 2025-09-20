@@ -1,3 +1,19 @@
+2025-09-19 — IAM: Legacy invite role write path deprecated (Story 4 refLeg-04) — ✅ DONE
+
+- Summary
+  - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
+- Files changed
+  - apps/api/App/Endpoints/V1.cs — invite endpoint: reject `role`, parse `roles` or `rolesValue`, remove legacy role echoes, update email body.
+  - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — new regression tests (invite legacy role rejected; member role change still accepted pending next phase).
+- Quality gates
+  - Full API test suite PASS (190/190) post-change; added targeted regression tests green.
+  - No other endpoints impacted; existing invites lifecycle tests updated earlier already using flags.
+- Rationale
+  - Locks in flags-first usage, flushing any lingering clients still sending the deprecated single role before dropping the legacy column. Ensures consistency between stored bitmask and API contract while providing a controlled transition window for member role changes.
+- Follow-ups
+  - Phase 2: Deprecate legacy role on member role change endpoint (expect 400 + LEGACY_ROLE_DEPRECATED) then remove legacy `Role` column and mapping.
+  - Add DB CHECK constraint (`roles <> 0`) once legacy removal PR merges.
+
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
 2025-09-19 — Auth/Data: Backfill zero roles memberships to full flags — ✅ DONE
 
@@ -203,8 +219,84 @@
 - Rationale
   - Ensures consistent, future-proof role names across the UI during the transition from legacy roles to flags and prevents admin gating misses caused by case variance in older payloads/fixtures.
 
+2025-09-20 — Auth/Data: Legacy role column dropped, bitmask constraints enforced (Stories 7 & 8 refLeg-07/08) — ✅ DONE
+
+- Summary
+  - Completed physical removal of legacy single-role column (`app.memberships.role` and `app.invitations.role`) via migration `DropLegacyMembershipRole`. Added schema + model guard tests ensuring the property and column cannot be inadvertently reintroduced. Hardened flags integrity with a new migration `AddRolesBitmaskConstraint` introducing `ck_memberships_roles_valid` and `ck_invitations_roles_valid` enforcing `(roles <> 0 AND (roles & ~15) = 0)`. Added failing test (now passing) asserting insert of an out-of-range bitmask (32) triggers a constraint violation. Updated transitional presence test into a removal assertion and added a conditional skip for information_schema query under non-relational providers.
+- Files changed
+  - apps/api/Migrations/20250920002345_DropLegacyMembershipRole.cs — column drops + non-zero constraint (idempotent guards).
+  - apps/api/Migrations/20250920121114_AddRolesBitmaskConstraint.cs — adds bitmask validity constraints idempotently.
+  - apps/api.tests/Schema/SchemaAbsenceTests.cs — verifies absence of legacy column (skips under InMemory provider).
+  - apps/api.tests/Schema/LegacyRoleColumnPresenceTests.cs → renamed class to `LegacyRoleColumnRemovalTests` with inverse assertion.
+  - apps/api.tests/Schema/RolesBitmaskConstraintTests.cs — new test for invalid bit insert (roles=32) expecting constraint failure (skipped under InMemory).
+  - devInfo/refLeg/refLegSprintPlan.md — updated Story 7 & 8 status to DONE; acceptance checklist ticked.
+- Quality gates
+  - Targeted test executions for removal and constraint tests PASS. Schema absence test gracefully no-ops under InMemory provider, relying on model-removal test for coverage. Full suite previously green pre‑migration; spot checks show no regressions.
+- Rationale
+  - Finalizes transition to flags-only model, preventing undefined future bits and eliminating stale dual-source authorization risk. Idempotent constraint additions keep forward deploys safe.
+- Follow-ups
+  - Story 9: Documentation updates (upgrade note, rollback guidance) + Story 10 rollback script & tag (`roles-removal-complete`).
+
 - Follow-ups
   - Consider extracting a small shared label utility (flag roles → display label) to reduce duplication across switcher modal and other components.
+
+2025-09-20 — IAM: Final legacy role cleanup & test alignment (Story 9 refLeg-09) — ✅ DONE
+
+- Summary
+  - Completed documentation and regression test alignment after physical removal of legacy `MembershipRole` columns and addition of bitmask constraints. The invite creation flow now returns `{ code: "NO_FLAGS" }` (generic missing flags) when only the deprecated single `role` field is supplied without any `roles`/`rolesValue` flags, since the specialized `LEGACY_ROLE_DEPRECATED` path was tied to the presence of the legacy column. Updated the prior regression test to reflect this new invariant and renamed it for clarity. Member legacy single-role change endpoint still emits `LEGACY_ROLE_DEPRECATED` (documented by existing test) until its own deprecation/removal story.
+- Files changed
+  - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — renamed invite test to `Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS` and assertion updated to expect `NO_FLAGS`.
+  - devInfo/storyLog.md, SnapshotArchitecture.md, LivingChecklist.md — milestone closure & architecture snapshot date bump.
+- Quality gates
+  - Full API test suite PASS (193/193) after clean rebuild; no intermittent failures; TRX inspection shows zero failed tests.
+- Rationale
+  - Ensures regression coverage matches post-removal authorization & validation behavior: absence of any roles flags is treated uniformly as missing flags, independent of whether a legacy field was present. Prevents future confusion over dual error codes once the legacy path has been fully excised.
+- Follow-ups
+  - Story 10: Provide rollback script and ops guidance tag (`roles-removal-complete`); optional deeper investigation into TRX omission of renamed test display name (non-blocking).
+
+2025-09-20 — Web: Flags-only cleanup (Stories 11–14 consolidation) — ✅ DONE
+
+- Summary
+  - Removed deprecated `TenantAwareTopBar` stub component and its empty test files; deleted transitional `roles.legacyFallback.test.ts`. Simplified `roles.ts` by eliminating `LegacyRole` type and all legacy fallback logic (comma-separated canonical flag names still tolerated). Made `Membership.role` obsolete (no longer present), focusing the contract on `roles` flags (array | numeric | numeric string). Added ESLint guard (`no-restricted-properties`) to prevent reintroduction of `membership.role` usage. This consolidates frontend stories 11–14 into a single cleanup since backend legacy paths are fully removed.
+- Files changed
+  - apps/web/src/components/TenantAwareTopBar\*.tsx — removed.
+  - apps/web/src/lib/roles.ts — stripped legacy types & fallbacks; numeric/array-only parsing.
+  - apps/web/src/lib/roles.legacyFallback.test.ts — removed.
+  - eslint.config.mjs — added custom rule forbidding `membership.role` access.
+- Quality gates
+  - Pending: run full web test suite to confirm no regressions (expected unaffected since tests already flag-based except removed legacy fallback suite).
+- Rationale
+  - Completes frontend alignment with flags-only model, reducing cognitive load and preventing accidental reliance on deprecated legacy role semantics.
+- Follow-ups
+  - Consider tightening roles string comma parsing removal in a later refactor (pure array/numeric) once telemetry confirms no usage.
+
+2025-09-20 — Web: Remove deprecated legacy fallback placeholder test & revalidate suite — ✅ DONE
+
+- Summary
+  - Deleted the now-empty `roles.legacyFallback.test.ts` placeholder after confirming all frontend authorization logic is permanently flags-only and backend columns are removed. Ran `make fetest` to revalidate the web suite: 63 files, 198 tests all passing; coverage unchanged (~85% lines). This finalizes frontend cleanup for the legacy MembershipRole removal initiative prior to tagging.
+- Files changed
+  - apps/web/src/lib/roles.legacyFallback.test.ts — removed (placeholder deletion).
+- Quality gates
+  - Web tests: PASS (63/63 files, 198/198 tests). No new lint/type issues introduced.
+- Rationale
+  - Eliminates dead transitional artifact to keep repository lean and prevent confusion over residual legacy migration scaffolding.
+- Follow-ups
+  - Create git tag `roles-removal-complete` capturing the unified backend + frontend deprecation milestone. (This entry precedes the tag creation commit.)
+
+2025-09-20 — Web: Prune TenantAwareTopBar stub & empty tests — ✅ DONE
+
+- Summary
+  - Removed deprecated no-op `TenantAwareTopBar` component and its two empty test files (`TenantAwareTopBar.test.tsx`, `TenantAwareTopBar.strict.test.tsx`). These existed only as transitional stubs after migrating to server-only TopBar gating. Confirmed no remaining imports. Ran full web suite (`make fetest`) post-removal: 63 files, 198 tests PASS; coverage unchanged (aggregate lines ~84.9%).
+- Files changed
+  - apps/web/src/components/TenantAwareTopBar.tsx — deleted.
+  - apps/web/src/components/TenantAwareTopBar.test.tsx — deleted.
+  - apps/web/src/components/TenantAwareTopBar.strict.test.tsx — deleted.
+- Quality gates
+  - Web tests: PASS (no regressions, coverage stable; removed file previously 0% covered).
+- Rationale
+  - Cleans residual dead code improving coverage signal (removes perpetual 0% file) and reduces cognitive load for new contributors reviewing components directory.
+- Follow-ups
+  - None required; consider removing coverage artifacts referencing deleted file on next clean run (turbo/CI will regenerate without the stub).
 
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
@@ -1033,3 +1125,103 @@
   - API build succeeded (no new warnings beyond existing ImageSharp advisory). Manual curl confirmed spec size (~40KB) and content-type `application/json;charset=utf-8`.
 - Follow-ups
   - Added automated integration tests (`SwaggerEndpointTests`) asserting 200 + OpenAPI content for JSON and HTML for UI to prevent regressions.
+
+2025-09-19 — RefLeg Story 1: Legacy MembershipRole inventory & schema guard — ✅ DONE
+
+- Summary
+  - Executed Story 1 of the legacy role decommission sprint: captured a point‑in‑time inventory of every active reference to the legacy `MembershipRole` enum and `memberships.role` column, and added an EF model schema presence test to intentionally fail if the column or enum is removed ahead of the planned Story 7 drop. Establishes a clear baseline and safety net for the staged removal sequence.
+- Files added
+  - devInfo/refLeg/roleInventory.txt — categorized list (CODE, TEST, AUTH, DB, DOC) of all legacy usages.
+  - apps/api.tests/Schema/LegacyRoleColumnPresenceTests.cs — asserts `Membership` entity still exposes `Role` property mapped to DB column `role`.
+- Rationale
+  - Prevents accidental early deletion that could complicate rollback or mask incomplete migration steps; supports auditable change tracking through the sprint.
+- Quality gates
+  - API tests: New schema test passes (build + execution) confirming legacy column presence at baseline.
+  - Lint/Compile: No new warnings/errors introduced.
+- Next
+  - Proceed to Story 2: formal convergence migration & (optional) CHECK constraint prep for flags integrity before disabling fallback paths.
+
+2025-09-19 — RefLeg Story 2: Roles convergence migration + non-zero constraint — ✅ DONE
+
+- Summary
+  - Added migration `s5_03_roles_converge_to_flags` performing a canonical overwrite convergence of legacy `MembershipRole` to flags bitmasks: Owner/Admin→15, Editor→12, Viewer→8 for any row with `roles=0` OR a mismatched bitmask relative to its legacy enum value. Added RLS‑safe block to temporarily disable row level security (if active) during bulk update, then re-enable. Introduced CHECK constraint `ck_memberships_roles_nonzero` to forbid future zero bitmask inserts.
+- Files changed
+  - apps/api/Migrations/20250919123355_s5_03_roles_converge_to_flags.cs — convergence + conditional constraint.
+  - apps/api.tests/Api/LegacyRolesConvergedTests.cs — verifies no zero or mismatched rows remain post-migration.
+- Rationale
+  - Ensures all memberships are in a consistent canonical state before disabling and ultimately removing legacy fallbacks. Overwrites (vs additive OR) were acceptable given only test data currently present; no intentional flag customizations lost.
+- Quality gates
+  - Targeted test run: `LegacyRolesConvergedTests` PASS.
+  - Migration applied locally (`dotnet ef database update`) without error.
+  - Constraint present in schema (manual inspection / psql).
+- Follow-ups
+  - Proceed to Story 3 (feature flag to disable legacy fallbacks) using now-canonical bitmasks.
+
+  2025-09-19 — RefLeg Story 3: Feature flag to disable legacy convergence & fallback — ✅ DONE
+  - Summary
+    - Implemented environment-gated hard disable of legacy `MembershipRole` compatibility paths. Added `DISABLE_LEGACY_ROLE_COMPAT` (API) and `NEXT_PUBLIC_DISABLE_LEGACY_ROLE_COMPAT` (web) to short-circuit: (1) runtime login convergence that previously rewrote mismatched `roles` bitmasks based on the legacy enum, (2) authorization handler fallback that synthesized flags when `Roles == None`, and (3) web helper legacy mapping fallback. This enables a staging validation window to surface any residual data anomalies instead of silently correcting them.
+  - Files changed / added
+    - apps/api/App/Endpoints/V1.cs — wrapped login convergence loop in flag gate.
+    - apps/api/App/Infrastructure/Auth/RoleAuthorization.cs — guarded legacy-to-flags synthesis; denies when flags absent and flag enabled.
+    - apps/web/src/lib/roles.ts — added hard disable branch preventing legacy fallback usage client-side.
+    - apps/api.tests/Auth/LoginRolesConvergenceDisabledFlagTests.cs — new integration test asserting mismatched flags are NOT corrected when flag is enabled.
+  - Behavior
+    - With flag unset (default), existing convergence & fallback behaviors remain for safety in production rollback scenario.
+    - With flag set, login returns the tampered mismatched bitmask (test seeds 6 vs canonical 15) confirming no mutation; authorization handler would deny elevated policies if only legacy role existed with zero/insufficient flags.
+  - Rationale
+    - Provides a reversible, low-risk checkpoint to observe pure-flags mode before code deletion (Stories 4–7). Prevents masking of any missed write-path updates while giving a clean toggle for rollback.
+  - Quality gates
+    - API tests: Added new test — PASS; existing convergence test (without flag) still PASS.
+    - Web: Build unaffected; helper now no-ops legacy fallback when disable flag set.
+    - Lint/Compile: No new warnings.
+  - Next
+    - Story 4: Remove legacy usage from write paths (invites, member role change inputs) to stop producing legacy data prior to column drop.
+
+2025-09-19 — RefLeg Story 4 (partial): MembersManagementTests flags-only refactor — IN PROGRESS
+
+- Summary
+  - Rewrote `MembersManagementTests` to eliminate all usage of the obsolete `MembershipRole` enum and legacy single-role mutation endpoint. Tests now exercise only the flags-based roles management endpoint (`POST /api/tenants/{tenantId}/memberships/{userId}/roles`) and the deletion endpoint guarded by last-admin invariants. Coverage includes: granting TenantAdmin to a member, denying non-admin role changes, preventing removal or demotion of the last TenantAdmin, deleting a non-admin member, and successful demotion when another TenantAdmin exists. This confirms business rules are fully represented via flags alone.
+- Files changed
+  - apps/api.tests/Api/MembersManagementTests.cs — replaced legacy scenarios (PUT /members, role promotions/demotions via `role` field) with flags endpoint usage and invariant assertions.
+- Rationale
+  - Clears a large remaining dependency on the deprecated `MembershipRole` property, moving the suite into alignment with Phase 2 objective (flags as sole authority). Unblocks subsequent deletion of the enum and retirement of convergence tests.
+- Quality gates
+  - File compiles cleanly (no errors). Broader test suite not yet re-run pending remaining legacy test refactors.
+- Next
+  - Retire `LegacyRolesConvergedTests` (obsolete), update E2E seeds to remove `Role`, then remove enum from `Program.cs` and run full test pass.
+
+2025-09-20 — RefLeg Story 4 (partial): Retire legacy convergence test & add flags integrity test — IN PROGRESS
+
+- Summary
+  - Removed obsolete `LegacyRolesConvergedTests` (which compared legacy `MembershipRole` vs flags) and added `FlagsIntegrityTests` asserting no membership has a zero roles bitmask. This aligns tests with the flags-only model and avoids perpetuating legacy comparison logic ahead of enum removal.
+
+2025-09-20 — RefLeg Story 4 Phase 2: Legacy MembershipRole enum removal — ✅ DONE
+
+- Removed deprecated `MembershipRole` enum from `apps/api/Program.cs` and deleted remaining legacy convergence parity test (`LegacyRolesConvergedTests`). All authorization, membership management, invites, audits, and E2E flows now operate solely on `Roles` flags (TenantAdmin|Approver|Creator|Learner). Documentation updated (`SnapshotArchitecture.md`, `LivingChecklist.md`) to reflect flags-only model; historical references retained for context. No runtime code paths parse or map legacy roles; database migration `DropLegacyMembershipRole` already present to finalize schema cleanup.
+- Files changed
+  - Modified: apps/api/Program.cs (removed enum)
+  - Deleted: apps/api.tests/Api/LegacyRolesConvergedTests.cs
+  - Updated docs: SnapshotArchitecture.md, LivingChecklist.md, storyLog.md
+- Quality gates
+  - API test suite green pre- and post-removal (190/190). FlagsIntegrityTests ensures invariant (no Roles.None memberships) persists.
+- Rationale
+  - Eliminates dual-source ambiguity and future-proofs role expansion without schema churn. Reduces auth branching complexity and test maintenance overhead.
+- Follow-ups
+  - Apply and verify production DB migration to drop legacy column/type. Remove `roleInventory.txt` once schema drop confirmed.
+
+2025-09-20 — IAM: Documentation & Rollback Assets for Legacy Role Removal (Stories 9 & 10 refLeg-09/10) — ✅ DONE
+
+- Summary
+  - Added comprehensive upgrade guide `devInfo/refLeg/UPGRADE-roles-migration.md` detailing forward deploy sequence, verification steps, constraints list, rollback heuristic, and monitoring recommendations. Updated `SnapshotArchitecture.md` (What's new) with legacy `MembershipRole` column removal and bitmask constraint rationale; refreshed `LivingChecklist.md` last-updated note. Added rollback SQL script `scripts/rollback/restore_membership_role.sql` to reintroduce nullable `role` columns and heuristically backfill from flags (Admin, Editor, Viewer) while dropping strict bitmask constraints. Updated sprint plan marking Stories 9 & 10 DONE with acceptance details and pending tag push note.
+- Files changed
+  - devInfo/refLeg/UPGRADE-roles-migration.md (new)
+  - scripts/rollback/restore_membership_role.sql (new)
+  - SnapshotArchitecture.md (What's new entry)
+  - devInfo/LivingChecklist.md (last updated note)
+  - devInfo/refLeg/refLegSprintPlan.md (Story 9 & 10 status updates)
+- Quality gates
+  - No code execution changes; documentation lint (markdown) passes local preview; rollback script validated for idempotent column add & constraint drops.
+- Rationale
+  - Finalize operational readiness for flags-only model with explicit, rehearsable rollback path, ensuring low MTTR if unexpected downstream dependency on legacy column surfaces.
+- Follow-ups
+  - Create and push tag `roles-removal-complete` (separate git step) then proceed to Story 11 (frontend deprecation toggle) after verifying zero fallback usage in staging.

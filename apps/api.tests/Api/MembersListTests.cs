@@ -51,7 +51,7 @@ public class MembersListTests : IClassFixture<WebAppFactory>
             viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
             var u = new User { Id = Guid.NewGuid(), Email = viewerEmail, CreatedAt = DateTime.UtcNow };
             db.Users.Add(u);
-            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Role = MembershipRole.Viewer, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }
 

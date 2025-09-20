@@ -50,7 +50,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = u.Id,
-                Role = MembershipRole.Viewer,
+                Roles = Roles.None,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             });
@@ -82,7 +82,6 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = member.Id,
-                Role = MembershipRole.Viewer,
                 Roles = Roles.None,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -124,7 +123,6 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenant.Id,
                 UserId = kevin.Id,
-                Role = MembershipRole.Viewer, // not legacy admin
                 Roles = Roles.TenantAdmin,     // admin via flags only
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -163,7 +161,6 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = u.Id,
-                Role = MembershipRole.Viewer,
                 Roles = Roles.None,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -195,7 +192,6 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = viewer.Id,
-                Role = MembershipRole.Viewer,
                 Roles = Roles.None,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow

@@ -35,7 +35,8 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
         var tenantId = await GetTenantIdAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
-        var payload = new { email, role = "Viewer", roles = new[] { "Creator", "Learner" } };
+        // Legacy 'role' field is now deprecated and rejected. Provide only flags.
+        var payload = new { email, roles = new[] { "Creator", "Learner" } };
         var create = await client.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", payload);
         create.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await create.Content.ReadFromJsonAsync<JsonElement>();
@@ -48,20 +49,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
         item.GetProperty("rolesValue").GetInt32().Should().Be((int)(Roles.Creator | Roles.Learner));
     }
 
-    [Fact]
-    public async Task Create_Invite_Without_Roles_Derives_From_Legacy_Role()
-    {
-        var client = CreateClientWithDevHeaders(_factory);
-        var tenantId = await GetTenantIdAsync(_factory);
-        var email = $"invitee-{Guid.NewGuid():N}@example.com";
-
-        var payload = new { email, role = "Admin" };
-        var create = await client.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", payload);
-        create.StatusCode.Should().Be(HttpStatusCode.Created);
-        var created = await create.Content.ReadFromJsonAsync<JsonElement>();
-        created.GetProperty("rolesValue").GetInt32().Should().Be((int)(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner));
-    }
-
+    // Legacy derivation test removed: invites must now specify roles flags; legacy 'role' only is rejected.
     [Fact]
     public async Task Accept_Invite_Sets_Membership_Roles_Flags()
     {
@@ -69,7 +57,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
         var tenantId = await GetTenantIdAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
-        var payload = new { email, role = "Viewer", roles = new[] { "Learner" } };
+        var payload = new { email, roles = new[] { "Learner" } };
         var create = await client.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", payload);
         create.EnsureSuccessStatusCode();
 

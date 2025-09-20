@@ -37,8 +37,9 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
             tenantId = t.Id;
         }
 
-        var createResp = await clientOwner.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", new { email = inviteeEmail, role = "Editor" });
-        createResp.StatusCode.Should().Be(HttpStatusCode.Created);
+    // Legacy single 'role' field deprecated: provide roles flags array only.
+    var createResp = await clientOwner.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", new { email = inviteeEmail, roles = new[] { "Creator", "Learner" } });
+    createResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Grab token
         string token;
@@ -66,9 +67,12 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
         var acceptResp = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
         acceptResp.StatusCode.Should().Be(HttpStatusCode.OK);
         var accept = await acceptResp.Content.ReadFromJsonAsync<JsonElement>();
-        accept.GetProperty("tenantSlug").GetString().Should().Be("kevin-personal");
-        accept.GetProperty("role").GetString().Should().Be("Editor");
-        accept.GetProperty("membershipCreated").GetBoolean().Should().BeTrue();
+    accept.GetProperty("tenantSlug").GetString().Should().Be("kevin-personal");
+    // Response now conveys roles/rolesValue instead of legacy role string.
+    accept.TryGetProperty("roles", out var rolesEl).Should().BeTrue();
+    rolesEl.GetString()!.Should().Contain("Creator");
+    accept.GetProperty("rolesValue").GetInt32().Should().Be((int)(Roles.Creator | Roles.Learner));
+    accept.GetProperty("membershipCreated").GetBoolean().Should().BeTrue();
 
         // Assert: membership now exists
         using (var scope = _factory.Services.CreateScope())

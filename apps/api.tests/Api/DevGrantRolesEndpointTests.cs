@@ -63,7 +63,6 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = user.Id,
-                Role = MembershipRole.Viewer,
                 Roles = Roles.Learner,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -104,7 +103,6 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 UserId = user.Id,
-                Role = MembershipRole.Viewer,
                 Roles = Roles.Learner,
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow

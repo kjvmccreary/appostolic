@@ -1,0 +1,58 @@
+# Legacy MembershipRole Inventory (Baseline) — HISTORICAL
+# Generated: 2025-09-19 (updated 2025-09-20 to mark removals)
+# Purpose (Historical): Snapshot every active reference to legacy MembershipRole enum or memberships.role column prior to decommission.
+# Status: All runtime/test references removed 2025-09-20; enum deleted from code. File retained temporarily until production DB migration drops legacy column/type, after which this file will be deleted.
+
+[Legend]
+CODE: Application code reference (API)
+TEST: Test code reference (api.tests or other test projects)
+AUTH: Authorization handler / security logic
+DB: Database schema / migration / raw SQL mention
+WEB: Web (Next.js) usage (none expected for direct enum, only fallback logic separate)
+DOC: Documentation / planning artifact
+
+[Summary Counts]
+CODE: TBD (update after listing)
+TEST: TBD
+AUTH: TBD
+DB: TBD
+WEB: 0
+DOC: TBD
+
+[References]
+
+## Enum Declaration & Models (CODE)
+~REMOVED~ apps/api/Program.cs : enum MembershipRole { Owner, Admin, Editor, Viewer }
+~REMOVED~ apps/api/Program.cs : Membership.Role property declarations (init/set)
+
+## Endpoint & Business Logic (CODE)
+~REMOVED~ apps/api/App/Endpoints/V1.cs : Legacy seeding & invite creation referencing MembershipRole.Owner
+~REMOVED~ apps/api/App/Endpoints/V1.cs : Role parse Enum.TryParse<MembershipRole>
+~REMOVED~ apps/api/App/Endpoints/V1.cs : Admin gating if (me.Role != MembershipRole.Owner && me.Role != MembershipRole.Admin)
+
+## Authorization Handler (AUTH)
+~REMOVED~ apps/api/App/Infrastructure/Auth/RoleAuthorization.cs : switch cases on MembershipRole.(Owner|Admin|Editor|Viewer) fallback mapping to flags
+
+## Tests (TEST)
+~REMOVED~ apps/api.tests/WebAppFactory.cs : Seed membership Role = MembershipRole.Owner
+~REMOVED~ apps/api.tests/E2E/* : Multiple seeds with Role = MembershipRole.Owner
+~REMOVED~ apps/api.tests/Api/* : Various tests seeding Role = MembershipRole.(Viewer|Admin)
+
+## Database (DB)
+Schema: (Transitional) Legacy column `role` pending physical drop via `DropLegacyMembershipRole` migration; application no longer references it.
+Migrations: `DropLegacyMembershipRole` added 2025-09-19 (applies physical drop when executed in target environments).
+
+## Documentation / Plans (DOC)
+devInfo/refLeg/refLegSprintPlan.md : Multiple narrative references
+SnapshotArchitecture.md : Updated 2025-09-20 to note enum removal and flags-only model
+
+[Planned Removals — Historical vs Actual]
+1. Constrain + disable fallback (Completed)
+2. Strip write path usage / seed code (Completed)
+3. Remove handler fallback (Completed)
+4. Web helper legacy branches (Completed)
+5. Drop column + enum (Code enum removed; column drop migration authored; execute in prod) (In Progress)
+6. Post-drop constraint hardening (Pending post-prod migration)
+
+[Integrity Note]
+Obsolete schema presence test removed; replaced by `FlagsIntegrityTests` enforcing non-zero flags. Legacy column now intentionally ignored by code and scheduled for drop.
