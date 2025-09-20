@@ -38,6 +38,7 @@ doctor:
 	./scripts/dev-doctor.sh
 
 api:
+	./scripts/kill-port.sh 5198 || true
 	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5198 dotnet watch
 
 web:
