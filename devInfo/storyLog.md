@@ -283,6 +283,21 @@
 - Follow-ups
   - Create git tag `roles-removal-complete` capturing the unified backend + frontend deprecation milestone. (This entry precedes the tag creation commit.)
 
+2025-09-20 — Web: Prune TenantAwareTopBar stub & empty tests — ✅ DONE
+
+- Summary
+  - Removed deprecated no-op `TenantAwareTopBar` component and its two empty test files (`TenantAwareTopBar.test.tsx`, `TenantAwareTopBar.strict.test.tsx`). These existed only as transitional stubs after migrating to server-only TopBar gating. Confirmed no remaining imports. Ran full web suite (`make fetest`) post-removal: 63 files, 198 tests PASS; coverage unchanged (aggregate lines ~84.9%).
+- Files changed
+  - apps/web/src/components/TenantAwareTopBar.tsx — deleted.
+  - apps/web/src/components/TenantAwareTopBar.test.tsx — deleted.
+  - apps/web/src/components/TenantAwareTopBar.strict.test.tsx — deleted.
+- Quality gates
+  - Web tests: PASS (no regressions, coverage stable; removed file previously 0% covered).
+- Rationale
+  - Cleans residual dead code improving coverage signal (removes perpetual 0% file) and reduces cognitive load for new contributors reviewing components directory.
+- Follow-ups
+  - None required; consider removing coverage artifacts referencing deleted file on next clean run (turbo/CI will regenerate without the stub).
+
 ## 2025-09-17 — UPROF-04.1: Avatar pipeline simplification (preserve original format) + absolute URLs — ✅ DONE
 
 ## 2025-09-18 — Web — Avatar upload: Clear confirmation (local only) — ✅ DONE
