@@ -175,8 +175,26 @@ if (jwtEnabled)
 {
     authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, opts =>
     {
-        opts.RequireHttpsMetadata = false; // Harden in Story 5a
+        opts.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         opts.SaveToken = false;
+        opts.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var sub = ctx.Principal?.FindFirst("sub")?.Value;
+                if (!Guid.TryParse(sub, out var userId)) { ctx.Fail("invalid_sub"); return; }
+                var tokenVersionClaim = ctx.Principal?.FindFirst("v")?.Value;
+                if (!int.TryParse(tokenVersionClaim, out var tokenVersion)) tokenVersion = 0;
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var currentVersion = await db.Users.Where(u => u.Id == userId)
+                    .Select(u => (int?)EF.Property<int>(u, "TokenVersion"))
+                    .FirstOrDefaultAsync(ctx.HttpContext.RequestAborted) ?? 0;
+                if (tokenVersion < currentVersion)
+                {
+                    ctx.Fail("token_version_mismatch");
+                }
+            }
+        };
     });
     // Resolve validation parameters lazily via IOptionsMonitor callback pattern
     builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp =>
@@ -808,6 +826,10 @@ public record User
     public DateTime? PasswordUpdatedAt { get; init; }
     public DateTime CreatedAt { get; init; }
     public JsonDocument? Profile { get; init; }
+    /// <summary>
+    /// Monotonically increasing token version used to invalidate outstanding access tokens (claim 'v').
+    /// </summary>
+    public int TokenVersion { get; init; } = 0;
 }
 
 public enum MembershipStatus { Active, Invited, Suspended, Revoked }

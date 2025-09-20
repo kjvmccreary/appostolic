@@ -14,9 +14,9 @@ namespace Appostolic.Api.Infrastructure.Auth.Jwt;
 public interface IJwtTokenService
 {
     /// <summary>
-    /// Issue an access token representing a neutral user identity (for smoke testing baseline infrastructure).
+    /// Issue a neutral (no tenant) access token. Includes user token version claim (v) for revocation.
     /// </summary>
-    string IssueNeutralToken(string subject, string? email = null);
+    string IssueNeutralToken(string subject, int tokenVersion, string? email = null);
 
     /// <summary>
     /// Build TokenValidationParameters based on current options.
@@ -24,9 +24,9 @@ public interface IJwtTokenService
     TokenValidationParameters CreateValidationParameters();
 
     /// <summary>
-    /// Issue a tenant-scoped access token (Story 2 optional auto-tenant case). Includes tenant_id and tenant_slug + roles bitmask claims.
+    /// Issue a tenant-scoped access token including tenant claims + roles bitmask and token version claim (v).
     /// </summary>
-    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, string? email = null);
+    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null);
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -42,7 +42,7 @@ public class JwtTokenService : IJwtTokenService
         _signingCreds = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256);
     }
 
-    public string IssueNeutralToken(string subject, string? email = null)
+    public string IssueNeutralToken(string subject, int tokenVersion, string? email = null)
     {
         var now = DateTime.UtcNow;
         var claims = new List<Claim>
@@ -51,7 +51,8 @@ public class JwtTokenService : IJwtTokenService
             new(ClaimTypes.NameIdentifier, subject),
             new(ClaimTypes.Name, subject),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Iat, Epoch(now).ToString(), ClaimValueTypes.Integer64)
+            new(JwtRegisteredClaimNames.Iat, Epoch(now).ToString(), ClaimValueTypes.Integer64),
+            new("v", tokenVersion.ToString())
         };
         if (!string.IsNullOrWhiteSpace(email))
         {
@@ -81,7 +82,7 @@ public class JwtTokenService : IJwtTokenService
         ClockSkew = TimeSpan.FromSeconds(_opts.ClockSkewSeconds)
     };
 
-    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, string? email = null)
+    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null)
     {
         var now = DateTime.UtcNow;
         var claims = new List<Claim>
@@ -93,7 +94,8 @@ public class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Iat, Epoch(now).ToString(), ClaimValueTypes.Integer64),
             new("tenant_id", tenantId.ToString()),
             new("tenant_slug", tenantSlug),
-            new("roles", rolesBitmask.ToString())
+            new("roles", rolesBitmask.ToString()),
+            new("v", tokenVersion.ToString())
         };
         if (!string.IsNullOrWhiteSpace(email))
         {

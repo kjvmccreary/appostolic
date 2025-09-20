@@ -41,6 +41,11 @@ api:
 	./scripts/kill-port.sh 5198 || true
 	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5198 dotnet watch
 
+# Local HTTPS for API (Story 5a). Requires dev cert: run `dotnet dev-certs https --trust` once.
+api-https:
+	./scripts/kill-port.sh 5198 || true
+	cd apps/api && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://localhost:5198 dotnet watch
+
 web:
 	cd apps/web && pnpm dev
 

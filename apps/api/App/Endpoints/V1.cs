@@ -65,6 +65,8 @@ public static class V1
             await db.SaveChangesAsync();
             return Results.NoContent();
         }).AllowAnonymous();
+
+    // (Record moved below with other DTOs) SelectTenantDto declared with other record DTOs.
     // /// <summary>
     // /// Requests a magic sign-in link to be emailed to the user. Accepts an email and enqueues a one-time token.
     // /// </summary>
@@ -106,7 +108,7 @@ public static class V1
             return Results.Accepted();
         }).AllowAnonymous();
 
-        apiRoot.MapPost("/auth/magic/consume", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MagicConsumeDto dto) =>
+    apiRoot.MapPost("/auth/magic/consume", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MagicConsumeDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Token))
                 return Results.BadRequest(new { error = "token is required" });
@@ -205,7 +207,7 @@ public static class V1
             }
 
             // Neutral token pair
-            var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+            var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
             var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -239,11 +241,29 @@ public static class V1
             }
             if (targetTenantId.HasValue)
             {
-                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.Email);
+                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
                 tenantToken = new
                 {
                     access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
                 };
+            }
+
+            // Optionally set httpOnly refresh cookie (Story 4) when flag enabled.
+            // Read from IConfiguration first (test host injects via InMemory collection) then fall back to environment variable.
+            var refreshCookieEnabled = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
+                string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
+            if (refreshCookieEnabled)
+            {
+                var envDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+                var secure = http.Request.IsHttps || !envDev;
+                http.Response.Cookies.Append("rt", refreshToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = secure,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = refreshExpires,
+                    Path = "/"
+                });
             }
 
             return Results.Ok(new
@@ -366,7 +386,7 @@ public static class V1
 
         // POST /api/auth/login (AllowAnonymous)
         // Story 2: returns neutral access+refresh token pair + memberships; optional tenant access token when single membership or tenant explicitly requested.
-        apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, LoginDto dto) =>
+    apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, LoginDto dto) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
                 return Results.BadRequest(new { error = "email and password are required" });
@@ -399,7 +419,7 @@ public static class V1
             }
 
             // Issue neutral tokens
-            var accessToken = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+                var accessToken = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
             var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -434,11 +454,28 @@ public static class V1
             }
             if (targetTenantId.HasValue)
             {
-                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.Email);
+                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
                 tenantToken = new
                 {
                     access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
                 };
+            }
+
+            // Story 4: Issue refresh cookie when enabled (keeps JSON surface temporarily for transition; future story may omit token field when cookie active)
+            var refreshCookieEnabled = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
+                string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
+            if (refreshCookieEnabled)
+            {
+                var envDev2 = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+                var secure = http.Request.IsHttps || !envDev2;
+                http.Response.Cookies.Append("rt", refreshToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = secure,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = refreshExpires,
+                    Path = "/"
+                });
             }
 
             return Results.Ok(new
@@ -448,6 +485,82 @@ public static class V1
                 access = new { token = accessToken, expiresAt = accessExpires, type = "neutral" },
                 refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" },
                 tenantToken
+            });
+        }).AllowAnonymous();
+
+        // POST /api/auth/select-tenant  (Story 3)
+        // Purpose: Rotate a neutral refresh token and issue a tenant-scoped access token.
+        // Body: { tenant: string (slug or id), refreshToken: string }
+        // Success: 200 { access{token,expiresAt,type,tenantId,tenantSlug}, refresh{token,expiresAt,type} }
+        // Errors:
+        //   400 - missing fields
+        //   401 - refresh token invalid/expired/revoked
+        //   403 - user not a member of requested tenant
+    apiRoot.MapPost("/auth/select-tenant", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, SelectTenantDto body) =>
+        {
+            if (body is null || string.IsNullOrWhiteSpace(body.RefreshToken) || string.IsNullOrWhiteSpace(body.Tenant))
+                return Results.BadRequest(new { error = "tenant and refreshToken are required" });
+
+            // Refresh tokens are hashed as Base64(SHA256(utf8)) in RefreshTokenService; do the same here (login tokens use hex via HashToken).
+            string HashRefresh(string t)
+            {
+                using var sha = SHA256.Create();
+                var bytes = Encoding.UTF8.GetBytes(t);
+                var h = sha.ComputeHash(bytes);
+                return Convert.ToBase64String(h);
+            }
+            var hash = HashRefresh(body.RefreshToken.Trim());
+            var now = DateTime.UtcNow;
+            var rt = await db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
+            if (rt is null || rt.RevokedAt.HasValue || rt.ExpiresAt <= now)
+                return Results.Unauthorized();
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == rt.UserId);
+            if (user is null) return Results.Unauthorized();
+
+            // Load memberships with tenant slugs in one query to avoid N+1
+            var memberships = await db.Memberships.AsNoTracking()
+                .Where(m => m.UserId == user.Id)
+                .Join(db.Tenants.AsNoTracking(), m => m.TenantId, t => t.Id, (m, t) => new
+                {
+                    m.TenantId,
+                    tenantSlug = t.Name,
+                    roles = (int)m.Roles
+                })
+                .ToListAsync();
+            if (memberships.Count == 0) return Results.Forbid();
+
+            var target = memberships.FirstOrDefault(m => string.Equals(m.tenantSlug, body.Tenant, StringComparison.OrdinalIgnoreCase) || m.TenantId.ToString() == body.Tenant);
+            if (target is null) return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+            // Rotate refresh (revoke old + issue new neutral) BEFORE issuing new access token
+            await refreshSvc.RevokeAsync(rt.Id);
+            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            var (newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+
+            var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), target.TenantId, target.tenantSlug, target.roles, user.TokenVersion, user.Email);
+            // Story 4: Rotate cookie as well (overwrite with new refresh) if enabled
+            var refreshCookieEnabled = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
+                string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
+            if (refreshCookieEnabled)
+            {
+                var envDev3 = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+                var secure = http.Request.IsHttps || !envDev3;
+                http.Response.Cookies.Append("rt", newRefresh, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = secure,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = newRefreshExpires,
+                    Path = "/"
+                });
+            }
+
+            return Results.Ok(new
+            {
+                access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = target.TenantId, tenantSlug = target.tenantSlug },
+                refresh = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" }
             });
         }).AllowAnonymous();
 
@@ -1463,7 +1576,7 @@ public static class V1
                 var tenantIds = memberships.Select(m => m.TenantId).Distinct().ToList();
                 var tenantLookup = await db.Tenants.AsNoTracking().Where(t => tenantIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Name);
                 var proj = memberships.Select(m => new { tenantId = m.TenantId, tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var n) ? n : string.Empty, roles = (int)m.Roles }).ToList();
-                var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.Email);
+                var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
                 var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
                 var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
                 var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -1483,7 +1596,7 @@ public static class V1
                 }
                 if (selectedTenant.HasValue)
                 {
-                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.Email);
+                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email);
                     tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel } };
                 }
                 return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" }, tenantToken });
@@ -1526,6 +1639,8 @@ public static class V1
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
     internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant);
+    // Story 3 DTO: tenant selection using neutral refresh token
+    internal record SelectTenantDto(string Tenant, string RefreshToken);
 
     // Helper: parse roles flag names into bitfield; invalid names result in BadRequest at call sites
     private static bool TryParseRoleNames(string[]? names, out Roles flags, out string? invalidName)
