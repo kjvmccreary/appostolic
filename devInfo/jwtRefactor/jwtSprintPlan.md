@@ -338,14 +338,75 @@ Definition of Done:
 - storyLog appended with start (and completion later) summary.
 - LivingChecklist: add line "JWT Story 6: General refresh endpoint…" (unchecked initially, checked on completion).
 
-### Story 7: Logout & Global Revocation
+### Story 7: Logout & Global Revocation — IN PROGRESS (2025-09-20)
 
-Acceptance:
+Goal:
 
-- POST /api/auth/logout { refreshToken } revokes chain (marks token revoked_at).
-- POST /api/auth/logout/all revokes all active refresh tokens for user and increments token_version.
-- Password change increments token_version automatically.
-- Tests: logout invalidates subsequent refresh; logout all invalidates old access via version mismatch.
+Provide explicit user + global session termination endpoints leveraging existing refresh store and TokenVersion revocation model, enabling immediate invalidation of refresh chains and active access tokens (via version bump) while logging auditable events.
+
+Endpoints / Flows:
+
+1. `POST /api/auth/logout` (authenticated)
+
+- Reads refresh token from cookie `rt` (preferred) or JSON body `{ refreshToken }` during same grace window as Story 6.
+- Validates ownership (token user == principal user).
+- Revokes the refresh token (sets `revoked_at`, `revoked_reason='logout'`). Optionally cascades to mark any descendant chain tokens if multi-hop (future: we rotate single chain, so just one entry).
+- Clears refresh cookie (`rt=; Expires=past; Path=/; SameSite=Lax; HttpOnly; Secure(if https)`).
+- Returns 204 No Content (or 200 with `{ status: 'ok' }`).
+
+2. `POST /api/auth/logout/all` (authenticated)
+
+- Revokes ALL neutral refresh tokens for the user (`UPDATE ... SET revoked_at=now, revoked_reason='logout_all' WHERE user_id=... AND revoked_at IS NULL`).
+- Increments `TokenVersion` to invalidate all outstanding access tokens instantly.
+- Clears cookie.
+- Returns 204.
+
+3. Admin/Support Forced Logout (optional subtask): `POST /api/admin/users/{id}/logout-all` (TenantAdmin or platform role) — may be deferred if no admin surface yet.
+
+Acceptance Criteria:
+
+- Logout (single) removes ability to refresh with that token: subsequent `POST /api/auth/refresh` using its cookie or plaintext results in 401 `refresh_reuse` or `refresh_revoked`.
+- Logout does NOT bump TokenVersion (existing access token continues until expiry) — documented behavior.
+- Logout All revokes every active refresh AND bumps TokenVersion (subsequent API calls with old access tokens receive 401 `token_version_mismatch`).
+- Both endpoints idempotent: repeating the call after success returns 204 (no error) even if tokens already revoked.
+- Unauthorized when:
+  - No auth principal (401).
+  - Provided body refresh token belongs to different user (401 or 403; choose 401 to avoid user enumeration).
+- Missing refresh token on `logout` (no cookie, no body) -> 400 `missing_refresh`.
+- Metrics/logs (stubs) emit structured events: `auth.logout.single` and `auth.logout.all` with user_id, count_revoked.
+- Integration Tests cover: single logout -> refresh fails; logout all -> refresh & access fail appropriately; idempotent second call; mismatched user attempt; missing token.
+
+Security & Privacy Notes:
+
+- Do not leak whether a refresh token existed (generic 204 on already-revoked logout attempts).
+- Global revocation uses TokenVersion bump to avoid enumerating still-valid access tokens (stateless invalidation).
+- Ensure logout endpoints are protected by Bearer or Dev scheme (composite still active in Development).
+- Consider adding optional `X-Session-Id` later if multiple device sessions require selective revocation (post-1.0).
+
+Data Model / Implementation:
+
+- Reuse existing RefreshTokens table; no migration required.
+- Add helper in `IRefreshTokenService` (optional) for bulk revoke by user.
+- For TokenVersion bump: single UPDATE on Users row (similar to password change logic without password update).
+
+Error Codes (JSON bodies for non-204 cases):
+
+- `missing_refresh` (400)
+- `refresh_invalid` (401) – provided token not found / not owned
+- `logout_body_disallowed` (400) when grace disabled and only body supplied
+
+Definition of Done:
+
+- Endpoints implemented with tests all green.
+- Story log kickoff + completion entries.
+- SnapshotArchitecture What’s New entry.
+- LivingChecklist line added: "JWT Story 7: Logout & global revocation".
+
+Follow-ups / Deferred:
+
+- Session listing + selective device logout UI (post-1.0).
+- Admin forced logout endpoint (pending admin surface design) if not delivered here.
+- Observability counters (Story 9) to increment tokens_revoked on logout actions.
 
 ### Story 8: Dev Headers Decommission (Flag Gate)
 
@@ -425,6 +486,12 @@ Acceptance:
 4. Key rotation: set new signing key, accept both old/new for 15m grace (future enhancement: dual validation list) — documented but not implemented multi-key support this sprint.
 
 ## Implementation Order Rationale
+
+### Added Transition Tasks (Story 6 Post-Endpoint)
+
+1. Frontend silent refresh loop: schedule pre-expiry call to `/api/auth/refresh` (e.g., at 60–90% of access TTL), jittered backoff on failures, force re-auth on consecutive 401 `refresh_expired|refresh_invalid` responses. Remove placeholder `_auth/refresh-neutral` route.
+2. Deprecation headers activation: when `AUTH__REFRESH_DEPRECATION_DATE` set, ensure body-token refresh responses include `Deprecation: true` + `Sunset: <date>`; add integration test asserting presence and date parse.
+3. Grace disable pathway test: simulate `AUTH__REFRESH_JSON_GRACE_ENABLED=false` and assert body-provided token rejected (400 `refresh_body_disallowed`) and plaintext `refresh.token` omitted from response payload.
 
 Backend infra (Stories 1–3) must precede frontend refactor (Story 4). Validation (Story 5) & refresh (Story 6) must precede logout/revocation (Story 7). Dev header removal waits until after stable end-to-end flows (Story 8). Observability (9) secures before documentation & final cleanup (10–11).
 

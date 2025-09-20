@@ -46,6 +46,14 @@
 
   2025-09-20 — Auth/JWT: Story 5b HTTPS E2E Secure Cookie Validation — ✅ DONE
   2025-09-20 — Auth/JWT: Story 6 Refresh Endpoint kickoff — 🚧 IN PROGRESS
+  2025-09-20 — Auth/JWT: Story 7 Logout & Global Revocation kickoff — 🚧 IN PROGRESS
+
+- Summary
+  - Planned endpoints: `POST /api/auth/logout` (single refresh token revocation + cookie clear, no TokenVersion bump) and `POST /api/auth/logout/all` (bulk revoke all refresh tokens for user + TokenVersion increment for immediate access token invalidation). Will use cookie `rt` preferred extraction with transitional body fallback under same grace flag as refresh. Structured 400/401 codes (missing_refresh, refresh_invalid) where applicable; idempotent 204 responses for already-logged-out scenarios. Sets foundation for session UX and admin forced logout (future) without requiring per-access-token state server-side.
+- Follow-ups
+  - Implement endpoints & integration tests (rotation chain safety, reuse failure, version bump for logout-all).
+  - Add LivingChecklist line and architecture snapshot entry on completion.
+  - Post-1.0: session listing + selective device logout, admin forced logout endpoint.
   - Summary
     - Implemented initial `/api/auth/refresh` endpoint: cookie-first retrieval of `rt` refresh token with fallback body token during grace period; rotates (revokes old + issues new) neutral refresh token and returns new neutral access token plus optional tenant token when `?tenant=` provided. Structured JSON error responses for invalid (`refresh_invalid`), reuse (`refresh_reuse`), and expired (`refresh_expired`) tokens. Integration tests cover: success rotation, reuse unauthorized, missing token (400), expired, revoked reuse, tenant token issuance, body-based refresh under grace.
   - Follow-ups
