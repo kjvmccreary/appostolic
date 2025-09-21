@@ -560,6 +560,16 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 5b) Cross-site SameSite=None scenario investigation (deferred).
 - (Story 5b) CSRF token double-submit validation (complements future refresh endpoint and SameSite=None changes).
 
+## Recent Adjacent Hardening (2025-09-21)
+
+Outside the core JWT sprint stories, a small stabilization pass was completed to reduce future regression risk:
+
+- Roles Assignment Endpoint Refactor: Unified duplicated transactional code paths for member role updates (eliminated provider‑specific branching) reducing risk of inconsistent audit writes and resolving intermittent EF InMemory test flakiness.
+- Audit Trail Regression Guard: Added test ensuring a second identical roles update (noop) does not create a duplicate audit record (protects against accidental future double-write logic reintroduction).
+- Async Warning Cleanup: Removed an unnecessary async lambda (CS1998) in the deprecated legacy member role change endpoint for a cleaner build signal surface.
+
+These changes are orthogonal to JWT issuance/refresh/logout flows but contribute to overall auth & roles integrity. No sprint story numbers assigned (tracked in storyLog); included here for situational awareness. If further non-JWT hardening items accumulate, consider a lightweight "Auth & Roles Hardening" epilogue story before final cleanup (Story 11) or a post‑1.0 bucket entry.
+
 ## E2E HTTPS Secure Cookie Validation Plan (Added 2025-09-20)
 
 Context:

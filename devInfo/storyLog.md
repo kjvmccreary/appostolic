@@ -398,6 +398,21 @@
     - apps/api.tests/Api/AuthJwtSmokeTests.cs — integration test for Bearer auth.
   - Quality gates
     - Build: PASS (net8.0).
+
+  2025-09-21 — Auth/Roles: Roles Assignment Refactor & Audit Duplication Guard — ✅ DONE
+  - Summary
+    - Refactored tenant member roles assignment endpoint to unify previously duplicated transactional code paths that differed between providers (explicit transaction vs ambient) removing a source of intermittent EF InMemory flakiness and reducing future divergence risk. Added regression test `Set_roles_noop_second_call_does_not_duplicate_audit` asserting a repeat identical roles update (noop) does not create an additional audit trail entry, guarding against accidental double-write reintroduction. Cleaned up a CS1998 compiler warning by removing an unnecessary `async` modifier from the deprecated legacy member role change endpoint lambda in `V1.cs`, tightening build signal clarity. These changes are orthogonal to the JWT refresh/logout roadmap but strengthen authorization & audit consistency ahead of remaining Story 6 work.
+  - Files changed
+    - apps/api.tests/Api/AuditTrailTests.cs — added noop audit duplication regression test.
+    - apps/api/App/Endpoints/V1.cs — unified roles update logic (prior commit) and removed redundant async on deprecated legacy endpoint lambda (warning elimination).
+    - devInfo/jwtRefactor/jwtSprintPlan.md — appended "Recent Adjacent Hardening" section documenting this stabilization pass.
+  - Quality gates
+    - New regression test passes; full API test suite re-run green (224 passed / 1 skipped). No new warnings introduced; prior CS1998 warning resolved.
+  - Rationale
+    - Ensures audit integrity for idempotent roles updates and reduces maintenance surface by collapsing divergent transactional branches, preventing subtle provider-specific behavior inconsistencies.
+  - Follow-ups
+    - Consider introducing an explicit audit assertion helper if additional audit-focused regression tests are added.
+    - Evaluate enforcing idempotent semantics at service layer with early-exit short circuit (optimization) — optional post-1.0.
       2025-09-21 — IAM: Roles assignment endpoint duplication & InMemory 500 regression fix — ✅ DONE
 
   - Summary
