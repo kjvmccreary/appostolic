@@ -17,6 +17,20 @@ namespace Appostolic.Api.Tests;
 public class WebAppFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"testdb-{Guid.NewGuid()}";
+    private readonly Dictionary<string,string?> _overrides = new();
+
+    /// <summary>
+    /// Clone-like helper that returns the same factory instance with additional in-memory configuration overrides
+    /// applied during ConfigureAppConfiguration. Tests can call .WithSettings(new{"KEY"="value"}) before CreateClient().
+    /// </summary>
+    public WebAppFactory WithSettings(Dictionary<string,string?> settings)
+    {
+        foreach (var kvp in settings)
+        {
+            _overrides[kvp.Key] = kvp.Value;
+        }
+        return this;
+    }
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -33,6 +47,11 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Story 4: enable refresh cookie issuance in tests
                 ["AUTH__REFRESH_COOKIE_ENABLED"] = "true"
             };
+            // Apply overrides from tests (Story 8 flag scenarios, etc.)
+            foreach (var kvp in _overrides)
+            {
+                dict[kvp.Key] = kvp.Value;
+            }
             cfg.AddInMemoryCollection(dict!);
         });
 

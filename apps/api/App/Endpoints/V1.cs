@@ -259,13 +259,26 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
+            // Story 8: Conditional plaintext refresh token exposure. New flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true)
+            // allows operators to disable returning the raw refresh token once cookie-based flow is established. When disabled,
+            // the client must rely solely on the httpOnly cookie for subsequent rotations.
+            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
+            object refreshObj;
+            if (exposePlainFlag)
+            {
+                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
+            }
+            else
+            {
+                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+            }
 
             return Results.Ok(new
             {
                 user = new { user.Id, user.Email },
                 memberships,
                 access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" },
-                refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" },
+                refresh = refreshObj,
                 tenantToken
             });
         }).AllowAnonymous();
@@ -465,6 +478,17 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
+            // Story 8 flag: hide plaintext refresh token when AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT = false
+            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
+            object refreshObj;
+            if (exposePlainFlag)
+            {
+                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
+            }
+            else
+            {
+                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+            }
 
             return Results.Ok(new
             {
@@ -475,7 +499,7 @@ public static class V1
                 user = new { user.Id, user.Email },
                 memberships,
                 access = new { token = accessToken, expiresAt = accessExpires, type = "neutral" },
-                refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" },
+                refresh = refreshObj,
                 tenantToken
             });
         }).AllowAnonymous();
@@ -532,11 +556,22 @@ public static class V1
             {
                 IssueRefreshCookie(http, newRefresh, newRefreshExpires);
             }
+            // Story 8 flag enforcement
+            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
+            object refreshObj;
+            if (exposePlainFlag)
+            {
+                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
+            }
+            else
+            {
+                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+            }
 
             return Results.Ok(new
             {
                 access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = target.TenantId, tenantSlug = target.tenantSlug },
-                refresh = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" }
+                refresh = refreshObj
             });
         }).AllowAnonymous();
 
@@ -751,7 +786,9 @@ public static class V1
                 http.Response.Headers["Sunset"] = deprecationDate!;
             }
 
-            var includePlaintextRefresh = graceEnabled || !refreshCookieEnabled; // after grace & when cookie on, omit token
+            // Story 8: exposePlainFlag can forcibly disable plaintext even during grace window for early hardening.
+            var exposePlainFlag = config.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
+            var includePlaintextRefresh = exposePlainFlag && (graceEnabled || !refreshCookieEnabled); // after grace & when cookie on, omit token unless flag forces hide
             object refreshObj = includePlaintextRefresh
                 ? new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" }
                 : new { expiresAt = newRefreshExpires, type = "neutral" };
@@ -1745,7 +1782,18 @@ public static class V1
                     var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email);
                     tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel } };
                 }
-                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" }, tenantToken });
+                // Story 8: conditional plaintext refresh token
+                var exposePlainFlag = configuration.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
+                object refreshObj;
+                if (exposePlainFlag)
+                {
+                    refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
+                }
+                else
+                {
+                    refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+                }
+                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
             }).WithTags("TestHelpers").WithDescription("Non-production test-only token mint helper").AllowAnonymous();
         }
 
