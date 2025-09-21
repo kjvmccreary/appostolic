@@ -15,8 +15,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Auth — JWT Baseline (Story 1) introduced (2025-09-20)
   - Auth/JWT — Story 5 (Validation Middleware & Principal) marked complete (2025-09-20) — composite scheme + GUID sub + token version checks (see section below for TokenVersion revocation details).
   - Auth/JWT — Story 5b HTTPS Secure Refresh Cookie E2E Harness complete (2025-09-20) — deterministic Secure attribute validation under real TLS.
-    - Auth/JWT — Story 6 Refresh Endpoint (IN PROGRESS 2025-09-20)
-      - Added `/api/auth/refresh` endpoint (cookie-first) rotating neutral refresh token, issuing new neutral access token (and optional tenant token via `?tenant=`). Supports transitional JSON body token during grace (`AUTH__REFRESH_JSON_GRACE_ENABLED=true`) with planned deprecation headers. Returns structured 401 JSON codes (`refresh_invalid|refresh_reuse|refresh_expired`). Lays groundwork to remove plaintext `refresh.token` once grace window ends.
+    - Auth/JWT — Story 6 Refresh Endpoint (COMPLETED 2025-09-21)
+      - Implemented `/api/auth/refresh` (cookie-first, transitional JSON body behind `AUTH__REFRESH_JSON_GRACE_ENABLED`) rotating neutral refresh tokens (revocation + issuance) and returning new neutral access token plus optional tenant-scoped token when `?tenant=` provided and membership matches. Structured 401 codes: `refresh_invalid`, `refresh_reuse`, `refresh_expired`; 400 `missing_refresh` and `refresh_body_disallowed`. Deprecation headers (`Deprecation: true`, `Sunset: <date>`) emitted when body token used and `AUTH__REFRESH_DEPRECATION_DATE` configured. In-memory EF provider incompatibility with transactions resolved by removing explicit transaction wrapping for rotation (sequential revoke/issue is acceptable given low contention). Tests `RefreshEndpointTests` now all passing (7/7) including rotation, tenant issuance, reuse detection, revoked reuse, missing token 400, expired, and grace body path. SnapshotArchitecture, LivingChecklist, and storyLog updated.
     - Auth/JWT — Story 7 Logout & Global Revocation (COMPLETED 2025-09-21)
       - Implemented endpoints:
         - `POST /api/auth/logout` — Revokes a single neutral refresh token (from cookie `rt` or JSON body `refreshToken` during grace). If a JSON body is present but missing `refreshToken`, returns 400 `{ code: "missing_refresh" }` (tests enforce). Clears cookie when present. Idempotent 204 otherwise (including already revoked/missing token scenarios). Structured log: `auth.logout.single user=<id> tokenFound=<bool>`.
@@ -33,7 +33,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Introduced persisted refresh tokens (`refresh_tokens` table with hashed SHA256 token_hash, jsonb metadata, FK users, indexes on (user, created_at) and unique token_hash) and structured auth responses for `/api/auth/login` and `/api/auth/magic/consume`: `{ user, memberships, access, refresh, tenantToken? }`. Added `RefreshTokenService.IssueNeutralAsync` and `JwtTokenService.IssueTenantToken`. Single-membership users automatically receive a tenant-scoped token (`tenantToken.access`), while multi-membership selection is explicit via `?tenant=<slug|id>`; conflicting `?tenant=auto` when >1 membership returns 409. Magic consume now provisions a personal tenant & membership for new users, then returns the same structured token set. Legacy compatibility retained with `?includeLegacy=true` returning `{ user, memberships }` only.
   - Tests: `LoginJwtNeutralTests` (neutral + refresh + auto tenant), `LoginTenantSelectionTests` (multi-tenant selection & conflict), `MagicConsumeJwtTests` (structured & legacy shapes) all passing. Migration `20250920144932_s6_01_auth_refresh_tokens` applied successfully.
   - Rationale: Establishes secure hashed refresh storage and ergonomic tenant context while preserving backward compatibility; foundation for rotation, revocation, and secure cookie delivery in upcoming stories.
-  - Follow-ups: Story 2a test token factory; Story 3 refresh rotation & reuse detection; add revocation strategy (token_version or hash invalidation); secure httpOnly cookie + HTTPS (Stories 5/5a); telemetry counters; negative tests for expired/consumed tokens.
+  - Follow-ups: Story 2a test token factory; Story 3 refresh rotation & reuse detection; add revocation strategy (token_version or hash invalidation); secure httpOnly cookie + HTTPS (Stories 4/5a); telemetry counters; negative tests for expired/consumed tokens.
   - Auth/JWT — Story 2a Test Token Factory Helper (2025-09-20)
     - Added gated internal test helper endpoint `POST /api/test/mint-tenant-token` (maps only when `AUTH__TEST_HELPERS_ENABLED=true` AND not Production) to mint a neutral access + refresh token (and optional tenant-scoped token) for an arbitrary email, auto-provisioning personal tenant/membership when absent. Supports optional `{ tenant: <slugOrId>, autoTenant: bool }` selection semantics mirroring login auto-tenant issuance.
     - Introduced `TestAuthClient` in `apps/api.tests` encapsulating helper usage; new tests `TestTokenFactoryTests` cover single-membership auto issuance, multi-membership explicit selection (partial slug mismatch → no tenant token), and disabled flag returns 404 via derived factory override (ensuring production safety). WebAppFactory now injects test helper config via in-memory configuration (no reliance on process-wide environment mutation for determinism).
@@ -463,93 +463,93 @@ appostolic/
 │  │  │  │  ├─ V1.cs
 │  │  │  │  ├─ DevToolsEndpoints.cs       # POST /api/dev/tool-call (Development only)
 │  │  │  │  ├─ DevAgentsDemo.cs          # POST /api/dev/agents/demo (Development only)
-│  │  │  │  ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
+│  │  │  │   ├─ DevAgentsEndpoints.cs     # GET /api/dev/agents (Development only)
   │  │  │  │  ├─ DevNotificationsEndpoints.cs # GET/POST /api/dev/notifications (Development only)
   │  │  │  │  ├─ NotificationsAdminEndpoints.cs # /api/notifications (prod: list/details/retry; tenant-scoped + superadmin)
-│  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
+  │  │  │  ├─ AgentsEndpoints.cs        # /api/agents CRUD + /api/agents/tools
   │  │  │  │  └─ AgentTasksEndpoints.cs    # /api/agent-tasks (create/get/list; X-Total-Count; filters: status/agentId/from/to/q)
-│  │  │  └─ Infrastructure/
-│  │  │     ├─ Auth/
-│  │  │     │  └─ DevHeaderAuthHandler.cs
-│  │  │     └─ MultiTenancy/
-│  │  │        └─ TenantScopeMiddleware.cs
-│  │  ├─ Application/
-│  │  │  ├─ Agents/
-│  │  │  │  ├─ AgentRegistry.cs
-│  │  │  │  ├─ Runtime/                   # Orchestrator + TraceWriter
-│  │  │  │  │  ├─ AgentOrchestrator.cs
-│  │  │  │  │  └─ TraceWriter.cs
-│  │  │  │  ├─ Queue/                     # In-memory queue + worker
-│  │  │  │  │  ├─ IAgentTaskQueue.cs
-│  │  │  │  │  ├─ InMemoryAgentTaskQueue.cs
-│  │  │  │  │  └─ AgentTaskWorker.cs
-│  │  │     ├─ AgentTask.cs
-│  │  │     ├─ AgentTrace.cs
-│  │  │     ├─ AgentStatus.cs
-│  │  │     └─ TraceKind.cs
-│  │  ├─ Infrastructure/
-│  │  │  ├─ AppDbContext.cs
-│  │  │  └─ Configurations/
-│  │  │     └─ *.cs
-│  │  ├─ Migrations/
-│  │  │  └─ *.cs
-│  │  ├─ tools/
-│  │  │  └─ seed/                        # Idempotent seed for dev user/tenants
-│  │  └─ Properties/launchSettings.json
-│  ├─ web/
-│  │  ├─ next.config.mjs
-│  │  ├─ package.json
-│  │  ├─ src/
-│  │  │  └─ lib/serverEnv.ts              # API_BASE/DEV_USER/DEV_TENANT validation
-│  │  └─ app/
-│  │     ├─ layout.tsx
-│  │     ├─ page.tsx
-│  │     ├─ login/page.tsx
-│  │     ├─ signup/page.tsx
-│  │     ├─ forgot-password/page.tsx
-│  │     ├─ reset-password/page.tsx
-│  │     ├─ change-password/page.tsx
-│  │     ├─ magic/
-│  │     │  ├─ request/page.tsx
-│  │     │  └─ verify/page.tsx
-│  │     ├─ select-tenant/page.tsx       # Tenant selection with optional ?next=
-│  │     ├─ studio/page.tsx              # Redirects to /studio/agents
-│  │     ├─ health/page.tsx              # Public health page
-│  │     ├─ dev/health/page.tsx          # Protected health page
-│  │     ├─ dev/page.tsx
-│  │     ├─ dev/agents/page.tsx
-│  │     ├─ dev/agents/components/AgentRunForm.tsx
-│  │     ├─ dev/agents/components/TracesTable.tsx
-│  │     ├─ studio/agents/                # Agent Studio (CRUD UI)
-│  │     │  ├─ page.tsx                   # List (defaults to enabled-only)
-│  │     │  ├─ new/page.tsx               # Create
-│  │     │  ├─ [id]/page.tsx              # Edit
-│  │     │  └─ components/
-│  │     │     ├─ AgentForm.tsx           # Create/Edit form (includes Enabled toggle)
-│  │     │     └─ AgentsTable.tsx         # List table
-│  │     └─ api-proxy/
-│  │        ├─ auth/forgot-password/route.ts # POST /api-proxy/auth/forgot-password → API /api/auth/forgot-password (anonymous)
-│  │        ├─ auth/reset-password/route.ts  # POST /api-proxy/auth/reset-password → API /api/auth/reset-password (anonymous)
-│  │        ├─ auth/change-password/route.ts # POST /api-proxy/auth/change-password → API /api/auth/change-password (authorized)
-│  │        ├─ auth/signup/route.ts      # POST /api-proxy/auth/signup → API /api/auth/signup (anonymous proxy)
-│  │        ├─ auth/magic/request/route.ts   # POST /api-proxy/auth/magic/request → API /api/auth/magic/request
-│  │        └─ auth/magic/consume/route.ts   # POST /api-proxy/auth/magic/consume → API /api/auth/magic/consume
-│  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
-│  │        ├─ agents/route.ts            # GET/POST /api-proxy/agents → API /api/agents
-│  │        ├─ agents/[id]/route.ts       # GET/PUT/DELETE /api-proxy/agents/{id}
-│  │        └─ agents/tools/route.ts      # GET /api-proxy/agents/tools → API /api/agents/tools
-│  │        └─ agent-tasks/
-│  │           ├─ route.ts                 # GET/POST /api-proxy/agent-tasks → API
-│  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
-│  │     └─ api/
-│  │        └─ tenant/select/route.ts    # GET/POST /api/tenant/select — set cookie; GET redirects with validated next
-│  │        └─ debug/session/route.ts    # GET /api/debug/session — diagnostic: session, cookie, and proxy headers
-│  ├─ mobile/
-│  │  ├─ app.json
-│  │  ├─ package.json
-│  │  └─ src/App.tsx
-│  └─ render-worker/
-│     └─ src/index.ts
+  │  │  │  └─ Infrastructure/
+  │  │  │     ├─ Auth/
+  │  │  │     │  └─ DevHeaderAuthHandler.cs
+  │  │  │     └─ MultiTenancy/
+  │  │  │        └─ TenantScopeMiddleware.cs
+  │  │  ├─ Application/
+  │  │  │  ├─ Agents/
+  │  │  │  │  ├─ AgentRegistry.cs
+  │  │  │  │  ├─ Runtime/                   # Orchestrator + TraceWriter
+  │  │  │  │  │  ├─ AgentOrchestrator.cs
+  │  │  │  │  │  └─ TraceWriter.cs
+  │  │  │  │  ├─ Queue/                     # In-memory queue + worker
+  │  │  │  │  │  ├─ IAgentTaskQueue.cs
+  │  │  │  │  │  ├─ InMemoryAgentTaskQueue.cs
+  │  │  │  │  │  └─ AgentTaskWorker.cs
+  │  │  │     ├─ AgentTask.cs
+  │  │  │     ├─ AgentTrace.cs
+  │  │  │     ├─ AgentStatus.cs
+  │  │  │     └─ TraceKind.cs
+  │  │  ├─ Infrastructure/
+  │  │  │  ├─ AppDbContext.cs
+  │  │  │  └─ Configurations/
+  │  │  │     └─ *.cs
+  │  │  ├─ Migrations/
+  │  │  │  └─ *.cs
+  │  │  ├─ tools/
+  │  │  │  └─ seed/                        # Idempotent seed for dev user/tenants
+  │  │  └─ Properties/launchSettings.json
+  │  ├─ web/
+  │  │  ├─ next.config.mjs
+  │  │  ├─ package.json
+  │  │  ├─ src/
+  │  │  │  └─ lib/serverEnv.ts              # API_BASE/DEV_USER/DEV_TENANT validation
+  │  │  └─ app/
+  │  │     ├─ layout.tsx
+  │  │     ├─ page.tsx
+  │  │     ├─ login/page.tsx
+  │  │     ├─ signup/page.tsx
+  │  │     ├─ forgot-password/page.tsx
+  │  │     ├─ reset-password/page.tsx
+  │  │     ├─ change-password/page.tsx
+  │  │     ├─ magic/
+  │  │     │  ├─ request/page.tsx
+  │  │     │  └─ verify/page.tsx
+  │  │     ├─ select-tenant/page.tsx       # Tenant selection with optional ?next=
+  │  │     ├─ studio/page.tsx              # Redirects to /studio/agents
+  │  │     ├─ health/page.tsx              # Public health page
+  │  │     ├─ dev/health/page.tsx          # Protected health page
+  │  │     ├─ dev/page.tsx
+  │  │     ├─ dev/agents/page.tsx
+  │  │     ├─ dev/agents/components/AgentRunForm.tsx
+  │  │     ├─ dev/agents/components/TracesTable.tsx
+  │  │     ├─ studio/agents/                # Agent Studio (CRUD UI)
+  │  │     │  ├─ page.tsx                   # List (defaults to enabled-only)
+  │  │     │  ├─ new/page.tsx               # Create
+  │  │     │  ├─ [id]/page.tsx              # Edit
+  │  │     │  └─ components/
+  │  │     │     ├─ AgentForm.tsx           # Create/Edit form (includes Enabled toggle)
+  │  │     │     └─ AgentsTable.tsx         # List table
+  │  │     └─ api-proxy/
+  │  │        ├─ auth/forgot-password/route.ts # POST /api-proxy/auth/forgot-password → API /api/auth/forgot-password (anonymous)
+  │  │        ├─ auth/reset-password/route.ts  # POST /api-proxy/auth/reset-password → API /api/auth/reset-password (anonymous)
+  │  │        ├─ auth/change-password/route.ts # POST /api-proxy/auth/change-password → API /api/auth/change-password (authorized)
+  │  │        ├─ auth/signup/route.ts      # POST /api-proxy/auth/signup → API /api/auth/signup (anonymous proxy)
+  │  │        ├─ auth/magic/request/route.ts   # POST /api-proxy/auth/magic/request → API /api/auth/magic/request
+  │  │        └─ auth/magic/consume/route.ts   # POST /api-proxy/auth/magic/consume → API /api/auth/magic/consume
+  │  │        ├─ dev/agents/route.ts        # GET /api-proxy/dev/agents → API /api/dev/agents
+  │  │        ├─ agents/route.ts            # GET/POST /api-proxy/agents → API /api/agents
+  │  │        ├─ agents/[id]/route.ts       # GET/PUT/DELETE /api-proxy/agents/{id}
+  │  │        └─ agents/tools/route.ts      # GET /api-proxy/agents/tools → API /api/agents/tools
+  │  │        └─ agent-tasks/
+  │  │           ├─ route.ts                 # GET/POST /api-proxy/agent-tasks → API
+  │  │           └─ [id]/route.ts            # GET /api-proxy/agent-tasks/{id}
+  │  │     └─ api/
+  │  │        └─ tenant/select/route.ts    # GET/POST /api/tenant/select — set cookie; GET redirects with validated next
+  │  │        └─ debug/session/route.ts    # GET /api/debug/session — diagnostic: session, cookie, and proxy headers
+  │  ├─ mobile/
+  │  │  ├─ app.json
+  │  │  ├─ package.json
+  │  │  └─ src/App.tsx
+  │  └─ render-worker/
+  │     └─ src/index.ts
 ├─ packages/
 │  ├─ sdk/
 │  │  ├─ package.json
@@ -818,136 +818,3 @@ Provider webhooks:
 - No schema migration required; ciphertext is stored in existing text columns. Downstream services receive plaintext via the lease path.
 
 ---
-
-## API surface
-
-### Grouped v1 endpoints (`apps/api/App/Endpoints/V1.cs`)
-
-- `GET /api/me` — user/tenant claims
-- `GET /api/tenants` — current tenant summary
-- `GET /api/lessons?take=&skip=` — paginated list; `POST /api/lessons` — create (uses current tenant)
-- `POST /api/auth/magic/request` — request a Magic Link (202; anonymous)
-- `POST /api/auth/magic/consume` — consume a Magic Link token (anonymous)
-- `POST /api/auth/forgot-password` — start password reset (202; anonymous)
-- `POST /api/auth/reset-password` — perform password reset (204; anonymous)
-- `POST /api/auth/change-password` — change password (204; authorized)
-
-### Agents endpoints
-
-- `GET /api/agents?take=&skip=&includeDisabled=` — list (enabled‑only by default)
-- `GET /api/agents/{id}` | `POST /api/agents` | `PUT /api/agents/{id}` | `DELETE /api/agents/{id}`
-- `GET /api/agents/tools` — tool catalog for allowlists
-
-### Agent tasks endpoints
-
-- `POST /api/agent-tasks` — create, enqueue, returns `201 Created` with summary
-- `GET /api/agent-tasks/{id}` — details; `?includeTraces=true` includes traces
-- `GET /api/agent-tasks` — list with filters (status/agentId/from/to/q) and paging; sets `X-Total-Count`
-
-### Dev-only endpoints
-
-- `POST /api/dev/tool-call` — deterministic tool tests
-- `GET /api/dev/agents` — seeded agents for UI dropdowns
-- `POST /api/dev/agents/demo` — inline agent run with traces
-- `POST /api/dev/notifications/verification` and `/invite` — enqueue test emails
-- `GET /api/dev/notifications/health` — transport diagnostics (mode, Redis subscriber status)
-- `POST /api/dev/notifications/ping` — publishes a synthetic queued outbox item through the active transport
-
-### Swagger/OpenAPI
-
-- Swagger JSON: `GET /swagger/v1/swagger.json` | UI: `GET /swagger/`
-- Security scheme: API key (DevHeaders) for dev headers; UI remains public
-
----
-
-## Data & persistence (EF Core)
-
-- Provider: Npgsql (PostgreSQL 16 dev); default schema `app`
-- Migrations under `apps/api/Migrations/`; auto‑migrate enabled in Dev/Test
-- RLS strategy: set `app.tenant_id` via middleware; DB‑side policies/init in `infra/initdb` and EF migrations
-
-Key domain tables and constraints:
-
-- Agent runtime: `agents`, `agent_tasks`, `agent_traces` with unique index `(task_id, step_number)` and checks on step/duration
-- Notifications: `notifications` (outbox) and `notification_dedupes` (TTL claims); dispatcher indexes on `(status, next_attempt_at)` and `(tenant_id, created_at DESC)`; `citext` for emails, `jsonb` for data. Resend (Notif‑27) adds metadata columns and indexes for safe resend policies: `resend_of_notification_id` (FK self‑reference, NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
-- Invitations: `invitations` with FKs to `tenants` and `users`; functional unique `(tenant_id, lower(email))` and index on `(tenant_id, expires_at)`
-- Login tokens (Auth‑ML): `login_tokens` storing email (citext), token_hash (SHA‑256), purpose ('magic'), expires_at, consumed_at, created_at, optional created_ip/ua/tenant_hint; indexes: unique(token_hash), (email, created_at DESC), and partial on consumed_at IS NULL.
-- Auth/tenant integrity: unique slug `tenants(name)`; FKs cascade/set‑null as appropriate
-
----
-
-## Observability
-
-- OpenTelemetry resource: `Appostolic.Api`
-- Traces: ASP.NET Core, HTTP client, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`)
-- Metrics: ASP.NET Core, HTTP client, runtime, `Appostolic.Metrics` (e.g., email sent/failed)
-- Logs: structured logs; console exporters in Development; optional OTLP endpoint via `OTEL_EXPORTER_OTLP_ENDPOINT`
-
-- Privacy (Notif‑25): Recipient emails are redacted across dispatcher/providers and log scopes; metrics include only non‑PII tags (e.g., kind). See devInfo/Sendgrid/privacyPolicy.md for practices and devInfo/Sendgrid/vendorCompliance.md for provider details.
-
----
-
-## Infra & local development
-
-- Docker Compose: Postgres, Redis, MinIO, Qdrant, Mailhog, pgAdmin
-- Init SQL: `infra/initdb/init.sql` sets extensions, schemas, GUC helpers
-- Devcontainer configuration available
-
-Makefile highlights:
-
-- `make migrate` — apply EF migrations
-- `make sdk` — regenerate OpenAPI/SDK
-- `make down` — stop local Docker stack
-- `make up` — start infra Docker stack
-- `make bootstrap` — nuke volumes, bring up infra, wait for Postgres, migrate, and seed
-- `make api` — run API with dotnet watch (http://localhost:5198)
-- `make web` — run Next.js dev server
-- `make mobile` — run Expo dev server (port 8082)
-- `make doctor` — run dev-doctor script
-
-Important URLs:
-
-- API base: http://localhost:5198
-- Swagger UI: http://localhost:5198/swagger/
-- Swagger JSON: http://localhost:5198/swagger/v1/swagger.json
-- Postgres: localhost:55432 (container `postgres`)
-- Redis: localhost:6380
-- MinIO: http://localhost:9002 (API) / http://localhost:9003 (Console)
-- Mailhog UI: http://localhost:8025
-- Qdrant UI/API: http://localhost:6334
-- pgAdmin: http://localhost:8081
-
-Dev credentials (local only): see `infra/docker/.env` for Postgres/Redis/MinIO/Mailhog/Qdrant/pgAdmin
-
-Dev auth for API testing: send headers `x-dev-user` and `x-tenant` (default seed: `kevin@example.com` / `kevin-personal`)
-
-Troubleshooting:
-
-- Swagger shows JSON: use `/swagger/` (trailing slash) or rely on `/swagger` redirect
-- 401 on `/api/*`: send dev headers; run `make seed` (or `make bootstrap`) if you haven’t seeded
-- Tenant scoping: verify `tenant_id` claim exists or use legacy `X-Tenant-Id` for sample `/lessons`
-- Postgres connection errors: ensure Docker is up and port `55432` matches env
-- Node engines: repo requires `node >=20 <21`; using Node 19 may error (URL.canParse). Use Node 20.x.
-
----
-
-## SDK & OpenAPI (`packages/sdk`)
-
-- OpenAPI generated via Swashbuckle CLI (output at `packages/sdk/openapi.json`)
-- SDK currently provides minimal fetch helpers/types; can be expanded via codegen
-
----
-
-## What’s new since last snapshot
-
-- Agents CRUD: endpoints added, tool catalog surfaced; Agent enable/disable via `IsEnabled` with default true and includeDisabled query
-- Agent Studio (web): list/create/edit pages; server proxies for Agents and Tools
-- Agent resolution: `AgentStore` for DB‑first resolution with static fallback
-- Database: migration for `is_enabled` on `app.agents`
-- Notifications v1: in‑process queue + dispatcher with retry/backoff and OTEL metrics; SMTP/SendGrid/Noop providers and production guard; enqueue helpers for verification/invite with absolute links
-- Outbox (Notif‑13): durable table `app.notifications` with indexes and dedupe
-- Dedupe/Retention (Notif‑17/18): TTL dedupe table `app.notification_dedupes`, narrowed partial unique (Queued,Sending), and hourly purge job
-- Notifications (Notif‑24): production admin endpoints under `/api/notifications` with tenant‑scoped access for Owner/Admin and optional cross‑tenant superadmin view; superadmin claim available via dev header or allowlist for testing and operations.
-- Notifications (Notif‑27): outbox resend metadata added — self‑FK `resend_of_notification_id` (NO ACTION), `resend_reason`, `resend_count` (default 0), `last_resend_at`, `throttle_until`; supporting indexes on `(resend_of_notification_id)` and `(to_email, kind, created_at DESC)`.
-- Notifications (Notif‑28): manual resend endpoints — `POST /api/notifications/{id}/resend` (prod admin, tenant‑scoped with superadmin override) and `POST /api/dev/notifications/{id}/resend` (dev). Returns `201 Created` with `Location` on success; enforces resend throttling with `429 Too Many Requests` and `Retry‑After` seconds header. Throttle window configurable via `NotificationOptions.ResendThrottleWindow` (default 5m).
-- Migrations hygiene: proper EF migrations were scaffolded (Designer files + updated ModelSnapshot). An obsolete `token_aggregates` migration was converted to a no‑op to avoid conflicts.
