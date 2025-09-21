@@ -74,6 +74,25 @@
   - Follow-ups
     - Evaluate Playwright HttpOnly non-read test, SameSite=None cross-site scenarios, and CSRF double-submit strategy alongside refresh endpoint design (Story 6/8 sequencing).
 
+2025-09-21 — Auth/JWT: Story 7 Logout & Global Revocation — ✅ DONE
+
+- Summary
+  - Implemented `/api/auth/logout` (single refresh token revoke) and `/api/auth/logout/all` (bulk revoke + TokenVersion bump) endpoints. Single logout now enforces an explicit token when a JSON body is present: an empty `{}` body (or body missing `refreshToken`) returns 400 `{ code: "missing_refresh" }` rather than falling back to the cookie, aligning with test expectations and encouraging explicit client intent. Global logout revokes all active neutral refresh tokens for the user via `IRefreshTokenService.RevokeAllForUserAsync` then increments `User.TokenVersion` using record replacement (detach + updated copy) to invalidate all outstanding access tokens immediately (existing bearer validation rejects older version). Both endpoints clear the refresh cookie (expires in past) when present and return 204 on success; operations are idempotent (already revoked/missing treated as success). Structured logs emit `auth.logout.single user=<id> tokenFound=<bool>` and `auth.logout.all user=<id> revokedCount=<n>`.
+  - Files changed
+    - `apps/api/App/Endpoints/V1.cs` — Added logout + logout/all handlers; added `missing_refresh` error path; adjusted JSON body parsing to distinguish between “no body” and “body present but missing field”. Hardened claim extraction (fallback to `ClaimTypes.NameIdentifier`).
+    - `apps/api/Application/Services/RefreshTokenService.cs` (prior commit) — Added `RevokeAllForUserAsync` used by logout-all.
+    - `apps/api.tests/Auth/LogoutTests.cs` — New integration tests: single logout reuse, global logout TokenVersion invalidation, missing refresh token 400, idempotent second logout, diagnostic pre-logout access.
+    - `SnapshotArchitecture.md` — Updated What’s New (Story 7 marked complete with details).
+    - `devInfo/LivingChecklist.md` — (Pending) Will tick Story 7 line on next checklist update.
+  - Quality gates
+    - All `LogoutTests` passing (5/5). TokenVersion bump verified by 401 on /api/me with old access token post logout-all. No regressions in existing refresh or login tests (spot run subset; full suite unchanged functionally).
+  - Rationale
+    - Delivers foundational session management: explicit user-driven logout (single device) plus immediate global revocation without tracking individual access tokens, leveraging lightweight TokenVersion mechanism introduced in Story 5. Provides structured errors for deterministic client handling and sets groundwork for future session/device management and admin-forced logout features.
+  - Follow-ups
+    - Add checklist tick + potential observability counters (logout count, revoked tokens) in a later hardening pass.
+    - Session listing & selective device logout (post‑1.0 candidate).
+    - Deprecation headers and eventual removal of plaintext `refresh.token` once cookie adoption confirmed.
+
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
 - Summary

@@ -48,6 +48,7 @@ How to use
 - [x] JWT Story 5: Access token revocation via TokenVersion (password change) (2025-09-20) — storyLog entry added 2025-09-20
 - [x] JWT Story 5a: Local HTTPS & Secure refresh cookie validation (2025-09-20) — storyLog entries (initial + consolidation) present
 - [x] JWT Story 5b: Real HTTPS Secure refresh cookie E2E harness (api.e2e) (2025-09-20) — storyLog entry added 2025-09-20
+- [x] JWT Story 7: Logout & Global Revocation endpoints (single + all) (2025-09-21) — storyLog entry 2025-09-21
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -147,4 +148,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑20 (Added Story 5b real HTTPS Secure cookie E2E harness (apps/api.e2e) enabling deterministic Secure flag validation with self-signed TLS; JWT Stories 1–5b now complete. Prior note: baseline through 5a plus test token factory, flags-only cleanup, profile & settings, etc.)
+- Last updated: 2025‑09‑21 (Completed Story 7 logout + global revocation; added missing_refresh structured error; all LogoutTests passing; SnapshotArchitecture & storyLog updated.)

@@ -46,6 +46,8 @@ public static class V1
             }
             return Results.Accepted();
         }).AllowAnonymous();
+        
+        // (Logout endpoints relocated below after authorization group declaration)
 
         // Reset password: consume token and set new password
         apiRoot.MapPost("/auth/reset-password", async (AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ResetPasswordDto dto) =>
@@ -542,6 +544,107 @@ public static class V1
         }).AllowAnonymous();
 
         var api = apiRoot.RequireAuthorization();
+        // --- Story 7: Logout Endpoints (authenticated) ---
+        // POST /api/auth/logout - revoke a single provided neutral refresh token (cookie 'rt' or body refreshToken during grace)
+        api.MapPost("/auth/logout", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc) =>
+        {
+            var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
+            // Support tokens where the handler mapped 'sub' to NameIdentifier
+            var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
+            string? bodyToken = null;
+            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                try
+                {
+                    using var doc = await JsonDocument.ParseAsync(http.Request.Body);
+                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == JsonValueKind.String)
+                        bodyToken = rtProp.GetString();
+                    else
+                        bodyToken = string.Empty; // Body present but no token field
+                }
+                catch { bodyToken = string.Empty; }
+            }
+            var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
+            // Behavior nuance: if client sends a JSON body (even empty {}) we require the token be in the body during grace; do NOT silently fall back to cookie for logout.
+            // This mirrors the test expectation (MissingRefreshToken_OnSingleLogout_Returns400) and encourages explicit client intent.
+            var bodyProvided = bodyToken is not null; // null means no body attempt; empty string means body but missing field.
+            string? supplied = null;
+            if (bodyProvided)
+            {
+                supplied = bodyToken; // could be empty -> trigger missing_refresh
+            }
+            else
+            {
+                supplied = cookieToken ?? bodyToken; // original fallback path when no body provided
+            }
+            if (string.IsNullOrWhiteSpace(supplied))
+            {
+                return Results.BadRequest(new { code = "missing_refresh" });
+            }
+            static string Hash(string token)
+            {
+                using var sha = SHA256.Create();
+                var bytes = Encoding.UTF8.GetBytes(token);
+                return Convert.ToBase64String(sha.ComputeHash(bytes));
+            }
+            var hash = Hash(supplied.Trim());
+            var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
+            if (rt != null && rt.UserId == userId && !rt.RevokedAt.HasValue)
+                await refreshSvc.RevokeAsync(rt.Id);
+            if (cookieToken != null)
+            {
+                http.Response.Cookies.Append("rt", string.Empty, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                });
+            }
+            var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
+            logger.LogInformation("auth.logout.single user={UserId} tokenFound={TokenFound}", userId, rt != null);
+            return Results.NoContent();
+        });
+
+        // POST /api/auth/logout/all - revoke all active neutral refresh tokens and bump token version (invalidating current access tokens)
+        api.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc) =>
+        {
+            // Support tokens where the handler mapped 'sub' to NameIdentifier
+            var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
+            var count = await refreshSvc.RevokeAllForUserAsync(userId);
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+            {
+                // If the user disappeared concurrently treat as success from client perspective.
+                var loggerMissing = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
+                loggerMissing.LogWarning("auth.logout.all user_missing user={UserId}", userId);
+            }
+            else
+            {
+                // Detach the existing tracked instance then attach an updated copy (record has init-only properties)
+                var existingEntry = db.Entry(user);
+                existingEntry.State = EntityState.Detached;
+                var bumped = user with { TokenVersion = user.TokenVersion + 1 };
+                db.Users.Update(bumped);
+                await db.SaveChangesAsync();
+            }
+            if (http.Request.Cookies.ContainsKey("rt"))
+            {
+                http.Response.Cookies.Append("rt", string.Empty, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                });
+            }
+            var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
+            logger.LogInformation("auth.logout.all user={UserId} revokedCount={Count}", userId, count);
+            return Results.NoContent();
+        });
         // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
         // POST /api/auth/refresh
         // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
