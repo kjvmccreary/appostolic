@@ -399,6 +399,24 @@
   - Quality gates
     - Build: PASS (net8.0).
 
+  2025-09-21 — Auth/JWT: Story 6 General Refresh Endpoint — ✅ DONE
+  - Summary
+    - Added `/api/auth/refresh` implementing neutral refresh rotation with cookie-first retrieval (httpOnly `rt`), transitional JSON body support gated by `AUTH__REFRESH_JSON_GRACE_ENABLED`, and optional deprecation headers when `AUTH__REFRESH_DEPRECATION_DATE` is set. Endpoint validates token existence, non-revocation, expiry, and user presence, then revokes old and issues new neutral refresh + access tokens. Supports `?tenant=` to issue a tenant-scoped access token (`tenantToken`) with membership validation (403 on mismatch). After grace and when cookie path enabled, plaintext refresh token will be omitted (mechanism in place). Structured error codes: `missing_refresh`, `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `refresh_body_disallowed` (when grace disabled). Logging: `auth.refresh.rotate user=<id> refreshId=<guid>`. Centralized refresh token hashing via new `RefreshTokenHashing` to eliminate duplicated inline Base64(SHA256) logic present in select-tenant, logout, and refresh endpoints.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — added refresh endpoint; replaced inline hash functions with `RefreshTokenHashing`; minor cleanup.
+    - apps/api/App/Infrastructure/Auth/Jwt/RefreshTokenHashing.cs — new helper for Base64(SHA256) hashing.
+    - apps/api/App/Infrastructure/Auth/Jwt/RefreshTokenService.cs — now delegates hashing to helper.
+    - apps/api.tests/Auth/RefreshEndpointTests.cs — new integration tests: cookie rotation, reuse detection, missing token, expired token, revoked/reuse, tenant token path, body grace acceptance.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 6 marked DONE with implementation notes & status update.
+  - Quality gates
+    - New tests passing locally (targeted run). Existing auth suites unaffected. Compilation clean; removed prior duplicate hash code blocks.
+  - Rationale
+    - Delivers core session continuity mechanism decoupling access token lifespan from user interaction while enforcing single active refresh chain and providing deterministic error semantics for client handling. Sets stage for client-side silent refresh loop and eventual removal of plaintext token from JSON surface post-grace.
+  - Follow-ups
+    - Frontend silent refresh loop implementation and removal of placeholder `_auth/refresh-neutral` route.
+    - Phase roll through deprecation headers, then disable JSON body grace (set `AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and omit plaintext token.
+    - Metrics counters (tokens_issued/refreshed/revoked) and security event logs (Story 9).
+
   2025-09-21 — Auth/Roles: Roles Assignment Refactor & Audit Duplication Guard — ✅ DONE
   - Summary
     - Refactored tenant member roles assignment endpoint to unify previously duplicated transactional code paths that differed between providers (explicit transaction vs ambient) removing a source of intermittent EF InMemory flakiness and reducing future divergence risk. Added regression test `Set_roles_noop_second_call_does_not_duplicate_audit` asserting a repeat identical roles update (noop) does not create an additional audit trail entry, guarding against accidental double-write reintroduction. Cleaned up a CS1998 compiler warning by removing an unnecessary `async` modifier from the deprecated legacy member role change endpoint lambda in `V1.cs`, tightening build signal clarity. These changes are orthogonal to the JWT refresh/logout roadmap but strengthen authorization & audit consistency ahead of remaining Story 6 work.

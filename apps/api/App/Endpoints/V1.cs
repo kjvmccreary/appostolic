@@ -493,15 +493,8 @@ public static class V1
             if (body is null || string.IsNullOrWhiteSpace(body.RefreshToken) || string.IsNullOrWhiteSpace(body.Tenant))
                 return Results.BadRequest(new { error = "tenant and refreshToken are required" });
 
-            // Refresh tokens are hashed as Base64(SHA256(utf8)) in RefreshTokenService; do the same here (login tokens use hex via HashToken).
-            string HashRefresh(string t)
-            {
-                using var sha = SHA256.Create();
-                var bytes = Encoding.UTF8.GetBytes(t);
-                var h = sha.ComputeHash(bytes);
-                return Convert.ToBase64String(h);
-            }
-            var hash = HashRefresh(body.RefreshToken.Trim());
+                // Refresh tokens hashed via centralized helper (Base64(SHA256(UTF8))).
+                var hash = RefreshTokenHashing.Hash(body.RefreshToken.Trim());
             var now = DateTime.UtcNow;
             var rt = await db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt is null || rt.RevokedAt.HasValue || rt.ExpiresAt <= now)
@@ -554,7 +547,6 @@ public static class V1
         {
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
             var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
-            // Support tokens where the handler mapped 'sub' to NameIdentifier
             var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
             string? bodyToken = null;
@@ -566,34 +558,26 @@ public static class V1
                     if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == JsonValueKind.String)
                         bodyToken = rtProp.GetString();
                     else
-                        bodyToken = string.Empty; // Body present but no token field
+                        bodyToken = string.Empty;
                 }
                 catch { bodyToken = string.Empty; }
             }
             var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
-            // Behavior nuance: if client sends a JSON body (even empty {}) we require the token be in the body during grace; do NOT silently fall back to cookie for logout.
-            // This mirrors the test expectation (MissingRefreshToken_OnSingleLogout_Returns400) and encourages explicit client intent.
-            var bodyProvided = bodyToken is not null; // null means no body attempt; empty string means body but missing field.
+            var bodyProvided = bodyToken is not null;
             string? supplied = null;
             if (bodyProvided)
             {
-                supplied = bodyToken; // could be empty -> trigger missing_refresh
+                supplied = bodyToken;
             }
             else
             {
-                supplied = cookieToken ?? bodyToken; // original fallback path when no body provided
+                supplied = cookieToken ?? bodyToken;
             }
             if (string.IsNullOrWhiteSpace(supplied))
             {
                 return Results.BadRequest(new { code = "missing_refresh" });
             }
-            static string Hash(string token)
-            {
-                using var sha = SHA256.Create();
-                var bytes = Encoding.UTF8.GetBytes(token);
-                return Convert.ToBase64String(sha.ComputeHash(bytes));
-            }
-            var hash = Hash(supplied.Trim());
+            var hash = RefreshTokenHashing.Hash(supplied.Trim());
             var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt != null && rt.UserId == userId && !rt.RevokedAt.HasValue)
                 await refreshSvc.RevokeAsync(rt.Id);
@@ -791,18 +775,15 @@ public static class V1
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
                 return Results.BadRequest(new { error = "currentPassword and newPassword are required" });
-            // Some inbound claim mappings may translate the raw 'email' claim into ClaimTypes.Email; support both.
-            var email = principal.FindFirstValue("email") ?? principal.FindFirstValue(System.Security.Claims.ClaimTypes.Email);
-            if (string.IsNullOrWhiteSpace(email)) return Results.Unauthorized();
-            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            var emailClaim = principal.FindFirstValue("email") ?? principal.FindFirstValue(ClaimTypes.Email);
+            if (string.IsNullOrWhiteSpace(emailClaim)) return Results.Unauthorized();
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == emailClaim);
             if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
                 return Results.Unauthorized();
             var ok = hasher.Verify(dto.CurrentPassword, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok) return Results.Unauthorized();
-            var (hash, salt, iterations) = hasher.HashPassword(dto.NewPassword);
-            // Increment TokenVersion so all previously issued access tokens (with old 'v' claim) become invalid.
-            // Refresh cookie will obtain a new access token on next use; clients must re-authenticate with new token.
-            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow, TokenVersion = user.TokenVersion + 1 };
+            var (newHash, newSalt, iterations) = hasher.HashPassword(dto.NewPassword);
+            var updated = user with { PasswordHash = newHash, PasswordSalt = newSalt, PasswordUpdatedAt = DateTime.UtcNow, TokenVersion = user.TokenVersion + 1 };
             db.Users.Update(updated);
             await db.SaveChangesAsync();
             return Results.NoContent();
@@ -823,7 +804,6 @@ public static class V1
         {
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var tenantId)) return Results.BadRequest(new { error = "invalid tenant" });
-
             var t = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.Id == tenantId);
             return Results.Ok(t is null ? Array.Empty<object>() : new[] { new { t.Id, t.Name } });
         });

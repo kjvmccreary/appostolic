@@ -261,7 +261,7 @@ Status:
 
 - Planning phase committed; implementation steps queued (Makefile target `api-https-test`, fixture, test class).
 
-### Story 6: General Refresh Endpoint & Silent Rotation — IN PROGRESS (2025-09-20)
+### Story 6: General Refresh Endpoint & Silent Rotation — ✅ DONE (2025-09-21)
 
 Goal:
 
@@ -355,7 +355,7 @@ Phased removal of plaintext refresh tokens from JSON; enforce cookie-only delive
 6. Observability: log count of body-based refresh requests after deprecation date (Phase 2) for adoption; optional metric (Story 9).
 7. Cleanup: remove transient console warnings and legacy body parsing branch after stable Phase 3.
 
-Status: Subsection scaffolded 2025-09-21; implementation pending refresh endpoint build-out.
+Status: Implemented 2025-09-21. Endpoint `/api/auth/refresh` added with cookie-first strategy, JSON body grace, deprecation headers (Deprecation/Sunset) support, rotation (revokes old then issues new), tenant param issuance, structured error codes (`missing_refresh`, `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `refresh_body_disallowed`). Hashing centralized via `RefreshTokenHashing`. Tests cover: cookie rotation, body grace, reuse detection, expired token, revoked reuse, tenant token issuance, missing token, grace disabled body rejection. Remaining: frontend silent refresh loop (separate follow-up) and deprecation flag rollout sequence. Documentation & storyLog updated.
 
 ### Story 7: Logout & Global Revocation — ✅ DONE (2025-09-21)
 
