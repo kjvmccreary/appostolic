@@ -632,3 +632,7 @@ Tracking:
 - Add new story: "Story 5b: HTTPS E2E Secure Cookie Validation" referencing this section and mark dependency on Story 5a completion.
 
 ---
+
+## (Appended 2025-09-21) Deferred Follow-up
+
+- Deprecation headers and removal of plaintext `refresh.token` after grace.
