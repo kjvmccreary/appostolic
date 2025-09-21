@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Appostolic.Api.Infrastructure.Providers;
 
 namespace Appostolic.Api.Infrastructure.MultiTenancy;
 
@@ -31,8 +32,8 @@ public class TenantScopeMiddleware
             return;
         }
 
-        // If provider isn't relational (e.g., InMemory for tests), skip transaction/GUC and continue
-        if (!db.Database.IsRelational())
+        // If provider lacks explicit transaction support (e.g., EF InMemory), skip transaction + set_config (no-op for RLS)
+        if (!db.Database.SupportsExplicitTransactions())
         {
             await _next(context);
             return;
@@ -42,9 +43,7 @@ public class TenantScopeMiddleware
         try
         {
             await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantIdStr);
-
             await _next(context);
-
             await tx.CommitAsync();
         }
         catch

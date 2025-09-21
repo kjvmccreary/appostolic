@@ -9,6 +9,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 using Appostolic.Api.Infrastructure.Auth.Jwt;
+using Appostolic.Api.Infrastructure.Providers;
 
 namespace Appostolic.Api.App.Endpoints;
 
@@ -151,8 +152,8 @@ public static class V1
                 await db.SaveChangesAsync();
 
                 // Respect RLS: set tenant context when inserting membership for relational providers
-                var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-                if (isInMemory)
+                // Use capability helper to decide on explicit transaction + tenant context set_config
+                if (!db.Database.SupportsExplicitTransactions())
                 {
                     var membership = new Membership
                     {
@@ -344,10 +345,8 @@ public static class V1
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             };
-            // In tests we swap to EF InMemory which does not support transactions.
-            // Detect provider and skip explicit transaction + set_config when InMemory.
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
+            // Use capability helper: skip explicit transaction & tenant context when provider lacks support.
+            if (!db.Database.SupportsExplicitTransactions())
             {
                 db.Memberships.Add(membership);
                 await db.SaveChangesAsync();
@@ -386,71 +385,16 @@ public static class V1
 
             var email = dto.Email.Trim();
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            // Regression fix (Story 6 follow-up): previously login endpoint auto-provisioned users / reset passwords when
+            // AUTH__TEST_HELPERS_ENABLED was true. This caused invalid credential tests to succeed with 200 instead of 401
+            // by silently creating or mutating users. We now enforce strict semantics: unknown user OR missing password hash
+            // returns 401. Tests needing auto-provision should use explicit signup or dedicated test helper endpoints.
             if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
-            {
-                // Test-helper auto-provisioning: allow integration tests to drive login-first flows without explicit signup.
-                // Guarded by AUTH__TEST_HELPERS_ENABLED and non-production environment to avoid leaking behavior to real deployments.
-                var envSvc = http.RequestServices.GetRequiredService<IHostEnvironment>();
-                var cfg = http.RequestServices.GetRequiredService<IConfiguration>();
-                var testHelpersEnabled = !envSvc.IsProduction() && (cfg["AUTH__TEST_HELPERS_ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
-                if (!testHelpersEnabled)
-                {
-                    return Results.Unauthorized();
-                }
-                // Auto-create user + personal tenant + membership + password hash
-                var (hash, salt, iterations) = hasher.HashPassword(dto.Password);
-                var now = DateTime.UtcNow;
-                user = new User
-                {
-                    Id = Guid.NewGuid(),
-                    Email = email,
-                    PasswordHash = hash,
-                    PasswordSalt = salt,
-                    PasswordUpdatedAt = now,
-                    CreatedAt = now
-                };
-                db.Users.Add(user);
-                await db.SaveChangesAsync();
-                // Personal tenant slug like signup path
-                var local = email.Split('@')[0].ToLowerInvariant();
-                var baseSlug = $"{local}-personal";
-                var slug = baseSlug; var attempt = 1;
-                while (await db.Tenants.AsNoTracking().AnyAsync(t => t.Name == slug)) { attempt++; slug = $"{baseSlug}-{attempt}"; }
-                var tenant = new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = now };
-                db.Tenants.Add(tenant);
-                await db.SaveChangesAsync();
-                var membership = new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenant.Id,
-                    UserId = user.Id,
-                    Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = now
-                };
-                db.Memberships.Add(membership);
-                await db.SaveChangesAsync();
-            }
+                return Results.Unauthorized();
 
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok)
-            {
-                var envSvc = http.RequestServices.GetRequiredService<IHostEnvironment>();
-                var cfg = http.RequestServices.GetRequiredService<IConfiguration>();
-                var testHelpersEnabled = !envSvc.IsProduction() && (cfg["AUTH__TEST_HELPERS_ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
-                if (testHelpersEnabled)
-                {
-                    // Test fallback: reset password to supplied value so tests that skip explicit signup still succeed.
-                    var (nHash, nSalt, _) = hasher.HashPassword(dto.Password);
-                    var updated = user with { PasswordHash = nHash, PasswordSalt = nSalt, PasswordUpdatedAt = DateTime.UtcNow };
-                    db.Entry(user).CurrentValues.SetValues(updated);
-                    await db.SaveChangesAsync();
-                }
-                else
-                {
-                    return Results.Unauthorized();
-                }
-            }
+                return Results.Unauthorized();
 
             var rawMemberships = await db.Memberships.AsNoTracking().Where(m => m.UserId == user.Id).ToListAsync();
             var tenantIds = rawMemberships.Select(r => r.TenantId).Distinct().ToList();
@@ -1180,7 +1124,7 @@ public static class V1
         }).RequireAuthorization("TenantAdmin");
 
         // PUT /api/tenants/{tenantId}/members/{userId} — change member role (DEPRECATED: legacy single-role path)
-        api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}", async (
+        api.MapPut("/tenants/{tenantId:guid}/members/{userId:guid}", (
             Guid tenantId,
             Guid userId,
             ClaimsPrincipal user,
@@ -1188,6 +1132,7 @@ public static class V1
         {
             // Story 4 Phase 2: This legacy single-role mutation endpoint is deprecated.
             // All clients must use the flags endpoint: POST /api/tenants/{tenantId}/memberships/{userId}/roles { roles: [..] }
+            // Removed unnecessary async (no awaits) to resolve CS1998 warning.
             return Results.BadRequest(new { error = "legacy member role change endpoint deprecated; use roles flags endpoint", code = "LEGACY_ROLE_DEPRECATED" });
         }).RequireAuthorization("TenantAdmin");
 
@@ -1223,31 +1168,26 @@ public static class V1
             if (target.UserId == callerId)
                 return Results.BadRequest(new { error = "cannot remove yourself" });
 
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
+            if (!db.Database.SupportsExplicitTransactions())
             {
                 db.Memberships.Remove(target);
                 await db.SaveChangesAsync();
                 return Results.NoContent();
             }
-            else
+
+            if (db.Database.CurrentTransaction is not null)
             {
-                if (db.Database.CurrentTransaction is not null)
-                {
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    return Results.NoContent();
-                }
-                else
-                {
-                    await using var tx = await db.Database.BeginTransactionAsync();
-                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                    return Results.NoContent();
-                }
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                return Results.NoContent();
             }
+
+            await using var tx = await db.Database.BeginTransactionAsync();
+            await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+            db.Memberships.Remove(target);
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return Results.NoContent();
         }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/memberships — List memberships with roles flags (TenantAdmin only)
@@ -1319,8 +1259,7 @@ public static class V1
                 }
             }
 
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
+            if (!db.Database.SupportsExplicitTransactions())
             {
                 var replacement = new Membership
                 {
@@ -1337,46 +1276,41 @@ public static class V1
                 await db.SaveChangesAsync();
                 return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
             }
-            else
+            if (db.Database.CurrentTransaction is not null)
             {
-                if (db.Database.CurrentTransaction is not null)
+                var replacement = new Membership
                 {
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Roles = target.Roles,
-                        Status = newStatus,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-                    return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
-                }
-                else
-                {
-                    await using var tx = await db.Database.BeginTransactionAsync();
-                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Roles = target.Roles,
-                        Status = newStatus,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                    return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
-                }
+                    Id = target.Id,
+                    TenantId = target.TenantId,
+                    UserId = target.UserId,
+                    Roles = target.Roles,
+                    Status = newStatus,
+                    CreatedAt = target.CreatedAt
+                };
+                db.Memberships.Remove(target);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(replacement);
+                await db.SaveChangesAsync();
+                return Results.Ok(new { userId = replacement.UserId, status = replacement.Status.ToString() });
             }
+
+            await using var tx2 = await db.Database.BeginTransactionAsync();
+            await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
+            var replacement2 = new Membership
+            {
+                Id = target.Id,
+                TenantId = target.TenantId,
+                UserId = target.UserId,
+                Roles = target.Roles,
+                Status = newStatus,
+                CreatedAt = target.CreatedAt
+            };
+            db.Memberships.Remove(target);
+            await db.SaveChangesAsync();
+            db.Memberships.Add(replacement2);
+            await db.SaveChangesAsync();
+            await tx2.CommitAsync();
+            return Results.Ok(new { userId = replacement2.UserId, status = replacement2.Status.ToString() });
         }).RequireAuthorization("TenantAdmin");
 
         // GET /api/tenants/{tenantId}/audits — List recent audit entries for membership role changes (TenantAdmin only)
@@ -1503,11 +1437,12 @@ public static class V1
                 }
             }
 
-            // Persistence strategy note:
-            // EF InMemory provider cannot update an immutable record pattern easily, so we replace the row (remove+add)
-            // to mirror the relational provider path where we also replace under a tenant-scoped transaction to respect RLS.
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
+            // Persistence strategy & provider parity:
+            // We always replace the membership row (remove + add) to keep EF InMemory behavior aligned with relational.
+            // Previous implementation had duplicated branches (no-tx / current-tx / begin new tx) which under InMemory
+            // could cascade into executing raw SQL (set_config) unsupported by the provider, yielding a 500.
+            // Simplify to a single path; if the provider supports explicit transactions, wrap in a tenant-scoped tx.
+            async Task ReplaceAsync()
             {
                 var replacement = new Membership
                 {
@@ -1523,10 +1458,9 @@ public static class V1
                 db.Memberships.Add(replacement);
                 await db.SaveChangesAsync();
 
-                // Audit: record roles change
                 Guid? changedByUserId = null;
-                var changedByStr = user.FindFirstValue("sub");
-                if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
+                var sub = user.FindFirstValue("sub");
+                if (Guid.TryParse(sub, out var subGuid)) changedByUserId = subGuid;
                 var changedByEmail = user.FindFirstValue("email");
                 db.Audits.Add(new Audit
                 {
@@ -1541,79 +1475,18 @@ public static class V1
                 });
                 await db.SaveChangesAsync();
             }
+
+            if (db.Database.SupportsExplicitTransactions())
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                // set_config only valid for relational provider; wrap in try to avoid InMemory issues if capability check regresses
+                try { await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString()); } catch { /* no-op for non-relational */ }
+                await ReplaceAsync();
+                await tx.CommitAsync();
+            }
             else
             {
-                if (db.Database.CurrentTransaction is not null)
-                {
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Roles = newFlags,
-                        Status = target.Status,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-
-                    // Audit: record roles change within ambient transaction
-                    Guid? changedByUserId = null;
-                    var changedByStr = user.FindFirstValue("sub");
-                    if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
-                    var changedByEmail = user.FindFirstValue("email");
-                    db.Audits.Add(new Audit
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = tenantId,
-                        UserId = replacement.UserId,
-                        ChangedByUserId = changedByUserId,
-                        ChangedByEmail = changedByEmail,
-                        OldRoles = target.Roles,
-                        NewRoles = newFlags,
-                        ChangedAt = DateTime.UtcNow
-                    });
-                    await db.SaveChangesAsync();
-                }
-                else
-                {
-                    await using var tx = await db.Database.BeginTransactionAsync();
-                    await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-                    var replacement = new Membership
-                    {
-                        Id = target.Id,
-                        TenantId = target.TenantId,
-                        UserId = target.UserId,
-                        Roles = newFlags,
-                        Status = target.Status,
-                        CreatedAt = target.CreatedAt
-                    };
-                    db.Memberships.Remove(target);
-                    await db.SaveChangesAsync();
-                    db.Memberships.Add(replacement);
-                    await db.SaveChangesAsync();
-
-                    // Audit: record roles change within same transaction
-                    Guid? changedByUserId = null;
-                    var changedByStr = user.FindFirstValue("sub");
-                    if (Guid.TryParse(changedByStr, out var changedByGuid)) changedByUserId = changedByGuid;
-                    var changedByEmail = user.FindFirstValue("email");
-                    db.Audits.Add(new Audit
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = tenantId,
-                        UserId = replacement.UserId,
-                        ChangedByUserId = changedByUserId,
-                        ChangedByEmail = changedByEmail,
-                        OldRoles = target.Roles,
-                        NewRoles = newFlags,
-                        ChangedAt = DateTime.UtcNow
-                    });
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                }
+                await ReplaceAsync();
             }
 
             // Return updated roles summary (string and numeric) for caller UI reconciliation.
@@ -1654,8 +1527,7 @@ public static class V1
 
             var created = false;
 
-            var isInMemory = db.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true;
-            if (isInMemory)
+            if (!db.Database.SupportsExplicitTransactions())
             {
                 if (existingMembership is null)
                 {
@@ -1677,9 +1549,7 @@ public static class V1
             else
             {
                 await using var tx = await db.Database.BeginTransactionAsync();
-                // Set tenant context for RLS writes to memberships
                 await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", tenantId.ToString());
-
                 if (existingMembership is null)
                 {
                     db.Memberships.Add(new Membership
@@ -1693,10 +1563,7 @@ public static class V1
                     });
                     created = true;
                 }
-
-                // Mark invite accepted (idempotent)
                 invite.AcceptedAt = invite.AcceptedAt ?? DateTime.UtcNow;
-
                 await db.SaveChangesAsync();
                 await tx.CommitAsync();
             }

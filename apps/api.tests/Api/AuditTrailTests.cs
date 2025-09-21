@@ -63,5 +63,49 @@ namespace Appostolic.Api.Tests.Api
                 a.ChangedByUserId.Should().NotBeEmpty();
             }
         }
+
+        [Fact]
+        public async Task Set_roles_noop_second_call_does_not_duplicate_audit()
+        {
+            var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+
+            Guid tenantId;
+            Guid targetUserId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
+                // Seed member with no roles
+                var u = new User { Id = Guid.NewGuid(), Email = $"aud-noop-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
+                db.Users.Add(u);
+                db.Memberships.Add(new Membership
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    UserId = u.Id,
+                    Roles = Roles.None,
+                    Status = MembershipStatus.Active,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+                targetUserId = u.Id;
+            }
+
+            // First change: assign TenantAdmin
+            var first = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
+            first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // Second call with identical roles should be a noop returning 204
+            var second = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
+            second.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var audits = await db.Audits.AsNoTracking().Where(a => a.TenantId == tenantId && a.UserId == targetUserId).ToListAsync();
+                audits.Should().HaveCount(1, "a noop second roles assignment must not create an additional audit row");
+                audits[0].NewRoles.Should().Be(Roles.TenantAdmin);
+            }
+        }
     }
 }

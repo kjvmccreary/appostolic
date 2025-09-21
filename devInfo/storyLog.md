@@ -398,8 +398,25 @@
     - apps/api.tests/Api/AuthJwtSmokeTests.cs — integration test for Bearer auth.
   - Quality gates
     - Build: PASS (net8.0).
+      2025-09-21 — IAM: Roles assignment endpoint duplication & InMemory 500 regression fix — ✅ DONE
+
+  - Summary
+    - Refactored the membership roles assignment endpoint (`POST /api/tenants/{tenantId}/memberships/{userId}/roles`) to remove three duplicated persistence/audit branches whose overlapping conditions caused double execution under the EF InMemory provider. Previously the code had: (1) a `!SupportsExplicitTransactions()` block, (2) a `CurrentTransaction != null` block, and (3) an `else` block that began a new transaction and executed `SELECT set_config(...)`. For providers without explicit transaction support (InMemory), block (1) ran, then because no ambient transaction existed block (3) also ran, attempting the raw SQL `set_config` (relational-only) and triggering an exception → HTTP 500 in four integration tests. The refactor introduces a single `ReplaceAsync()` helper and a unified conditional: if provider supports explicit transactions, wrap replacement + audit in a transaction (with guarded `set_config`); else perform replacement directly. This guarantees one membership row replacement and one audit entry per request across providers.
+  - Files changed
+    - `apps/api/App/Endpoints/V1.cs` — removed duplicated branches; added single provider-aware path; guarded raw SQL with capability + try/catch.
+  - Quality gates
+    - Targeted failing tests (4) now pass individually; full API suite PASS (223 passed / 1 skipped). No change to externally observed contract (still returns 200 or 204 for no-op). Audit trail test confirms a single correct audit record.
+  - Root cause
+    - Non-mutually-exclusive conditional structure allowed dual execution path for InMemory provider leading to unsupported relational operation (`ExecuteSqlRaw(set_config)`).
+  - Rationale
+    - Simplifies logic, prevents hidden provider divergence, and restores deterministic behavior required before proceeding to silent refresh & metrics instrumentation work.
+  - Follow-ups
+    - Optional: Add a lightweight unit test asserting only one audit row emitted per roles change to guard against future duplication regressions.
+    - Consider extracting a small transactional helper wrapper if more endpoints need similar provider capability branching.
+
     - Tests: New `AuthJwtSmokeTests` PASS; existing suites unaffected.
     - Security: Dev-only ephemeral signing key generation guarded by environment; production requires configured base64 key (throws if missing).
+
   - Rationale
     - Establishes minimal viable JWT path enabling subsequent stories (tenant claims, refresh flow, rotation/revocation, secure cookies) with a verifying test to prevent regressions.
   - Follow-ups

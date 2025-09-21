@@ -1,6 +1,7 @@
 using Appostolic.Api.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Appostolic.Api.Infrastructure.Providers;
 
 namespace Appostolic.Api.App.Notifications;
 
@@ -118,7 +119,7 @@ public sealed class EfNotificationOutbox : INotificationOutbox
     {
         // Simple provider-agnostic approach: find earliest due Queued and flip to Sending.
         // Use a transaction for real databases; EF InMemory doesn't support transactions, so skip there.
-        var useTx = _db.Database.IsRelational();
+    var useTx = _db.Database.SupportsExplicitTransactions();
         IDbContextTransaction? tx = null;
         if (useTx)
             tx = await _db.Database.BeginTransactionAsync(ct);
@@ -156,7 +157,7 @@ public sealed class EfNotificationOutbox : INotificationOutbox
     public async Task<Guid> CreateResendAsync(Guid originalId, string? reason, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
-        var useTx = _db.Database.IsRelational();
+    var useTx = _db.Database.SupportsExplicitTransactions();
         Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? tx = null;
         if (useTx)
             tx = await _db.Database.BeginTransactionAsync(ct);

@@ -1,212 +1,83 @@
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Appostolic.Api.Infrastructure.Providers;
 using AppDb = AppDbContext;
 
-// Seed script: idempotent inserts for user/tenants/memberships and one lesson.
+// Clean seed script utilizing SupportsExplicitTransactions helper.
 
 var cs = SeedHelpers.BuildConnectionStringFromPgEnv();
-
 var options = new DbContextOptionsBuilder<AppDb>()
     .UseNpgsql(cs, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "app"))
     .Options;
-
 using var db = new AppDb(options);
-
 await db.Database.OpenConnectionAsync();
 Console.WriteLine("Connected to database.");
-
-// Ensure schema exists
 await db.Database.MigrateAsync();
 
 try
 {
+    const string welcomeTitle = "Welcome draft";
     var userEmail = "kevin@example.com";
     var personalSlug = "kevin-personal";
     var orgSlug = "first-baptist-austin";
-    const string welcomeTitle = "Welcome draft";
 
-    User user;
-    Tenant personal;
-    Tenant org;
-    Membership mPersonal;
-    Membership mOrg;
-    Lesson? personalLesson = null;
+    var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == userEmail)
+        ?? new User { Id = Guid.NewGuid(), Email = userEmail, CreatedAt = DateTime.UtcNow };
+    if (!await db.Users.AsNoTracking().AnyAsync(u => u.Id == user.Id)) { db.Users.Add(user); await db.SaveChangesAsync(); Console.WriteLine($"Created user: {user.Email}"); }
+    else Console.WriteLine($"User exists: {user.Email}");
 
-    // User by natural key (email)
-    user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == userEmail)
-           ?? new User { Id = Guid.NewGuid(), Email = userEmail, CreatedAt = DateTime.UtcNow };
-    if (!await db.Users.AsNoTracking().AnyAsync(u => u.Id == user.Id))
-    {
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
-        Console.WriteLine($"Created user: {user.Id} {user.Email}");
-    }
-    else
-    {
-        Console.WriteLine($"User exists: {user.Id} {user.Email}");
-    }
+    var personal = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == personalSlug)
+        ?? new Tenant { Id = Guid.NewGuid(), Name = personalSlug, CreatedAt = DateTime.UtcNow };
+    if (!await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == personal.Id)) { db.Tenants.Add(personal); await db.SaveChangesAsync(); Console.WriteLine($"Created tenant(personal): {personal.Name}"); }
+    else Console.WriteLine($"Tenant exists: {personal.Name}");
 
-    // Tenants by natural key (slug/name)
-    personal = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == personalSlug)
-               ?? new Tenant { Id = Guid.NewGuid(), Name = personalSlug, CreatedAt = DateTime.UtcNow };
-    if (!await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == personal.Id))
-    {
-        db.Tenants.Add(personal);
-        await db.SaveChangesAsync();
-        Console.WriteLine($"Created tenant(personal/free): {personal.Id} {personal.Name}");
-    }
-    else
-    {
-        Console.WriteLine($"Tenant exists: {personal.Id} {personal.Name}");
-    }
+    var org = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == orgSlug)
+        ?? new Tenant { Id = Guid.NewGuid(), Name = orgSlug, CreatedAt = DateTime.UtcNow };
+    if (!await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == org.Id)) { db.Tenants.Add(org); await db.SaveChangesAsync(); Console.WriteLine($"Created tenant(org): {org.Name}"); }
+    else Console.WriteLine($"Tenant exists: {org.Name}");
 
-    org = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Name == orgSlug)
-          ?? new Tenant { Id = Guid.NewGuid(), Name = orgSlug, CreatedAt = DateTime.UtcNow };
-    if (!await db.Tenants.AsNoTracking().AnyAsync(t => t.Id == org.Id))
+    Lesson? personalLesson;
+    // Personal scope
+    if (db.Database.SupportsExplicitTransactions())
     {
-        db.Tenants.Add(org);
-        await db.SaveChangesAsync();
-        Console.WriteLine($"Created tenant(org/plan=org): {org.Id} {org.Name}");
-    }
-    else
-    {
-        Console.WriteLine($"Tenant exists: {org.Id} {org.Name}");
-    }
-
-    // =====================
-    // Personal tenant scope
-    // =====================
-    await using (var tx = await db.Database.BeginTransactionAsync())
-    {
-        // Set tenant context inside transaction
+        await using var tx = await db.Database.BeginTransactionAsync();
         await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", personal.Id.ToString());
-        Console.WriteLine($"tenant context set for {personal.Id}");
-
-        // Membership (idempotent) under RLS
-    mPersonal = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == personal.Id && m.UserId == user.Id)
+        var mPersonal = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == personal.Id && m.UserId == user.Id)
             ?? new Membership { Id = Guid.NewGuid(), TenantId = personal.Id, UserId = user.Id, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
-        if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mPersonal.Id))
-        {
-            db.Memberships.Add(mPersonal);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"Created membership(personal): {mPersonal.Id}");
-        }
-        else
-        {
-            Console.WriteLine($"Membership exists(personal): {mPersonal.Id}");
-        }
-
-        // Lesson (singleton) under RLS
+        if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mPersonal.Id)) { db.Memberships.Add(mPersonal); await db.SaveChangesAsync(); Console.WriteLine("Created membership(personal)"); }
         personalLesson = await db.Lessons.AsNoTracking().FirstOrDefaultAsync(l => l.TenantId == personal.Id && l.Title == welcomeTitle);
-        if (personalLesson is null)
-        {
-            personalLesson = new Lesson
-            {
-                Id = Guid.NewGuid(),
-                TenantId = personal.Id,
-                Title = welcomeTitle,
-                Status = LessonStatus.Draft,
-                Audience = LessonAudience.All,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            db.Lessons.Add(personalLesson);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"Created lesson(personal): {personalLesson.Id}");
-        }
-        else
-        {
-            Console.WriteLine($"Lesson exists(personal): {personalLesson.Id}");
-        }
-
+        if (personalLesson is null) { personalLesson = new Lesson { Id = Guid.NewGuid(), TenantId = personal.Id, Title = welcomeTitle, Status = LessonStatus.Draft, Audience = LessonAudience.All, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; db.Lessons.Add(personalLesson); await db.SaveChangesAsync(); Console.WriteLine("Created lesson(personal)"); }
         await tx.CommitAsync();
     }
-
-    // =================
-    // Org tenant scope
-    // =================
-    await using (var tx = await db.Database.BeginTransactionAsync())
+    else
     {
-        // Set tenant context inside transaction
-        await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", org.Id.ToString());
-        Console.WriteLine($"tenant context set for {org.Id}");
-
-        // Membership (idempotent) under RLS
-     mOrg = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == org.Id && m.UserId == user.Id)
-         ?? new Membership { Id = Guid.NewGuid(), TenantId = org.Id, UserId = user.Id, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
-        if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mOrg.Id))
-        {
-            db.Memberships.Add(mOrg);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"Created membership(org): {mOrg.Id}");
-        }
-        else
-        {
-            Console.WriteLine($"Membership exists(org): {mOrg.Id}");
-        }
-
-        // Baseline role-specific fixture members (idempotent) in org tenant
-        var baselineMembers = new (string Email, Roles Roles)[]
-        {
-            ("admin@example.com", Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner),
-            ("approver@example.com", Roles.Approver | Roles.Learner),
-            ("creator@example.com", Roles.Creator | Roles.Learner),
-            ("learner@example.com", Roles.Learner)
-        };
-
-        foreach (var (email, roles) in baselineMembers)
-        {
-            // User
-            var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == email)
-                    ?? new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
-            if (!await db.Users.AsNoTracking().AnyAsync(x => x.Id == u.Id))
-            {
-                db.Users.Add(u);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"Created user: {u.Email}");
-            }
-            // Membership (assign explicit roles flags; legacy Role kept for backward-compat UI/tests)
-            var existing = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == org.Id && m.UserId == u.Id);
-            if (existing is null)
-            {
-                var m = new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = org.Id,
-                    UserId = u.Id,
-                    Roles = roles,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.Memberships.Add(m);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"Created membership(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
-            }
-            else if (existing.Roles != roles)
-            {
-                // Update roles if drifted (idempotent convergence)
-                var updated = existing with { Roles = roles };
-                db.Memberships.Update(updated);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"Updated membership(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
-            }
-            else
-            {
-                Console.WriteLine($"Membership up-to-date(org:{org.Name}) for {email} roles={roles} ({(int)roles})");
-            }
-        }
-
-        await tx.CommitAsync();
+        var mPersonal = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.TenantId == personal.Id && m.UserId == user.Id)
+            ?? new Membership { Id = Guid.NewGuid(), TenantId = personal.Id, UserId = user.Id, Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow };
+        if (!await db.Memberships.AsNoTracking().AnyAsync(m => m.Id == mPersonal.Id)) { db.Memberships.Add(mPersonal); await db.SaveChangesAsync(); Console.WriteLine("Created membership(personal)"); }
+        personalLesson = await db.Lessons.AsNoTracking().FirstOrDefaultAsync(l => l.TenantId == personal.Id && l.Title == welcomeTitle);
+        if (personalLesson is null) { personalLesson = new Lesson { Id = Guid.NewGuid(), TenantId = personal.Id, Title = welcomeTitle, Status = LessonStatus.Draft, Audience = LessonAudience.All, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; db.Lessons.Add(personalLesson); await db.SaveChangesAsync(); Console.WriteLine("Created lesson(personal)"); }
     }
 
-    // One-line summary table
+    // Org scope + fixtures
+    if (db.Database.SupportsExplicitTransactions())
+    {
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.tenant_id', {0}, true)", org.Id.ToString());
+        await EnsureOrgFixturesAsync(db, org.Id);
+        await tx.CommitAsync();
+    }
+    else
+    {
+        await EnsureOrgFixturesAsync(db, org.Id);
+    }
+
     Console.WriteLine();
+    Console.WriteLine("| User | Personal (slug) | Org (slug) | Lesson |");
+    Console.WriteLine("|------|------------------|------------|--------|");
     Console.WriteLine("| User ID | Personal Tenant (ID/slug) | Org Tenant (ID/slug) | Lesson ID |");
     Console.WriteLine("|---------|----------------------------|-----------------------|-----------|");
     Console.WriteLine($"| {user.Id} | {personal.Id}/{personal.Name} | {org.Id}/{org.Name} | {personalLesson?.Id} |");

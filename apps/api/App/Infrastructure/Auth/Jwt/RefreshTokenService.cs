@@ -25,6 +25,11 @@ public interface IRefreshTokenService
     /// Revoke a refresh token (idempotent) by setting RevokedAt if not already set.
     /// </summary>
     Task RevokeAsync(Guid refreshTokenId);
+
+    /// <summary>
+    /// Bulk revoke all active neutral refresh tokens for a user (idempotent). Returns count affected.
+    /// </summary>
+    Task<int> RevokeAllForUserAsync(Guid userId);
 }
 
 public class RefreshTokenService : IRefreshTokenService
@@ -78,6 +83,23 @@ public class RefreshTokenService : IRefreshTokenService
             rt.RevokedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
         }
+    }
+
+    public async Task<int> RevokeAllForUserAsync(Guid userId)
+    {
+        var now = DateTime.UtcNow;
+        var tokens = await _db.RefreshTokens
+            .Where(r => r.UserId == userId && r.Purpose == "neutral" && !r.RevokedAt.HasValue)
+            .ToListAsync();
+        foreach (var t in tokens)
+        {
+            t.RevokedAt = now;
+        }
+        if (tokens.Count > 0)
+        {
+            await _db.SaveChangesAsync();
+        }
+        return tokens.Count;
     }
 
     private static string GenerateToken()
