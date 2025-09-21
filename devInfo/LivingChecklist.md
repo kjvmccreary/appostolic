@@ -149,4 +149,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑21 (Completed Story 6 general refresh endpoint (cookie-first rotation + tenant token + reuse/expiry errors) and Story 7 logout + global revocation; added missing_refresh structured error; all RefreshEndpointTests & LogoutTests passing; SnapshotArchitecture & storyLog updated.)
+- Last updated: 2025‑09‑21 (Completed Story 6 general refresh endpoint + hashing centralization helper (`RefreshTokenHashing`) and Story 7 logout + global revocation; added `missing_refresh` structured error; all RefreshEndpointTests & LogoutTests passing; SnapshotArchitecture & storyLog updated in commit 6063317.)

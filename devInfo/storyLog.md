@@ -61,6 +61,7 @@
     - Frontend silent refresh loop & removal of placeholder `_auth/refresh-neutral` route.
     - Disable JSON body/grace flag and remove plaintext refresh.token from response after adoption.
     - CSRF strategy review if SameSite=None considered later (Story 8 / Security Hardening bucket).
+    - (Post-completion note 2025-09-21, commit 6063317) Centralized refresh token hashing via new `RefreshTokenHashing` helper, replacing duplicated inline SHA256 Base64 logic in endpoints (select-tenant, refresh, logout) and delegating existing `RefreshTokenService` private hashing to the helper to prevent drift.
   - Summary
     - Implemented real HTTPS end-to-end harness exercising auth flow to validate refresh cookie (`rt`) attributes under true TLS: Secure, HttpOnly, SameSite=Lax, Path=/, future Expires, and rotation on subsequent auth action. Replaced reliance on simulated HTTPS headers for Secure assertion. Documented harness and added completion entry; sprint plan & checklist updated.
   - Files changed
