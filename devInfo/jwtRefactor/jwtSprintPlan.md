@@ -338,7 +338,26 @@ Definition of Done:
 - storyLog appended with start (and completion later) summary.
 - LivingChecklist: add line "JWT Story 6: General refresh endpoint…" (unchecked initially, checked on completion).
 
-### Story 7: Logout & Global Revocation — IN PROGRESS (2025-09-20)
+#### Deprecation & Grace Phase Tasks (Added 2025-09-21)
+
+Phased removal of plaintext refresh tokens from JSON; enforce cookie-only delivery.
+
+1. Phase Tracking & Flags
+
+- Phase 1 (current): `AUTH__REFRESH_JSON_GRACE_ENABLED=true` & no `AUTH__REFRESH_DEPRECATION_DATE` → accept body + cookie; include `refresh.token`.
+- Phase 2: set `AUTH__REFRESH_DEPRECATION_DATE` → still accept both; add `Deprecation: true` + `Sunset:` headers on body usage.
+- Phase 3: `AUTH__REFRESH_JSON_GRACE_ENABLED=false` → reject body (400 `refresh_body_disallowed`); omit plaintext `refresh.token` (cookie only).
+
+2. Implement / verify structured error `refresh_body_disallowed` (Phase 3 enforcement integration test).
+3. Integration test matrix for each phase (headers presence, payload omission, cookie rotation intact, missing token 400, body disallowed 400).
+4. Frontend: remove reliance on JSON `refresh.token` once Phase 2 begins; console warn if still observed (temporary telemetry hook).
+5. Documentation: SnapshotArchitecture & upgrade guide section describing phases + rollback toggles.
+6. Observability: log count of body-based refresh requests after deprecation date (Phase 2) for adoption; optional metric (Story 9).
+7. Cleanup: remove transient console warnings and legacy body parsing branch after stable Phase 3.
+
+Status: Subsection scaffolded 2025-09-21; implementation pending refresh endpoint build-out.
+
+### Story 7: Logout & Global Revocation — ✅ DONE (2025-09-21)
 
 Goal:
 
@@ -395,12 +414,14 @@ Error Codes (JSON bodies for non-204 cases):
 - `refresh_invalid` (401) – provided token not found / not owned
 - `logout_body_disallowed` (400) when grace disabled and only body supplied
 
-Definition of Done:
+Completion Summary (2025-09-21):
 
-- Endpoints implemented with tests all green.
-- Story log kickoff + completion entries.
-- SnapshotArchitecture What’s New entry.
-- LivingChecklist line added: "JWT Story 7: Logout & global revocation".
+- Implemented `/api/auth/logout` (single refresh revoke, cookie clear, explicit 400 `missing_refresh`) and `/api/auth/logout/all` (bulk revoke + TokenVersion bump) with idempotent 204 responses.
+- Added `RevokeAllForUserAsync` and safe TokenVersion increment (record detach/replace) to avoid EF mutation issues.
+- Structured error codes leveraged: `missing_refresh`, `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `refresh_body_disallowed` (future Phase 3 use).
+- Integration tests: single logout reuse invalidation, global logout version mismatch (401), missing token (400), idempotent repeat, ownership mismatch protections — all passing.
+- Docs updated: `SnapshotArchitecture.md` (What's New), `devInfo/storyLog.md`, `LivingChecklist.md` ticked; sprint plan updated.
+- Deferred: session listing UI, admin forced logout, observability counters (moved to Follow-ups / Story 9).
 
 Follow-ups / Deferred:
 
