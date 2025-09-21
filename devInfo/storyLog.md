@@ -94,6 +94,28 @@
     - Session listing & selective device logout (post‑1.0 candidate).
     - Deprecation headers and eventual removal of plaintext `refresh.token` once cookie adoption confirmed.
 
+  2025-09-21 — Auth/JWT: Story 8 Silent Refresh & Plaintext Refresh Token Suppression — ✅ DONE
+  - Summary
+    - Eliminated routine emission of plaintext refresh tokens from auth responses by introducing backend feature flag `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` (default: false). When disabled, responses (login, magic consume, select-tenant, refresh) omit `refresh.token` while still returning metadata (`id`, `created`, `expires`) and the secure httpOnly cookie `rt` becomes the exclusive transport. Refresh endpoint additionally restricts plaintext emission to transitional scenarios (flag enabled AND (grace body path active OR cookie feature disabled)) to prevent redundant exposure during cookie-first flows. Frontend replaced placeholder `_auth/refresh-neutral` route with real `/api/auth/refresh`, adding an in-memory silent refresh scheduler (refreshes 60s before access token expiry), single-flight concurrency guard, and 401 retry-once logic in `withAuthFetch` for near-expiry races. Added force & start/stop controls for future UX hooks. Integration tests assert plaintext omission/presence under both flag states; frontend unit tests cover scheduling and retry behavior. All existing auth suites remain green.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — Conditional omission of plaintext across endpoints; refresh endpoint gating logic; unified response object shaping to avoid anonymous type divergence.
+    - apps/api.tests/Auth/RefreshPlaintextExposedFlagTests.cs — New tests for flag on/off (login + refresh cases).
+    - apps/api.tests/WebAppFactory.cs — Added `WithSettings` helper to inject per-test configuration for the new flag.
+    - apps/web/src/lib/authClient.ts — Implemented silent refresh loop (scheduler, single-flight, retry-once 401), new exports (`startAutoRefresh`, `stopAutoRefresh`, `forceRefresh`), increased skew to 60s, real backend refresh call.
+    - apps/web/src/lib/authClient.test.ts — Added tests for retry-once and scheduling logic.
+    - apps/web/src/pages/api/\_auth/refresh-neutral.ts — Removed deprecated placeholder.
+    - SnapshotArchitecture.md — Added Story 8 section detailing flag, rationale, and follow-ups.
+    - devInfo/LivingChecklist.md — Story 8 line checked; last updated banner revised.
+  - Quality gates
+    - API integration tests: `RefreshPlaintextExposedFlagTests` passing; no regressions in existing refresh/logout suites (spot run diff only new tests added).
+    - Web unit tests (Vitest) pass with new scheduling and retry scenarios; lint/typecheck remain green.
+  - Rationale
+    - Reduces XSS exfiltration surface by removing access to long-lived refresh token from JavaScript, relying on httpOnly cookie channel while maintaining uninterrupted UX via scheduled silent rotation. Transitional flag provides rollback safety and staged client adoption.
+  - Follow-ups
+    - Remove flag post adoption window; add metrics (`auth.refresh.rotation`, `auth.refresh.plaintext_emitted` temporary) in observability story.
+    - Potential session management endpoint to enumerate active refresh tokens (metadata only).
+    - CSRF strategy review if `SameSite=None` required for future cross-site embedding.
+
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
 - Summary

@@ -50,6 +50,7 @@ How to use
 - [x] JWT Story 5b: Real HTTPS Secure refresh cookie E2E harness (api.e2e) (2025-09-20) — storyLog entry added 2025-09-20
 - [x] JWT Story 6: General refresh endpoint (cookie-first rotation + tenant token + reuse/expiry errors) (2025-09-21)
 - [x] JWT Story 7: Logout & Global Revocation endpoints (single + all) (2025-09-21) — storyLog entry 2025-09-21
+- [x] JWT Story 8: Silent refresh loop (frontend) + plaintext refresh token suppression flag (default off) (2025-09-21)
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -149,4 +150,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑21 (Completed Story 6 general refresh endpoint + hashing centralization helper (`RefreshTokenHashing`) and Story 7 logout + global revocation; added `missing_refresh` structured error; all RefreshEndpointTests & LogoutTests passing; SnapshotArchitecture & storyLog updated in commit 6063317.)
+- Last updated: 2025‑09‑21 (Added Story 8 silent refresh loop + `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` suppression flag; backend endpoints omit plaintext by default, frontend now uses real `/api/auth/refresh` with scheduled rotation & 401 retry-once; integration & unit tests added; SnapshotArchitecture + storyLog updated.)
