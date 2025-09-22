@@ -14,18 +14,20 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public TenantSettingsEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private HttpClient Client()
+    /// <summary>
+    /// Create a client authorized via tenant-scoped JWT (replaces legacy dev headers).
+    /// </summary>
+    private async Task<HttpClient> ClientAsync()
     {
         var c = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
     [Fact]
     public async Task Get_Settings_Returns_Empty_Object_When_Null()
     {
-        var client = Client();
+    var client = await ClientAsync();
         var resp = await client.GetAsync("/api/tenants/settings");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -36,7 +38,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Put_Settings_Deep_Merges()
     {
-        var client = Client();
+    var client = await ClientAsync();
         var seed = new { branding = new { colors = new { primary = "#123456", secondary = "#abcdef" } } };
         var seedResp = await client.PutAsJsonAsync("/api/tenants/settings", seed);
         seedResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -54,7 +56,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Succeeds_And_Stores_Metadata()
     {
-        var client = Client();
+    var client = await ClientAsync();
         // 1x1 PNG (validated in MinimalPngDecodeTests)
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using var content = new MultipartFormDataContent();
@@ -74,7 +76,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Unsupported_Media_Type()
     {
-        var client = Client();
+    var client = await ClientAsync();
         using var content = new MultipartFormDataContent();
         var bytes = Encoding.UTF8.GetBytes("plain");
         var fileContent = new ByteArrayContent(bytes);
@@ -87,7 +89,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Payload_Too_Large()
     {
-        var client = Client();
+    var client = await ClientAsync();
         using var content = new MultipartFormDataContent();
         var bytes = new byte[2 * 1024 * 1024 + 10];
         var fileContent = new ByteArrayContent(bytes);
@@ -100,7 +102,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Delete_Logo_Removes_Metadata()
     {
-        var client = Client();
+    var client = await ClientAsync();
         // First upload
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using (var content = new MultipartFormDataContent())

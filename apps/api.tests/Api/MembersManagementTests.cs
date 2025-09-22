@@ -11,12 +11,46 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public MembersManagementTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f, string email, string tenantSlug)
+    /// <summary>
+    /// Create a tenant-authenticated client via JWT (replaces legacy dev header auth helper).
+    /// </summary>
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug, bool? forceAllRoles = null)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", email);
-        c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        var (neutral, tenant) = await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug, forceAllRoles);
         return c;
+    }
+
+    /// <summary>
+    /// Ensure that the given user has a membership in the specified tenant with full admin flags.
+    /// Defensive step because token mint helper may auto-create a personal tenant first; we need the target shared tenant membership.
+    /// </summary>
+    private static async Task EnsureAdminMembershipAsync(WebAppFactory f, string email, Guid tenantId)
+    {
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null) return; // mint helper should have created
+        var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
+        var full = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
+        if (membership == null)
+        {
+            db.Memberships.Add(new Membership
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                UserId = user.Id,
+                Roles = full,
+                Status = MembershipStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        else if ((membership.Roles & full) != full)
+        {
+            membership.Roles |= full;
+            await db.SaveChangesAsync();
+        }
     }
 
     // Helper to assert a membership's current Roles flags easily.
@@ -31,7 +65,7 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task TenantAdmin_can_add_TenantAdmin_flag_to_member()
     {
-        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+    var adminClient = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         Guid targetUserId;
@@ -56,7 +90,9 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             targetUserId = user.Id;
         }
 
-        // Promote by adding TenantAdmin + Approver (full admin style set)
+    // Defensive: ensure admin membership flags are present for seeded user before mutation
+    await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
+    // Promote by adding TenantAdmin + Approver (full admin style set)
         var promote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin", "Approver", "Creator", "Learner" } });
         promote.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -87,7 +123,7 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             targetUserId = b.Id;
         }
 
-        var nonAdminClient = Client(_factory, nonAdminEmail, "kevin-personal");
+    var nonAdminClient = await ClientAsync(_factory, nonAdminEmail, "kevin-personal", forceAllRoles: false);
         var attempt = await nonAdminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "Creator" } });
         attempt.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -95,7 +131,7 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Cannot_remove_last_TenantAdmin()
     {
-        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+    var adminClient = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         Guid adminUserId;
         using (var scope = _factory.Services.CreateScope())
@@ -113,7 +149,9 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             }
         }
 
-        // Attempt to remove TenantAdmin flag via roles endpoint
+    // Defensive: ensure admin flags present (in case token minted before membership creation)
+    await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
+    // Attempt to remove TenantAdmin flag via roles endpoint
         var demote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{adminUserId}/roles", new { roles = new[] { "Creator", "Learner" } });
         demote.StatusCode.Should().Be(HttpStatusCode.Conflict); // cannot remove last TenantAdmin
 
@@ -125,7 +163,7 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Remove_non_admin_member()
     {
-        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+    var adminClient = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
@@ -153,7 +191,7 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Remove_TenantAdmin_flag_when_another_admin_exists()
     {
-        var adminClient = Client(_factory, "kevin@example.com", "kevin-personal");
+    var adminClient = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         Guid primaryAdminUserId;
         Guid secondAdminUserId;
@@ -179,7 +217,8 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             secondAdminUserId = other.Id;
         }
 
-        // Now removing TenantAdmin flag from primary should succeed
+    await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
+    // Now removing TenantAdmin flag from primary should succeed
         var demote = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{primaryAdminUserId}/roles", new { roles = new[] { "Approver", "Creator", "Learner" } });
         demote.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -187,4 +226,5 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
         (flags & Roles.TenantAdmin).Should().Be(0);
         (flags & (Roles.Approver | Roles.Creator | Roles.Learner)).Should().Be(Roles.Approver | Roles.Creator | Roles.Learner);
     }
+
 }

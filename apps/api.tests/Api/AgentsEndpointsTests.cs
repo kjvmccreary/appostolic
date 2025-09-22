@@ -10,18 +10,18 @@ public class AgentsEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public AgentsEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f)
+    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // Use test mint helper to obtain a tenant-scoped token (autoTenant selection) granting full roles.
+        await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(c, "kevin@example.com");
         return c;
     }
 
     [Fact]
     public async Task Agents_CRUD_HappyPath()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
 
         // Create
         var name = $"agent-{Guid.NewGuid():N}";
@@ -93,7 +93,7 @@ public class AgentsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Agents_Validation_Errors()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
 
         // Missing name
         var bad1 = new { name = "", systemPrompt = "", toolAllowlist = Array.Empty<string>(), model = "m", temperature = 0.1, maxSteps = 5 };

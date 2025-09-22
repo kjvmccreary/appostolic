@@ -11,18 +11,40 @@ namespace Appostolic.Api.Tests.Api
         private readonly WebAppFactory _factory;
         public AuditTrailTests(WebAppFactory factory) => _factory = factory;
 
-        private static HttpClient Client(WebAppFactory f, string email, string tenantSlug)
+        /// <summary>
+        /// Create a tenant-authenticated client via JWT (replaces legacy dev headers).
+        /// </summary>
+        private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
         {
             var c = f.CreateClient();
-            c.DefaultRequestHeaders.Add("x-dev-user", email);
-            c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+            await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
             return c;
+        }
+
+        private static async Task EnsureAdminMembershipAsync(WebAppFactory f, string email, Guid tenantId)
+        {
+            using var scope = f.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null) return;
+            var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
+            var full = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
+            if (membership == null)
+            {
+                db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = user.Id, Roles = full, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }
+            else if ((membership.Roles & full) != full)
+            {
+                membership.Roles |= full;
+                await db.SaveChangesAsync();
+            }
         }
 
         [Fact]
         public async Task Set_roles_writes_audit_row_with_old_and_new_roles()
         {
-            var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+            var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
             Guid tenantId;
             Guid targetUserId;
@@ -46,6 +68,9 @@ namespace Appostolic.Api.Tests.Api
                 targetUserId = u.Id;
             }
 
+            // Defensive: ensure acting user has admin membership flags
+            await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
+            await LogMembershipAsync(_factory, tenantId, "kevin@example.com", nameof(Set_roles_writes_audit_row_with_old_and_new_roles));
             // Act: set flags to TenantAdmin
             var resp = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
             resp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -67,7 +92,7 @@ namespace Appostolic.Api.Tests.Api
         [Fact]
         public async Task Set_roles_noop_second_call_does_not_duplicate_audit()
         {
-            var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+            var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
             Guid tenantId;
             Guid targetUserId;
@@ -91,6 +116,8 @@ namespace Appostolic.Api.Tests.Api
                 targetUserId = u.Id;
             }
 
+            await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
+            await LogMembershipAsync(_factory, tenantId, "kevin@example.com", nameof(Set_roles_noop_second_call_does_not_duplicate_audit));
             // First change: assign TenantAdmin
             var first = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
             first.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -105,6 +132,37 @@ namespace Appostolic.Api.Tests.Api
                 var audits = await db.Audits.AsNoTracking().Where(a => a.TenantId == tenantId && a.UserId == targetUserId).ToListAsync();
                 audits.Should().HaveCount(1, "a noop second roles assignment must not create an additional audit row");
                 audits[0].NewRoles.Should().Be(Roles.TenantAdmin);
+            }
+        }
+
+        /// <summary>
+        /// TEMP DEBUG: writes membership roles for acting user to console to investigate 403s.
+        /// </summary>
+        private static async Task LogMembershipAsync(WebAppFactory f, Guid tenantId, string email, string context)
+        {
+            try
+            {
+                using var scope = f.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+                if (user == null)
+                {
+                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} user=NOT_FOUND");
+                    return;
+                }
+                var membership = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
+                if (membership == null)
+                {
+                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} membership=NOT_FOUND tenant={tenantId}");
+                }
+                else
+                {
+                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} tenant={tenantId} roles={membership.Roles} value={(int)membership.Roles}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[test][roles][debug][error] ctx={context} {ex}");
             }
         }
     }

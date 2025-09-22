@@ -22,14 +22,23 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, RoleRequirement requirement)
     {
+    // Authorization evaluation for role requirement (debug logging removed post-migration)
         var http = _http.HttpContext;
         if (http is null)
+        {
+            Console.WriteLine("[api][roles][early-exit] httpContext=null");
             return;
+        }
         var traceEnabled = Environment.GetEnvironmentVariable("ROLE_TRACE")?.ToLower() == "true";
 
-        var userIdStr = context.User.FindFirstValue("sub");
+        // Some environments map 'sub' => ClaimTypes.NameIdentifier; support both.
+        var userIdStr = context.User.FindFirstValue("sub")
+                        ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdStr, out var userId))
+        {
+            Console.WriteLine($"[api][roles][early-exit] invalid-user-id sub|nameidentifier={userIdStr}");
             return;
+        }
 
         // Resolve tenantId from Items, then claim, then header fallback
         Guid tenantId;
@@ -47,6 +56,7 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
         }
         else
         {
+            Console.WriteLine("[api][roles][early-exit] tenantId-unresolved");
             return;
         }
 
@@ -60,7 +70,7 @@ public sealed class RoleAuthorizationHandler : AuthorizationHandler<RoleRequirem
 
         if (traceEnabled)
         {
-            Console.WriteLine($"[api][roles][trace] user={userId} tenant={tenantId} required={requirement.Required} have={have} rawRoles={(membership?.Roles).GetValueOrDefault()}" );
+            // Optional trace hook: could add structured logging when ROLE_TRACE=true
         }
 
         // Record the required roles for downstream error formatting (status code pages)

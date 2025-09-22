@@ -27,35 +27,36 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var now = DateTimeOffset.UtcNow;
-        var n1 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "a@x.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10), SentAt = now.AddMinutes(-5) };
-        var n2 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "b@x.com", DataJson = "{}", Status = NotificationStatus.Failed, CreatedAt = now.AddMinutes(-9), UpdatedAt = now.AddMinutes(-9), LastError = "boom" };
-        var n3 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "c@x.com", DataJson = "{}", Status = NotificationStatus.DeadLetter, CreatedAt = now.AddMinutes(-8), UpdatedAt = now.AddMinutes(-8), LastError = "fail" };
+        // Resolve tenant id so non-superadmin JWT-scoped user can access these rows via /api/notifications endpoints
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var n1 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "a@x.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10), SentAt = now.AddMinutes(-5), TenantId = tenantId };
+        var n2 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "b@x.com", DataJson = "{}", Status = NotificationStatus.Failed, CreatedAt = now.AddMinutes(-9), UpdatedAt = now.AddMinutes(-9), LastError = "boom", TenantId = tenantId };
+        var n3 = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "c@x.com", DataJson = "{}", Status = NotificationStatus.DeadLetter, CreatedAt = now.AddMinutes(-8), UpdatedAt = now.AddMinutes(-8), LastError = "fail", TenantId = tenantId };
         db.Notifications.AddRange(n1, n2, n3);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
-        // List all
-        var listResp = await client.GetAsync("/api/dev/notifications?take=10");
+    // List all (admin endpoint: filters originals only)
+    var listResp = await client.GetAsync("/api/notifications?take=10");
         listResp.StatusCode.Should().Be(HttpStatusCode.OK);
         listResp.Headers.Contains("X-Total-Count").Should().BeTrue();
         var items = await listResp.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
-        items.Count.Should().Be(3);
+    items.Count.Should().Be(3); // all originals
 
         // Filter by status
-        var failedResp = await client.GetAsync("/api/dev/notifications?status=Failed");
+    var failedResp = await client.GetAsync("/api/notifications?status=Failed");
         failedResp.StatusCode.Should().Be(HttpStatusCode.OK);
         var failedItems = await failedResp.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
         failedItems.Count.Should().Be(1);
 
         // Retry Failed
-        var retry1 = await client.PostAsync($"/api/dev/notifications/{n2.Id}/retry", content: null);
+    var retry1 = await client.PostAsync($"/api/notifications/{n2.Id}/retry", content: null);
         retry1.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
         // Retry DeadLetter
-        var retry2 = await client.PostAsync($"/api/dev/notifications/{n3.Id}/retry", content: null);
+    var retry2 = await client.PostAsync($"/api/notifications/{n3.Id}/retry", content: null);
         retry2.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
         // Verify DB transitions
@@ -68,7 +69,7 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Resend_dev_endpoint_creates_and_throttles()
+    public async Task Resend_manual_endpoint_creates_and_throttles()
     {
         using var localFactory = new WebAppFactory();
         using var app = localFactory.WithWebHostBuilder(_ => { });
@@ -76,22 +77,22 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var now = DateTimeOffset.UtcNow;
-        var original = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "a@x.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10), SentAt = now.AddMinutes(-9) };
+        var tenantId = await db.Tenants.AsNoTracking().Where(t => t.Name == "kevin-personal").Select(t => t.Id).SingleAsync();
+        var original = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Verification, ToEmail = "a@x.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = now.AddMinutes(-10), UpdatedAt = now.AddMinutes(-10), SentAt = now.AddMinutes(-9), TenantId = tenantId };
         db.Notifications.Add(original);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
         // First resend should succeed
-        var r1 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+    var r1 = await client.PostAsync($"/api/notifications/{original.Id}/resend", content: null);
         r1.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await r1.Content.ReadFromJsonAsync<Dictionary<string, object>>() ?? new();
         created.ContainsKey("id").Should().BeTrue();
 
         // Second immediate resend should be throttled
-        var r2 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+    var r2 = await client.PostAsync($"/api/notifications/{original.Id}/resend", content: null);
         r2.StatusCode.Should().Be((HttpStatusCode)429);
         r2.Headers.Contains("Retry-After").Should().BeTrue();
 
@@ -131,9 +132,8 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(originals);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
     // First bulk resend should create up to limit=3
         var req = JsonContent.Create(new { kind = "Verification", limit = 3 });
@@ -184,9 +184,8 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(children);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
         var r1 = await client.GetAsync($"/api/notifications/{original.Id}/resends?take=2&skip=0");
         r1.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -229,12 +228,11 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         });
         meterListener.Start();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
-        // Manual resend (dev)
-        var r1 = await client.PostAsync($"/api/dev/notifications/{original.Id}/resend", content: null);
+    // Manual resend (admin endpoint)
+    var r1 = await client.PostAsync($"/api/notifications/{original.Id}/resend", content: null);
         r1.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Bulk resend with throttle (should record throttled outcomes)
@@ -254,7 +252,7 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Dlq_list_returns_failed_and_deadletter_with_paging()
     {
-        using var app = _factory.WithWebHostBuilder(_ => { });
+    using var app = _factory.WithWebHostBuilder(_ => { });
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -268,18 +266,17 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(items);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
-        var resp = await client.GetAsync("/api/notifications/dlq?take=10");
+    var resp = await client.GetAsync("/api/notifications/dlq?take=10");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         resp.Headers.Contains("X-Total-Count").Should().BeTrue();
         var list = await resp.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
         list.Count.Should().BeGreaterOrEqualTo(2);
 
         // Filter by status
-        var failedOnly = await client.GetAsync("/api/notifications/dlq?status=Failed");
+    var failedOnly = await client.GetAsync("/api/notifications/dlq?status=Failed");
         failedOnly.StatusCode.Should().Be(HttpStatusCode.OK);
         var failedItems = await failedOnly.Content.ReadFromJsonAsync<List<dynamic>>() ?? new();
         failedItems.Count.Should().BeGreaterOrEqualTo(1);
@@ -299,9 +296,8 @@ public class NotificationsAdminEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(f1, d1);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseAutoTenantAsync(client, "kevin@example.com");
 
         var body = JsonContent.Create(new { ids = new[] { f1.Id, d1.Id } });
         var resp = await client.PostAsync("/api/notifications/dlq/replay", body);

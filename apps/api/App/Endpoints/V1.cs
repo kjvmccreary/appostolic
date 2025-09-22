@@ -929,7 +929,7 @@ public static class V1
         // GET /api/me
         api.MapGet("/me", (ClaimsPrincipal user) =>
         {
-            var sub = user.FindFirstValue("sub") ?? string.Empty;
+            var sub = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
             var email = user.FindFirstValue("email") ?? string.Empty;
             var tenantId = user.FindFirstValue("tenant_id") ?? string.Empty;
             var tenantSlug = user.FindFirstValue("tenant_slug") ?? string.Empty;
@@ -962,7 +962,7 @@ public static class V1
     api.MapPost("/lessons", async (ClaimsPrincipal user, AppDbContext db, NewLessonDto dto) =>
         {
             var tenantIdStr = user.FindFirstValue("tenant_id");
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(tenantIdStr, out var tenantId) || !Guid.TryParse(userIdStr, out _))
                 return Results.BadRequest(new { error = "invalid user/tenant" });
 
@@ -988,7 +988,7 @@ public static class V1
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
 
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
@@ -1027,7 +1027,7 @@ public static class V1
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
 
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
@@ -1137,7 +1137,7 @@ public static class V1
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
 
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
@@ -1174,7 +1174,7 @@ public static class V1
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
 
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);
@@ -1260,7 +1260,7 @@ public static class V1
             ClaimsPrincipal user,
             AppDbContext db) =>
         {
-            var callerIdStr = user.FindFirstValue("sub");
+            var callerIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
@@ -1344,7 +1344,7 @@ public static class V1
             AppDbContext db,
             UpdateMemberStatusDto dto) =>
         {
-            var callerIdStr = user.FindFirstValue("sub");
+            var callerIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(callerIdStr, out var callerId)) return Results.Unauthorized();
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
@@ -1576,7 +1576,7 @@ public static class V1
                 await db.SaveChangesAsync();
 
                 Guid? changedByUserId = null;
-                var sub = user.FindFirstValue("sub");
+                var sub = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (Guid.TryParse(sub, out var subGuid)) changedByUserId = subGuid;
                 var changedByEmail = user.FindFirstValue("email");
                 db.Audits.Add(new Audit
@@ -1620,7 +1620,7 @@ public static class V1
                 return Results.BadRequest(new { error = "token is required" });
 
             // Must be authenticated
-            var userIdStr = user.FindFirstValue("sub");
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             var email = user.FindFirstValue("email");
             if (!Guid.TryParse(userIdStr, out var userId) || string.IsNullOrWhiteSpace(email))
                 return Results.Unauthorized();

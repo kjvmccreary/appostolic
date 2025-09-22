@@ -11,12 +11,14 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesRolesFlagsTests(WebAppFactory factory) => _factory = factory;
-
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f)
+    /// <summary>
+    /// Create a tenant-authenticated client (JWT) for the primary seeded user.
+    /// Replaces legacy dev header helper.
+    /// </summary>
+    private static async Task<HttpClient> CreateTenantClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
@@ -31,7 +33,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Create_Invite_With_Roles_Flags_Persists_And_Lists()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateTenantClientAsync(_factory);
         var tenantId = await GetTenantIdAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
@@ -53,7 +55,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Accept_Invite_Sets_Membership_Roles_Flags()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateTenantClientAsync(_factory);
         var tenantId = await GetTenantIdAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
@@ -75,9 +77,8 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
             }
         }
 
-        var invitedClient = _factory.CreateClient();
-        invitedClient.DefaultRequestHeaders.Add("x-dev-user", email);
-        invitedClient.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var invitedClient = _factory.CreateClient();
+    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(invitedClient, email, "kevin-personal");
         var accept = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -93,7 +94,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Create_Invite_With_Invalid_Role_Flag_Is_400()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+        var client = await CreateTenantClientAsync(_factory);
         var tenantId = await GetTenantIdAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
         var payload = new { email, roles = new[] { "NotARealRole" } };

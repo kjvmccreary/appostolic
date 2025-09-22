@@ -26,18 +26,20 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public LegacyRoleWritePathDeprecationTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f, string email, string tenantSlug)
+    /// <summary>
+    /// Create a tenant-authenticated client via JWT for provided user & tenant.
+    /// </summary>
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", email);
-        c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
         return c;
     }
 
     [Fact]
     public async Task Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS()
     {
-        var client = Client(_factory, "kevin@example.com", "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
@@ -56,7 +58,7 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Member_role_change_with_legacy_role_is_rejected()
     {
-        var client = Client(_factory, "kevin@example.com", "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId; Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {

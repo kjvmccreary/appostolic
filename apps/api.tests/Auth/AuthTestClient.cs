@@ -26,10 +26,10 @@ public static class AuthTestClient
     /// Mint both neutral and tenant access tokens (explicit tenant slug) and attach the tenant token.
     /// Returns the tuple (neutral, tenant) for test assertions.
     /// </summary>
-    public static async Task<(string neutral, string tenant)> UseTenantAsync(HttpClient client, string email, string tenantSlug)
+    public static async Task<(string neutral, string tenant)> UseTenantAsync(HttpClient client, string email, string tenantSlug, bool? forceAllRoles = null)
     {
         var helper = new TestAuthClient(client);
-        var (neutral, tenant) = await helper.MintAsync(email, tenantSlug, autoTenant: false);
+        var (neutral, tenant) = await helper.MintAsync(email, tenantSlug, autoTenant: false, forceAllRoles: forceAllRoles);
         if (tenant is null)
             throw new InvalidOperationException($"Expected tenant token for slug '{tenantSlug}' but helper returned null.");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tenant);

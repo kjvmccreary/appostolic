@@ -13,6 +13,17 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
 
     public AuditsListingEndpointTests(WebAppFactory factory) => _factory = factory;
 
+    /// <summary>
+    /// Helper that creates an HttpClient authorized as the given admin user for the specified tenant
+    /// using the JWT mint helper rather than legacy dev headers.
+    /// </summary>
+    private async Task<HttpClient> CreateAuthedClientAsync(User admin, Tenant tenant)
+    {
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, admin.Email, tenant.Name);
+        return client;
+    }
+
     [Fact]
     public async Task Lists_audits_with_paging_and_total_count()
     {
@@ -34,9 +45,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         );
         await db.SaveChangesAsync();
 
-        var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-dev-user", admin.Email);
-        client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+    var client = await CreateAuthedClientAsync(admin, tenant);
 
         // take=2 should return most recent two (ChangedAt DESC), total=3, then skip=2 returns last one
         var r1 = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?take=2");
@@ -74,9 +83,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         db.Audits.AddRange(a1, a2, a3);
         await db.SaveChangesAsync();
 
-        var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-dev-user", admin.Email);
-        client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+    var client = await CreateAuthedClientAsync(admin, tenant);
 
         // Filter by target userId
         var rUser = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?userId={target1.Id}");
@@ -115,9 +122,7 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
-        var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-dev-user", admin.Email);
-        client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+    var client = await CreateAuthedClientAsync(admin, tenant);
 
         // invalid userId guid format
         var rBadUser = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?userId=not-a-guid");

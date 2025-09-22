@@ -11,19 +11,21 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesAcceptTests(WebAppFactory factory) => _factory = factory;
-
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f, string email, string tenantSlug)
+    /// <summary>
+    /// Create an HttpClient and attach a tenant-scoped JWT for the provided email & tenant slug.
+    /// Replaces legacy dev header auth usage during migration.
+    /// </summary>
+    private static async Task<HttpClient> CreateTenantAuthedClientAsync(WebAppFactory f, string email, string tenantSlug)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", email);
-        c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
         return c;
     }
 
     [Fact]
     public async Task Accept_SignedIn_User_Matches_Invite_Creates_Membership()
     {
-        var clientOwner = CreateClientWithDevHeaders(_factory, "kevin@example.com", "kevin-personal");
+    var clientOwner = await CreateTenantAuthedClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
         // Arrange: create an invite for a brand-new user email under owner's tenant
         var inviteeEmail = $"invitee-{Guid.NewGuid():N}@example.com";
@@ -61,7 +63,7 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
             }
         }
 
-        var invitedClient = CreateClientWithDevHeaders(_factory, inviteeEmail, "kevin-personal");
+    var invitedClient = await CreateTenantAuthedClientAsync(_factory, inviteeEmail, "kevin-personal");
 
         // Act: accept invite while signed in
         var acceptResp = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
@@ -87,7 +89,7 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Accept_With_Invalid_Token_Fails()
     {
-        var client = CreateClientWithDevHeaders(_factory, "kevin@example.com", "kevin-personal");
+    var client = await CreateTenantAuthedClientAsync(_factory, "kevin@example.com", "kevin-personal");
         var resp = await client.PostAsJsonAsync("/api/invites/accept", new { token = "not-a-real-token" });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

@@ -11,19 +11,20 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public DevGrantRolesEndpointTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f, string tenantSlug)
+    /// <summary>
+    /// Create tenant-authenticated client via JWT for dev grant-roles endpoint tests.
+    /// </summary>
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string tenantSlug)
     {
         var c = f.CreateClient();
-        // Provide dev headers; user header not required for dev endpoint but maintain consistency
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", tenantSlug);
         return c;
     }
 
     [Fact]
     public async Task Grants_roles_to_new_user_and_membership()
     {
-        var client = Client(_factory, "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin-personal");
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -49,7 +50,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles()
     {
-        var client = Client(_factory, "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin-personal");
         Guid tenantId;
         Guid userId;
         using (var scope = _factory.Services.CreateScope())
@@ -88,7 +89,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles_writes_audit()
     {
-        var client = Client(_factory, "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin-personal");
         Guid tenantId;
         Guid userId;
         string email;
@@ -128,7 +129,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Returns_400_for_invalid_role_name()
     {
-        var client = Client(_factory, "kevin-personal");
+    var client = await ClientAsync(_factory, "kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
