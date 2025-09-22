@@ -45,7 +45,30 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [x] Provide `AuthTestClient` facade used by tests (original mint helper) AND new flow-based `AuthTestClientFlow` exercising real `/api/auth/login` + `/api/auth/select-tenant` (adopted in `UserProfileLoggingTests`). (Replaces planned `UseTenantAsync` scope.)
 [x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
 [x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
-[ ] Document helper usage guideline in plan and `README` (pending after facade addition).
+[x] Document helper usage guideline in plan and `README` (pending after facade addition).
+
+##### Helper Usage Guideline (Story 1)
+
+| Helper                                         | Path Exercised                                     | When to Use                                                                                     | Returns / Side Effects                             | Notes                                                                          |
+| ---------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `AuthTestClient.UseNeutralAsync`               | `/api/test/mint-tenant-token` (neutral branch)     | Fast setup of neutral auth where tenant context NOT required                                    | Sets `Authorization: Bearer <neutral>`             | Bypasses password + refresh issuance. Use only until mint endpoint deprecated. |
+| `AuthTestClient.UseTenantAsync`                | `/api/test/mint-tenant-token` (tenant branch)      | Tenant-scoped tests needing roles quickly                                                       | Sets `Authorization: Bearer <tenant>`              | Provides elevated roles by default unless `forceAllRoles=false`.               |
+| `AuthTestClient.UseAutoTenantAsync`            | Mint helper (auto)                                 | Single-membership scenarios where convenience acceptable                                        | Neutral + optional tenant token                    | Avoid in multi-membership tests (explicitness preferred).                      |
+| `AuthTestClientFlow.LoginNeutralAsync`         | Real `/api/auth/login` (password)                  | Validating production login shape, refresh issuance, memberships                                | Sets neutral access; returns structured login JSON | Ensures password hash path + metrics exercised.                                |
+| `AuthTestClientFlow.LoginAndSelectTenantAsync` | Real `/api/auth/login` + `/api/auth/select-tenant` | Tests needing refresh rotation + tenant scoping via real flow                                   | Sets tenant access (after select)                  | Preferred for Phase A migrations replacing dev headers.                        |
+| `WebAppFactory.EnsureNeutralToken`             | Direct `IJwtTokenService.IssueNeutralToken`        | Low-level token issuance for isolated unit/integration tests not concerned with login semantics | Returns raw neutral token and userId               | Skips refresh + membership projection; do not use where flow behavior matters. |
+
+Selection Rules:
+
+1. Phase A migrations: prefer `AuthTestClientFlow` methods so converted tests exercise real endpoints.
+2. Performance-sensitive inner-loop unit tests may still use `EnsureNeutralToken` temporarily; convert later if semantics broaden.
+3. Avoid mixing mint-helper and flow-helper in a single test unless explicitly comparing behaviors.
+4. New tests SHOULD default to flow helpers unless a clear reason (speed + no refresh logic) is documented in a comment.
+
+Deprecation Plan:
+
+- Mint helper usages (`AuthTestClient.*`) will be systematically replaced after Phase A/B when flow-based stability is confirmed.
+- A CI lint rule (Story 5) will eventually flag remaining mint helper calls outside explicitly allowed legacy folders.
 
 #### Story 2: Migrate Integration Tests (Batch Refactor)
 
