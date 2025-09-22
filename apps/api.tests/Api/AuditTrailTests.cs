@@ -11,14 +11,19 @@ namespace Appostolic.Api.Tests.Api
         private readonly WebAppFactory _factory;
         public AuditTrailTests(WebAppFactory factory) => _factory = factory;
 
-        /// <summary>
-        /// Create a tenant-authenticated client via JWT (replaces legacy dev headers).
-        /// </summary>
-        private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
+        // RDH Story 2 Phase A: migrated from legacy mint helper (UseTenantAsync) to real auth flow.
+        // Pattern per suite: seed password -> POST /api/auth/login -> POST /api/auth/select-tenant.
+        private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
+
+        private async Task SeedPasswordAsync(string email, string password)
         {
-            var c = f.CreateClient();
-            await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
-            return c;
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+            var (hash, salt, _) = hasher.HashPassword(password);
+            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
         }
 
         private static async Task EnsureAdminMembershipAsync(WebAppFactory f, string email, Guid tenantId)
@@ -44,7 +49,9 @@ namespace Appostolic.Api.Tests.Api
         [Fact]
         public async Task Set_roles_writes_audit_row_with_old_and_new_roles()
         {
-            var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+            await SeedPasswordAsync("kevin@example.com", DefaultPw);
+            var owner = _factory.CreateClient();
+            await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
 
             Guid tenantId;
             Guid targetUserId;
@@ -92,7 +99,9 @@ namespace Appostolic.Api.Tests.Api
         [Fact]
         public async Task Set_roles_noop_second_call_does_not_duplicate_audit()
         {
-            var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+            await SeedPasswordAsync("kevin@example.com", DefaultPw);
+            var owner = _factory.CreateClient();
+            await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
 
             Guid tenantId;
             Guid targetUserId;
