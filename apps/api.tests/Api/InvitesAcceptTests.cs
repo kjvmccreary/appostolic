@@ -11,21 +11,30 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesAcceptTests(WebAppFactory factory) => _factory = factory;
+    // RDH Story 2 Phase A: real password -> login -> select tenant migration.
+    private const string DefaultPw = "Password123!"; // must align with AuthTestClientFlow.DefaultPassword
+
     /// <summary>
-    /// Create an HttpClient and attach a tenant-scoped JWT for the provided email & tenant slug.
-    /// Replaces legacy dev header auth usage during migration.
+    /// Seed (or overwrite) password hash for given user so we can exercise real /api/auth/login.
     /// </summary>
-    private static async Task<HttpClient> CreateTenantAuthedClientAsync(WebAppFactory f, string email, string tenantSlug)
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
     public async Task Accept_SignedIn_User_Matches_Invite_Creates_Membership()
     {
-    var clientOwner = await CreateTenantAuthedClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        // Owner acting client (tenant-selected)
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var clientOwner = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, clientOwner, "kevin@example.com", "kevin-personal");
 
         // Arrange: create an invite for a brand-new user email under owner's tenant
         var inviteeEmail = $"invitee-{Guid.NewGuid():N}@example.com";
@@ -52,7 +61,8 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
             token = inv.Token!;
         }
 
-        // Seed the invited user (simulating they already have an account) and sign them in via dev headers
+        // Invitee path: create account (signup) or ensure password, then login neutrally (no tenant selection needed for accept)
+        // Here we simulate the invited user already created an account before accepting.
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -62,8 +72,9 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
                 await db.SaveChangesAsync();
             }
         }
-
-    var invitedClient = await CreateTenantAuthedClientAsync(_factory, inviteeEmail, "kevin-personal");
+        await SeedPasswordAsync(inviteeEmail, DefaultPw);
+        var invitedClient = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginNeutralAsync(_factory, invitedClient, inviteeEmail);
 
         // Act: accept invite while signed in
         var acceptResp = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
@@ -89,7 +100,9 @@ public class InvitesAcceptTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Accept_With_Invalid_Token_Fails()
     {
-    var client = await CreateTenantAuthedClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         var resp = await client.PostAsJsonAsync("/api/invites/accept", new { token = "not-a-real-token" });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

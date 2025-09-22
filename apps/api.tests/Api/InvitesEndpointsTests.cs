@@ -11,13 +11,22 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesEndpointsTests(WebAppFactory factory) => _factory = factory;
+    // RDH Story 2 Phase A: migrate from legacy mint/dev helper to real password -> login -> select-tenant flow.
+    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
 
-    // RDH Story 2: use JWT helper instead of dev headers
-    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
+    /// <summary>
+    /// Seed (or update) a usable password hash for a test user to enable real /api/auth/login flow.
+    /// Idempotent: if password already set, it is overwritten to known default to avoid drift.
+    /// </summary>
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     private static async Task<Guid> GetTenantIdAsync(WebAppFactory factory, string slug = "kevin-personal")
@@ -31,7 +40,9 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Invites_Full_Lifecycle_Create_Resend_Accept_Revoke()
     {
-    var client = await CreateAuthedClientAsync(_factory);
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         var tenantId = await GetTenantIdAsync(_factory);
 
         // Start with clean slate for a unique email
@@ -117,6 +128,9 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
         var signup = new { email = email, password = "Password123!", inviteToken = token };
         var signupResp = await client.PostAsJsonAsync("/api/auth/signup", signup);
         signupResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+    // Re-authenticate as original owner (signup flow may have altered auth context / bearer) before performing admin delete
+    await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
 
         // List shows acceptedAt set and acceptedByEmail equals invitee
         var list2 = await client.GetAsync($"/api/tenants/{tenantId}/invites");

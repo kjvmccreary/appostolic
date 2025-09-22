@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Appostolic.Api.AuthTests; // AuthTestClientFlow
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -33,8 +34,8 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         await db.SaveChangesAsync();
 
     var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-    // Migrate off dev headers: issue tenant token with full roles (ForceAllRoles implicit in helper)
-    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
+    // RDH Story 2 Phase A: real auth flow (password login + select tenant)
+    await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
 
         // List tenant-scoped
     var listResp = await client.GetAsync("/api/notifications?take=10");
@@ -67,8 +68,9 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         await db.SaveChangesAsync();
 
     var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-    // Superadmin cross-tenant listing now via minted token (adds superadmin claim)
-    await Appostolic.Api.AuthTests.AuthTestClient.UseSuperAdminAsync(client, "kevin@example.com");
+    // Superadmin elevation now provided via config allowlist + normal password login flow (no test mint helper).
+    // Perform neutral login (superadmin claim injected automatically) — no tenant selection to allow cross-tenant listing.
+    await AuthTestClientFlow.LoginNeutralAsync(_factory, client, "kevin@example.com");
 
         var listResp = await client.GetAsync("/api/notifications?take=50");
         listResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -99,7 +101,25 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         await db.SaveChangesAsync();
 
     var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
+    // Use a non-superadmin user so cross-tenant resend remains forbidden after superadmin allowlist elevation for kevin@example.com
+    var ownerEmail = "tenant-owner@example.com";
+    if (!db.Users.AsNoTracking().Any(u => u.Email == ownerEmail))
+    {
+        var user = new User { Id = Guid.NewGuid(), Email = ownerEmail, CreatedAt = DateTime.UtcNow };
+        var membership = new Membership
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            UserId = user.Id,
+            Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
+            Status = MembershipStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.AddRange(user, membership);
+        await db.SaveChangesAsync();
+    }
+    var tenantSlug = db.Tenants.AsNoTracking().Where(t => t.Id == tenantId).Select(t => t.Name).First();
+    await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, ownerEmail, tenantSlug);
 
         var r1 = await client.PostAsync($"/api/notifications/{mine.Id}/resend", content: null);
         r1.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -113,7 +133,7 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
     {
         using var app = _factory.WithWebHostBuilder(_ => { });
     var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
+    await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         var missing = Guid.NewGuid();
         var r = await client.PostAsync($"/api/notifications/{missing}/resend", content: null);
         r.StatusCode.Should().Be(HttpStatusCode.NotFound);

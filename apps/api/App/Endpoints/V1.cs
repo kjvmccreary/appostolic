@@ -451,7 +451,27 @@ public static class V1
             }
 
             // Issue neutral tokens
-                var accessToken = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
+            // Superadmin elevation (Story 2 Phase A follow-up): if user email appears in allowlist configuration
+            // we inject a superadmin claim into all issued tokens (neutral + optional tenant) using existing
+            // extra-claims overloads. This replaces reliance on the test mint endpoint for superadmin scenarios
+            // so integration tests exercise only production auth flows.
+            var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            var allowlistRaw = config["Auth:SuperAdminEmails"] ?? string.Empty; // comma/space/semicolon separated
+            bool isSuperAdmin = false;
+            List<System.Security.Claims.Claim>? extraClaims = null;
+            if (!string.IsNullOrWhiteSpace(allowlistRaw))
+            {
+                var parts = allowlistRaw.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Any(p => string.Equals(p, user.Email, StringComparison.OrdinalIgnoreCase)))
+                {
+                    isSuperAdmin = true;
+                    extraClaims = new List<System.Security.Claims.Claim> { new("superadmin", "true") };
+                }
+            }
+
+            var accessToken = isSuperAdmin
+                ? jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims!)
+                : jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
             var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -486,7 +506,9 @@ public static class V1
             }
             if (targetTenantId.HasValue)
             {
-                var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
+                var tenantAccess = isSuperAdmin
+                    ? jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email, extraClaims!)
+                    : jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
                 tenantToken = new
                 {
                     access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
@@ -574,7 +596,21 @@ public static class V1
             var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
-            var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), target.TenantId, target.tenantSlug, target.roles, user.TokenVersion, user.Email);
+            // Superadmin allowlist claim injection (mirrors login endpoint logic)
+            var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            var allowlistRaw = config["Auth:SuperAdminEmails"] ?? string.Empty;
+            List<System.Security.Claims.Claim>? extraClaims = null;
+            if (!string.IsNullOrWhiteSpace(allowlistRaw))
+            {
+                var parts = allowlistRaw.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Any(p => string.Equals(p, user.Email, StringComparison.OrdinalIgnoreCase)))
+                {
+                    extraClaims = new List<System.Security.Claims.Claim> { new("superadmin", "true") };
+                }
+            }
+            var tenantAccess = extraClaims is not null
+                ? jwt.IssueTenantToken(user.Id.ToString(), target.TenantId, target.tenantSlug, target.roles, user.TokenVersion, user.Email, extraClaims)
+                : jwt.IssueTenantToken(user.Id.ToString(), target.TenantId, target.tenantSlug, target.roles, user.TokenVersion, user.Email);
             // Story 4: Rotate cookie as well (overwrite with new refresh) if enabled
             var refreshCookieEnabled = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
                 string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
@@ -1223,8 +1259,8 @@ public static class V1
             var tenantIdStr = user.FindFirstValue("tenant_id");
             if (!Guid.TryParse(tenantIdStr, out var currentTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
             if (tenantId != currentTenantId) return Results.Forbid();
-
-            var userIdStr = user.FindFirstValue("sub");
+            // Align with GET invites endpoint: fallback to NameIdentifier if 'sub' absent (tokens issued by password flow)
+            var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.BadRequest(new { error = "invalid user" });
 
             var me = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId);

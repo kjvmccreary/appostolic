@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -10,11 +12,12 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public AgentTasksEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2: replaced legacy dev headers with JWT bearer helper
+    // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth endpoints.
+    // Pattern: seed password (IPasswordHasher) then invoke /api/auth/login + /api/auth/select-tenant via AuthTestClientFlow helper.
     private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 

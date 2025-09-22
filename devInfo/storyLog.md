@@ -152,6 +152,23 @@
   - Phase C: Remove composite policy scheme fallback logic and the Dev authentication handler entirely; update `SnapshotArchitecture.md` and LivingChecklist; add regression test ensuring headers are ignored/rejected.
   - Phase D: Documentation & rollback tag (`remove-dev-headers`) plus story closure entry.
 
+  2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin Elevation via Auth Flow — ✅ DONE
+  - Summary
+    - Replaced test-only superadmin mint helper usage with configuration-driven claim injection during normal `/api/auth/login` and `/api/auth/select-tenant` issuance. Added allowlist key `Auth:SuperAdminEmails` (seeded with `kevin@example.com` in test factory) which, when matched, appends `superadmin=true` claim via existing extra-claims overloads. Updated notifications production endpoint tests to authenticate using real password flow (`AuthTestClientFlow.LoginNeutralAsync`) for cross-tenant listing instead of `AuthTestClient.UseSuperAdminAsync`. Removed obsolete `UseSuperAdminAsync` helper. Adjusted resend authorization test to use a non-allowlisted user to preserve the forbidden cross-tenant assertion. All targeted tests pass (4/4) post-migration.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — Inject superadmin claim on login & select-tenant when email is in allowlist.
+    - apps/api.tests/WebAppFactory.cs — Added `Auth:SuperAdminEmails` test configuration setting.
+    - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — Switched superadmin test to real flow; updated resend test user to avoid unintended superadmin claim.
+    - apps/api.tests/Auth/AuthTestClient.cs — Removed deprecated `UseSuperAdminAsync` helper.
+  - Quality gates
+    - Targeted notifications tests PASS (4/4). No remaining usages of `UseSuperAdminAsync`. Grep confirms zero references. Build succeeds locally; no new warnings introduced.
+  - Rationale
+    - Eliminates reliance on mint helper for role elevation, ensuring integration tests exercise only production auth surfaces and paving the way to remove the mint endpoint in later phases. Reduces duplication of superadmin logic across dev header & mint paths.
+  - Follow-ups
+    - Proceed with remaining Phase A tasks to eliminate any lingering mint usages for other elevated scenarios (if present).
+    - Introduce guard to fail CI if deprecated helpers (`MintAsync` superadmin flag or removed methods) reappear.
+    - Update `SnapshotArchitecture.md` in next story batch to reflect config-based elevation.
+
 2025-09-22 — Auth/JWT: Dev Header Decommission Sprint Plan (RDH) — 🚧 IN PROGRESS
 
 - Summary

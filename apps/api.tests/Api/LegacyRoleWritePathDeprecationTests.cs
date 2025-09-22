@@ -25,21 +25,26 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public LegacyRoleWritePathDeprecationTests(WebAppFactory factory) => _factory = factory;
+    // RDH Story 2 Phase A: migrate to real password login + select-tenant flows.
+    private const string DefaultPw = "Password123!"; // must align with AuthTestClientFlow.DefaultPassword
 
-    /// <summary>
-    /// Create a tenant-authenticated client via JWT for provided user & tenant.
-    /// </summary>
-    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
     public async Task Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS()
     {
-    var client = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
@@ -58,7 +63,9 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Member_role_change_with_legacy_role_is_rejected()
     {
-    var client = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         Guid tenantId; Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {

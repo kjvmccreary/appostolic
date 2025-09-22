@@ -6,6 +6,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using Appostolic.Api.AuthTests; // AuthTestClientFlow
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -14,13 +15,11 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public TenantSettingsEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    /// <summary>
-    /// Create a client authorized via tenant-scoped JWT (replaces legacy dev headers).
-    /// </summary>
+    // RDH Story 2 Phase A: migrate from mint helper UseTenantAsync to real password + login + select-tenant flow.
     private async Task<HttpClient> ClientAsync()
     {
         var c = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 

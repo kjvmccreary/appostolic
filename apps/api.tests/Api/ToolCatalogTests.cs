@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Appostolic.Api.AuthTests; // AuthTestClientFlow
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -10,11 +11,11 @@ public class ToolCatalogTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public ToolCatalogTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2: removed legacy dev headers helper; tests now mint real JWTs
+    // RDH Story 2 Phase A: migrate from mint helper to real auth (password login + select tenant)
     private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 

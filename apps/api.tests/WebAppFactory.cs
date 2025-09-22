@@ -113,6 +113,10 @@ public class WebAppFactory : WebApplicationFactory<Program>
             };
             // Explicitly enable dev headers in test environment by default; targeted tests can disable by override.
             dict["AUTH__ALLOW_DEV_HEADERS"] = "true";
+            // Superadmin allowlist for flow-based elevation (Story 2 Phase A follow-up). This enables
+            // login/select-tenant issued tokens for kevin@example.com to include superadmin=true claim
+            // eliminating reliance on test mint superadmin helper.
+            dict["Auth:SuperAdminEmails"] = "kevin@example.com";
             // Apply overrides from tests (Story 8 flag scenarios, etc.)
             foreach (var kvp in _overrides)
             {

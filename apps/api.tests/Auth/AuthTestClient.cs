@@ -50,15 +50,4 @@ public static class AuthTestClient
         return (neutral, tenant);
     }
 
-    /// <summary>
-    /// Mint a neutral (or tenant if provided) token elevating to superadmin for cross-tenant tests.
-    /// Returns (neutral, tenant?) identical to other helpers.
-    /// </summary>
-    public static async Task<(string neutral, string? tenant)> UseSuperAdminAsync(HttpClient client, string email, string? tenantSlug = null)
-    {
-        var helper = new TestAuthClient(client);
-        var (neutral, tenant) = await helper.MintAsync(email, tenantSlug, autoTenant: tenantSlug == null, superAdmin: true);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tenant ?? neutral);
-        return (neutral, tenant);
-    }
 }

@@ -1,6 +1,6 @@
 ## Sprint Plan: Dev Header Decommission ("Remove Dev Headers" / RDH)
 
-> Objective: Eliminate all reliance on development headers (`x-dev-user`, `x-tenant`) across runtime code, tests, tooling, and documentation so every authenticated path (local, test, CI, staging, production) exercises the **same** JWT-based flows. (Story 1 now IN PROGRESS.)
+> Objective: Eliminate all reliance on development headers (`x-dev-user`, `x-tenant`) across runtime code, tests, tooling, and documentation so every authenticated path (local, test, CI, staging, production) exercises the **same** JWT-based flows. (Story 1 helper consolidation largely complete; Story 2 phased migrations ongoing.)
 
 ### Vision / Goal
 
@@ -30,7 +30,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 - Target: Single auth pipeline: HttpContext principal always built from JWT; any header shortcuts rejected early.
 - Supporting changes: Robust test token mint helper + seeded data utilities remove original rationale for dev headers.
 
-### Story Breakdown (Updated 2025-09-22 — Story 1 IN PROGRESS)
+### Story Breakdown (Updated 2025-09-22 — Progress Reflects Latest Migrations)
 
 #### Story 0: Inventory & Baseline Metrics (Optional but Recommended) — ✅ PARTIAL
 
@@ -39,13 +39,14 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [ ] Add a temporary counter/metric (`auth.dev_headers.requests`) in existing code path (if still active) for a short measurement window. (Deferred — may be skipped if migration proceeds smoothly.)
 [x] Document inventory snapshot in this plan (append section) for audit trail.
 
-#### Story 1: Test Token Helper Consolidation — 🚧 IN PROGRESS
+#### Story 1: Test Token Helper Consolidation — ✅ PARTIAL
 
 [x] Introduce / confirm presence of issuance services (existing `IJwtTokenService` methods for neutral & tenant). (Explicit wrapper `TestTokenIssuer` deferred.)
 [x] Provide `AuthTestClient` facade used by tests (original mint helper) AND new flow-based `AuthTestClientFlow` exercising real `/api/auth/login` + `/api/auth/select-tenant` (adopted in `UserProfileLoggingTests`). (Replaces planned `UseTenantAsync` scope.)
 [x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
 [x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
-[x] Document helper usage guideline in plan and `README` (pending after facade addition).
+[x] Superadmin elevation moved from mint helper to config-driven claim injection in normal auth flow (`Auth:SuperAdminEmails`).
+[ ] Document helper usage guideline in external `README` (plan section present; README update still pending).
 
 ##### Helper Usage Guideline (Story 1)
 
@@ -70,7 +71,37 @@ Deprecation Plan:
 - Mint helper usages (`AuthTestClient.*`) will be systematically replaced after Phase A/B when flow-based stability is confirmed.
 - A CI lint rule (Story 5) will eventually flag remaining mint helper calls outside explicitly allowed legacy folders.
 
-#### Story 2: Migrate Integration Tests (Batch Refactor)
+#### Story 2: Migrate Integration Tests (Batch Refactor) — ✅ PARTIAL
+
+Migration Progress Snapshot (updated 2025-09-22):
+
+- Core Auth / Flow:
+  - [x] DevHeadersDisabledTests (success path) migrated to real flow.
+  - [x] Multi-tenant login & select coverage (LoginMultiTenantTests).
+- Membership / Roles:
+  - [x] MembersListTests
+  - [x] AssignmentsApiTests
+  - [x] MembersManagementTests
+  - [ ] Remaining role/grant variants (DevGrantRolesEndpointTests)
+- Auditing / Privacy:
+  - [x] AuditTrailTests
+  - [x] AuditsListingEndpointTests
+  - [ ] UserProfileLoggingTests (flow usage present but confirm full migration)
+  - [ ] UserProfileEndpoints / Avatar endpoints pending verification
+- Invitations:
+  - [ ] InvitesEndpointsTests (pending)
+  - [ ] InvitesAcceptTests / InviteRolesFlagsTests (pending)
+- Notifications:
+  - [x] NotificationsProdEndpointsTests (now using auth flow + superadmin allowlist)
+  - [ ] NotificationsAdminEndpointsTests & DLQ variants (pending)
+- Catalog / Metadata:
+  - [x] ToolCatalogTests
+  - [x] DenominationsMetadataTests
+- Agent Tasks:
+  - [ ] AgentTasksEndpointsTests (tenant flow present — re-verify all sub-suites)
+  - [ ] AgentTasksE2E / contract tests (pending)
+
+Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent Task suites, then introduce guard asserting zero legacy mint usages (except explicitly allowed transitional helpers) before deprecation mode.
 
 [x] Phase A: Replace dev headers in core auth test suite (login, refresh, logout, tenant selection) with JWT helpers. (Kickoff: migrated `DevHeadersDisabledTests` positive path to flow helper; negative dev header rejection retained.)
 [ ] Phase B: Replace dev headers in domain/feature tests (notifications, roles, storage, privacy).
@@ -120,13 +151,13 @@ Deprecation Plan:
 [ ] (Optional) Add short TTL memory cache for TokenVersion (perf) if load test indicates need.
 [ ] (Optional) Add security alert rule for repeated 401 `dev_headers_removed` (potential scripted probing).
 
-### Acceptance Summary (Sprint Exit Criteria)
+### Acceptance Summary (Sprint Exit Criteria) — CURRENT STATUS
 
-[ ] No code / tests reference dev headers.
-[ ] All authentication in local + CI uses JWT flows.
-[ ] Removal & rationale documented (architecture + story log + upgrade guide).
-[ ] Regression guard test in place verifying 401 on dev header usage.
-[ ] Rollback path (tag + optional reintroduce commit link) documented.
+[ ] No code / tests reference dev headers. (IN PROGRESS — migrations active)
+[ ] All authentication in local + CI uses JWT flows. (PARTIAL — several suites migrated)
+[ ] Removal & rationale documented (architecture + story log + upgrade guide). (PARTIAL — story log entries added; docs pending)
+[ ] Regression guard test in place verifying 401 on dev header usage. (NOT STARTED)
+[ ] Rollback path (tag + optional reintroduce commit link) documented. (NOT STARTED — to be finalized Story 6)
 
 ### Risk & Mitigation
 
