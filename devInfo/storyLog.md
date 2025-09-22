@@ -264,6 +264,20 @@
   - Consider admin-driven global user revocation endpoint (increment TokenVersion without password change) and audit log entry.
   - Potential minor perf enhancement: L2 cache or memory cache of (UserId -> TokenVersion) with short expiration (e.g., 30s) to reduce DB hits under high concurrency; defer until profiling indicates need.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A UserProfileEndpointsTests Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated `UserProfileEndpointsTests` from legacy mint helper (`AuthTestClient.UseTenantAsync`) to full real auth flow: seed password via `IPasswordHasher` (helper `SeedPasswordAsync`) then invoke `/api/auth/login` followed by `/api/auth/select-tenant` using `AuthTestClientFlow.LoginAndSelectTenantAsync`. All three tests (`Get_me_returns_user_with_profile`, profile merge/trim/validate, non-object body rejection) now exercise password hashing, refresh issuance, and tenant selection under JWT Bearer without dev headers. Targeted run PASS (3/3). This reduces remaining legacy helper usages (guard test count expected to drop by one) and advances Phase A toward Avatar and Invites suites.
+- Files changed
+  - apps/api.tests/Api/UserProfileEndpointsTests.cs — removed `ClientAsync` mint helper; added `DefaultPw`, `SeedPasswordAsync`; updated each test to call real auth flow.
+  - SnapshotArchitecture.md — appended What’s New bullet noting migration and next target.
+- Quality gates
+  - Targeted execution: 3 tests PASS after migration; no new warnings or failures. Guard test still WARN-only until all migrations complete.
+- Rationale
+  - Ensures profile endpoints (GET/PUT /api/users/me) are validated under production-like auth (password verification + tenant token issuance) eliminating reliance on test-only mint endpoint ahead of dev header decommission.
+- Follow-ups
+  - Migrate `UserAvatarEndpointsTests` next (multiple helper usages); re-run guard to confirm decremented count; continue with invites/settings/catalog/agent tasks suites; then enforce guard CI failure and remove mint helper.
+
   - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
 
 - Files changed
