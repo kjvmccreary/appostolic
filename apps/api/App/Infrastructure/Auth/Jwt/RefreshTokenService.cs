@@ -12,9 +12,9 @@ namespace Appostolic.Api.Infrastructure.Auth.Jwt;
 public interface IRefreshTokenService
 {
     /// <summary>
-    /// Issue a neutral refresh token for a user, persisting hash. Returns plaintext token and expiry.
+    /// Issue a neutral refresh token for a user, persisting hash. Returns refresh token Id, plaintext token and expiry.
     /// </summary>
-    Task<(string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays);
+    Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays);
 
     /// <summary>
     /// Validate a presented neutral refresh token (plaintext). Returns entity if active and unexpired; null otherwise.
@@ -41,7 +41,7 @@ public class RefreshTokenService : IRefreshTokenService
         _db = db;
     }
 
-    public async Task<(string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays)
+    public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays)
     {
         var token = GenerateToken();
         var hash = Hash(token);
@@ -59,7 +59,7 @@ public class RefreshTokenService : IRefreshTokenService
         };
         _db.RefreshTokens.Add(entity);
         await _db.SaveChangesAsync();
-        return (token, expires);
+        return (entity.Id, token, expires);
     }
 
     public async Task<RefreshToken?> ValidateNeutralAsync(Guid userId, string plaintextToken)

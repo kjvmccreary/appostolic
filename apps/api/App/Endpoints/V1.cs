@@ -212,7 +212,7 @@ public static class V1
             // Neutral token pair
             var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -431,7 +431,7 @@ public static class V1
             // Issue neutral tokens
                 var accessToken = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -545,7 +545,7 @@ public static class V1
             // Rotate refresh (revoke old + issue new neutral) BEFORE issuing new access token
             await refreshSvc.RevokeAsync(rt.Id);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), target.TenantId, target.tenantSlug, target.roles, user.TokenVersion, user.Email);
@@ -628,6 +628,10 @@ public static class V1
             }
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
             logger.LogInformation("auth.logout.single user={UserId} tokenFound={TokenFound}", userId, rt != null);
+            var act1 = System.Diagnostics.Activity.Current;
+            act1?.SetTag("auth.user_id", userId);
+            act1?.SetTag("auth.event", "logout.single");
+            act1?.SetTag("auth.token_found", rt != null);
             Appostolic.Api.Application.Auth.AuthMetrics.IncrementLogoutSingle(userId, rt != null);
             return Results.NoContent();
         });
@@ -667,6 +671,10 @@ public static class V1
             }
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
             logger.LogInformation("auth.logout.all user={UserId} revokedCount={Count}", userId, count);
+            var act2 = System.Diagnostics.Activity.Current;
+            act2?.SetTag("auth.user_id", userId);
+            act2?.SetTag("auth.event", "logout.all");
+            act2?.SetTag("auth.revoked_count", count);
             Appostolic.Api.Application.Auth.AuthMetrics.IncrementLogoutAll(userId, count);
             return Results.NoContent();
         });
@@ -679,6 +687,16 @@ public static class V1
         {
             var now = DateTime.UtcNow;
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            // Optional lightweight rate limiting (in-memory) - Story 9 scaffold
+            var rateLimitEnabled = config.GetValue<bool>("AUTH__RATE_LIMIT_REFRESH_ENABLED", false);
+            if (rateLimitEnabled)
+            {
+                var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                if (RefreshRateLimiter.ShouldLimit(ip))
+                {
+                    return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+                }
+            }
             var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
             var deprecationDate = config["AUTH__REFRESH_DEPRECATION_DATE"]; // RFC1123 date string optional
             string? bodyToken = null;
@@ -723,11 +741,12 @@ public static class V1
             }
             if (rt.RevokedAt.HasValue)
             {
-                // Reuse (token was previously rotated or explicitly revoked)
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementReuseDenied(rt.UserId, rt.Id);
                 return Results.Json(new { code = "refresh_reuse" }, statusCode: StatusCodes.Status401Unauthorized);
             }
             if (rt.ExpiresAt <= now)
             {
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementExpired(rt.UserId, rt.Id);
                 return Results.Json(new { code = "refresh_expired" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
@@ -767,7 +786,7 @@ public static class V1
             // for this rotation scenario (low contention domain); future optimization can add provider-specific atomic path.
             await refreshSvc.RevokeAsync(rt.Id); // sets revoked_at & reason="rotated"
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
 
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
             // Existing service issues neutral access tokens via IssueAccessToken (used in login). Reuse neutral path (no tenant claims).
@@ -814,8 +833,12 @@ public static class V1
             // Basic structured log (counters deferred to Story 9)
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Refresh");
             logger.LogInformation("auth.refresh.rotate user={UserId} refreshId={RefreshId}", user.Id, rt.Id);
-            // TODO(Story9): Capture new refresh token GUID from IssueNeutralAsync return (extend service to return id) instead of placeholder duplicate.
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementRotation(user.Id, rt.Id, rt.Id);
+            var act3 = System.Diagnostics.Activity.Current;
+            act3?.SetTag("auth.user_id", user.Id);
+            act3?.SetTag("auth.event", "refresh.rotate");
+            act3?.SetTag("auth.refresh.old_id", rt.Id);
+            act3?.SetTag("auth.refresh.new_id", newRefreshId);
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementRotation(user.Id, rt.Id, newRefreshId);
 
             return Results.Ok(response);
         }).AllowAnonymous();
@@ -1773,7 +1796,7 @@ public static class V1
                 var proj = memberships.Select(m => new { tenantId = m.TenantId, tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var n) ? n : string.Empty, roles = (int)m.Roles }).ToList();
                 var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
                 var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-                var (refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+                var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
                 var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
                 object? tenantToken = null; Guid? selectedTenant = null; int rolesBitmask = 0; string tenantSlugSel = string.Empty;
                 if (proj.Count == 1 && (dto.AutoTenant == true || string.IsNullOrWhiteSpace(dto.Tenant)))
@@ -1894,6 +1917,35 @@ public static class V1
             Expires = expiresUtc,
             Path = "/"
         });
+    }
+
+    // Story 9: Simple in-memory rate limiter (best effort; process-local). Window 60s, limit 20.
+    private static class RefreshRateLimiter
+    {
+        private static readonly object _lock = new();
+        private static readonly Dictionary<string, List<DateTime>> _events = new();
+        private static readonly TimeSpan Window = TimeSpan.FromSeconds(60);
+        private const int Limit = 20;
+
+        public static bool ShouldLimit(string key)
+        {
+            var now = DateTime.UtcNow;
+            lock (_lock)
+            {
+                if (!_events.TryGetValue(key, out var list))
+                {
+                    list = new List<DateTime>(Limit + 4);
+                    _events[key] = list;
+                }
+                list.RemoveAll(t => (now - t) > Window);
+                if (list.Count >= Limit)
+                {
+                    return true;
+                }
+                list.Add(now);
+                return false;
+            }
+        }
     }
 }
 
