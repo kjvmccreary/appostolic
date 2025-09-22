@@ -197,6 +197,20 @@
 - Follow-ups
   - Migrate invite and audit-related test suites next; then introduce a guard to prohibit residual `UseTenantAsync` usage. Consider centralizing duplicated password seeding logic into a shared test utility after broad Phase A coverage.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A AuditTrailTests Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated `AuditTrailTests` from legacy mint helper usage (`ClientAsync` wrapper over `AuthTestClient.UseTenantAsync`) to real authentication flows leveraging password seeding plus `AuthTestClientFlow.LoginAndSelectTenantAsync`. Introduced `DefaultPw` constant and `SeedPasswordAsync` to hash and persist the known password for `kevin@example.com` before invoking `/api/auth/login` followed by `/api/auth/select-tenant`. Updated both tests to use the new flow, retaining existing `EnsureAdminMembershipAsync` defensive call and `LogMembershipAsync` diagnostics. Ensures audit trail creation and noop second-call semantics are exercised under production JWT issuance and role enforcement.
+- Files changed
+  - apps/api.tests/Api/AuditTrailTests.cs — removed `ClientAsync` mint helper; added `DefaultPw`, `SeedPasswordAsync`; replaced helper calls with flow login/select pattern.
+  - devInfo/jwtRefactor/rdhSprintPlan.md — progress log appended with AuditTrailTests migration entry.
+- Quality gates
+  - Targeted test run PASS (2/2). No regressions detected; MembersList, Assignments, MembersManagement suites remain green from prior spot checks.
+- Rationale
+  - Broadens Phase A coverage to auditing, reducing remaining surface area dependent on legacy mint shortcuts and validating audit event accuracy with production auth claims.
+- Follow-ups
+  - Migrate `AuditsListingEndpointTests` and `UserProfileLoggingTests` next; continue with invites suites; introduce guard once majority of `UseTenantAsync` usages removed; consider consolidating duplicated password seeding helpers after additional migrations.
+
 - Files changed
   - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
   - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.

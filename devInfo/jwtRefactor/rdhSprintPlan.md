@@ -309,3 +309,12 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
   - Extends Phase A coverage across core membership mutation scenarios, further reducing reliance on mint helper abstractions and ensuring production role enforcement is continuously validated as dev header decommission progresses.
 - Follow-ups
   - Proceed to migrate invite-related and audit trail suites; after majority completed, introduce guard (grep or reflective assertion) to fail if `UseTenantAsync` persists. Plan consolidation of duplicated `SeedPasswordAsync` helpers into a shared test utility once broader migration stabilizes.
+
+2025-09-22 — Story 2 Phase A: AuditTrailTests Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `AuditTrailTests` off legacy mint helper (`ClientAsync` invoking `AuthTestClient.UseTenantAsync`) to real password-based authentication flows using `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added per-class constants and `SeedPasswordAsync` helper (default `Password123!`) seeding the acting owner user prior to login + tenant selection. Replaced legacy helper invocations in both tests with explicit seed → login → select flow while preserving existing debug logging (`LogMembershipAsync`) and admin membership enforcement. Post-migration targeted run: 2 tests PASS (0 failed) with expected role mutation/audit behaviors (OK + NoContent for first and noop second call) under production JWT auth.
+- Rationale
+  - Extends Phase A coverage into auditing domain, ensuring audit trail generation & noop semantics are validated via production authentication paths (password hash verification, refresh issuance, tenant token selection) rather than elevated mint shortcuts.
+- Follow-ups
+  - Continue migrating remaining audit-related (`AuditsListingEndpointTests`, `UserProfileLoggingTests`) and invites suites next; prepare for guard introduction once majority of `UseTenantAsync` usages eliminated.
