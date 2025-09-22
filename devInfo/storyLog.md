@@ -519,6 +519,17 @@
 - Follow-ups
   - Story 9: Documentation updates (upgrade note, rollback guidance) + Story 10 rollback script & tag (`roles-removal-complete`).
 
+2025-09-21 — Security: Production HTTPS Redirection & HSTS Middleware — ✅ DONE
+
+- Summary
+  - Added environment-gated HTTPS enforcement to the API. In non-Development and non-Test environments the application now calls `UseHttpsRedirection()` and `UseHsts()` (inserted just before authentication/authorization middleware) to ensure clients are redirected to HTTPS and browsers receive an HSTS header to prevent protocol downgrade. This is a lightweight, in-process hardening step ahead of any future ingress (nginx / proxy) decision and requires no configuration changes for local development or tests (which continue to run over HTTP). Existing cookie issuance logic (`Secure = http.Request.IsHttps`) naturally benefits in production, guaranteeing Secure refresh cookies. No functional test changes required; risk minimal.
+- Files changed
+  - `apps/api/Program.cs` — inserted conditional block wrapping `app.UseHttpsRedirection(); app.UseHsts();` guarded by `!IsDevelopment() && !IsEnvironment("Test")`.
+- Rationale
+  - Ensures production environments enforce transport security early, reduces chance of mixed-content or accidental plaintext credential submission, and sets a baseline if an external reverse proxy is deferred. HSTS improves client security posture on subsequent visits.
+- Follow-ups
+  - If/when an external proxy (Story 9a nginx) is introduced, add forwarded headers middleware and validate redirect interplay (may keep in-process redirect as defense-in-depth). Consider adding a LivingChecklist item for TLS cert rotation monitoring once a certificate management strategy is chosen.
+
 - Follow-ups
   - Consider extracting a small shared label utility (flag roles → display label) to reduce duplication across switcher modal and other components.
 
@@ -1024,3 +1035,26 @@
   - Frontend: implement silent refresh loop, remove placeholder `_auth/refresh-neutral` route, and begin telemetry counters (issuance, rotation, reuse, failures) in Story 9.
   - Post grace: disable body path (`AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and drop plaintext `refresh.token` from responses when cookie enabled.
   - Add observability (metrics/log enrichment) and potential CSRF strategy evaluation if cookie SameSite changes.
+
+2025-09-22 — Auth/JWT: Story 9 Observability Metrics & Initial Hardening — ✅ DONE
+
+- Summary
+  - Implemented first-wave auth observability via OpenTelemetry Meter `Appostolic.Auth`. Added counters: `auth.tokens.issued`, `auth.refresh.rotations`, `auth.refresh.reuse_denied`, `auth.refresh.expired`, `auth.refresh.plaintext_emitted` (TEMP), `auth.refresh.plaintext_suppressed`, `auth.logout.single`, `auth.logout.all`, plus new outcome counters `auth.login.success`, `auth.login.failure`, `auth.refresh.success`, `auth.refresh.failure`, `auth.refresh.rate_limited`. Added latency histograms `auth.login.duration_ms` and `auth.refresh.duration_ms` with `outcome` tag. Instrumented `/api/auth/login`, `/api/auth/refresh`, and logout endpoints in `V1.cs` (bounded reason taxonomies for login & refresh failure cases). Added metrics test `AuthMetricsTests` validating registration of new instruments. Updated docs: `SnapshotArchitecture.md` (Auth Observability Metrics section), `devInfo/jwtRefactor/jwtSprintPlan.md` (Story 9 marked DONE with dot notation naming), `LivingChecklist.md` (Story 9 line), and this story log entry.
+- Files changed
+  - apps/api/Application/Auth/AuthMetrics.cs — added new counters, histograms, increment/record helpers.
+  - apps/api/App/Endpoints/V1.cs — login & refresh endpoints instrumented (success/failure + duration); logout endpoints increment counters; rate-limit path increments `auth.refresh.rate_limited`.
+  - apps/api.tests/Auth/AuthMetricsTests.cs — new test asserting counters/histograms observable.
+  - SnapshotArchitecture.md — What’s New entry + detailed metrics taxonomy section.
+  - devInfo/jwtRefactor/jwtSprintPlan.md — Story 9 updated (done, naming alignment, deferred tasks noted).
+  - devInfo/LivingChecklist.md — Story 9 line added; last updated timestamp advanced.
+- Quality gates
+  - API build: PASS (no new warnings beyond existing baseline).
+  - Tests: Full suite previously green; new metrics test passes (assertions on instrument presence). No regressions observed in auth integration suites.
+- Rationale
+  - Establishes stable metric names & low-cardinality tag sets early to enable future dashboards/alerts (login & refresh success ratio, failure reason distribution, latency percentiles, reuse anomaly detection) while avoiding later breaking renames. Provides foundational visibility before enabling stricter security measures (rate limiting) and span attribute enrichment.
+- Deferred / Follow-ups
+  - Implement full refresh rate limiting middleware + configuration flag (current counter increments path only).
+  - Add tracing span attributes (`auth.user_id`, `auth.refresh.reason`, outcome) and exemplar Grafana dashboards.
+  - Remove TEMP plaintext counters after grace flag retirement (two consecutive releases with zero emissions).
+  - Future session enumeration endpoint instrumentation (per-session active refresh token metadata) and potential security alerting (reuse spikes).
+  - Consider consolidating reuse denial dual reporting (separate `reuse_denied` counter + failure reason) after initial dashboard consumption feedback.
