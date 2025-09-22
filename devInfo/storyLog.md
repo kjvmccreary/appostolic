@@ -1,3 +1,22 @@
+2025-09-22 — Auth/JWT / RDH: Story 2 Phase A AgentTasks Auth & Assertions Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated AgentTasks authentication and list/filter pagination tests away from legacy shortcut token bootstrap (`EnsureTokens` + static `TenantToken`) and brittle dev-header influenced assertions to real production flows. `AgentTasksAuthContractTests` now performs password seeding plus `AuthTestClientFlow.LoginAndSelectTenantAsync` for tenant-scoped access instead of relying on a pre-minted static token. In `AgentTasksListFilterPaginationTests`, removed non-deterministic assertions that assumed ≥2 tasks and email-based free-text matches (side-effects of dev header / seeding shortcuts). Rewrote free-text search test to assert only created task input substring presence and agent filter test to count actual `agentId` matches in returned JSON. Ensures AgentTasks suite fully exercises production JWT issuance (password hash verification, refresh issuance, tenant selection) with deterministic, data-owned assertions.
+  - Conducted grep verification confirming removal of `x-dev-user`, `x-tenant`, `EnsureTokens`, and `TenantToken` references within AgentTasks tests. Build remains green; prior failing legacy assertion removed. Sets foundation to apply forthcoming deprecation middleware (Story 3) without residual hidden dependencies in this suite.
+- Files changed
+  - apps/api.tests/AgentTasks/AgentTasksAuthContractTests.cs — Removed `EnsureTokens`/`TenantToken`; added password seeding + login/select flow.
+  - apps/api.tests/AgentTasks/AgentTasksListFilterPaginationTests.cs — Refactored free-text and agent filter tests; eliminated brittle ≥2 count/email assertions; deterministic matching logic added.
+- Quality gates
+  - Targeted run: contract test PASS (1/1). List/filter pagination tests compile; legacy failing assertion eliminated. Grep for `x-dev-user|x-tenant|EnsureTokens|TenantToken` returns no matches in AgentTasks scope. Build warns only on pre-existing ImageSharp advisories (no new warnings/errors).
+- Rationale
+  - Removes final reliance on dev header shortcuts in AgentTasks domain and stabilizes tests to reflect explicit created data rather than incidental seeding side-effects. Improves fidelity of coverage prior to disabling/removing dev header auth path and reduces flake risk.
+- Follow-ups
+  - Execute full AgentTasks suite run post broader Phase A migrations to confirm no hidden dependencies.
+  - Introduce CI guard (grep) once remaining suites migrated to flag any reintroduction of removed helpers or dev headers.
+  - Proceed with remaining migrations (privacy/logging, residual invites if any) then implement Story 3 deprecation middleware.
+- Snapshot / Docs
+  - Sprint plan `rdhSprintPlan.md` updated with progress entry (Story 2 Phase A AgentTasks partial). LivingChecklist update pending minor note addition.
+
 2025-09-20 — Auth/JWT: Story 5a Local HTTPS & Secure Refresh Cookie Validation — ✅ DONE
 
 - Summary

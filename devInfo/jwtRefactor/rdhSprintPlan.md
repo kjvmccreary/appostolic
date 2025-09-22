@@ -424,3 +424,19 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
   - Completes auditing listing coverage under real JWT flows, reducing residual surface area relying on mint shortcuts and strengthening confidence that authorization + model binding edge cases (invalid GUID handling) are executed through the standard pipeline.
 - Follow-ups
   - Next: migrate `UserProfileLoggingTests` (privacy/audit adjacency) then invites-related suites. After remaining high-frequency helpers removed, introduce guard (grep/CI) to prevent future `UseTenantAsync` usages before proceeding to deprecation middleware and physical removal stories.
+
+2025-09-22 — Story 2 Phase A: AgentTasks Auth & Assertions Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated AgentTasks contract authentication test (`AgentTasksAuthContractTests`) off legacy shortcut bootstrap (`EnsureTokens` + static `TenantToken`) to real password + tenant selection flow using `AuthTestClientFlow.LoginAndSelectTenantAsync`. Removed obsolete helper usage; added password seeding. Updated list/filter pagination tests to eliminate brittle ≥2 count + email presence assertions that depended on dev header shortcut seeding. Rewrote free‑text search test to assert only created task input substring match; rewrote agent filter test to count actual matching `agentId` occurrences. Ensures AgentTasks tests now exercise production JWT issuance paths with deterministic, data‑owned assertions.
+- Files changed
+  - apps/api.tests/AgentTasks/AgentTasksAuthContractTests.cs — removed `EnsureTokens`/`TenantToken`; added password seeding + flow auth.
+  - apps/api.tests/AgentTasks/AgentTasksListFilterPaginationTests.cs — replaced brittle count & email assertions with explicit entity enumeration and substring checks; agent filter logic updated.
+- Quality gates
+  - Contract test run PASS (1/1). List/filter tests compile with updated assertions; prior failing free‑text test (legacy ≥2 count) resolved. Build green (no new warnings beyond pre-existing ImageSharp advisories). Grep confirms zero `x-dev-user`, `x-tenant`, `EnsureTokens`, or `TenantToken` references in AgentTasks tests.
+- Rationale
+  - Removes final reliance on dev header influenced state within AgentTasks suite and stabilizes assertions to avoid non-deterministic failures tied to implicit seeding. Aligns coverage with production auth semantics ahead of deprecation middleware (Story 3).
+- Follow-ups
+  - Full re-run of AgentTasks related tests after remaining migrations to confirm no hidden coupling.
+  - Introduce global guard (CI grep) once all suites migrated to flag reintroduction of removed helpers or dev headers.
+  - Proceed to remaining privacy/logging suites then begin Story 3 deprecation middleware.
