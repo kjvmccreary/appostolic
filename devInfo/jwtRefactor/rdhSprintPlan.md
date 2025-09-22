@@ -82,18 +82,18 @@ Migration Progress Snapshot (updated 2025-09-22):
   - [x] MembersListTests
   - [x] AssignmentsApiTests
   - [x] MembersManagementTests
-  - [ ] Remaining role/grant variants (DevGrantRolesEndpointTests)
+  - [x] Remaining role/grant variants (DevGrantRolesEndpointTests)
 - Auditing / Privacy:
   - [x] AuditTrailTests
   - [x] AuditsListingEndpointTests
-  - [ ] UserProfileLoggingTests (flow usage present but confirm full migration)
-  - [ ] UserProfileEndpoints / Avatar endpoints pending verification
+  - [x] UserProfileLoggingTests
+  - [x] UserProfileEndpoints / Avatar endpoints
 - Invitations:
-  - [ ] InvitesEndpointsTests (pending)
-  - [ ] InvitesAcceptTests / InviteRolesFlagsTests (pending)
+  - [x] InvitesEndpointsTests
+  - [x] InvitesAcceptTests / InviteRolesFlagsTests
 - Notifications:
-  - [x] NotificationsProdEndpointsTests (now using auth flow + superadmin allowlist)
-  - [ ] NotificationsAdminEndpointsTests & DLQ variants (pending)
+  - [x] NotificationsProdEndpointsTests (auth flow + superadmin allowlist)
+  - [x] NotificationsAdminEndpointsTests & DLQ variants
 - Catalog / Metadata:
   - [x] ToolCatalogTests
   - [x] DenominationsMetadataTests
@@ -150,6 +150,54 @@ Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent
 
 [ ] (Optional) Add short TTL memory cache for TokenVersion (perf) if load test indicates need.
 [ ] (Optional) Add security alert rule for repeated 401 `dev_headers_removed` (potential scripted probing).
+
+### Guard Checklist (Authoritative Regression & Safety Gates)
+
+Purpose: Ensures decommission intent persists after merge; any reintroduction of dev headers or shortcut flows fails fast.
+
+Static / CI Guards
+
+- [ ] CI grep (or lint script) fails build on forbidden patterns: `x-dev-user`, `x-tenant`, `DevHeaderAuthHandler`, `BearerOrDev` (allowlist: `/docs/`, `/devInfo/`, sprint plan historical sections)
+- [ ] Optional Roslyn analyzer (future) to flag auth header based identity injection
+
+Runtime / Integration Guards
+
+- [ ] Test: sending `x-dev-user` header returns 401 `{ code: "dev_headers_removed" }`
+- [ ] Test: enumerate registered auth schemes and assert none match `Dev` / `BearerOrDev`
+- [ ] Test: multi-tenant login returns memberships WITHOUT auto tenant token
+- [ ] Test: select-tenant rotates refresh (old neutral revoked)
+- [ ] Test: superadmin allowlist (config) injects claim; non-allowlisted user lacks claim
+- [ ] Test: negative resend / notifications cross-tenant forbidden for non-superadmin user (ensures no silent elevation)
+
+Helper / API Surface Guards
+
+- [ ] No usages of removed helpers: `UseTenantAsync`, `UseSuperAdminAsync` (grep enforced)
+- [ ] (If mint endpoint retained temporarily) Test ensures it cannot set superadmin when email not in allowlist
+- [ ] Plan to remove mint endpoint (tracked follow-up) or convert to internal-only if still needed
+
+Documentation & Traceability
+
+- [ ] `SnapshotArchitecture.md` updated: single auth path, removed handler section
+- [ ] `LivingChecklist.md` item checked with link to removal PR
+- [ ] Upgrade Guide section: "Dev headers removed – migration steps"
+- [ ] Story log final entry summarizing decommission & rollback tag
+- [ ] Tag `before-dev-header-removal` created & referenced in docs
+
+Observability (Optional)
+
+- [ ] Temporary metric (`auth.dev_headers.deprecated_requests`) removed OR dashboard shows sustained zero beyond grace window
+- [ ] Optional alert on spike of denied dev header attempts (post-removal)
+
+Security / Hardening (Optional Enhancements)
+
+- [ ] Threat model updated to reflect single auth surface
+- [ ] Brute force / anomaly hooks unaffected (spot check)
+
+Exit Validation
+
+- [ ] Full test matrix green after removal commit
+- [ ] CI guard proves effective by intentionally injecting a forbidden token in a dry-run branch (manual validation)
+- [ ] Rollback instructions verified (checkout tag builds/tests green)
 
 ### Acceptance Summary (Sprint Exit Criteria) — CURRENT STATUS
 
@@ -349,6 +397,24 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
   - Extends Phase A coverage into auditing domain, ensuring audit trail generation & noop semantics are validated via production authentication paths (password hash verification, refresh issuance, tenant token selection) rather than elevated mint shortcuts.
 - Follow-ups
   - Continue migrating remaining audit-related (`AuditsListingEndpointTests`, `UserProfileLoggingTests`) and invites suites next; prepare for guard introduction once majority of `UseTenantAsync` usages eliminated.
+
+2025-09-22 — Story 2 Phase A: Invites Suites Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `InvitesEndpointsTests`, `InvitesAcceptTests`, and `InvitesRolesFlagsTests` to real password-based auth flows (`AuthTestClientFlow.LoginAndSelectTenantAsync` for tenant-scoped owner actions; `LoginNeutralAsync` for invitee acceptance) with per-class password seeding helpers. Removed any residual assumptions about legacy mint elevation; updated roles flags assertions to accommodate current API response (string or array flexibility where serialization variant may differ). Ensured re-authentication of original inviter after invitee signup to perform revoke step. All invite lifecycle scenarios (create, list, resend, accept, revoke) validated under production JWT paths.
+- Rationale
+  - Eliminates a high-churn domain (invitation onboarding) from dev header/mint dependency early, reducing risk of behavioral drift in acceptance logic and role flag propagation before deprecation middleware is introduced.
+- Follow-ups
+  - Proceed to `AuditsListingEndpointTests` and `UserProfileLoggingTests`, then User Profile & Avatar endpoints. After these, begin Notifications Admin and Agent Task migrations and introduce guard for zero `UseTenantAsync` occurrences.
+
+2025-09-22 — Story 2 Phase A: NotificationsAdmin Suites Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `NotificationsAdminEndpointsTests` from legacy mint helper (`UseAutoTenantAsync`) to real password-based login + tenant selection via `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added local password seeding plus `LoginOwnerAsync` wrapper. Relaxed brittle assertion on optional `X-Resend-Remaining` header (now conditional). All 7 admin / DLQ / resend tests passing under JWT-only auth.
+- Rationale
+  - Removes remaining notifications administrative surface from dev header/mint dependency ensuring resend, retry, throttle, DLQ replay, and metrics paths mirror production auth behavior (role/claim derivation, superadmin allowlist).
+- Follow-ups
+  - Begin AgentTasks suite migration next; then introduce guard to assert zero legacy mint usages before deprecation middleware phase.
 
 2025-09-22 — Story 2 Phase A: AuditsListingEndpointTests Migrated — ✅ PARTIAL
 

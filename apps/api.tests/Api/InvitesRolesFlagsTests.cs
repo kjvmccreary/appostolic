@@ -76,7 +76,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var inv = await db.Invitations.AsNoTracking().FirstAsync(i => i.TenantId == tenantId && i.Email.ToLower() == email.ToLower());
             token = inv.Token!;
-            // Ensure the invited user exists for accept flow using dev header auth
+            // Ensure the invited user exists prior to acceptance (account creation path); now uses real neutral login flow
             if (!await db.Users.AsNoTracking().AnyAsync(u => u.Email == email))
             {
                 db.Users.Add(new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow });

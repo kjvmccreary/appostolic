@@ -6,15 +6,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.Domain.Agents;
-using Appostolic.Api.Infrastructure.Auth.Jwt; // For IJwtTokenService
+using Appostolic.Api.AuthTests;
 
 namespace Appostolic.Api.Tests.AgentTasks;
 
 public class AgentTasksFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"agenttasks-tests-{Guid.NewGuid()}";
-    private static readonly object _tokenLock = new();
-    private static bool _tokensInitialized;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -55,27 +53,6 @@ public class AgentTasksFactory : WebApplicationFactory<Program>
             }
         });
     }
-
-    // Lazily issue JWT tokens using the FINAL host service provider so signing key material matches validation parameters.
-    public void EnsureTokens()
-    {
-        if (_tokensInitialized) return;
-        lock (_tokenLock)
-        {
-            if (_tokensInitialized) return;
-            using var scope = Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var tokenSvc = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var user = db.Users.AsNoTracking().First(u => u.Email == "dev@example.com");
-            var membership = (from m in db.Memberships.AsNoTracking() join t in db.Tenants on m.TenantId equals t.Id where m.UserId == user.Id select new { m, t }).First();
-            NeutralToken = tokenSvc.IssueNeutralToken(user.Id.ToString(), 0, user.Email);
-            TenantToken = tokenSvc.IssueTenantToken(user.Id.ToString(), membership.t.Id, membership.t.Name, (int)membership.m.Roles, 0, user.Email);
-            _tokensInitialized = true;
-        }
-    }
-
-    public static string? NeutralToken { get; private set; }
-    public static string? TenantToken { get; private set; }
 }
 
 public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
@@ -92,11 +69,10 @@ public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
         Client = Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        // Issue & attach JWT tenant token lazily after the host is fully built so signing keys match.
-        Factory.EnsureTokens();
-        if (AgentTasksFactory.TenantToken is null)
-            throw new InvalidOperationException("Expected AgentTasksFactory.TenantToken to be initialized.");
-        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AgentTasksFactory.TenantToken);
+        // Real auth flow: seed password if needed then login + select tenant for dev@example.com/acme
+        SeedPasswordIfNeededAsync().GetAwaiter().GetResult();
+        // Authenticate against THIS factory so signing keys / config match
+        AuthTestClientFlow.LoginAndSelectTenantAsync(Factory, Client, "dev@example.com", "acme").GetAwaiter().GetResult();
     }
 
     protected async Task<Guid> CreateTaskAsync(Guid agentId, object input, int? enqueueDelayMs = null, bool suppressEnqueue = false)
@@ -168,5 +144,19 @@ public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
         db.RemoveRange(db.Set<AgentTrace>());
         db.RemoveRange(db.Set<AgentTask>());
         await db.SaveChangesAsync();
+    }
+
+    private async Task SeedPasswordIfNeededAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Users.AsNoTracking().FirstAsync(u => u.Email == "dev@example.com");
+        if (user.PasswordHash == null || user.PasswordSalt == null)
+        {
+            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var (hash, salt, _) = hasher.HashPassword("Password123!");
+            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
     }
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.AuthTests;
+using Microsoft.EntityFrameworkCore;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -14,9 +15,23 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
 
     // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth endpoints.
     // Pattern: seed password (IPasswordHasher) then invoke /api/auth/login + /api/auth/select-tenant via AuthTestClientFlow helper.
+    private const string DefaultPw = "Password123!";
+
+    private static async Task SeedPasswordAsync(WebAppFactory f, string email, string pw)
+    {
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var (hash, salt, _) = hasher.HashPassword(pw);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+    }
+
     private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
+        await SeedPasswordAsync(f, "kevin@example.com", DefaultPw);
         await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
         return c;
     }

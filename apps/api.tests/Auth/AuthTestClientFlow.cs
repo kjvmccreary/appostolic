@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.Application.Auth;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Appostolic.Api.AuthTests;
 
@@ -19,7 +20,7 @@ public static class AuthTestClientFlow
     /// Ensure the specified user exists with the default password (idempotent) and perform a password login.
     /// Returns the raw neutral access token plus the parsed login JSON (memberships, refresh, optional tenantToken).
     /// </summary>
-    public static async Task<(string access, JsonObject json)> LoginNeutralAsync(Appostolic.Api.Tests.WebAppFactory factory, HttpClient client, string email)
+    public static async Task<(string access, JsonObject json)> LoginNeutralAsync(WebApplicationFactory<Program> factory, HttpClient client, string email)
     {
         await EnsureUserAsync(factory, email, DefaultPassword);
         var resp = await client.PostAsJsonAsync("/api/auth/login", new { email, password = DefaultPassword });
@@ -34,7 +35,7 @@ public static class AuthTestClientFlow
     /// Login neutrally then select a tenant (by slug or id) returning the tenant-scoped access token and JSON body.
     /// Requires the user to have membership; will throw if selection fails.
     /// </summary>
-    public static async Task<(string neutral, string tenant, JsonObject selectJson)> LoginAndSelectTenantAsync(Appostolic.Api.Tests.WebAppFactory factory, HttpClient client, string email, string tenantSlugOrId)
+    public static async Task<(string neutral, string tenant, JsonObject selectJson)> LoginAndSelectTenantAsync(WebApplicationFactory<Program> factory, HttpClient client, string email, string tenantSlugOrId)
     {
         var (neutral, loginJson) = await LoginNeutralAsync(factory, client, email);
         var refresh = loginJson["refresh"]!["token"]!.GetValue<string>();
@@ -53,7 +54,7 @@ public static class AuthTestClientFlow
     /// Idempotently ensures a user row exists with a usable password hash for login flow tests.
     /// Does NOT create any memberships; caller may add as needed for tenant selection scenarios.
     /// </summary>
-    private static async Task EnsureUserAsync(Appostolic.Api.Tests.WebAppFactory factory, string email, string password)
+    private static async Task EnsureUserAsync(WebApplicationFactory<Program> factory, string email, string password)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

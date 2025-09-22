@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Appostolic.Api.Tests.Privacy;
 
@@ -18,18 +19,10 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
     public async Task GetMe_EmitsRedactedAndHash_NoRawEmail()
     {
         var provider = new CapturingLoggerProvider();
-        var factory = _factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureServices(services =>
-            {
-                services.AddLogging(b => b.AddProvider(provider));
-                // Ensure hashing enabled
-                services.PostConfigure<PrivacyOptions>(o => { o.PIIHashingEnabled = true; o.PIIHashPepper = "pep"; });
-            });
-        });
-        var client = factory.CreateClient();
+        var customFactory = new LoggingWebAppFactory(provider, hashingEnabled: true);
+        var client = customFactory.CreateClient();
         // Migration off dev headers: exercise real auth login + select-tenant flow
-        using (var seedScope = factory.Services.CreateScope())
+    using (var seedScope = customFactory.Services.CreateScope())
         {
             var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = db.Users.First(u => u.Email == "kevin@example.com");
@@ -44,7 +37,8 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
                 db.SaveChanges();
             }
             var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
-            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, user.Email, tenantSlug);
+            // Use the customized factory (with added logging + privacy options) for auth flow so emitted logs are captured
+            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(customFactory, client, user.Email, tenantSlug);
         }
 
         var resp = await client.GetAsync("/api/users/me");
@@ -62,16 +56,9 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
     public async Task GetMe_HashingDisabled_OmitsHash()
     {
         var provider = new CapturingLoggerProvider();
-        var factory = _factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureServices(services =>
-            {
-                services.AddLogging(b => b.AddProvider(provider));
-                services.PostConfigure<PrivacyOptions>(o => { o.PIIHashingEnabled = false; o.PIIHashPepper = "pep"; });
-            });
-        });
-        var client = factory.CreateClient();
-        using (var seedScope = factory.Services.CreateScope())
+        var customFactory2 = new LoggingWebAppFactory(provider, hashingEnabled: false);
+        var client = customFactory2.CreateClient();
+        using (var seedScope = customFactory2.Services.CreateScope())
         {
             var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = db.Users.First(u => u.Email == "kevin@example.com");
@@ -85,7 +72,8 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
                 db.SaveChanges();
             }
             var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
-            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, user.Email, tenantSlug);
+            // Use the customized factory for auth to ensure hashing disabled option is applied during request pipeline
+            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(customFactory2, client, user.Email, tenantSlug);
         }
 
         var resp = await client.GetAsync("/api/users/me");
@@ -119,6 +107,29 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
             public bool IsEnabled(LogLevel logLevel) => true;
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) { }
             private sealed class NullScope : IDisposable { public static readonly NullScope Instance = new(); public void Dispose() { } }
+        }
+    }
+
+    /// <summary>
+    /// Test-only factory injecting a capturing logger provider and configuring PrivacyOptions hashing flag
+    /// while retaining the concrete WebAppFactory type required by AuthTestClientFlow helpers.
+    /// </summary>
+    private sealed class LoggingWebAppFactory : WebAppFactory
+    {
+        private readonly CapturingLoggerProvider _provider;
+        private readonly bool _hashingEnabled;
+        public LoggingWebAppFactory(CapturingLoggerProvider provider, bool hashingEnabled)
+        {
+            _provider = provider; _hashingEnabled = hashingEnabled;
+        }
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureServices(services =>
+            {
+                services.AddLogging(b => b.AddProvider(_provider));
+                services.PostConfigure<PrivacyOptions>(o => { o.PIIHashingEnabled = _hashingEnabled; o.PIIHashPepper = "pep"; });
+            });
         }
     }
 }
