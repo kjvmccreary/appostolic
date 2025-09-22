@@ -1578,7 +1578,8 @@ public static class V1
                 Guid? changedByUserId = null;
                 var sub = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (Guid.TryParse(sub, out var subGuid)) changedByUserId = subGuid;
-                var changedByEmail = user.FindFirstValue("email");
+                // Robust email resolution: support both JWT registered 'email' and ClaimTypes.Email mappings.
+                var changedByEmail = user.FindFirstValue("email") ?? user.FindFirstValue(ClaimTypes.Email);
                 db.Audits.Add(new Audit
                 {
                     Id = Guid.NewGuid(),
@@ -1621,7 +1622,7 @@ public static class V1
 
             // Must be authenticated
             var userIdStr = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
-            var email = user.FindFirstValue("email");
+            var email = user.FindFirstValue("email") ?? user.FindFirstValue(ClaimTypes.Email);
             if (!Guid.TryParse(userIdStr, out var userId) || string.IsNullOrWhiteSpace(email))
                 return Results.Unauthorized();
 
@@ -1694,7 +1695,11 @@ public static class V1
                 membershipCreated = created,
                 acceptedAt = invite.AcceptedAt
             });
-        });
+        })
+        // Require authentication (any authenticated user) so JwtBearer runs and populates ClaimsPrincipal.
+        // Without this, the endpoint executed with an unauthenticated (empty) principal, causing the
+        // internal GUID/email extraction to fail and return 401 even when a valid Bearer token was supplied.
+        .RequireAuthorization();
 
         // Dev utility endpoint always mapped (internal production guard) to simplify tests & ensure discoverability.
         apiRoot.MapPost("/dev/grant-roles", async (HttpContext http, AppDbContext db, GrantRolesRequest req) =>

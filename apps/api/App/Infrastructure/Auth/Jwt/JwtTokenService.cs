@@ -69,7 +69,10 @@ public class JwtTokenService : IJwtTokenService
         };
         if (!string.IsNullOrWhiteSpace(email))
         {
+            // Add both the registered 'email' claim and the ClaimTypes.Email variant so downstream code
+            // that relies on either form (e.g., user.FindFirstValue("email") or ClaimTypes.Email) succeeds.
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, email));
+            claims.Add(new Claim(ClaimTypes.Email, email));
         }
         if (extraClaims is not null)
         {
@@ -121,7 +124,9 @@ public class JwtTokenService : IJwtTokenService
         };
         if (!string.IsNullOrWhiteSpace(email))
         {
+            // Mirror neutral token behavior: emit both forms of email claim.
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, email));
+            claims.Add(new Claim(ClaimTypes.Email, email));
         }
         if (extraClaims is not null)
         {

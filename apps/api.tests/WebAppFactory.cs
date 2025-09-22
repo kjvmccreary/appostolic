@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Appostolic.Api.App.Notifications;
 using Appostolic.Api.App.Options;
+using Appostolic.Api.Infrastructure.Auth.Jwt; // For IJwtTokenService token issuance
 
 namespace Appostolic.Api.Tests;
 
@@ -18,6 +19,44 @@ public class WebAppFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"testdb-{Guid.NewGuid()}";
     private readonly Dictionary<string,string?> _overrides = new();
+    private static readonly object _tokenLock = new();
+    private static readonly Dictionary<string,string> _neutralTokens = new();
+
+    /// <summary>
+    /// Ensure a user exists for the provided email and return a stable neutral access token (JWT) for that user.
+    /// Bypasses the deprecated test mint endpoint so tests (e.g. invite acceptance) can authenticate without
+    /// requiring prior tenant membership. Tokens are cached per email for run determinism.
+    /// </summary>
+    public (string token, Guid userId) EnsureNeutralToken(string email)
+    {
+        lock (_tokenLock)
+        {
+            if (_neutralTokens.TryGetValue(email, out var existing))
+            {
+                // Derive userId from token is non-trivial; re-query DB for user.
+                using var scope = Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = db.Users.AsNoTracking().First(u => u.Email == email);
+                return (existing, user.Id);
+            }
+
+            using (var scope = Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = db.Users.FirstOrDefault(u => u.Email == email);
+                if (user is null)
+                {
+                    user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+                    db.Users.Add(user);
+                    db.SaveChanges();
+                }
+                var tokenSvc = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+                var token = tokenSvc.IssueNeutralToken(user.Id.ToString(), 0, user.Email);
+                _neutralTokens[email] = token;
+                return (token, user.Id);
+            }
+        }
+    }
 
     /// <summary>
     /// Clone-like helper that returns the same factory instance with additional in-memory configuration overrides
@@ -152,6 +191,30 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 db.SaveChanges();
             }
         });
+    }
+
+    public static Dictionary<string,string> DecodeJwtClaims(string jwt)
+    {
+        var parts = jwt.Split('.');
+        if (parts.Length < 2) return new Dictionary<string,string>();
+        string Base64UrlDecode(string s)
+        {
+            s = s.Replace('-', '+').Replace('_', '/');
+            switch (s.Length % 4)
+            {
+                case 2: s += "=="; break;
+                case 3: s += "="; break;
+            }
+            try { return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s)); }
+            catch { return string.Empty; }
+        }
+        var payloadJson = Base64UrlDecode(parts[1]);
+        try
+        {
+            var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+            return doc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+        }
+        catch { return new Dictionary<string,string>(); }
     }
 }
 

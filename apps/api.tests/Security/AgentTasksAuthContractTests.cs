@@ -15,7 +15,7 @@ public class AgentTasksAuthContractTests : IClassFixture<AgentTasksFactory>
     }
 
     [Fact]
-    public async Task ListEndpoint_RequiresDevHeaders()
+    public async Task ListEndpoint_RequiresAuthentication_JwtPath()
     {
         // Arrange
         var unauth = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -23,8 +23,12 @@ public class AgentTasksAuthContractTests : IClassFixture<AgentTasksFactory>
 
         var auth = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         auth.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        auth.DefaultRequestHeaders.Add("x-dev-user", "dev@example.com");
-        auth.DefaultRequestHeaders.Add("x-tenant", "acme");
+        // Lazily ensure tokens are generated (post-host build for signing key consistency)
+        _factory.EnsureTokens();
+        // Use pre-generated token from factory (bypasses mint endpoint that is being phased out)
+        if (AgentTasksFactory.TenantToken is null)
+            throw new InvalidOperationException("Expected AgentTasksFactory.TenantToken to be initialized after EnsureTokens().");
+        auth.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AgentTasksFactory.TenantToken);
 
         // Act - unauthenticated
         var resp = await unauth.GetAsync("/api/agent-tasks?take=1&skip=0");
@@ -35,8 +39,8 @@ public class AgentTasksAuthContractTests : IClassFixture<AgentTasksFactory>
         // Act - authenticated
         var ok = await auth.GetAsync("/api/agent-tasks?take=1&skip=0");
 
-        // Assert - authenticated returns 200 and JSON array
-        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+    // Assert - authenticated returns 200 and JSON array (JWT auth)
+    ok.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = (await ok.Content.ReadAsStringAsync()).TrimStart();
         body.Should().StartWith("[");
 

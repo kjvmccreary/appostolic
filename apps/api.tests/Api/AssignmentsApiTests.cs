@@ -12,10 +12,10 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     public AssignmentsApiTests(WebAppFactory factory) => _factory = factory;
 
     // RDH Story 2: client now authenticated via minted JWT instead of dev headers
-    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug, bool? forceAllRoles = null)
     {
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug, forceAllRoles);
         return c;
     }
 
@@ -57,7 +57,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-    var viewer = await ClientAsync(_factory, viewerEmail, "kevin-personal");
+    var viewer = await ClientAsync(_factory, viewerEmail, "kevin-personal", forceAllRoles: false); // ensure not elevated
         var forbidden = await viewer.GetAsync($"/api/tenants/{tenantId}/memberships");
         forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -200,7 +200,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             viewerId = viewer.Id;
         }
 
-    var viewerClient = await ClientAsync(_factory, viewerEmail, "kevin-personal");
+    var viewerClient = await ClientAsync(_factory, viewerEmail, "kevin-personal", forceAllRoles: false); // ensure not elevated
         var resp = await viewerClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{viewerId}/roles", new { roles = new[] { "Creator" } });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

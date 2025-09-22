@@ -14,10 +14,12 @@ public static class AuthTestClient
     /// Mint a neutral access token for the given email and attach as Bearer auth header.
     /// Returns the raw token for additional assertions if needed.
     /// </summary>
-    public static async Task<string> UseNeutralAsync(HttpClient client, string email)
+    public static async Task<string> UseNeutralAsync(HttpClient client, string email, bool? forceAllRoles = null)
     {
         var helper = new TestAuthClient(client);
-        var (neutral, _) = await helper.MintAsync(email, tenant: null, autoTenant: false);
+        // When forceAllRoles is explicitly false we suppress automatic role elevation so tests
+        // can exercise least-privilege or negative authorization scenarios.
+        var (neutral, _) = await helper.MintAsync(email, tenant: null, autoTenant: false, forceAllRoles: forceAllRoles);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", neutral);
         return neutral;
     }

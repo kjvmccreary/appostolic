@@ -78,7 +78,11 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
         }
 
     var invitedClient = _factory.CreateClient();
-    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(invitedClient, email, "kevin-personal");
+    var (neutralToken, userId) = _factory.EnsureNeutralToken(email);
+    // Diagnostics: decode token claims to help investigate 401 Unauthorized
+    var claims = WebAppFactory.DecodeJwtClaims(neutralToken);
+    System.Console.WriteLine($"[TestDebug] Neutral token claims for {email}: {string.Join(", ", claims.Select(kvp => kvp.Key + '=' + kvp.Value))}");
+    invitedClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", neutralToken);
         var accept = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
