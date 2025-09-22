@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // Auth test real login + tenant selection flow
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -16,8 +17,9 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     /// </summary>
     private static async Task<HttpClient> ClientAsync(WebAppFactory f, string tenantSlug)
     {
+        // Phase A migration: use real password + login + select-tenant flow instead of legacy mint helper
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", tenantSlug);
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", tenantSlug);
         return c;
     }
 

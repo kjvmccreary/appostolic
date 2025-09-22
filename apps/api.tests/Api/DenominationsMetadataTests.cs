@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
+using Appostolic.Api.AuthTests; // real auth flow helper
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -24,7 +25,8 @@ public class DenominationsMetadataTests : IClassFixture<WebAppFactory>
     private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
+        // Migration Phase A: real login + select tenant
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 

@@ -398,6 +398,24 @@
   - apps/api.tests/Auth/MagicConsumeRolesSerializationTests.cs — new test asserting magic consume flow yields numeric roles bitmask.
 - Quality gates
   - Targeted auth serialization tests PASS locally (post-change) and no regressions observed in other auth tests.
+
+  2025-09-22 — Auth/JWT: RDH Story 2 Phase A Final Non‑Guard UseTenantAsync Migrations — ✅ DONE
+  - Summary
+    - Completed migration of the final six non‑guard legacy auth usages (`AuthTestClient.UseTenantAsync`) to the real password + `/api/auth/login` + `/api/auth/select-tenant` flow via `AuthTestClientFlow.LoginAndSelectTenantAsync`. Updated: `AgentTasksEndpointsTests`, `NotificationsProdEndpointsTests` (tenant-owner paths only; superadmin path intentionally still uses `UseSuperAdminAsync` mint helper), `TenantSettingsEndpointsTests`, `ToolCatalogTests`, `DevGrantRolesEndpointTests`, and `DenominationsMetadataTests`. Re-ran targeted suites (20 tests) all PASS. Guard test now reports only itself as a remaining `UseTenantAsync` occurrence (warnings mode) confirming full Phase A deprecation of mint helper for tenant-scoped scenarios. Superadmin elevation remains an accepted temporary mint helper exception pending a future story introducing a password/elevation path. No production code changes required; purely test refactors.
+  - Files changed
+    - apps/api.tests/Api/AgentTasksEndpointsTests.cs — replaced tenant client helper with flow call; removed legacy comment.
+    - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — migrated tenant-owner scenarios; retained `UseSuperAdminAsync` with comment.
+    - apps/api.tests/Api/TenantSettingsEndpointsTests.cs — swapped client factory to flow helper.
+    - apps/api.tests/Api/ToolCatalogTests.cs — migrated auth setup to flow helper.
+    - apps/api.tests/Api/DevGrantRolesEndpointTests.cs — replaced `UseTenantAsync` with flow helper and added documentation comment.
+    - apps/api.tests/Api/DenominationsMetadataTests.cs — migrated to flow helper; removed legacy RDH comment.
+  - Quality gates
+    - Targeted run: 20/20 PASS post-migration. Guard test run: 1/1 PASS (warns only; lists itself). Build green; only pre-existing ImageSharp vulnerability warnings. No new analyzer warnings introduced.
+  - Rationale
+    - Eliminates dependency on test-only mint helper ensuring integration tests now exercise password verification, refresh issuance, and tenant token selection—critical before removing dev headers and mint infrastructure in later RDH phases. Confirms guard can be flipped to fail mode after superadmin replacement lands.
+  - Follow-ups
+    - Introduce superadmin real elevation path or temporary allowlist before converting guard to failure. Consolidate duplicated password seeding logic across tests (post Phase A cleanup). Update `SnapshotArchitecture.md` and `LivingChecklist` in upcoming RDH phase completion commit when guard enforcement changes.
+
 - Rationale
   - Ensures frontend flags-only gating receives a stable numeric representation; avoids brittle parsing of enum flag name strings and prevents privilege downgrades masked by legacy fallbacks.
 - Follow-ups
