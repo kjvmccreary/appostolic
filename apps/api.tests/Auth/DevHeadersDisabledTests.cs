@@ -43,7 +43,6 @@ public class DevHeadersDisabledTests
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = new User { Id = Guid.NewGuid(), Email = "jwt-user@example.com", CreatedAt = DateTime.UtcNow };
-            db.Users.Add(user);
             // Minimal membership so login selects tenant
             var tenant = new Tenant { Id = Guid.NewGuid(), Name = "jwt-tenant", CreatedAt = DateTime.UtcNow };
             var membership = new Membership
@@ -55,23 +54,17 @@ public class DevHeadersDisabledTests
                 Status = MembershipStatus.Active,
                 CreatedAt = DateTime.UtcNow
             };
-            db.AddRange(tenant, membership);
+            db.AddRange(user, tenant, membership);
+            // Add password hash for real login flow
+            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var (hash, salt, _) = hasher.HashPassword("Password123!");
+            var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+            db.Entry(user).CurrentValues.SetValues(updated);
             db.SaveChanges();
         }
-
-        // Since there is no password hashing path already invoked here (passwordless), we simulate a neutral token issuance via test helper endpoint if available.
-        // If a real password login endpoint requires a password we would seed hash; for brevity we call the test helper if present.
-        var helperResponse = await client.PostAsJsonAsync("/dev/test/mint-neutral", new { email = "jwt-user@example.com" });
-        helperResponse.EnsureSuccessStatusCode();
-        var tokenPayload = await helperResponse.Content.ReadFromJsonAsync<Dictionary<string,object?>>();
-        Assert.NotNull(tokenPayload);
-        Assert.True(tokenPayload!.ContainsKey("access"));
-        var access = tokenPayload["access"]?.ToString();
-        Assert.False(string.IsNullOrWhiteSpace(access));
-
-        var authed = new HttpRequestMessage(HttpMethod.Get, "/auth-smoke/ping");
-        authed.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", access);
-        var ping = await client.SendAsync(authed);
+        // Act: perform real login + select-tenant flow (ensures password verification and refresh rotation path alive)
+        var (_, tenantAccess, _) = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(factory, client, "jwt-user@example.com", "jwt-tenant");
+        var ping = await client.GetAsync("/auth-smoke/ping");
         Assert.Equal(System.Net.HttpStatusCode.OK, ping.StatusCode);
     }
 }

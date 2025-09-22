@@ -118,6 +118,22 @@
 
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A Kickoff (DevHeadersDisabledTests Migration) — 🚧 IN PROGRESS
+
+- Summary
+  - Initiated Dev Header Decommission (RDH) Story 2 Phase A by migrating the positive (success) path of `DevHeadersDisabledTests` from mint/dev header shortcuts to real auth flows using `AuthTestClientFlow.LoginAndSelectTenantAsync` (exercising `/api/auth/login` and `/api/auth/select-tenant`). Negative test asserting disabled dev headers remains to preserve coverage until deprecation middleware lands. Targeted run (2 tests) passes with fully JWT-based setup, establishing baseline pattern for subsequent auth suite migrations.
+  - Files changed
+    - apps/api.tests/Auth/DevHeadersDisabledTests.cs — replaced mint neutral shortcut with password seeding + flow helper call.
+    - devInfo/jwtRefactor/rdhSprintPlan.md — Story 2 Phase A checkbox annotated; progress log entry added.
+  - Quality gates
+    - Targeted test run PASS (2/2). No other suites affected yet. Build warnings unchanged (ImageSharp advisory noted pre-existing).
+  - Rationale
+    - Demonstrates end-to-end password + refresh rotation path in previously shortcut test, validating helper ergonomics and ensuring future migrations can follow the same pattern. Maintains deliberate negative coverage for dev header rejection path pending later removal phases.
+  - Follow-ups
+    - Continue Phase A migrating remaining auth flow tests (login, refresh, logout, select-tenant variants).
+    - Introduce guard to fail on unintended `x-dev-user` usage once auth suite fully migrated.
+    - Proceed to Phase B (domain/feature test migrations) after core auth parity achieved.
+
 2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin & Notifications Tests Migration — 🚧 IN PROGRESS
 
 - Summary

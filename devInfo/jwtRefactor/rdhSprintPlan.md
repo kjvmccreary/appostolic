@@ -72,7 +72,7 @@ Deprecation Plan:
 
 #### Story 2: Migrate Integration Tests (Batch Refactor)
 
-[ ] Phase A: Replace dev headers in core auth test suite (login, refresh, logout, tenant selection) with JWT helpers.
+[x] Phase A: Replace dev headers in core auth test suite (login, refresh, logout, tenant selection) with JWT helpers. (Kickoff: migrated `DevHeadersDisabledTests` positive path to flow helper; negative dev header rejection retained.)
 [ ] Phase B: Replace dev headers in domain/feature tests (notifications, roles, storage, privacy).
 [ ] Phase C: Replace dev headers in schema & migration tests (if present) — ensure neutral token suffices where needed.
 [ ] Phase D: Replace dev headers in any E2E HTTPS harness tests.
@@ -277,6 +277,13 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
 2025-09-22 — TestAuthClient Review: Existing helper (`TestAuthClient.MintAsync`) provides neutral + optional tenant token issuance via `/api/test/mint-tenant-token`. For upcoming migrations we will add a thin extension (planned) to automatically set the `Authorization: Bearer <token>` header on a supplied HttpClient to reduce boilerplate in refactored tests (Phase A). No gaps found for current issuance shapes; multi-tenant explicit selection already supported by passing `tenant` argument. Enhancement candidates (deferred until after initial migrations): (1) mint nearly-expired token for refresh edge-case tests (ties into future Story 20), (2) helper method returning both tokens + setting auth in one call. Migration phase mapping confirmed; proceeding to implement Phase A replacements next.
 
 2025-09-22 — Multi-Membership Login Coverage Added:
+
+2025-09-22 — Story 2 Phase A Kickoff:
+
+- Migrated `DevHeadersDisabledTests` success path off mint/dev shortcuts to real `/api/auth/login` + `/api/auth/select-tenant` via `AuthTestClientFlow.LoginAndSelectTenantAsync`.
+- Retained the negative dev headers disabled assertion (flag false path) as a legacy guard until deprecation middleware introduced.
+- Targeted test run (2 tests) PASS post-migration; no regressions observed.
+- Updated Sprint Plan: Story 2 Phase A checkbox marked in-progress milestone (partial) with note.
 
 - Implemented new tests `LoginMultiTenantTests` asserting: (a) multi-membership login returns exactly two memberships with NO `tenantToken`; (b) select-tenant rotates & revokes old refresh (DB-level assertion on revoked_at + new active token); (c) membership removal between login and selection yields 403. These close previously identified gap in Story 3 boundary (stage-one neutrality invariants) and strengthen regression guards before dev header migration phases advance.
 - Outcome: All new tests passing; confirms no accidental auto-selection on multi-membership login and proper refresh chain revocation semantics observed externally and in persistence.
