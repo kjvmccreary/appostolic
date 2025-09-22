@@ -136,6 +136,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
 - Frontend: Added `authClient.ts` for neutral access token kept only in memory (not persisted). `primeNeutralAccess` primes token post credential & magic login flows. `getAccessToken` (scaffold) will attempt refresh once available.
 - Fetch wrapper `withAuthFetch` injects `Authorization: Bearer <access>` and sets `credentials: 'include'` so the refresh cookie accompanies requests when future refresh endpoint lands.
 - Temporary internal Next.js route `/api/_auth/refresh-neutral` is a placeholder (explicit comments) and will be replaced by real `/api/auth/refresh` (Story 6). It is intentionally not part of standard user flows to avoid accidental production reliance.
+- (Removed) Earlier temporary internal Next.js route `/api/_auth/refresh-neutral` (placeholder prior to `/api/auth/refresh`) has been fully removed (Story 8). All clients now rely on `/api/auth/refresh` + silent refresh loop; rollback guidance lives in `docs/auth-upgrade.md`.
 - Security improvement: Moves refresh token out of JSON/localStorage and into httpOnly cookie (defense against XSS exfiltration). Access token remains short‑lived and ephemeral in JS memory only.
 - Backwards compatibility: Current auth JSON still includes `refresh.token` for clients while flag incubation proceeds; removal planned post refresh endpoint rollout (grace window with dual support).
 - Follow-ups (next stories):
@@ -260,6 +261,21 @@ The solution now uses a tiered testing strategy:
 4. Workers (notifications, rendering) — current coverage via targeted unit/integration tests; future E2E pipeline tests planned post refresh/auth hardening.
 
 Rationale: Separating the HTTPS cookie attribute validation into its own minimal layer keeps the primary integration suite fast/stable while still achieving true Secure flag verification under a real TLS handshake.
+
+## Auth Flow (Final JWT Rollout Summary)
+
+The finalized JWT authentication architecture (Stories 1–9 complete; Story 10 docs) is represented in `docs/diagrams/auth-flow.mmd` (Mermaid). Key characteristics:
+
+- Neutral access token (short‑lived) + persisted hashed refresh token issued at login/magic consume.
+- Secure httpOnly cookie `rt` (SameSite=Lax; Secure over HTTPS) transports refresh token; plaintext emission suppressed by default (`AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false`).
+- Rotation pattern: refresh endpoint and tenant selection revoke old refresh before issuing new (single active chain); reuse yields 401 `refresh_reuse`.
+- TokenVersion claim `v` enables instant global revocation (logout-all/password change) without blacklist.
+- Silent refresh loop (frontend) calls `/api/auth/refresh` ~60s before expiry, retry-once on 401, updating in-memory access token only.
+- Logout endpoints: single (revokes one refresh) and all (revokes all + TokenVersion++).
+- Observability: OpenTelemetry Meter `Appostolic.Auth` counters + histograms (see metrics taxonomy in upgrade guide Section 7).
+- Transitional flags & phases documented in `docs/auth-upgrade.md` (Section 3 & 4) governing body path deprecation & plaintext suppression.
+
+Forward Work (not in this sprint): Dev Header Decommission (RDH) will physically remove `AUTH__ALLOW_DEV_HEADERS` and composite scheme; multi-key signing & session enumeration will follow post‑1.0.
 
 - Web Tooling — Vitest Node 20 requirement (2025-09-16)
   - Added explicit guidance in `apps/web/AGENTS.md` to always run Vitest and Next dev tasks under Node 20.x LTS. Running under Node 19 triggered a Corepack failure (`TypeError: URL.canParse is not a function`) before tests executed. CI and local docs now mandate Node 20 to avoid the crash; sample `nvm`/PATH override commands documented.

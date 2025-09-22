@@ -660,13 +660,13 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 5b) Cross-site SameSite=None scenario investigation (deferred).
 - (Story 5b) CSRF token double-submit validation (complements future refresh endpoint and SameSite=None changes).
 
-## Story 10: Documentation & Upgrade Guide — 🚧 IN PROGRESS (Planned)
+## Story 10: Documentation & Upgrade Guide — ✅ DONE (2025-09-22)
 
 Goal: Formalize the JWT auth rollout for internal and external developers: how to enable, migrate, and roll back; clarify transitional flag behaviors; capture final architecture diagram for refresh/access flows, and provide operational guidance (key rotation, deprecation phases, observability usage).
 
-Acceptance Checklist:
+Acceptance Checklist (all completed):
 
-[ ] Upgrade Guide section (add to `RUNBOOK.md` or new `docs/auth-upgrade.md`):
+[x] Upgrade Guide section (new `docs/auth-upgrade.md`):
 
 - Generating a secure signing key (Base64 256-bit) & environment variable placement.
 - Enabling cookie-based refresh (`AUTH__REFRESH_COOKIE_ENABLED`), optional silent refresh timeline.
@@ -674,16 +674,16 @@ Acceptance Checklist:
 - Rollback procedure: re-enable dev headers, reset grace flags, purge refresh tokens if compromise.
 - Key rotation: manual procedure (create new key, brief dual validation note deferred until multi-key support) + risk mitigation (short access TTL).
 - Refresh reuse / expired troubleshooting (how to interpret error codes).
-  [ ] SnapshotArchitecture updates:
+  [x] SnapshotArchitecture updates:
 - Final simplified auth flow diagram (Login → Neutral Access + Refresh Cookie; Select Tenant; Refresh rotation; Logout/All).
 - Removal of placeholder internal refresh route references; explicit note about dev header decommission next sprint (link to RDH plan).
-  [ ] LivingChecklist: add & tick “JWT Story 10 – Documentation & Upgrade Guide”.
-  [ ] storyLog: entry summarizing completion with key doc artifact references.
-  [ ] Add `docs/` (or subfolder) diagram asset if not embedded inline (e.g., `docs/diagrams/auth-flow.v1.drawio` + exported PNG/SVG).
-  [ ] Document metric taxonomy usage (link to appendix) and how to interpret `auth.refresh.reuse_denied` vs `auth.refresh.expired` for support.
-  [ ] Add short “Writing Authenticated Tests” paragraph pointing to `TestAuthClient` and discouraging multi-step flows except when under test.
-  [ ] Clarify cookie security: HttpOnly, SameSite=Lax rationale; when to consider SameSite=None + CSRF token (future story reference).
-  [ ] Add forward reference to RDH sprint: dev header removal sequencing & why not removed within JWT sprint.
+  [x] LivingChecklist: add & tick “JWT Story 10 – Documentation & Upgrade Guide”.
+  [x] storyLog: entry summarizing completion with key doc artifact references.
+  [x] Add `docs/diagrams/auth-flow.mmd` (Mermaid) diagram asset + referenced in SnapshotArchitecture & guide.
+  [x] Document metric taxonomy usage and interpretation of `auth.refresh.reuse_denied` vs `auth.refresh.expired` for support.
+  [x] Add “Writing Authenticated Tests” paragraph (TestAuthClient) in upgrade guide.
+  [x] Clarify cookie security rationale & forward CSRF considerations.
+  [x] Forward reference to RDH sprint (dev header removal) and rationale for deferred deletion.
 
 Non-Goals:
 
@@ -695,7 +695,9 @@ Risks / Mitigation:
 - Risk: Docs drift as RDH removes flags → Mitigate by explicitly calling which parts remain temporary and referencing removal plan.
 - Risk: Overly prescriptive key rotation before multi-key → Keep section labeled “Interim rotation approach”.
 
-Definition of Done: All acceptance items checked; commit(s) include doc changes; storyLog entry appended; no TODO placeholders left in the added sections.
+Completion Summary (2025-09-22): Auth upgrade guide (`docs/auth-upgrade.md`) created detailing key generation, transitional flags/phases, rollout/rollback, interim key rotation, error codes, metrics taxonomy, security rationale, and support troubleshooting. Added Mermaid auth flow diagram (`docs/diagrams/auth-flow.mmd`) and new Auth Flow section in `SnapshotArchitecture.md` replacing prior placeholder description. Removed obsolete placeholder route reference, cross-linked RDH decommission plan for dev headers. Updated `LivingChecklist.md` (Story 10 ticked) and appended storyLog entry. All acceptance items fulfilled; no remaining TODO placeholders. Story 11 cleanup now proceeds (dev header removal explicitly deferred to RDH sprint).
+
+Definition of Done: All acceptance items checked; doc artifacts present; sprint plan & logs updated; no unchecked internal boxes.
 
 ## Story 11: Cleanup & Legacy Removal — (Pending)
 

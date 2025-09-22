@@ -1047,6 +1047,24 @@
   - Provides unified refresh surface for silent token renewal, enabling eventual removal of plaintext refresh token from JSON and tighter XSS resilience (cookie httpOnly). Transaction removal ensures deterministic behavior across test & production providers.
 - Follow-ups
   - Frontend: implement silent refresh loop, remove placeholder `_auth/refresh-neutral` route, and begin telemetry counters (issuance, rotation, reuse, failures) in Story 9.
+
+  2025-09-22 — Auth/JWT: Story 10 Documentation & Upgrade Guide — ✅ DONE
+  - Summary
+    - Auth upgrade & operations documentation completed. Introduced `docs/auth-upgrade.md` covering: secure signing key generation, interim manual key rotation, transitional flag matrix & phased rollout (cookie adoption → deprecation headers → body disable), rollback playbook, error code reference, metrics & observability taxonomy, high‑level architecture flow, authenticated test guidance (`TestAuthClient`), security rationale, and forward-looking RDH sprint + post‑1.0 enhancements. Added Mermaid diagram `docs/diagrams/auth-flow.mmd`; `SnapshotArchitecture.md` updated with consolidated Auth Flow section and removal of obsolete placeholder `_auth/refresh-neutral` reference. `LivingChecklist.md` updated (Story 10 ticked). Sprint plan `jwtSprintPlan.md` marks Story 10 DONE with completion summary. Sets stage for Story 11 cleanup (scoped) and subsequent Dev Header Decommission (RDH).
+  - Files changed
+    - docs/auth-upgrade.md (new) — full upgrade & ops guide.
+    - docs/diagrams/auth-flow.mmd (new) — Mermaid diagram.
+    - SnapshotArchitecture.md — Auth Flow section added; placeholder route reference updated.
+    - devInfo/LivingChecklist.md — Story 10 entry added & ticked; last updated banner.
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 10 marked DONE with completion summary.
+    - devInfo/storyLog.md — this entry appended.
+  - Quality gates
+    - Documentation only changes; no code paths altered. Existing tests remain green (no build impact expected). Mermaid diagram syntactically valid (visual export optional).
+  - Rationale
+    - Provides authoritative, centralized operational guidance and reduces knowledge silo risk before beginning code cleanup (Story 11) and dev header removal sprint (RDH). Establishes safe rollback levers and observability signals for support.
+  - Follow-ups
+    - Execute Story 11 cleanup (excluding dev header removal per constraints) then commence RDH sprint (test migration → deprecation middleware → removal + regression guard).
+
   - Post grace: disable body path (`AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and drop plaintext `refresh.token` from responses when cookie enabled.
   - Add observability (metrics/log enrichment) and potential CSRF strategy evaluation if cookie SameSite changes.
 

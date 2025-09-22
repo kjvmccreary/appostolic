@@ -1,0 +1,42 @@
+%% Auth Flow Diagram (Mermaid)
+%% Source of truth for login / selection / refresh / logout flows
+%% Export to SVG/PNG for inclusion in docs if desired.
+
+flowchart TD
+  A[Login or Magic Consume] -->|Issue| B[Neutral Access Token]
+  A -->|Issue & Persist (hashed)| C[Refresh Token Row]
+  A -->|Set-Cookie rt| D[Browser httpOnly Cookie]
+
+  B --> E{Tenant Selected?}
+  E -- No --> F[Use Neutral Access]
+  E -- Yes (select-tenant endpoint) --> G[Rotate Refresh]
+  G -->|Revoke Old| C1[(Old Refresh Revoked)]
+  G -->|Insert New| C2[(New Refresh Row)]
+  G -->|Overwrite rt Cookie| D
+  G --> H[Tenant Access Token]
+
+  subgraph Frontend Silent Timer
+    S[Schedule before exp] --> R[Call /api/auth/refresh]
+  end
+  D --> R
+  R -->|Rotate| C3[(Next Refresh Row)]
+  R -->|New Neutral Access| B
+  R -->|Optional Tenant Token| H
+
+  H --> I[Authorized Tenant Actions]
+  F --> I
+
+  I --> J{User Logout?}
+  J -- Single --> L[Revoke Current Refresh + Clear Cookie]
+  J -- All --> M[Revoke All Refreshes + TokenVersion++]
+
+  M --> N[Old Access Tokens Invalid]
+  L --> O[Session Ends]
+  N --> O
+
+  classDef cookie fill=#f6e9d7,stroke=#c77,font-size=12px
+  class D cookie
+  classDef refresh fill=#e2f0ff,stroke=#339
+  class C,C1,C2,C3 refresh
+  classDef access fill=#e5ffe2,stroke=#393
+  class B,H access
