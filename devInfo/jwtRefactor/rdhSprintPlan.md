@@ -1,6 +1,6 @@
 ## Sprint Plan: Dev Header Decommission ("Remove Dev Headers" / RDH)
 
-> Objective: Eliminate all reliance on development headers (`x-dev-user`, `x-tenant`) across runtime code, tests, tooling, and documentation so every authenticated path (local, test, CI, staging, production) exercises the **same** JWT-based flows.
+> Objective: Eliminate all reliance on development headers (`x-dev-user`, `x-tenant`) across runtime code, tests, tooling, and documentation so every authenticated path (local, test, CI, staging, production) exercises the **same** JWT-based flows. (Story 1 now IN PROGRESS.)
 
 ### Vision / Goal
 
@@ -30,7 +30,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 - Target: Single auth pipeline: HttpContext principal always built from JWT; any header shortcuts rejected early.
 - Supporting changes: Robust test token mint helper + seeded data utilities remove original rationale for dev headers.
 
-### Story Breakdown
+### Story Breakdown (Updated 2025-09-21 — Story 1 IN PROGRESS)
 
 #### Story 0: Inventory & Baseline Metrics (Optional but Recommended)
 
@@ -39,7 +39,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [ ] Add a temporary counter/metric (`auth.dev_headers.requests`) in existing code path (if still active) for a short measurement window.
 [ ] Document inventory snapshot in this plan (append section) for audit trail.
 
-#### Story 1: Test Token Helper Consolidation
+#### Story 1: Test Token Helper Consolidation — 🚧 IN PROGRESS
 
 [ ] Introduce / confirm presence of `TestTokenIssuer` (internal) exposing: `IssueNeutralAsync(userSeedSpec)`, `IssueTenantAsync(userSeedSpec, tenantSlug)`.
 [ ] Provide `AuthTestClient` facade used by tests (wraps creation + Authorization header injection).
@@ -181,3 +181,5 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 Append implementation notes & progress directly below this line during execution (each story adds a dated sub-section referencing checkbox updates):
 
 > Progress Log (will be appended in-place as stories complete)
+
+2025-09-21 — Story 1 Kickoff: Inventory & helper validation starting. Added IN PROGRESS marker. Next: grep for `x-dev-user` usage & confirm `TestAuthClient` covers issuance paths.
