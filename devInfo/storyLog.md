@@ -183,6 +183,20 @@
 - Follow-ups
   - Next: migrate `MembersManagementTests` then invites/audit suites; introduce a guard to fail CI if `UseTenantAsync` remains after Phase A; subsequently plan mint helper removal and dev header physical decommission.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A MembersManagementTests Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated `MembersManagementTests` off legacy mint helper path (`ClientAsync` / `AuthTestClient.UseTenantAsync`) to real password + JWT flows via `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added per-class `SeedPasswordAsync` (using `IPasswordHasher`) seeding the default password (`Password123!`) for involved users before invoking `/api/auth/login` then `/api/auth/select-tenant`. Replaced all helper calls with explicit flow sequence while retaining existing membership utilities (`EnsureAdminMembershipAsync`, `GetRoles`) and preserving test intent (role flag updates, last-admin prevention, member removal, forbidden viewer mutations). Targeted run: 5 tests PASS post-migration (0 failed / 5 passed) with expected status codes (200/204 for allowed operations, 403 for unauthorized role changes, 409 for last-admin protection) confirming production auth semantics fully exercised.
+- Files changed
+  - apps/api.tests/Api/MembersManagementTests.cs — removed `ClientAsync` implementation & usages; added `DefaultPw`, `SeedPasswordAsync`; updated each test to seed password then call `LoginAndSelectTenantAsync` for acting user.
+  - devInfo/jwtRefactor/rdhSprintPlan.md — appended progress log entry documenting successful migration & follow-ups.
+- Quality gates
+  - Targeted suite green (5/5). No regressions observed in previously migrated suites (spot verified MembersList & Assignments remain green). Build unchanged; no new warnings introduced.
+- Rationale
+  - Eliminates another cluster of mint helper dependencies in high-importance membership mutation paths, ensuring authorization & last-admin guard behavior are validated under real JWT issuance rather than elevated shortcuts—critical before removing dev header and mint infrastructure.
+- Follow-ups
+  - Migrate invite and audit-related test suites next; then introduce a guard to prohibit residual `UseTenantAsync` usage. Consider centralizing duplicated password seeding logic into a shared test utility after broad Phase A coverage.
+
 - Files changed
   - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
   - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.

@@ -299,3 +299,13 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
 - Implemented new tests `LoginMultiTenantTests` asserting: (a) multi-membership login returns exactly two memberships with NO `tenantToken`; (b) select-tenant rotates & revokes old refresh (DB-level assertion on revoked_at + new active token); (c) membership removal between login and selection yields 403. These close previously identified gap in Story 3 boundary (stage-one neutrality invariants) and strengthen regression guards before dev header migration phases advance.
 - Outcome: All new tests passing; confirms no accidental auto-selection on multi-membership login and proper refresh chain revocation semantics observed externally and in persistence.
 - Next Focus: Begin Story 2 Phase A test migrations replacing remaining dev header usages in core auth & user profile tests with token helper issuance. Will add thin `AuthTestClient.UseTenantAsync` convenience to reduce duplication while removing header-based shortcuts.
+
+2025-09-22 — Story 2 Phase A: MembersManagementTests Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `MembersManagementTests` from legacy mint helper (`ClientAsync` wrapping `AuthTestClient.UseTenantAsync`) to real auth flows using `AuthTestClientFlow.LoginAndSelectTenantAsync` with explicit password seeding via new per-class `SeedPasswordAsync` helper (default `Password123!`). Replaced all occurrences of the legacy helper with the canonical Phase A pattern (seed → login → select tenant) while preserving existing utilities (`EnsureAdminMembershipAsync`, `GetRoles`). The suite exercises role flag mutations, last-admin protection, and member removal semantics now entirely through production authentication pathways.
+  - Targeted run post-migration: 5 tests PASS (0 failed / 5 passed) validating expected 200 / 204 / 403 / 409 outcomes (including last-admin safeguard) under JWT-only auth. Confirms that membership & role mutation logic does not rely on legacy elevation semantics previously implicit in mint helper usage.
+- Rationale
+  - Extends Phase A coverage across core membership mutation scenarios, further reducing reliance on mint helper abstractions and ensuring production role enforcement is continuously validated as dev header decommission progresses.
+- Follow-ups
+  - Proceed to migrate invite-related and audit trail suites; after majority completed, introduce guard (grep or reflective assertion) to fail if `UseTenantAsync` persists. Plan consolidation of duplicated `SeedPasswordAsync` helpers into a shared test utility once broader migration stabilizes.
