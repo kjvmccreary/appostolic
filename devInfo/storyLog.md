@@ -291,6 +291,28 @@
 - Follow-ups
   - Re-run guard test (expect 11 remaining). Proceed to Invites suite migrations next. Consider extracting shared `SeedPasswordAsync` into a base utility after a few more migrations to reduce duplication.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A Invites Suite Migration & Invite Delete Claim Fallback — ✅ PARTIAL
+
+- Summary
+  - Migrated all four invites-related integration test classes off the legacy mint helper (`AuthTestClient.UseTenantAsync`) to exercise the real password + `/api/auth/login` + `/api/auth/select-tenant` flow: `InvitesEndpointsTests`, `InvitesAcceptTests`, `InvitesRolesFlagsTests`, and `LegacyRoleWritePathDeprecationTests`. Each class now seeds the default password (`Password123!`) via a local `SeedPasswordAsync` helper (using `IPasswordHasher`) before authenticating through the flow helper `AuthTestClientFlow.LoginAndSelectTenantAsync` (owner paths) or `LoginNeutralAsync` (invitee acceptance paths). During migration the full lifecycle test began failing on the final revoke (`DELETE /api/tenants/{id}/invites/{inviteId}` returning 400). Root cause: the DELETE invite endpoint extracted only the raw `sub` claim while the rest of the invite endpoints (e.g., listing) and the broader auth pipeline tolerate either `sub` or the mapped `ClaimTypes.NameIdentifier` (inbound claim type mapping can rename `sub`). Tokens issued via the real flow surfaced the user id under the fallback key, so DELETE could not parse the caller id, returning a BadRequest. Patched the DELETE invite endpoint to mirror the established fallback logic (`user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier)`). After patch the lifecycle test passes (204 on revoke) and all migrated invites tests are green under pure JWT paths.
+- Files changed
+  - apps/api.tests/Api/InvitesEndpointsTests.cs — removed legacy client factory; added `DefaultPw`, `SeedPasswordAsync`, replaced auth setup with real login + tenant selection; lifecycle test retains a (now redundant) re-auth step (will remove in cleanup) before revoke.
+  - apps/api.tests/Api/InvitesAcceptTests.cs — migrated owner + invitee paths to real flow; invitee uses neutral login after password seed instead of mint helper; removed `UseTenantAsync` usage.
+  - apps/api.tests/Api/InvitesRolesFlagsTests.cs — migrated; invite acceptance now uses neutral login path for invitee; removed diagnostic token comments.
+  - apps/api.tests/Api/LegacyRoleWritePathDeprecationTests.cs — migrated legacy role regression tests to real flow ensuring deprecation behavior validated under production auth.
+  - apps/api/App/Endpoints/V1.cs — DELETE invite endpoint user id extraction updated to use `sub` OR `ClaimTypes.NameIdentifier` fallback (parity with listing endpoint) preventing false 400 after auth migration.
+- Quality gates
+  - Targeted invites test run pre-fix: 1 failure / 7 pass (DELETE 400). Post endpoint patch: all invites tests pass (8/8 and subsequent 7/7 targeted run). Guard test now reports 7 remaining `UseTenantAsync` usages (down by 4) across: AgentTasks, Notifications (already migrated by mint but still calling mint?), TenantSettings, ToolCatalog, DevGrantRoles, DenominationsMetadata, and the guard test itself.
+  - Build succeeded with only pre-existing ImageSharp vulnerability warnings; no new warnings introduced by patch.
+- Rationale
+  - Ensures invites suite fully validates production authentication flow (password hash verification, refresh issuance, tenant token selection, role flags) rather than shortcut mints, eliminating a hidden dependency that masked claim extraction divergence in DELETE revoke path. Aligns all invite endpoints on consistent claim extraction fallback reducing future regressions when inbound claim mappings change.
+- Follow-ups
+  - Remove redundant re-auth step in lifecycle test once broader cleanup pass occurs.
+  - Migrate remaining 6 non-guard `UseTenantAsync` usages (TenantSettings, ToolCatalog, DenominationsMetadata, DevGrantRolesEndpoint, AgentTasksEndpoints, NotificationsProd endpoints if any residual) then flip guard from warning to failing.
+  - Consolidate duplicated `SeedPasswordAsync` helpers into a shared test utility (post-migration batch) to reduce boilerplate.
+  - Document claim fallback parity note in `SnapshotArchitecture.md` (added) and ensure future auth endpoint additions adopt same pattern.
+  - After final migration, schedule mint helper + dev header decommission phases (update sprint plan & LivingChecklist).
+
   - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
 
 - Files changed

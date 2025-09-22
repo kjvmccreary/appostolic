@@ -1,4 +1,4 @@
-# Appostolic — Architecture Snapshot (2025-09-21)
+# Appostolic — Architecture Snapshot (2025-09-22)
 
 This document describes the structure, runtime, and conventions of the Appostolic monorepo. It’s organized to group related topics together for easier navigation and future updates.
 
@@ -8,6 +8,7 @@ This document describes the structure, runtime, and conventions of the Appostoli
   - Auth/JWT — Dev Header Decommission Sprint (Phase A) In Progress (2025-09-22)
     - Added superadmin claim support to test-only mint endpoint (`POST /api/test/mint-tenant-token`) via `SuperAdmin` flag injecting `superadmin=true` into issued access tokens (neutral or tenant). Updated `TestAuthClient` and `AuthTestClient` helpers; migrated notifications production endpoints integration tests off development headers to pure Bearer JWT authentication (4/4 tests passing). Residual explicit `Dev` scheme references removed from those paths. Next phases will migrate remaining tests, add a guard prohibiting `x-dev-user`/`x-tenant` usage, and finally remove the Dev header authentication handler + composite scheme.
     - RDH Story 2 Phase A: Migrated `UserProfileEndpointsTests` off legacy `AuthTestClient.UseTenantAsync` mint helper to real password + `/api/auth/login` + `/api/auth/select-tenant` flow (password seeded via `IPasswordHasher`). Guard test now reports reduced remaining usages; next target `UserAvatarEndpointsTests`.
+    - RDH Story 2 Phase A: Migrated invites test suite (`InvitesEndpointsTests`, `InvitesAcceptTests`, `InvitesRolesFlagsTests`, `LegacyRoleWritePathDeprecationTests`) off legacy mint helper to real auth flow; fixed DELETE invite endpoint to fall back to `ClaimTypes.NameIdentifier` when `sub` is absent (parity with listing endpoint) resolving 400 revoke regression under migrated tokens.
   - Auth/JWT — RDH Sprint Plan Initialized (2025-09-22)
     - Added `devInfo/jwtRefactor/rdhSprintPlan.md` outlining the Dev Header Decommission sprint (RDH). Objective: fully remove development header authentication (`x-dev-user`, `x-tenant`) and associated composite scheme in favor of a single JWT-based auth path across all environments and tests. Plan includes phased test migration, deprecation middleware, physical removal, regression guard, and rollback tag strategy. See plan file for detailed stories, risks, and acceptance criteria.
   - IAM — Roles assignment endpoint duplication fix (2025-09-21)
