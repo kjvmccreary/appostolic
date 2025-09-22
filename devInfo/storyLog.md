@@ -168,6 +168,21 @@
 
 - Summary
   - Implemented secure httpOnly refresh cookie delivery behind feature flag `AUTH__REFRESH_COOKIE_ENABLED` on `/api/auth/login`, `/api/auth/magic/consume`, and `/api/auth/select-tenant`. Cookie name `rt`; attributes: HttpOnly; SameSite=Lax; Path=/; Secure except in Development. Rotation logic in tenant selection endpoint revokes old neutral refresh token and overwrites cookie with the new one. Added frontend in-memory neutral access token client (`authClient.ts`) so access tokens are never persisted (reduces XSS exfiltration risk). Added `withAuthFetch` wrapper to inject `Authorization: Bearer <access>` and always include credentials for future refresh requests. Created placeholder internal route `/api/_auth/refresh-neutral` (clearly documented) to scaffold upcoming general refresh flow (Story 6). Tests `RefreshCookieTests` verify issuance and rotation (case-insensitive cookie attribute match). Architecture docs and LivingChecklist updated; story flagged complete.
+    2025-09-22 — Auth/JWT: RDH Story 2 Phase A MembersList & Assignments Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated `MembersListTests` and `AssignmentsApiTests` off the legacy mint helper (`AuthTestClient.UseTenantAsync`) to real authentication flows using `AuthTestClientFlow.LoginAndSelectTenantAsync`. Introduced per-class `SeedPasswordAsync` helper (uses `IPasswordHasher`) to set the default password (`Password123!`) before invoking the login endpoint, ensuring tests exercise actual password verification, refresh issuance, and tenant selection. Removed prior `ClientAsync` abstraction and explicit `forceAllRoles` elevation semantics—role enforcement now derives solely from seeded memberships (Owner vs Roles.None/Learner). Post-migration targeted runs: MembersList (3/3 PASS), Assignments (5/5 PASS) validating expected 200/403/401 outcomes under production JWT paths.
+- Files changed
+  - `apps/api.tests/Api/MembersListTests.cs` — replaced mint flow with password seeding + flow login/select; added comments documenting Phase A pattern.
+  - `apps/api.tests/Api/AssignmentsApiTests.cs` — same migration pattern; added password seeding; updated role modification tests to rely on real tokens.
+  - `devInfo/jwtRefactor/rdhSprintPlan.md` — progress log entry appended noting partial completion of Phase A.
+- Quality gates
+  - Both migrated suites green; no regressions observed in role enforcement (owner vs non-admin) or membership mutation side-effects. Build unchanged aside from existing advisory warnings (ImageSharp vulnerability pre-existing).
+- Rationale
+  - Incrementally shrinks dependency on test-only mint helper ensuring future removal (and dev header decommission) does not create gaps in membership/role coverage. Validates flow helper ergonomics before tackling larger suites (invites, audit, avatar uploads).
+- Follow-ups
+  - Next: migrate `MembersManagementTests` then invites/audit suites; introduce a guard to fail CI if `UseTenantAsync` remains after Phase A; subsequently plan mint helper removal and dev header physical decommission.
+
 - Files changed
   - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
   - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.

@@ -10,20 +10,32 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public AssignmentsApiTests(WebAppFactory factory) => _factory = factory;
+    // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth endpoints.
+    // Pattern (mirrors MembersListTests):
+    //   1. Seed a known password (matches AuthTestClientFlow.DefaultPassword)
+    //   2. POST /api/auth/login to obtain neutral access token
+    //   3. POST /api/auth/select-tenant for tenant-scoped access token
+    // This ensures these role/membership tests exercise production-equivalent authentication.
+    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
 
-    // RDH Story 2: client now authenticated via minted JWT instead of dev headers
-    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug, bool? forceAllRoles = null)
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug, forceAllRoles);
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
     public async Task List_memberships_requires_admin_and_returns_roles()
     {
         // Use kevin-personal where kevin is Owner
-    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var owner = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -57,7 +69,10 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-    var viewer = await ClientAsync(_factory, viewerEmail, "kevin-personal", forceAllRoles: false); // ensure not elevated
+        // Seed viewer password & login with only Roles.None membership
+        await SeedPasswordAsync(viewerEmail, DefaultPw);
+        var viewer = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, viewer, viewerEmail, "kevin-personal"); // membership has no admin flags
         var forbidden = await viewer.GetAsync($"/api/tenants/{tenantId}/memberships");
         forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -65,7 +80,9 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_replaces_flags_and_allows_noop()
     {
-    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var owner = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         Guid targetUserId;
@@ -130,7 +147,9 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-    var adminClient = await ClientAsync(_factory, "kevin@example.com", slug);
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var adminClient = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", slug);
         var conflict = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{kevinId}/roles", new { roles = Array.Empty<string>() });
         conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -138,7 +157,9 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_returns_404_when_membership_missing_and_400_for_invalid_flag()
     {
-    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var owner = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
@@ -200,7 +221,9 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             viewerId = viewer.Id;
         }
 
-    var viewerClient = await ClientAsync(_factory, viewerEmail, "kevin-personal", forceAllRoles: false); // ensure not elevated
+        await SeedPasswordAsync(viewerEmail, DefaultPw);
+        var viewerClient = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, viewerClient, viewerEmail, "kevin-personal"); // viewer has no admin roles
         var resp = await viewerClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{viewerId}/roles", new { roles = new[] { "Creator" } });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

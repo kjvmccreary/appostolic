@@ -278,6 +278,17 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
 
 2025-09-22 — Multi-Membership Login Coverage Added:
 
+2025-09-22 — Story 2 Phase A: MembersList & Assignments Tests Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `MembersListTests` and `AssignmentsApiTests` from legacy `AuthTestClient.UseTenantAsync` mint helper to real auth flows using `AuthTestClientFlow.LoginAndSelectTenantAsync` plus explicit password seeding (`IPasswordHasher`) to set the known default password (`Password123!`). Removed helper abstraction (`ClientAsync`) in both files, ensuring each test now executes `/api/auth/login` followed by `/api/auth/select-tenant` where tenant-scoped access is required. Verified owner access (200) vs viewer/non-admin forbidden responses (403) and unauthenticated 401/403 behavior under production authentication paths.
+  - Added consistent `SeedPasswordAsync` helper pattern (duplicated per test class for now; candidate for centralization after broader migration) mirroring earlier password flow refactors.
+  - All migrated tests passing: MembersList (3/3), Assignments (5/5) post-change. Establishes canonical pattern for Phase A migrations: seed password → login → select tenant → exercise endpoint with correct role expectations.
+- Rationale
+  - Reduces remaining surface area dependent on mint helper, incrementally increasing confidence that role/membership enforcement and token validation logic reflect production code paths. Early migration of membership/role mutation tests derisks later removal of mint helper and dev headers.
+- Follow-ups
+  - Continue Phase A with `MembersManagementTests`, then invites & auditing suites. After sufficient coverage, introduce a temporary guard (test or utility) asserting no `UseTenantAsync` usages remain before proceeding to Phase B.
+
 2025-09-22 — Story 2 Phase A Kickoff:
 
 - Migrated `DevHeadersDisabledTests` success path off mint/dev shortcuts to real `/api/auth/login` + `/api/auth/select-tenant` via `AuthTestClientFlow.LoginAndSelectTenantAsync`.
