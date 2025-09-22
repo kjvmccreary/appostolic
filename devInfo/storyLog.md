@@ -278,6 +278,19 @@
 - Follow-ups
   - Migrate `UserAvatarEndpointsTests` next (multiple helper usages); re-run guard to confirm decremented count; continue with invites/settings/catalog/agent tasks suites; then enforce guard CI failure and remove mint helper.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A UserAvatarEndpointsTests Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated all six `UserAvatarEndpointsTests` cases off legacy `AuthTestClient.UseTenantAsync` to real authentication: per-test password seeding (`SeedPasswordAsync`) then `/api/auth/login` + `/api/auth/select-tenant` via `AuthTestClientFlow.LoginAndSelectTenantAsync`. Scenarios (success PNG, unsupported media 415, payload too large 413, too-rectangular 422, downscale to <=512, transparent logo preservation) now execute under production JWT pipeline (password hash verification, refresh issuance, tenant token). Targeted run PASS (6/6). Ensures avatar upload/validation paths (size, mime, aspect, downscale) are exercised with real claims before decommissioning dev headers & mint helper.
+- Files changed
+  - apps/api.tests/Api/UserAvatarEndpointsTests.cs — added `DefaultPw`, `SeedPasswordAsync`; replaced each `UseTenantAsync` call with login/select flow; added DI scope for password hashing.
+- Quality gates
+  - Targeted execution 6/6 PASS (duration ~300ms). No regressions observed in earlier migrated suites (spot confidence from isolated run). Guard count expected to drop by one (from 12 to 11) after re-run.
+- Rationale
+  - Avatar endpoints previously verified only under minted shortcut tokens; migrating to real flow validates password hashing + tenant selection interaction with multipart form handling and deep profile JSON merge that records avatar metadata.
+- Follow-ups
+  - Re-run guard test (expect 11 remaining). Proceed to Invites suite migrations next. Consider extracting shared `SeedPasswordAsync` into a base utility after a few more migrations to reduce duplication.
+
   - Enforced flags-only contract for invite creation: `POST /api/tenants/{tenantId}/invites` now rejects any request specifying the legacy single `role` field with HTTP 400 and `{ code: "LEGACY_ROLE_DEPRECATED" }`. Callers must provide `roles` (array of flag names) or `rolesValue` (int bitmask). Response payload no longer returns legacy `role`; it includes `{ email, roles, rolesValue, expiresAt }` with `roles` as a flags string for readability and `rolesValue` as the machine bitmask. Updated HTML email body to list composite roles flags instead of a single legacy role. Transitional behavior: member role change endpoint still accepts legacy `role` (documented by a regression test) to avoid broad surface disruption; a future story will deprecate that path and remove the legacy column.
 
 - Files changed
