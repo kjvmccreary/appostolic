@@ -42,7 +42,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 #### Story 1: Test Token Helper Consolidation — 🚧 IN PROGRESS
 
 [x] Introduce / confirm presence of issuance services (existing `IJwtTokenService` methods for neutral & tenant). (Explicit wrapper `TestTokenIssuer` deferred.)
-[ ] Provide `AuthTestClient` facade used by tests (wraps creation + Authorization header injection). (Planned `UseTenantAsync` helper upcoming.)
+[x] Provide `AuthTestClient` facade used by tests (original mint helper) AND new flow-based `AuthTestClientFlow` exercising real `/api/auth/login` + `/api/auth/select-tenant` (adopted in `UserProfileLoggingTests`). (Replaces planned `UseTenantAsync` scope.)
 [x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
 [x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
 [ ] Document helper usage guideline in plan and `README` (pending after facade addition).
