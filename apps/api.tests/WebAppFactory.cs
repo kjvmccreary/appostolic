@@ -57,6 +57,14 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 ["AUTH__TEST_HELPERS_ENABLED"] = "true",
                 // Ensure JWT itself is enabled for tests (defensive)
                 ["AUTH__JWT__ENABLED"] = "true",
+                // Provide a stable symmetric signing key for test runs so tokens remain valid across
+                // multiple TestServer instances / HttpClients. Without this, each Program.cs startup
+                // (per factory clone) generated a new random key, invalidating previously issued tokens
+                // and producing intermittent 401s mid-run. This is a 256-bit (32-byte) base64 value
+                // generated once for tests only. DO NOT use in production environments.
+                // Provide key under both env-style and options-binding (section) paths for robustness during transition.
+                ["AUTH__JWT__SIGNING_KEY"] = "v1KcXbq0cU4o1M3v1d2W9yA4b7F8k2L6p1r8s3u5x7g=", // legacy env pattern some code may read directly
+                ["Auth:Jwt:SigningKeyBase64"] = "v1KcXbq0cU4o1M3v1d2W9yA4b7F8k2L6p1r8s3u5x7g=", // bound to AuthJwtOptions.SigningKeyBase64
                 // Story 4: enable refresh cookie issuance in tests
                 ["AUTH__REFRESH_COOKIE_ENABLED"] = "true",
                 // Story 8: Explicitly set plaintext exposure flag true by default so tests relying

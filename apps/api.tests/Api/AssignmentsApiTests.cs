@@ -11,11 +11,11 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public AssignmentsApiTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f, string email, string tenantSlug)
+    // RDH Story 2: client now authenticated via minted JWT instead of dev headers
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string email, string tenantSlug)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", email);
-        c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
         return c;
     }
 
@@ -23,7 +23,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     public async Task List_memberships_requires_admin_and_returns_roles()
     {
         // Use kevin-personal where kevin is Owner
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -57,7 +57,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var viewer = Client(_factory, viewerEmail, "kevin-personal");
+    var viewer = await ClientAsync(_factory, viewerEmail, "kevin-personal");
         var forbidden = await viewer.GetAsync($"/api/tenants/{tenantId}/memberships");
         forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -65,7 +65,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_replaces_flags_and_allows_noop()
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         Guid targetUserId;
@@ -130,7 +130,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var adminClient = Client(_factory, "kevin@example.com", slug);
+    var adminClient = await ClientAsync(_factory, "kevin@example.com", slug);
         var conflict = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{kevinId}/roles", new { roles = Array.Empty<string>() });
         conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -138,7 +138,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_returns_404_when_membership_missing_and_400_for_invalid_flag()
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
@@ -200,7 +200,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             viewerId = viewer.Id;
         }
 
-        var viewerClient = Client(_factory, viewerEmail, "kevin-personal");
+    var viewerClient = await ClientAsync(_factory, viewerEmail, "kevin-personal");
         var resp = await viewerClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{viewerId}/roles", new { roles = new[] { "Creator" } });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

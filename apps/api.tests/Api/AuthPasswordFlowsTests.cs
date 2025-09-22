@@ -73,8 +73,8 @@ public class AuthPasswordFlowsTests : IClassFixture<WebAppFactory>
     public async Task ChangePassword_WithAuth_UpdatesPassword()
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         // Seed a starting password for the user
         using (var scope = _factory.Services.CreateScope())
@@ -103,8 +103,8 @@ public class AuthPasswordFlowsTests : IClassFixture<WebAppFactory>
     public async Task ChangePassword_WithWrongCurrent_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         // Ensure user has some password different from the one we'll submit
         using (var scope = _factory.Services.CreateScope())

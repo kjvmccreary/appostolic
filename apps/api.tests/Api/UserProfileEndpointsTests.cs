@@ -10,18 +10,18 @@ public class UserProfileEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public UserProfileEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f)
+    // RDH Story 2: replaced dev headers with JWT bearer auth helper
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
     [Fact]
     public async Task Get_me_returns_user_with_profile()
     {
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
         var resp = await client.GetAsync("/api/users/me");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -34,7 +34,7 @@ public class UserProfileEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Put_me_merges_profile_and_trims_and_validates_social_urls()
     {
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
 
         // Seed profile with nested values
         var seed = new
@@ -88,7 +88,7 @@ public class UserProfileEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Put_me_rejects_non_object_body()
     {
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
         var content = new StringContent("\"not-an-object\"", System.Text.Encoding.UTF8, "application/json");
         var resp = await client.PutAsync("/api/users/me", content);
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);

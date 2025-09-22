@@ -10,18 +10,18 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public AgentTasksEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f)
+    // RDH Story 2: replaced legacy dev headers with JWT bearer helper
+    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
     [Fact]
     public async Task CreateTask_Returns201AndSummary()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
         var agentId = Guid.Parse("11111111-1111-1111-1111-111111111111"); // ResearchAgent
         var body = JsonDocument.Parse("""{"agentId":"11111111-1111-1111-1111-111111111111","input":{"topic":"intro"}}""");
 
@@ -41,7 +41,7 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     public async Task GetDetails_WithTracesInitiallyEmpty()
     {
         await CreateTask_Returns201AndSummary();
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
         var resp = await client.GetAsync($"/api/agent-tasks/{_lastId}?includeTraces=true");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -55,7 +55,7 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     public async Task List_Pending_ReturnsCreatedFirst()
     {
         await CreateTask_Returns201AndSummary();
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
         var resp = await client.GetAsync("/api/agent-tasks?status=Pending&take=10&skip=0");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var arr = await resp.Content.ReadFromJsonAsync<JsonElement>();

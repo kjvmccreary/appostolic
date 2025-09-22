@@ -12,11 +12,11 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public UserPasswordEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f)
+    // RDH Story 2: helper mints JWT tokens now
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
@@ -40,7 +40,7 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     public async Task Change_password_succeeds_with_valid_current()
     {
         await SeedPasswordAsync("Start1234");
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
         var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Start1234", newPassword = "NewPass123" });
         resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
@@ -49,7 +49,7 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     public async Task Change_password_rejects_invalid_current()
     {
         await SeedPasswordAsync("Start1234");
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
         var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Wrong000", newPassword = "NewPass123" });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -58,7 +58,7 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     public async Task Change_password_rejects_weak_password()
     {
         await SeedPasswordAsync("Start1234");
-        var client = Client(_factory);
+    var client = await ClientAsync(_factory);
         var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Start1234", newPassword = "short" });
         resp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }

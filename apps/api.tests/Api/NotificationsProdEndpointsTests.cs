@@ -32,9 +32,9 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(n1, n2);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    // Migrate off dev headers: issue tenant token with full roles (ForceAllRoles implicit in helper)
+    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         // List tenant-scoped
     var listResp = await client.GetAsync("/api/notifications?take=10");
@@ -66,10 +66,9 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.Add(nOther);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
-        client.DefaultRequestHeaders.Add("x-superadmin", "true");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    // Superadmin cross-tenant listing now via minted token (adds superadmin claim)
+    await Appostolic.Api.AuthTests.AuthTestClient.UseSuperAdminAsync(client, "kevin@example.com");
 
         var listResp = await client.GetAsync("/api/notifications?take=50");
         listResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -99,9 +98,8 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         db.Notifications.AddRange(mine, other);
         await db.SaveChangesAsync();
 
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         var r1 = await client.PostAsync($"/api/notifications/{mine.Id}/resend", content: null);
         r1.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -114,9 +112,8 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
     public async Task Resend_returns_404_when_missing()
     {
         using var app = _factory.WithWebHostBuilder(_ => { });
-        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+    var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
         var missing = Guid.NewGuid();
         var r = await client.PostAsync($"/api/notifications/{missing}/resend", content: null);
         r.StatusCode.Should().Be(HttpStatusCode.NotFound);

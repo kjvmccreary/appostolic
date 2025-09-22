@@ -20,18 +20,18 @@ public class DenominationsMetadataTests : IClassFixture<WebAppFactory>
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f)
+    // RDH Story 2: legacy dev headers removed; using JWT helper
+    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
     [Fact]
     public async Task ReturnsPresetList()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
         var resp = await client.GetAsync("/api/metadata/denominations");
         resp.EnsureSuccessStatusCode();
         var json = await resp.Content.ReadAsStringAsync();

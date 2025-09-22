@@ -1877,9 +1877,31 @@ public static class V1
                 {
                     return Results.StatusCode(StatusCodes.Status409Conflict);
                 }
+                // RDH Story 2 (Option B): Force all role flags for selected tenant when requested
+                if (selectedTenant.HasValue && dto.ForceAllRoles == true)
+                {
+                    // Ensure membership exists (it should) then upgrade flags if not already full set
+                    var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == selectedTenant.Value);
+                    if (membership != null)
+                    {
+                        var full = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
+                        if ((membership.Roles & full) != full)
+                        {
+                            membership.Roles |= full;
+                            await db.SaveChangesAsync();
+                        }
+                        rolesBitmask = (int)full;
+                    }
+                }
+                // Extra test-only claims (superadmin) support
+                var extraClaims = new List<System.Security.Claims.Claim>();
+                if (dto.SuperAdmin == true)
+                {
+                    extraClaims.Add(new System.Security.Claims.Claim("superadmin", "true"));
+                }
                 if (selectedTenant.HasValue)
                 {
-                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email);
+                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email, extraClaims);
                     tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel } };
                 }
                 // Story 8: conditional plaintext refresh token
@@ -1892,6 +1914,11 @@ public static class V1
                 else
                 {
                     refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+                }
+                // If only neutral token requested but superadmin flag set, re-issue neutral with claim (kept separate for clarity)
+                if (dto.SuperAdmin == true && !selectedTenant.HasValue)
+                {
+                    neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims);
                 }
                 return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
             }).WithTags("TestHelpers").WithDescription("Non-production test-only token mint helper").AllowAnonymous();
@@ -1932,7 +1959,8 @@ public static class V1
     public record UpdateMemberStatusDto(bool Active);
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
-    internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant);
+    // RDH Story 2 Option B: ForceAllRoles grants full flag set for selected tenant when true (test-only)
+    internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant, bool? ForceAllRoles, bool? SuperAdmin);
     // Story 3 DTO: tenant selection using neutral refresh token
     internal record SelectTenantDto(string Tenant, string RefreshToken);
 

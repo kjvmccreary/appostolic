@@ -17,6 +17,10 @@ public interface IJwtTokenService
     /// Issue a neutral (no tenant) access token. Includes user token version claim (v) for revocation.
     /// </summary>
     string IssueNeutralToken(string subject, int tokenVersion, string? email = null);
+    /// <summary>
+    /// Issue a neutral token with additional custom claims (test-only extension overload).
+    /// </summary>
+    string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims);
 
     /// <summary>
     /// Build TokenValidationParameters based on current options.
@@ -27,6 +31,10 @@ public interface IJwtTokenService
     /// Issue a tenant-scoped access token including tenant claims + roles bitmask and token version claim (v).
     /// </summary>
     string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null);
+    /// <summary>
+    /// Issue a tenant token with additional custom claims (test-only extension overload).
+    /// </summary>
+    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims);
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -44,6 +52,11 @@ public class JwtTokenService : IJwtTokenService
 
     public string IssueNeutralToken(string subject, int tokenVersion, string? email = null)
     {
+        return IssueNeutralToken(subject, tokenVersion, email, Array.Empty<Claim>());
+    }
+
+    public string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims)
+    {
         var now = DateTime.UtcNow;
         var claims = new List<Claim>
         {
@@ -57,6 +70,10 @@ public class JwtTokenService : IJwtTokenService
         if (!string.IsNullOrWhiteSpace(email))
         {
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, email));
+        }
+        if (extraClaims is not null)
+        {
+            claims.AddRange(extraClaims);
         }
 
         var token = new JwtSecurityToken(
@@ -84,6 +101,11 @@ public class JwtTokenService : IJwtTokenService
 
     public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null)
     {
+        return IssueTenantToken(subject, tenantId, tenantSlug, rolesBitmask, tokenVersion, email, Array.Empty<Claim>());
+    }
+
+    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims)
+    {
         var now = DateTime.UtcNow;
         var claims = new List<Claim>
         {
@@ -100,6 +122,10 @@ public class JwtTokenService : IJwtTokenService
         if (!string.IsNullOrWhiteSpace(email))
         {
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, email));
+        }
+        if (extraClaims is not null)
+        {
+            claims.AddRange(extraClaims);
         }
         var token = new JwtSecurityToken(
             issuer: _opts.Issuer,

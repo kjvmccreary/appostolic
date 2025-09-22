@@ -12,18 +12,25 @@ public class MembersListTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public MembersListTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient Client(WebAppFactory f, string? email = null, string? tenantSlug = null)
+    // RDH Story 2: helper now mints JWT tokens instead of dev headers.
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string? email = null, string? tenantSlug = null)
     {
         var c = f.CreateClient();
-        if (!string.IsNullOrWhiteSpace(email)) c.DefaultRequestHeaders.Add("x-dev-user", email);
-        if (!string.IsNullOrWhiteSpace(tenantSlug)) c.DefaultRequestHeaders.Add("x-tenant", tenantSlug);
+        if (!string.IsNullOrWhiteSpace(email) && !string.IsNullOrWhiteSpace(tenantSlug))
+        {
+            await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, email, tenantSlug);
+        }
+        else if (!string.IsNullOrWhiteSpace(email))
+        {
+            await Appostolic.Api.AuthTests.AuthTestClient.UseNeutralAsync(c, email);
+        }
         return c;
     }
 
     [Fact]
     public async Task Owner_can_list_members()
     {
-        var owner = Client(_factory, "kevin@example.com", "kevin-personal");
+    var owner = await ClientAsync(_factory, "kevin@example.com", "kevin-personal");
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -55,7 +62,7 @@ public class MembersListTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var viewer = Client(_factory, viewerEmail, "kevin-personal");
+    var viewer = await ClientAsync(_factory, viewerEmail, "kevin-personal");
         var resp = await viewer.GetAsync($"/api/tenants/{tenantId}/members");
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -63,7 +70,7 @@ public class MembersListTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Unauthenticated_request_returns_401_or_403()
     {
-        using var unauth = Client(_factory); // no headers
+    using var unauth = await ClientAsync(_factory); // no auth headers minted
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {

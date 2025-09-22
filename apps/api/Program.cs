@@ -160,6 +160,15 @@ builder.Services.AddOptions<AuthJwtOptions>()
     {
         if (string.IsNullOrWhiteSpace(o.SigningKeyBase64))
         {
+            // Legacy / flat env fallback used by tests: AUTH__JWT__SIGNING_KEY
+            var legacy = builder.Configuration["AUTH__JWT__SIGNING_KEY"];
+            if (!string.IsNullOrWhiteSpace(legacy))
+            {
+                o.SigningKeyBase64 = legacy;
+            }
+        }
+        if (string.IsNullOrWhiteSpace(o.SigningKeyBase64))
+        {
             if (builder.Environment.IsDevelopment())
             {
                 var random = new byte[32];

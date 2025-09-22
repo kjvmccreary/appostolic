@@ -25,8 +25,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_Succeeds_WithPngUnder2MB()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         // Minimal valid 1x1 PNG bytes (generated via ImageSharp to avoid CRC issues)
         var pngBytes = Convert.FromBase64String(
@@ -54,8 +54,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_Rejects_UnsupportedMediaType()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         var bytes = Encoding.UTF8.GetBytes("not-an-image");
         using var content = new MultipartFormDataContent();
@@ -71,8 +71,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_Rejects_TooLarge()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         // Create >2MB dummy PNG bytes (not a valid image, but size check happens first)
         var bytes = new byte[2 * 1024 * 1024 + 1];
@@ -89,8 +89,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_Rejects_TooRectangular()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(2000, 800);
         using var ms = new MemoryStream();
@@ -110,8 +110,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_Downscales_LargeImage_To512Webp()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
 
         using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(1024, 1024);
         using var ms = new MemoryStream();
@@ -134,8 +134,8 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     public async Task UploadAvatar_TransparentLogo_PreservesDimensions_Webp()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        // RDH Story 2: migrated from dev headers to JWT bearer token
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
         // Build a 64x64 transparent PNG with a single red pixel to trigger lossless path
         byte[] bytes;
         using (var img = new Image<Rgba32>(64, 64))

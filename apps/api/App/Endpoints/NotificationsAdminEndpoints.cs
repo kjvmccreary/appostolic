@@ -45,12 +45,11 @@ public static class NotificationsAdminEndpoints
 
     public static void MapNotificationsAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        // Enable Dev header auth (scheme "Dev") alongside Bearer in Development so integration tests using
-        // x-dev-user + x-tenant headers authenticate successfully. In production only the default (Bearer) applies.
-        var env = (app as WebApplication)?.Environment; // attempt cast; if null we fallback to default behavior
-        var authSchemes = env is not null && env.IsDevelopment() ? "Dev,Bearer" : null;
+        // Dev header auth (scheme "Dev") has been decommissioned. These endpoints now rely solely on the
+        // default Bearer JWT authentication. (Historical note: previously allowed "Dev,Bearer" in Development
+        // for legacy test headers.)
         var group = app.MapGroup("/api/notifications")
-            .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = authSchemes })
+            .RequireAuthorization(new AuthorizeAttribute())
             .WithTags("Notifications");
 
         // GET /api/notifications/dlq — list Failed/DeadLetter (tenant-scoped or superadmin)

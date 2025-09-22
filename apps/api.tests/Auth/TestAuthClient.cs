@@ -13,9 +13,10 @@ public class TestAuthClient
     private readonly HttpClient _client;
     public TestAuthClient(HttpClient client) => _client = client;
 
-    public async Task<(string neutralAccess, string? tenantAccess)> MintAsync(string email, string? tenant = null, bool autoTenant = false)
+    public async Task<(string neutralAccess, string? tenantAccess)> MintAsync(string email, string? tenant = null, bool autoTenant = false, bool superAdmin = false)
     {
-        var payload = new { Email = email, Tenant = tenant, AutoTenant = autoTenant };
+        var force = tenant != null || autoTenant; // elevate for convenience when scoping to tenant in tests
+        var payload = new { Email = email, Tenant = tenant, AutoTenant = autoTenant, ForceAllRoles = force, SuperAdmin = superAdmin };
         var res = await _client.PostAsJsonAsync("/api/test/mint-tenant-token", payload);
         if (!res.IsSuccessStatusCode)
         {

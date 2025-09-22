@@ -26,7 +26,9 @@ public static class UserProfileEndpoints
         // GET /api/users/me
         group.MapGet("me", async (ClaimsPrincipal user, AppDbContext db, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
-            if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+            // Accept either raw 'sub' or mapped NameIdentifier claim (JWT handler maps by default unless mapping cleared)
+            var subVal = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(subVal, out var userId))
                 return Results.Unauthorized();
 
             var me = await db.Users.AsNoTracking()
@@ -45,7 +47,8 @@ public static class UserProfileEndpoints
         // PUT /api/users/me — merge patch into profile
         group.MapPut("me", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
-            if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+            var subVal = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(subVal, out var userId))
                 return Results.Unauthorized();
 
             // Read body as JSON
@@ -93,7 +96,8 @@ public static class UserProfileEndpoints
         // POST /api/users/me/password — change password
         group.MapPost("me/password", async (ClaimsPrincipal user, AppDbContext db, IPasswordHasher hasher, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, HttpRequest req, CancellationToken ct) =>
         {
-            if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+            var subVal = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(subVal, out var userId))
                 return Results.Unauthorized();
 
             var dto = await req.ReadFromJsonAsync<PasswordChangeDto>(cancellationToken: ct);
@@ -131,7 +135,8 @@ public static class UserProfileEndpoints
         // POST /api/users/me/avatar — upload avatar image
         group.MapPost("me/avatar", async (HttpRequest req, ClaimsPrincipal user, AppDbContext db, IObjectStorageService storage, IPIIHasher piiHasher, IOptions<PrivacyOptions> privacy, ILoggerFactory lf, CancellationToken ct) =>
         {
-            if (!Guid.TryParse(user.FindFirst("sub")?.Value, out var userId))
+            var subVal = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(subVal, out var userId))
                 return Results.Unauthorized();
 
             if (!req.HasFormContentType)

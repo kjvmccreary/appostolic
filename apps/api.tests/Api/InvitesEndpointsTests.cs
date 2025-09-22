@@ -12,11 +12,11 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public InvitesEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    private static HttpClient CreateClientWithDevHeaders(WebAppFactory f)
+    // RDH Story 2: use JWT helper instead of dev headers
+    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
     {
         var c = f.CreateClient();
-        c.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        c.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
@@ -31,7 +31,7 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Invites_Full_Lifecycle_Create_Resend_Accept_Revoke()
     {
-        var client = CreateClientWithDevHeaders(_factory);
+    var client = await CreateAuthedClientAsync(_factory);
         var tenantId = await GetTenantIdAsync(_factory);
 
         // Start with clean slate for a unique email

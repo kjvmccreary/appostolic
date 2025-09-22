@@ -122,6 +122,14 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 3. (Optional) Hotfix branch adds temporary deprecation middleware again if partial rollback needed.
 4. Communicate rollback window short (≤ 1 release) — plan to re-remove promptly after fix.
 
+Detailed Patch Reintroduction (if revert not feasible and manual re-add required):
+
+- Recreate `DevHeaderAuthHandler.cs` from tag reference; restore registration block in `Program.cs` (AddScheme + policy scheme + Development default authenticate override).
+- Reintroduce flag read `AUTH__ALLOW_DEV_HEADERS`; wrap policy scheme & default overrides inside conditional (Development && flag true) to minimize footprint.
+- Add explicit comment at top of restored block: `// TEMPORARY ROLLBACK RE-INTRODUCTION: remove again after incident (#ticket)`.
+- Restore any removed test that asserts dev headers disabled path, adjusting expectation back to 200 for valid header usage.
+- Push hotfix branch; tag `dev-headers-rollback-temp`; create follow-up issue to remove within agreed SLA.
+
 ### Test Matrix (Expanded for Decommission)
 
 [ ] Auth issuance (neutral, tenant) with helper.
@@ -183,3 +191,64 @@ Append implementation notes & progress directly below this line during execution
 > Progress Log (will be appended in-place as stories complete)
 
 2025-09-21 — Story 1 Kickoff: Inventory & helper validation starting. Added IN PROGRESS marker. Next: grep for `x-dev-user` usage & confirm `TestAuthClient` covers issuance paths.
+
+2025-09-22 — Story 1 Inventory Results:
+**Header References (code + docs):**
+
+- `x-dev-user`: widespread across API runtime (handler, Program.cs policy scheme selector, several dev/demo endpoints), API tests, web proxy layer, web tests, and documentation/readmes. Initial grep surfaced >200 total matches (capped output) — actionable unique source areas summarized below.
+- `x-tenant`: similar distribution; also legacy `X-Tenant-Id` sample middleware still present (non-dev auth demo) — evaluate separately (out of scope for dev header removal unless interfering).
+- `DevHeaderAuthHandler`: defined in `apps/api/App/Infrastructure/Auth/DevHeaderAuthHandler.cs` and registered in `Program.cs`; referenced in multiple test seed comments.
+- Composite policy scheme `BearerOrDev`: registered & defaulted in Development section of `Program.cs`.
+- Flag `AUTH__ALLOW_DEV_HEADERS`: gating logic in `Program.cs`, set true in `WebAppFactory`, explicitly forced false in `DevHeadersDisabledTests`, referenced in docs & plans.
+
+**Runtime Source Touch Points (API):**
+
+- `Program.cs`: header scheme registration, policy scheme (`BearerOrDev`), selector logic (`if (ctx.Request.Headers.ContainsKey("x-dev-user"))`), flag read, sample legacy X-Tenant-Id middleware.
+- `DevHeaderAuthHandler.cs`: core handler (reads `x-dev-user`, `x-tenant`, optional superadmin header); emits claims.
+- Endpoints referencing headers directly (bypassing auth principal): `AgentTasksEndpoints.cs`, `DevToolsEndpoints.cs`, `DevAgentsDemo.cs`, selective comments in `NotificationsAdminEndpoints.cs`, sections in monolithic `V1.cs` endpoints.
+
+**Web App (Next.js) Touch Points:**
+
+- `apps/web/src/lib/proxyHeaders.ts`: constructs dev headers from session / ENV (`DEV_USER`, `DEV_TENANT`).
+- `app/dev/page.tsx`: uses dev headers for manual dev tools.
+- Multiple `app/api-proxy/.../*.test.ts` and `test/api-proxy/*.route.test.ts` files embed dev headers in mocked fetches.
+
+**SDK / Docs:**
+
+- `packages/sdk/openapi.json` includes description referencing dev headers.
+- `apps/api/README.md` and `apps/web/README.md` show curl examples with dev headers (need replacement with JWT login flow examples later in Story 6).
+- `docs/auth-upgrade.md` references flag & upcoming removal.
+
+**Test Suite Dependency Breakdown (API tests):**
+Total distinct test files still setting dev headers (approx): 30+ (multiple lines per file). Categorized:
+
+- Auth / User Profile: `AuthPasswordFlowsTests`, `UserPasswordEndpointsTests`, `UserProfileEndpointsTests`, `UserAvatarEndpointsTests`.
+- Tenant / Membership / Invites / Roles: `MembersListTests`, `MembersManagementTests`, `InvitesEndpointsTests`, `InvitesAcceptTests`, `InvitesRolesFlagsTests`, `DevGrantRolesEndpointTests`, `LegacyRoleWritePathDeprecationTests`, `TenantSettingsEndpointsTests`.
+- Notifications: `NotificationsAdminEndpointsTests`, `NotificationsProdEndpointsTests`, `NotificationsE2E_Mailhog` (E2E).
+- Auditing / Privacy: `AuditTrailTests`, `AuditsListingEndpointTests`, `UserProfileLoggingTests`.
+- Agents / Agent Tasks: `AgentsEndpointsTests`, all `AgentTasksE2E_*` variants, `AgentTasksEndpointsTests`, `AgentTasksTestBase`, `AgentTasksAuthContractTests`.
+- Catalog / Metadata: `ToolCatalogTests`, `DenominationsMetadataTests`, `AssignmentsApiTests`.
+- Misc Security / Seed: comments in `WebAppFactory`.
+- Negative flag coverage: `DevHeadersDisabledTests` (will be updated to assert deprecated/removed responses later instead of flag false path).
+
+**Web Test Dependencies:** (need phasing plan parallel to API migrations)
+
+- API proxy route tests for agents, agent-tasks, tenants (members, memberships, invites, audits), notifications DLQ, avatar upload rely on dev headers.
+- `invites.accept.route.test.ts` asserts omission of `x-tenant` (special case; adjust logic once JWT session tokens drive selection).
+
+**Preliminary Migration Phase Mapping (Draft)**
+
+- Phase A (Core auth & foundational): AuthPasswordFlows, UserPasswordEndpoints, UserProfileEndpoints, Test helper validation; plus Web `users/me/avatar` & `agents` proxy tests.
+- Phase B (Tenant & membership domain): Members*, Invites*, Roles/Grant, TenantSettings, Assignments; web tenant membership/roles/audits tests.
+- Phase C (Notifications & Auditing/Privacy): Notifications\*, AuditTrail, AuditsListing, UserProfileLogging, DLQ proxy tests.
+- Phase D (Agent Tasks & E2E): AgentTasks\* E2E + contract/auth tests; agent-tasks proxy tests.
+- Phase E (Residual & Negative/Flag): DevHeadersDisabledTests repurposed to expect 401 `dev_headers_removed`; removal of any lingering comments referencing flag; README/doc updates.
+
+**Open Notes:**
+
+- Need to confirm no production (non-Development) path inadvertently allows dev headers when flag toggled (current logic appears explicit, will double-check once removal PR prepared).
+- Legacy `X-Tenant-Id` sample middleware should be evaluated for either retention (demo) or relocation out of critical path; not blocking dev header removal.
+
+Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficient for all issuance shapes including multi-tenant selection) then begin Phase A test migrations.
+
+2025-09-22 — TestAuthClient Review: Existing helper (`TestAuthClient.MintAsync`) provides neutral + optional tenant token issuance via `/api/test/mint-tenant-token`. For upcoming migrations we will add a thin extension (planned) to automatically set the `Authorization: Bearer <token>` header on a supplied HttpClient to reduce boilerplate in refactored tests (Phase A). No gaps found for current issuance shapes; multi-tenant explicit selection already supported by passing `tenant` argument. Enhancement candidates (deferred until after initial migrations): (1) mint nearly-expired token for refresh edge-case tests (ties into future Story 20), (2) helper method returning both tokens + setting auth in one call. Migration phase mapping confirmed; proceeding to implement Phase A replacements next.
