@@ -259,9 +259,11 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 8: Conditional plaintext refresh token exposure. New flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true)
-            // allows operators to disable returning the raw refresh token once cookie-based flow is established. When disabled,
-            // the client must rely solely on the httpOnly cookie for subsequent rotations.
+            // Story 8: Conditional plaintext refresh token exposure.
+            // TRANSITIONAL FLAG: AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true initially, now typically false) controls
+            // including the raw refresh token in JSON responses. When false the client MUST rely on the httpOnly cookie `rt`.
+            // This flag will be retired after the adoption window (tracked in RDH / post‑1.0 backlog) — do not build new
+            // features depending on plaintext emission.
             var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
             object refreshObj;
             if (exposePlainFlag)
@@ -393,8 +395,16 @@ public static class V1
         // Story 2: returns neutral access+refresh token pair + memberships; optional tenant access token when single membership or tenant explicitly requested.
     apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, LoginDto dto) =>
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string? failureReason = null;
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+            {
+                failureReason = "missing_fields";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.BadRequest(new { error = "email and password are required" });
+            }
 
             var email = dto.Email.Trim();
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -403,11 +413,23 @@ public static class V1
             // by silently creating or mutating users. We now enforce strict semantics: unknown user OR missing password hash
             // returns 401. Tests needing auto-provision should use explicit signup or dedicated test helper endpoints.
             if (user is null || user.PasswordHash is null || user.PasswordSalt is null)
+            {
+                failureReason = "unknown_user";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Unauthorized();
+            }
 
             var ok = hasher.Verify(dto.Password, user.PasswordHash!, user.PasswordSalt!, 0);
             if (!ok)
+            {
+                failureReason = "invalid_credentials";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason, user.Id);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Unauthorized();
+            }
 
             var rawMemberships = await db.Memberships.AsNoTracking().Where(m => m.UserId == user.Id).ToListAsync();
             var tenantIds = rawMemberships.Select(r => r.TenantId).Distinct().ToList();
@@ -478,7 +500,7 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 8 flag: hide plaintext refresh token when AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT = false
+            // Story 8 flag (TRANSITIONAL): hide plaintext refresh token when AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT = false (future removal planned)
             var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
             object refreshObj;
             if (exposePlainFlag)
@@ -490,7 +512,7 @@ public static class V1
                 refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
             }
 
-            return Results.Ok(new
+            var resultPayload = new
             {
                 // Back-compat: tests (and possibly legacy clients) still expect top-level Id & Email fields.
                 // New structured shape nests them under user as well. This dual shape is transitional.
@@ -501,7 +523,11 @@ public static class V1
                 access = new { token = accessToken, expiresAt = accessExpires, type = "neutral" },
                 refresh = refreshObj,
                 tenantToken
-            });
+            };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginSuccess(user.Id, memberships.Count);
+            sw.Stop();
+            Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, true);
+            return Results.Ok(resultPayload);
         }).AllowAnonymous();
 
         // POST /api/auth/select-tenant  (Story 3)
@@ -685,6 +711,8 @@ public static class V1
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
         apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc) =>
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string? failureReason = null;
             var now = DateTime.UtcNow;
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
             // Optional lightweight rate limiting (in-memory) - Story 9 scaffold
@@ -694,6 +722,11 @@ public static class V1
                 var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 if (RefreshRateLimiter.ShouldLimit(ip))
                 {
+                    failureReason = "rate_limited";
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                    sw.Stop();
+                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                     return Results.StatusCode(StatusCodes.Status429TooManyRequests);
                 }
             }
@@ -717,12 +750,20 @@ public static class V1
             var suppliedToken = cookieToken ?? bodyToken;
             if (string.IsNullOrWhiteSpace(suppliedToken))
             {
+                failureReason = "missing_refresh";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.BadRequest(new { code = "missing_refresh" });
             }
 
             // Reject body token usage if grace disabled and no cookie present
             if (!graceEnabled && cookieToken is null)
             {
+                failureReason = "refresh_body_disallowed";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.BadRequest(new { code = "refresh_body_disallowed" });
             }
 
@@ -737,22 +778,38 @@ public static class V1
             var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt is null)
             {
+                failureReason = "refresh_invalid";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
             }
             if (rt.RevokedAt.HasValue)
             {
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementReuseDenied(rt.UserId, rt.Id);
+                failureReason = "refresh_reuse";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_reuse" }, statusCode: StatusCodes.Status401Unauthorized);
             }
             if (rt.ExpiresAt <= now)
             {
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementExpired(rt.UserId, rt.Id);
+                failureReason = "refresh_expired";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_expired" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == rt.UserId);
             if (user is null)
             {
+                failureReason = "refresh_invalid";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
@@ -774,6 +831,10 @@ public static class V1
                 var match = memberships.FirstOrDefault(m => string.Equals(m.tenantSlug, tenantParam, StringComparison.OrdinalIgnoreCase) || m.tenantId.ToString() == tenantParam);
                 if (match is null)
                 {
+                    failureReason = "refresh_forbidden_tenant";
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, user.Id);
+                    sw.Stop();
+                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                     return Results.StatusCode(StatusCodes.Status403Forbidden);
                 }
                 var accessExpiresPreview = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var mm) ? mm : 15);
@@ -807,7 +868,7 @@ public static class V1
                 http.Response.Headers["Sunset"] = deprecationDate!;
             }
 
-            // Story 8 / 9: plaintext suppression logic + metrics instrumentation
+            // Story 8 / 9: plaintext suppression logic + metrics instrumentation (TRANSITIONAL flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT; slated for removal post adoption)
             var exposePlainFlag = config.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
             var includePlaintextRefresh = exposePlainFlag && (graceEnabled || !refreshCookieEnabled);
             object refreshObj;
@@ -840,6 +901,10 @@ public static class V1
             act3?.SetTag("auth.refresh.new_id", newRefreshId);
             Appostolic.Api.Application.Auth.AuthMetrics.IncrementRotation(user.Id, rt.Id, newRefreshId);
 
+            // success path metrics
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshSuccess(user.Id);
+            Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, true);
+            sw.Stop();
             return Results.Ok(response);
         }).AllowAnonymous();
         // Change password (authenticated)

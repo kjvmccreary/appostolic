@@ -1090,3 +1090,21 @@
   - Remove TEMP plaintext counters after grace flag retirement (two consecutive releases with zero emissions).
   - Future session enumeration endpoint instrumentation (per-session active refresh token metadata) and potential security alerting (reuse spikes).
   - Consider consolidating reuse denial dual reporting (separate `reuse_denied` counter + failure reason) after initial dashboard consumption feedback.
+
+  2025-09-22 — Auth/JWT: Story 11 Cleanup & Legacy Artifact Pruning — ✅ DONE
+  - Summary
+    - Completed scoped cleanup of JWT sprint remnants without encroaching on Dev Header Decommission (RDH) responsibilities. Removed no functional code; focused on commentary and documentation hardening. Verified no lingering references to placeholder `_auth/refresh-neutral` route, no obsolete auth test helpers beyond `TestAuthClient`, and no stray refresh hashing implementations outside the centralized helper. Added/expanded transitional comments flagging `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` for future removal (post adoption) and explicitly deferred `AUTH__ALLOW_DEV_HEADERS` & composite scheme removal to RDH. Confirmed metrics instrumentation free of commented-out prototypes; plaintext emission/suppression counters remain TEMP and documented. Updated sprint plan (Story 11 DONE with completion summary), LivingChecklist (Story 11 line & next sprint pointer), and created annotated git tag `jwt-auth-rollout-complete` capturing completion of Stories 1–11.
+  - Files changed
+    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 11 section marked DONE with acceptance checklist and completion summary.
+    - devInfo/LivingChecklist.md — Added Story 11 line; updated last updated note with next sprint pointer.
+    - devInfo/storyLog.md — This entry appended.
+    - apps/api/App/Endpoints/V1.cs — (Earlier in cleanup) enhanced transitional flag comments.
+  - Quality gates
+    - No runtime code changes; test suites unaffected. Existing green state preserved. Minimal risk tag provides rollback anchor.
+  - Rationale
+    - Ensures clear demarcation between JWT rollout completion and upcoming Dev Header Decommission work, preserving a stable, well-documented baseline for future security hardening and flag retirements.
+  - Follow-ups / Next Sprint (RDH)
+    - Remove dev header auth handler & flag; migrate any residual tests off dev headers.
+    - Enforce Phase 3 body disable (if not already) and monitor plaintext counters → remove TEMP metrics after quiet period.
+    - Evaluate CSRF strategy if SameSite requirements evolve; consider rate limiting middleware & session listing endpoint.
+    - Remove `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` once emission count = 0 across two releases (and drop related TEMP counters).

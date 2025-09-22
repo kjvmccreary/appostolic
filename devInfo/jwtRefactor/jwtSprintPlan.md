@@ -699,22 +699,22 @@ Completion Summary (2025-09-22): Auth upgrade guide (`docs/auth-upgrade.md`) cre
 
 Definition of Done: All acceptance items checked; doc artifacts present; sprint plan & logs updated; no unchecked internal boxes.
 
-## Story 11: Cleanup & Legacy Removal — (Pending)
+## Story 11: Cleanup & Legacy Removal — ✅ DONE (2025-09-22)
 
 Goal: Finalize JWT sprint scope by pruning artifacts introduced only for transition or experimentation, without encroaching on the Dev Header Decommission (RDH) responsibilities.
 
 AC (Scoping STRICTLY to JWT sprint remnants):
 
-[ ] Remove stale comments referencing: placeholder `_auth/refresh-neutral` route (already removed) or legacy plaintext permanence assumptions.
-[ ] Delete any unused error codes, constants, or feature flag checks that became no-ops after Stories 8–9 (EXCLUDING dev header flag & related code — defer to RDH).
-[ ] Ensure `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` documented as transitional; DO NOT remove yet (pending adoption window) — mark with TODO linking to future removal issue.
-[ ] Verify no dead test helpers superseded by `TestAuthClient`; remove obsolete helpers (e.g., manual login scaffolds) if entirely unused (grep before delete).
-[ ] Run grep for `TODO JWT-SHORT-LIVED` or similar markers; resolve or convert to explicit RDH / Post‑1.0 backlog references.
-[ ] Ensure no inline hashing duplication survived (all should use `RefreshTokenHashing`).
-[ ] Confirm metrics instrumentation has no dormant counters left commented out; remove commented prototypes.
-[ ] Tag repository `jwt-auth-rollout-complete` (annotated with summary & reference commit shas for key stories).
-[ ] Update `LivingChecklist.md` marking JWT sprint fully complete; add pointer to RDH sprint kickoff.
-[ ] Add storyLog entry summarizing cleanup scope & explicitly stating dev header removal deferred.
+[x] Remove stale comments referencing: placeholder `_auth/refresh-neutral` route (already removed) or legacy plaintext permanence assumptions.
+[x] Delete any unused error codes, constants, or feature flag checks that became no-ops after Stories 8–9 (EXCLUDING dev header flag & related code — defer to RDH).
+[x] Ensure `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` documented as transitional; DO NOT remove yet (pending adoption window) — marked with TODO and RDH reference in `V1.cs`.
+[x] Verify no dead test helpers superseded by `TestAuthClient`; remove obsolete helpers (none found — confirmed via grep).
+[x] Run grep for `TODO JWT-SHORT-LIVED` or similar markers; resolve or convert to explicit RDH / Post‑1.0 backlog references (none remaining outside plan docs).
+[x] Ensure no inline hashing duplication survived (all use `RefreshTokenHashing`).
+[x] Confirm metrics instrumentation has no dormant counters left commented out (none found; plaintext counters intentionally TEMP and documented).
+[x] Tag repository `jwt-auth-rollout-complete` (annotated with summary & reference commit shas for key stories).
+[x] Update `LivingChecklist.md` marking JWT sprint fully complete; add pointer to RDH sprint kickoff.
+[x] Add storyLog entry summarizing cleanup scope & explicitly stating dev header removal deferred.
 
 Important Constraints (DO NOT VIOLATE — coordination with RDH):
 
@@ -734,6 +734,16 @@ Post-Story 11 State:
 Definition of Done:
 
 - All AC items checked, constraints honored, tag pushed, storyLog updated. No accidental deletion of RDH-targeted assets.
+
+Completion Summary (2025-09-22):
+
+- Performed scoped cleanup: verified absence of stale placeholder route references, ensured transitional plaintext exposure flag (`AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT`) clearly commented for future removal (RDH follow-up), confirmed no obsolete auth test helpers beyond `TestAuthClient`, validated hashing centralization (no stray SHA256 usages), and confirmed metrics file free of commented prototype instruments. No code logic modified—comments and documentation only. Updated LivingChecklist (Story 11 line & next sprint pointer), appended storyLog entry, and created annotated tag `jwt-auth-rollout-complete` capturing sprint scope (Stories 1–11). Dev header removal and flag retirement explicitly deferred to upcoming RDH sprint to maintain rollback boundary.
+
+Post-Story 11 State:
+
+- JWT auth foundation (issuance, rotation, revocation, silent refresh, observability, documentation) complete and tagged.
+- Transitional flags documented; only `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` (suppression) and `AUTH__ALLOW_DEV_HEADERS` (decommission) remain for RDH sprint decisions.
+- Safe rollback: tag predecessor retains pre-cleanup state; no functional divergence introduced here.
 
 Rollback (Story 11 changes only):
 
