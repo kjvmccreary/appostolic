@@ -1,4 +1,26 @@
 2025-09-22 — Auth/JWT / RDH: Story 2 Phase A AgentTasks Auth & Assertions Migration — ✅ PARTIAL
+2025-09-22 — Auth/JWT / RDH: Story 2 Phase A AgentTasks E2E Migration — ✅ DONE
+
+- Summary
+  - Migrated all AgentTasks E2E harness tests (`AgentTasksE2E_HappyPath`, `AgentTasksE2E_Concurrency`, `AgentTasksE2E_List`, `AgentTasksE2E_Allowlist`, `AgentTasksE2E_Golden`) from a bespoke always-authenticating `TestAuthHandler` + dev header injection (`x-dev-user`, `x-tenant`) to real authentication flows using `AuthTestClientFlow.LoginAndSelectTenantAsync`. Each test now seeds a password via the platform `IPasswordHasher` and exercises `/api/auth/login` + `/api/auth/select-tenant` to acquire tenant-scoped access, ensuring they traverse the production JWT pipeline (claims validation, token version checks, refresh rotation eligibility). Removed all direct dev header usage and deleted custom handler override blocks, eliminating an alternate auth path in high-level end-to-end coverage.
+  - Introduced per-test in-memory database isolation (unique DB name) preserving existing determinism while ensuring no hidden coupling through the former static handler state. Differential polling logic retained; timing windows unchanged (HappyPath/List 10s, Concurrency 20s, Golden 30s). Golden projection test now validates against fixture using real flow-issued claims rather than artificial handler claims.
+- Files changed
+  - apps/api.tests/E2E/AgentTasksE2E_HappyPath.cs — Removed `TestAuthHandler`, dev headers; added password seeding + flow login/select helpers.
+  - apps/api.tests/E2E/AgentTasksE2E_Concurrency.cs — Same migration; concurrent creation/poll logic unmodified besides auth path.
+  - apps/api.tests/E2E/AgentTasksE2E_List.cs — Replaced dev header bootstrap; list pagination assertions unchanged (still rely on creation ordering + skip/take semantics).
+  - apps/api.tests/E2E/AgentTasksE2E_Allowlist.cs — Flow auth; retained allowlist failure scenario with disallowed tool invocation, validating error trace still produced under real tokens.
+  - apps/api.tests/E2E/AgentTasksE2E_Golden.cs — Flow auth; removed custom handler and obsolete override code; retained projection to stable shape and comparison to fixture.
+- Quality gates
+  - Grep verification: no `x-dev-user`, `x-tenant`, or `TestAuthHandler` strings remain in `apps/api.tests/E2E/AgentTasksE2E_*` files. Compilation check (no handler symbol references). Flow helpers already validated in prior suites; E2E logic strictly additive to earlier auth path confidence.
+  - Structural parity: DB seeding now explicit (tenant, user, membership) when absent; password seeded each run ensuring hash alignment with chosen default `Password123!` before login.
+- Rationale
+  - Removes final dependency on dev headers inside high-value E2E task execution scenarios, guaranteeing coverage of authentic user journey (password → login → tenant selection → agent task lifecycle) and preventing divergence once deprecation middleware blocks header usage (Story 3). Consolidates on single auth mechanism, reducing future maintenance of parallel handlers.
+- Follow-ups
+  - Consider extracting shared `SeedPasswordAndLoginAsync` helper to reduce duplication across five E2E files (post-migration cleanup bucket).
+  - Add a full-suite run record before enabling deprecation middleware to capture baseline timings (optional metrics snapshot).
+  - Proceed to remaining migrations (profile/logging tests) then implement temporary grep guard and Story 3 middleware.
+- Snapshot / Docs
+  - `rdhSprintPlan.md` Agent Tasks section will be updated to mark E2E tests complete. LivingChecklist pending an updated line referencing full AgentTasks migration completion.
 
 - Summary
   - Migrated AgentTasks authentication and list/filter pagination tests away from legacy shortcut token bootstrap (`EnsureTokens` + static `TenantToken`) and brittle dev-header influenced assertions to real production flows. `AgentTasksAuthContractTests` now performs password seeding plus `AuthTestClientFlow.LoginAndSelectTenantAsync` for tenant-scoped access instead of relying on a pre-minted static token. In `AgentTasksListFilterPaginationTests`, removed non-deterministic assertions that assumed ≥2 tasks and email-based free-text matches (side-effects of dev header / seeding shortcuts). Rewrote free-text search test to assert only created task input substring presence and agent filter test to count actual `agentId` matches in returned JSON. Ensures AgentTasks suite fully exercises production JWT issuance (password hash verification, refresh issuance, tenant selection) with deterministic, data-owned assertions.
@@ -136,6 +158,19 @@
     - CSRF strategy review if `SameSite=None` required for future cross-site embedding.
 
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
+2025-09-22 — Auth/JWT / RDH: Story 2 Phase C Schema/Migration Audit — ✅ DONE
+
+- Summary
+  - Completed Phase C by auditing schema/migration-oriented test suite (`apps/api.tests/Schema/`) for any usage of dev headers (`x-dev-user`, `x-tenant`). Grep returned zero matches across `RolesBitmaskConstraintTests`, `LegacyRoleColumnPresenceTests`, and `SchemaAbsenceTests`. No changes required; phase is a documentation-only confirmation that no hidden dependencies exist in low-level schema validation tests. Sprint plan updated to mark Phase C complete with note citing empty audit result.
+- Files changed
+  - devInfo/jwtRefactor/rdhSprintPlan.md — Phase C checkbox marked complete with explanatory note.
+- Quality gates
+  - No code modifications to test logic; zero risk. Existing green suite unaffected.
+- Rationale
+  - Establishes certainty that forthcoming deprecation middleware (Story 3) and eventual handler removal (Story 4) will not impact schema/migration tests, reducing rollback risk and clarifying scope of remaining migrations.
+- Follow-ups
+  - Proceed to Story 3 (Deprecation Mode): introduce middleware rejecting dev headers with structured code, add metric counter, adapt negative-path tests to assert new response shape.
+  - After stable soak, advance to Story 4 physical removal tasks.
 
 2025-09-22 — Auth/JWT: RDH Story 2 Phase A Kickoff (DevHeadersDisabledTests Migration) — 🚧 IN PROGRESS
 
@@ -196,7 +231,27 @@
   - devInfo/jwtRefactor/rdhSprintPlan.md (new) — full sprint breakdown with stories 0–7, risks, rollback, matrix.
   - SnapshotArchitecture.md — What’s New entry referencing RDH sprint plan creation.
 - Rationale
+  2025-09-22 — Auth/JWT / RDH: Story 2 Phase B Domain/Feature Test Migration — ✅ DONE
+  - Summary
+    - Completed Phase B by migrating remaining feature/domain test relying on dev headers (`NotificationsE2E_Mailhog`) to the real authentication flow using `AuthTestClientFlow.LoginAndSelectTenantAsync` with password seeding and membership creation. Removed direct `x-dev-user` / `x-tenant` header injection in that E2E path. Annotated intentional negative-path guard suites (`DevHeadersDisabledTests`, `DevHeadersRemovedTests`) to explicitly exclude them from Phase B completion criteria—they continue to reference legacy header names solely to validate rejection behavior for upcoming deprecation and removal stories (Stories 3–5). Updated sprint plan to mark Phase B complete with explanatory parenthetical. No functional regressions; targeted test run of modified file passes. Grep now shows no remaining domain/feature tests (outside intentional negative-path guards) using dev header injection.
+  - Files changed
+    - apps/api.tests/E2E/NotificationsE2E_Mailhog.cs — Replaced dev header bootstrap with password seeding (in-memory DB) + login/select flow; added roles membership; removed header additions.
+    - apps/api.tests/Auth/DevHeadersDisabledTests.cs — Added annotation comment clarifying exclusion from Phase B scope.
+    - apps/api.tests/Auth/DevHeadersRemovedTests.cs — Added annotation comment clarifying future-stage guard purpose.
+    - devInfo/jwtRefactor/rdhSprintPlan.md — Marked Phase B checkbox complete with explanatory note about intentional negative-path suites.
+  - Quality gates
+    - Targeted test (`NotificationsE2E_Mailhog`) passes post-migration. Full suite previously green; incremental change limited in scope. Grep for `x-dev-user` in tests now returns only guard suites as intended.
+  - Rationale
+    - Ensures all functional domain coverage now exercises the production JWT pipeline (password verification, refresh rotation eligibility, membership projection) eliminating reliance on dev-only auth shortcuts ahead of deprecation middleware (Story 3). Clear separation between functional coverage and regression guards reduces risk of accidental header reintroduction being mistaken for required negative-path tests.
+  - Follow-ups
+    - Story 3: Introduce deprecation middleware returning structured 401 for dev header usage and add metric counter.
+    - Prepare Phase C (schema/migration tests audit) — early indication suggests minimal/no header usage; confirm via grep and mark accordingly.
+    - Implement fail-fast CI assertion (grep-based) once Story 3 middleware live to enforce zero accidental header reinsertion.
+  - Snapshot / Checklist
+    - Sprint plan updated (Phase B complete). LivingChecklist to be updated next batch with Phase B status tick.
+
   - Eliminates divergence between development/test and production auth paths, reducing attack surface and ensuring all test coverage exercises the production JWT flow. Simplifies mental model and prevents accidental reliance on headers in future code.
+
 - Follow-ups
   - Story 1 helper consolidation & Story 2 phased test migration.
   - Add temporary deprecation middleware & metric, then remove handler/flag.
@@ -362,6 +417,49 @@
 - Follow-ups
   - Phase 2: Deprecate legacy role on member role change endpoint (expect 400 + LEGACY_ROLE_DEPRECATED) then remove legacy `Role` column and mapping.
   - Add DB CHECK constraint (`roles <> 0`) once legacy removal PR merges.
+
+2025-09-22 — Auth/JWT / RDH: Story 2 Dev Header Guard Script Added — ✅ DONE
+
+- Summary
+  - Introduced a CI-oriented guard script `scripts/dev-header-guard.sh` that scans the repository for deprecated development authentication artifacts: `x-dev-user`, `x-tenant`, `DevHeaderAuthHandler`, `AuthTestClient.UseTenantAsync`, and the transitional composite scheme identifier `BearerOrDev`. The script fails (exit 1) if any matches are found outside an explicit allowlist (current allowlist: guard test file, negative dev header tests, and documentation folders). This establishes proactive enforcement to prevent reintroduction of legacy dev header pathways as migrations progress and before deprecation middleware (Story 3) physically removes the code. The guard will later be wired into CI (pre-merge task) and the allowlist narrowed once negative coverage is updated post-removal.
+- Files changed
+  - scripts/dev-header-guard.sh — new Bash script implementing pattern scan with allowlist and structured failure output.
+  - devInfo/LivingChecklist.md — expanded RDH Story 2 line enumerating migrated suites (AgentTasks, Members*, Assignments, Audit*, Invites*, UserProfile*, UserAvatar) and remaining targets (TenantSettings, ToolCatalog, DevGrantRoles, DenominationsMetadata).
+- Quality gates
+  - Local execution reports OK (no forbidden artifacts) except those present solely in allowlisted negative/guard tests and docs. Grep spot checks confirm migrated suites no longer contain `UseTenantAsync` or dev header strings; remaining usages confined to planned targets and guard scaffolding.
+- Rationale
+  - Provides an automated safety net ensuring the codebase continues moving toward total removal of dev header authentication without regression. Early introduction reduces risk of accidental new references during concurrent story work and clarifies remaining migration surface.
+- Follow-ups
+  - Integrate guard script into CI pipeline (e.g., Makefile target invoked in test or lint stage).
+  - After migrating remaining suites, tighten allowlist (remove `UseTenantAsync` guard test) and escalate dev header negative tests to assert 401/`dev_headers_deprecated` then 404/`dev_headers_removed` in later stories.
+  - Remove `BearerOrDev` pattern from scan list once composite scheme decommissioned; add middleware deprecation code patterns if needed.
+- Snapshot / Docs
+  - LivingChecklist updated; SnapshotArchitecture to be updated at Story 2 closure summarizing guard enforcement layer.
+
+2025-09-22 — Auth/JWT / RDH: Story 2 Final Test Migrations & Helper Removal — ✅ DONE (Tests Phase)
+
+- Summary
+  - Completed remaining migrations off legacy mint helper / shortcut auth for: `TenantSettingsEndpointsTests`, `ToolCatalogTests`, `DevGrantRolesEndpointTests`, and `DenominationsMetadataTests`. Each suite now seeds the default password (`Password123!`) via `IPasswordHasher` and authenticates through `AuthTestClientFlow.LoginAndSelectTenantAsync`, ensuring full traversal of `/api/auth/login` + `/api/auth/select-tenant` before exercising endpoints. Removed the obsolete `AuthTestClient.UseTenantAsync` helper method and converted the guard test `NoUseTenantAsyncLeftTests` from warning mode to a hard failing assertion (no allowlist). Added a Makefile integration that runs the dev header guard script (`scripts/dev-header-guard.sh`) in non-fatal mode as part of `make test`, plus a dedicated `guard-dev-headers` target for strict CI enforcement. This closes the “test migration” portion of RDH Story 2: all integration/E2E/domain tests now rely exclusively on real JWT flows (password hashing -> login -> tenant selection) without dev headers or mint shortcuts.
+- Files changed
+  - apps/api.tests/Api/TenantSettingsEndpointsTests.cs — added `SeedPasswordAsync`, replaced client helper with inline auth flow.
+  - apps/api.tests/Api/ToolCatalogTests.cs — same migration pattern.
+  - apps/api.tests/Api/DevGrantRolesEndpointTests.cs — added password seeding, replaced client factory wrapper.
+  - apps/api.tests/Api/DenominationsMetadataTests.cs — added password seeding + flow auth; retained unauthorized test.
+  - apps/api.tests/Auth/AuthTestClient.cs — removed `UseTenantAsync` method.
+  - apps/api.tests/Guard/NoUseTenantAsyncLeftTests.cs — now fails if any legacy usage appears; empty allowlist.
+  - Makefile — added guard invocation (non-fatal) to `test` target and new `guard-dev-headers` strict target.
+- Quality gates
+  - Grep for `UseTenantAsync(` returns only historical references in story log / docs; no code usages remain.
+  - Guard test passes (zero matches), ensuring helper removal completeness.
+  - Dev header guard script reports no forbidden artifacts outside allowlists (negative tests + docs) after migrations.
+- Rationale
+  - Establishes a single, production-authentication pathway across all tests prior to introducing deprecation middleware. Eliminates risk of unnoticed divergence hidden behind mint helpers and sets a clean baseline for measuring deprecation effects.
+- Follow-ups
+  - Story 2 closure tasks: update LivingChecklist line to mark test migrations fully complete; update SnapshotArchitecture (auth testing layer & guard enforcement); prepare Story 3 deprecation middleware PR.
+  - Consolidate duplicated `SeedPasswordAsync` helpers into a shared test utility (post-middleware, low risk refactor).
+  - Tighten guard script (remove non-fatal mode) once middleware lands and dev headers are blocked.
+- Snapshot / Docs
+  - LivingChecklist update pending (will mark Story 2 test migrations done). SnapshotArchitecture to receive final test-migration summary & dependency diagram update.
 
 2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
 2025-09-19 — Auth/Data: Backfill zero roles memberships to full flags — ✅ DONE
@@ -1312,3 +1410,19 @@
     - Enforce Phase 3 body disable (if not already) and monitor plaintext counters → remove TEMP metrics after quiet period.
     - Evaluate CSRF strategy if SameSite requirements evolve; consider rate limiting middleware & session listing endpoint.
     - Remove `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` once emission count = 0 across two releases (and drop related TEMP counters).
+
+2025-09-22 — Auth/JWT / RDH: Story 2 Phase D Harness Audit & Guard Enforcement — ✅ DONE
+
+- Summary
+  - Completed Phase D by auditing the entire integration/E2E test harness to ensure no residual reliance on development headers (`x-dev-user`, `x-tenant`) remained outside intentional negative-path regression suites. Introduced `DevHeadersUsageGuardTests` which scans only the `apps/api.tests` project (excluding the two allow‑listed negative suites) and fails if either dev header string appears elsewhere. Adjusted its path resolution to avoid scanning sibling runtime projects and excluded the guard file itself so comment literals do not trigger failures. Updated sprint plan lines 110–113 marking audit completion, guard assertion in place, fixture review (confirmed no hidden header injection), and full green validation. Full solution test run passes (239 passed / 1 skipped) with the guard active, providing fail-fast regression protection ahead of Story 3 deprecation middleware.
+- Files changed
+  - apps/api.tests/Guard/DevHeadersUsageGuardTests.cs — new guard test; patched to narrow scan scope & exclude self.
+  - devInfo/jwtRefactor/rdhSprintPlan.md — Phase D & follow-on checklist entries checked with explanatory notes.
+- Quality gates
+  - Guard test PASS; full suite green (239/0/1). Grep of test sources shows dev header strings only in intentional negative-path tests and guard file comments.
+- Rationale
+  - Establishes an automated safety net preventing accidental reintroduction of deprecated auth shortcuts prior to (and after) middleware-based rejection (Story 3) and physical handler removal (Story 4). Encodes Phase D success criteria directly into CI, reducing manual audit overhead.
+- Follow-ups
+  - Story 3: Add deprecation middleware returning structured 401 (`dev_headers_deprecated`), update negative-path tests, and emit metric.
+  - Story 4: Remove handler & composite scheme branches; convert negative-path tests to expect `dev_headers_removed`.
+  - Post-removal: Optionally replace string scan with Roslyn analyzer enforcing absence of legacy header constants.

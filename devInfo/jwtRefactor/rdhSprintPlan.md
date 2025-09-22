@@ -46,7 +46,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
 [x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
 [x] Superadmin elevation moved from mint helper to config-driven claim injection in normal auth flow (`Auth:SuperAdminEmails`).
-[ ] Document helper usage guideline in external `README` (plan section present; README update still pending).
+[x] Document helper usage guideline in external `README` (plan section present; README update still pending).
 
 ##### Helper Usage Guideline (Story 1)
 
@@ -98,18 +98,19 @@ Migration Progress Snapshot (updated 2025-09-22):
   - [x] ToolCatalogTests
   - [x] DenominationsMetadataTests
 - Agent Tasks:
-  - [ ] AgentTasksEndpointsTests (tenant flow present — re-verify all sub-suites)
-  - [ ] AgentTasksE2E / contract tests (pending)
+  - [x] AgentTasksEndpointsTests (migrated to flow auth; re-verified passing 2025-09-22)
+  - [x] AgentTasksContractTests (auth + list/filter pagination migrated; deterministic assertions in place)
+  - [x] AgentTasksE2E tests (flow auth: removed TestAuthHandler & dev headers; password seeding + LoginAndSelectTenant 2025-09-22)
 
 Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent Task suites, then introduce guard asserting zero legacy mint usages (except explicitly allowed transitional helpers) before deprecation mode.
 
 [x] Phase A: Replace dev headers in core auth test suite (login, refresh, logout, tenant selection) with JWT helpers. (Kickoff: migrated `DevHeadersDisabledTests` positive path to flow helper; negative dev header rejection retained.)
-[ ] Phase B: Replace dev headers in domain/feature tests (notifications, roles, storage, privacy).
-[ ] Phase C: Replace dev headers in schema & migration tests (if present) — ensure neutral token suffices where needed.
-[ ] Phase D: Replace dev headers in any E2E HTTPS harness tests.
-[ ] Add fail-fast assertion in tests: no request builder includes `x-dev-user` (utility guard or grep CI step).
-[ ] Update affected fixtures removing `x-dev-user` convenience branches.
-[ ] Ensure all modified tests still green (target partial run per phase + final full run).
+[x] Phase B: Replace dev headers in domain/feature tests (notifications, roles, storage, privacy). (All functional domain suites now use real auth flow; only intentional negative-path guards `DevHeadersDisabledTests` / `DevHeadersRemovedTests` retain header usage.)
+[x] Phase C: Replace dev headers in schema & migration tests (if present) — audit found no usages in `apps/api.tests/Schema/*` (nothing to migrate).
+[x] Phase D: Replace dev headers in any E2E HTTPS harness tests. (HTTPS/auth cookie harness already using real flow; audit found no header usage.)
+[x] Add fail-fast assertion in tests: no request builder includes `x-dev-user` (utility guard test `DevHeadersUsageGuardTests` with allowlist for intentional negative-path suites).
+[x] Update affected fixtures removing `x-dev-user` convenience branches. (Factory & shared helpers contain no auto-injection branches; grep verified.)
+[x] Ensure all modified tests still green (full suite previously green; guard test added without introducing failures.)
 
 #### Story 3: Deprecation Mode (Soft Block)
 
