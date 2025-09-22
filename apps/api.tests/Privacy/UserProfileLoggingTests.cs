@@ -28,16 +28,23 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
             });
         });
         var client = factory.CreateClient();
-        // Resolve seeded user + tenant inserted by WebAppFactory
+        // Migration off dev headers: exercise real auth login + select-tenant flow
         using (var seedScope = factory.Services.CreateScope())
         {
             var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = db.Users.First(u => u.Email == "kevin@example.com");
             var membership = db.Memberships.First(m => m.UserId == user.Id);
-            client.DefaultRequestHeaders.Add("x-dev-user", user.Email);
-            // Dev auth expects tenant slug (Name) not raw GUID id
-            var tenant = db.Tenants.First(t => t.Id == membership.TenantId);
-            client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+            // ensure password so flow helper can login
+            if (user.PasswordHash is null || user.PasswordSalt is null)
+            {
+                var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+                var (hash, salt, _) = hasher.HashPassword("Password123!");
+                var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+                db.Entry(user).CurrentValues.SetValues(updated);
+                db.SaveChanges();
+            }
+            var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
+            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, user.Email, tenantSlug);
         }
 
         var resp = await client.GetAsync("/api/users/me");
@@ -69,9 +76,16 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
             var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = db.Users.First(u => u.Email == "kevin@example.com");
             var membership = db.Memberships.First(m => m.UserId == user.Id);
-            client.DefaultRequestHeaders.Add("x-dev-user", user.Email);
-            var tenant = db.Tenants.First(t => t.Id == membership.TenantId);
-            client.DefaultRequestHeaders.Add("x-tenant", tenant.Name);
+            if (user.PasswordHash is null || user.PasswordSalt is null)
+            {
+                var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+                var (hash, salt, _) = hasher.HashPassword("Password123!");
+                var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+                db.Entry(user).CurrentValues.SetValues(updated);
+                db.SaveChanges();
+            }
+            var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
+            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, user.Email, tenantSlug);
         }
 
         var resp = await client.GetAsync("/api/users/me");
