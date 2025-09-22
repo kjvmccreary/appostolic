@@ -30,22 +30,22 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 - Target: Single auth pipeline: HttpContext principal always built from JWT; any header shortcuts rejected early.
 - Supporting changes: Robust test token mint helper + seeded data utilities remove original rationale for dev headers.
 
-### Story Breakdown (Updated 2025-09-21 — Story 1 IN PROGRESS)
+### Story Breakdown (Updated 2025-09-22 — Story 1 IN PROGRESS)
 
-#### Story 0: Inventory & Baseline Metrics (Optional but Recommended)
+#### Story 0: Inventory & Baseline Metrics (Optional but Recommended) — ✅ PARTIAL
 
-[ ] List all code references to `x-dev-user` / `x-tenant` / `DevHeaderAuthHandler` / `BearerOrDev`.
-[ ] Count tests using dev headers (grep) and categorize by suite (auth, notifications, etc.).
-[ ] Add a temporary counter/metric (`auth.dev_headers.requests`) in existing code path (if still active) for a short measurement window.
-[ ] Document inventory snapshot in this plan (append section) for audit trail.
+[x] List all code references to `x-dev-user` / `x-tenant` / `DevHeaderAuthHandler` / `BearerOrDev`.
+[x] Count tests using dev headers (grep) and categorize by suite (auth, notifications, etc.).
+[ ] Add a temporary counter/metric (`auth.dev_headers.requests`) in existing code path (if still active) for a short measurement window. (Deferred — may be skipped if migration proceeds smoothly.)
+[x] Document inventory snapshot in this plan (append section) for audit trail.
 
 #### Story 1: Test Token Helper Consolidation — 🚧 IN PROGRESS
 
-[ ] Introduce / confirm presence of `TestTokenIssuer` (internal) exposing: `IssueNeutralAsync(userSeedSpec)`, `IssueTenantAsync(userSeedSpec, tenantSlug)`.
-[ ] Provide `AuthTestClient` facade used by tests (wraps creation + Authorization header injection).
-[ ] Add unit tests for `AuthTestClient` (neutral issuance, tenant issuance, rotation reuse denial scenario if needed).
-[ ] Update `WebAppFactory` to make password hashing available for seeded users (if not present) OR bypass via direct service token issuance.
-[ ] Document helper usage guideline in plan and `README` (test section).
+[x] Introduce / confirm presence of issuance services (existing `IJwtTokenService` methods for neutral & tenant). (Explicit wrapper `TestTokenIssuer` deferred.)
+[ ] Provide `AuthTestClient` facade used by tests (wraps creation + Authorization header injection). (Planned `UseTenantAsync` helper upcoming.)
+[x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
+[x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
+[ ] Document helper usage guideline in plan and `README` (pending after facade addition).
 
 #### Story 2: Migrate Integration Tests (Batch Refactor)
 
