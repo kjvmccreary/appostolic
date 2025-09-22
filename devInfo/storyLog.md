@@ -118,6 +118,20 @@
 
 2025-09-20 — Auth/JWT: Story 4 Refresh Cookie & Frontend In-Memory Access Token — ✅ DONE
 
+2025-09-22 — Auth/JWT: Dev Header Decommission Sprint Plan (RDH) — 🚧 IN PROGRESS
+
+- Summary
+  - Created `devInfo/jwtRefactor/rdhSprintPlan.md` detailing the Dev Header Decommission (RDH) sprint to fully remove development header authentication (`x-dev-user`, `x-tenant`) and the composite scheme from all environments and tests. Plan covers phased test migration to JWT helpers, deprecation middleware (temporary 401 `dev_headers_deprecated`), physical removal of handler & flag, regression guard (401 `dev_headers_removed` test + CI grep), documentation & rollback tag strategy, risks, acceptance criteria, and optional hardening follow-ups. SnapshotArchitecture updated to reference the new sprint. Next actionable stories: consolidate test token helpers, migrate integration tests off dev headers, introduce deprecation middleware, then remove code.
+- Files changed
+  - devInfo/jwtRefactor/rdhSprintPlan.md (new) — full sprint breakdown with stories 0–7, risks, rollback, matrix.
+  - SnapshotArchitecture.md — What’s New entry referencing RDH sprint plan creation.
+- Rationale
+  - Eliminates divergence between development/test and production auth paths, reducing attack surface and ensuring all test coverage exercises the production JWT flow. Simplifies mental model and prevents accidental reliance on headers in future code.
+- Follow-ups
+  - Story 1 helper consolidation & Story 2 phased test migration.
+  - Add temporary deprecation middleware & metric, then remove handler/flag.
+  - Final regression guard + documentation updates and tag `dev-headers-removed` on completion.
+
 - Summary
   - Implemented secure httpOnly refresh cookie delivery behind feature flag `AUTH__REFRESH_COOKIE_ENABLED` on `/api/auth/login`, `/api/auth/magic/consume`, and `/api/auth/select-tenant`. Cookie name `rt`; attributes: HttpOnly; SameSite=Lax; Path=/; Secure except in Development. Rotation logic in tenant selection endpoint revokes old neutral refresh token and overwrites cookie with the new one. Added frontend in-memory neutral access token client (`authClient.ts`) so access tokens are never persisted (reduces XSS exfiltration risk). Added `withAuthFetch` wrapper to inject `Authorization: Bearer <access>` and always include credentials for future refresh requests. Created placeholder internal route `/api/_auth/refresh-neutral` (clearly documented) to scaffold upcoming general refresh flow (Story 6). Tests `RefreshCookieTests` verify issuance and rotation (case-insensitive cookie attribute match). Architecture docs and LivingChecklist updated; story flagged complete.
 - Files changed
