@@ -12,17 +12,34 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "types": ["vitest/globals"],
+    "types": [
+      "vitest/globals"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@appostolic/sdk": ["../../packages/sdk/src"],
-      "@appostolic/sdk/*": ["../../packages/sdk/src/*"],
-      "@appostolic/models": ["../../packages/models/src"],
-      "@appostolic/models/*": ["../../packages/models/src/*"],
-      "@appostolic/ui": ["../../packages/ui/src"],
-      "@appostolic/ui/*": ["../../packages/ui/src/*"]
-    }
+      "@/*": [
+        "src/*"
+      ],
+      "@appostolic/sdk": [
+        "../../packages/sdk/src"
+      ],
+      "@appostolic/sdk/*": [
+        "../../packages/sdk/src/*"
+      ],
+      "@appostolic/models": [
+        "../../packages/models/src"
+      ],
+      "@appostolic/models/*": [
+        "../../packages/models/src/*"
+      ],
+      "@appostolic/ui": [
+        "../../packages/ui/src"
+      ],
+      "@appostolic/ui/*": [
+        "../../packages/ui/src/*"
+      ]
+    },
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",
@@ -41,5 +58,7 @@
     "vitest.config.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

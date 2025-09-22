@@ -59,6 +59,50 @@ public static class AuthMetrics
         description: "Count of global logout (all sessions) operations." 
     );
 
+    // Login / Refresh outcome counters (Story 9 additions)
+    public static readonly Counter<long> LoginSuccess = Meter.CreateCounter<long>(
+        name: "auth.login.success",
+        unit: "{event}",
+        description: "Count of successful login operations (neutral token issuance)."
+    );
+
+    public static readonly Counter<long> LoginFailure = Meter.CreateCounter<long>(
+        name: "auth.login.failure",
+        unit: "{event}",
+        description: "Count of failed login attempts (invalid credentials, unknown user, etc)." 
+    );
+
+    public static readonly Counter<long> RefreshSuccess = Meter.CreateCounter<long>(
+        name: "auth.refresh.success",
+        unit: "{event}",
+        description: "Count of successful refresh rotations (neutral token re-issuance)." 
+    );
+
+    public static readonly Counter<long> RefreshFailure = Meter.CreateCounter<long>(
+        name: "auth.refresh.failure",
+        unit: "{event}",
+        description: "Count of failed refresh attempts (invalid, expired, reuse, forbidden tenant, etc)." 
+    );
+
+    public static readonly Counter<long> RefreshRateLimited = Meter.CreateCounter<long>(
+        name: "auth.refresh.rate_limited",
+        unit: "{event}",
+        description: "Count of refresh attempts rejected due to rate limiting." 
+    );
+
+    // Latency histograms (milliseconds) - low cardinality tags only (outcome)
+    public static readonly Histogram<double> LoginDurationMs = Meter.CreateHistogram<double>(
+        name: "auth.login.duration_ms",
+        unit: "ms",
+        description: "End-to-end duration for login requests (from endpoint entry to response)." 
+    );
+
+    public static readonly Histogram<double> RefreshDurationMs = Meter.CreateHistogram<double>(
+        name: "auth.refresh.duration_ms",
+        unit: "ms",
+        description: "End-to-end duration for refresh requests (from endpoint entry to response)." 
+    );
+
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
     /// </summary>
@@ -118,5 +162,73 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "user_id", userId }, { "revoked_count", revokedCount } };
         LogoutAll.Add(1, tags);
+    }
+
+    // ----- Story 9 new increment helpers -----
+    /// <summary>
+    /// Record a successful login. membershipCount used for coarse-grained distribution (e.g., single vs multi-tenant user experience).
+    /// </summary>
+    public static void IncrementLoginSuccess(Guid userId, int membershipCount)
+    {
+        var tags = new System.Diagnostics.TagList { { "user_id", userId }, { "memberships", membershipCount } };
+        LoginSuccess.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a failed login attempt. Reason is a bounded set: missing_fields | unknown_user | invalid_credentials.
+    /// userId optional if user resolved but password mismatch.
+    /// </summary>
+    public static void IncrementLoginFailure(string reason, Guid? userId = null)
+    {
+        var tags = new System.Diagnostics.TagList { { "reason", reason } };
+        if (userId.HasValue) tags.Add("user_id", userId.Value);
+        LoginFailure.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record refresh success after rotation.
+    /// </summary>
+    public static void IncrementRefreshSuccess(Guid userId)
+    {
+        var tags = new System.Diagnostics.TagList { { "user_id", userId } };
+        RefreshSuccess.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a failed refresh attempt. Reason bounded: missing_refresh | refresh_body_disallowed | refresh_invalid | refresh_reuse | refresh_expired | refresh_forbidden_tenant | rate_limited.
+    /// userId optional (may be unknown for invalid/missing cases).
+    /// </summary>
+    public static void IncrementRefreshFailure(string reason, Guid? userId = null)
+    {
+        var tags = new System.Diagnostics.TagList { { "reason", reason } };
+        if (userId.HasValue) tags.Add("user_id", userId.Value);
+        RefreshFailure.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a refresh request rejected due to rate limiting.
+    /// </summary>
+    public static void IncrementRefreshRateLimited()
+    {
+        var tags = new System.Diagnostics.TagList();
+        RefreshRateLimited.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Observe login duration in milliseconds with success/failure outcome tag.
+    /// </summary>
+    public static void RecordLoginDuration(double ms, bool success)
+    {
+        var tags = new System.Diagnostics.TagList { { "outcome", success ? "success" : "failure" } };
+        LoginDurationMs.Record(ms, tags);
+    }
+
+    /// <summary>
+    /// Observe refresh duration in milliseconds with success/failure outcome tag.
+    /// </summary>
+    public static void RecordRefreshDuration(double ms, bool success)
+    {
+        var tags = new System.Diagnostics.TagList { { "outcome", success ? "success" : "failure" } };
+        RefreshDurationMs.Record(ms, tags);
     }
 }

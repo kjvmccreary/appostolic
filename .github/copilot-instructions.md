@@ -7,8 +7,10 @@ These instructions complement `AGENTS.md` and nested `AGENTS.md` files.
 - Keep `SnapshotArchitecture.md` up to date at the end of each story.
 - For .NET migrations, include the `.Designer.cs` file and run `make migrate`.
 - Append `devInfo/storyLog.md` with the same summary used in the assistant output.
+- Mark stories as 🚧 IN PROGRESS once you begin work on them.
+- If a single story requires multiple phases, mark each phase ✅ DONE when completed
 - Commit with a clear message and sync after each story.
-- Mark sprint stories ✅ DONE when completed.
+- Mark sprint stories ✅ DONE when completed in the document serving as the SprintPlan.
 - Add code comments above new methods/controllers/functions (especially complex blocks).
 
 ### Living Checklist
