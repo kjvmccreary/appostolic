@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.AuthTests; // Auth test real login + tenant selection flow
+using Microsoft.EntityFrameworkCore;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -15,18 +16,29 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     /// <summary>
     /// Create tenant-authenticated client via JWT for dev grant-roles endpoint tests.
     /// </summary>
-    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string tenantSlug)
+    private const string DefaultPw = "Password123!"; // match AuthTestClientFlow
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        // Phase A migration: use real password + login + select-tenant flow instead of legacy mint helper
-        var c = f.CreateClient();
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", tenantSlug);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+    }
+    private async Task<HttpClient> CreateAuthedAsync(string tenantSlug)
+    {
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var c = _factory.CreateClient();
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", tenantSlug);
         return c;
     }
 
     [Fact]
     public async Task Grants_roles_to_new_user_and_membership()
     {
-    var client = await ClientAsync(_factory, "kevin-personal");
+        var client = await CreateAuthedAsync("kevin-personal");
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -52,7 +64,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles()
     {
-    var client = await ClientAsync(_factory, "kevin-personal");
+        var client = await CreateAuthedAsync("kevin-personal");
         Guid tenantId;
         Guid userId;
         using (var scope = _factory.Services.CreateScope())
@@ -91,7 +103,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles_writes_audit()
     {
-    var client = await ClientAsync(_factory, "kevin-personal");
+        var client = await CreateAuthedAsync("kevin-personal");
         Guid tenantId;
         Guid userId;
         string email;
@@ -131,7 +143,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Returns_400_for_invalid_role_name()
     {
-    var client = await ClientAsync(_factory, "kevin-personal");
+        var client = await CreateAuthedAsync("kevin-personal");
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {

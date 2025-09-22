@@ -5,6 +5,8 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using Appostolic.Api.AuthTests; // real auth flow helper
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -22,18 +24,29 @@ public class DenominationsMetadataTests : IClassFixture<WebAppFactory>
     }
 
     // RDH Story 2: legacy dev headers removed; using JWT helper
-    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
+    private const string DefaultPw = "Password123!"; // align with other migrated tests
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        // Migration Phase A: real login + select tenant
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+    }
+    private async Task<HttpClient> CreateAuthedClientAsync()
+    {
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var c = _factory.CreateClient();
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
     [Fact]
     public async Task ReturnsPresetList()
     {
-    var client = await CreateAuthedClientAsync(_factory);
+        var client = await CreateAuthedClientAsync();
         var resp = await client.GetAsync("/api/metadata/denominations");
         resp.EnsureSuccessStatusCode();
         var json = await resp.Content.ReadAsStringAsync();

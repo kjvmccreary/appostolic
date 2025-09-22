@@ -9,6 +9,11 @@ namespace Appostolic.Api.Tests.Auth;
 /// with a 401 once dev header decommission completes (pre-removal phase asserts Unauthorized status; later
 /// iterations may also assert structured error code body such as { code: "dev_headers_removed" }).
 /// </summary>
+/// <summary>
+/// Future-stage regression guard (Stories 3-5). Intentionally uses legacy header names to verify they are rejected.
+/// Excluded from Phase B migration completion criteria; retained until Physical Removal (Story 4) then adapted
+/// to assert the final structured error payload.
+/// </summary>
 public class DevHeadersRemovedTests
 {
     [Fact]

@@ -24,17 +24,6 @@ public class AuthTestClientTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task UseTenantAsync_AttachesTenantToken()
-    {
-        var client = _factory.CreateClient();
-        var (neutral, tenant) = await AuthTestClient.UseTenantAsync(client, "tenantuser@example.com", "kevin-personal");
-        Assert.False(string.IsNullOrWhiteSpace(neutral));
-        Assert.False(string.IsNullOrWhiteSpace(tenant));
-        Assert.NotEqual(neutral, tenant); // Expect different JWTs
-        Assert.Equal(tenant, client.DefaultRequestHeaders.Authorization!.Parameter);
-    }
-
-    [Fact]
     public async Task UseAutoTenantAsync_AttachesTenantWhenAvailable()
     {
         var client = _factory.CreateClient();

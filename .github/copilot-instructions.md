@@ -13,6 +13,10 @@ These instructions complement `AGENTS.md` and nested `AGENTS.md` files.
 - Mark sprint stories ✅ DONE when completed in the document serving as the SprintPlan.
 - Add code comments above new methods/controllers/functions (especially complex blocks).
 
+## Sprint Plans
+
+- If using a Sprint Plan for a sprint (e.g., `rdhSprintPlan.md`), be sure to mark stories as ✅ DONE when completed. If a story has multiple line items, use checkboxes to track progress. The sprint plans will follow this naming convention: `^[a-zA-Z0-9]{3}SprintPlan\.md$`
+
 ### Living Checklist
 
 - Maintain the live 1.0 readiness checklist at `devInfo/LivingChecklist.md`.

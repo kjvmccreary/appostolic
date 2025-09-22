@@ -4,6 +4,11 @@ using Xunit;
 
 namespace Appostolic.Api.Tests.Auth;
 
+/// <summary>
+/// Negative-path coverage asserting that dev headers are rejected when the feature flag is disabled.
+/// This file intentionally still references x-dev-user / x-tenant to validate rejection behavior.
+/// It is EXCLUDED from Phase B completion criteria and will migrate / be removed in Story 3 (Deprecation Mode).
+/// </summary>
 public class DevHeadersDisabledTests
 {
     [Fact]

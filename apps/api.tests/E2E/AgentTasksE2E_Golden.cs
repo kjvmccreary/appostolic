@@ -2,17 +2,15 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FluentAssertions;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using System.Text.Encodings.Web;
 using System.Security.Claims;
 using Xunit;
+using Appostolic.Api.AuthTests;
 
 namespace Appostolic.Api.Tests.E2E;
 
@@ -25,20 +23,11 @@ public class AgentTasksE2E_Golden
                 builder.UseEnvironment("Development");
                 builder.ConfigureServices(services =>
                 {
-                    // Stable in-memory db across all DbContext instances
                     var dbName = $"e2e-golden-{Guid.NewGuid()}";
                     var dbRoot = new InMemoryDatabaseRoot();
                     var dbDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-                    if (dbDescriptor != null)
-                        services.Remove(dbDescriptor);
+                    if (dbDescriptor != null) services.Remove(dbDescriptor);
                     services.AddDbContext<AppDbContext>(opts => opts.UseInMemoryDatabase(dbName, dbRoot));
-
-                    // Override auth to a test scheme that always authenticates
-                    services.AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
-                        options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
-                    }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
                 });
             });
 
@@ -46,32 +35,9 @@ public class AgentTasksE2E_Golden
     public async Task HappyPath_projection_matches_golden_fixture()
     {
         using var factory = CreateFactory();
-        // Seed dev user/tenant/membership expected by DevHeaderAuthHandler
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.EnsureCreated();
-            if (!db.Users.AsNoTracking().Any(u => u.Email == "kevin@example.com"))
-            {
-                var tenant = new Tenant { Id = TestAuthHandler.TenantId, Name = "kevin-personal", CreatedAt = DateTime.UtcNow };
-                var user = new User { Id = TestAuthHandler.UserId, Email = "kevin@example.com", CreatedAt = DateTime.UtcNow };
-                var membership = new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenant.Id,
-                    UserId = user.Id,
-                    Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.AddRange(tenant, user, membership);
-                db.SaveChanges();
-            }
-        }
-
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "kevin@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "kevin-personal");
+        await SeedPasswordAsync(factory, "kevin@example.com", DefaultPw);
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(factory, client, "kevin@example.com", "kevin-personal");
 
         // Create task for seeded ResearchAgent
         var create = await client.PostAsJsonAsync("/api/agent-tasks", new
@@ -151,29 +117,41 @@ public class AgentTasksE2E_Golden
         }
     }
 
-    private sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+    private const string DefaultPw = "Password123!";
+    private static async Task SeedPasswordAsync(WebApplicationFactory<Program> factory, string email, string pw)
     {
-        public const string SchemeName = "Test";
-        public static readonly Guid UserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        public static readonly Guid TenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
-            : base(options, logger, encoder) { }
-
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == email);
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var (hash, salt, _) = hasher.HashPassword(pw);
+        if (user == null)
         {
-            var claims = new[]
+            var tenant = new Tenant { Id = Guid.NewGuid(), Name = "kevin-personal", CreatedAt = DateTime.UtcNow };
+            user = new User
             {
-                new Claim("sub", UserId.ToString()),
-                new Claim(ClaimTypes.NameIdentifier, UserId.ToString()),
-                new Claim("email", "kevin@example.com"),
-                new Claim(ClaimTypes.Email, "kevin@example.com"),
-                new Claim("tenant_id", TenantId.ToString()),
-                new Claim("tenant_slug", "kevin-personal")
+                Id = Guid.NewGuid(),
+                Email = email,
+                CreatedAt = DateTime.UtcNow,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                PasswordUpdatedAt = DateTime.UtcNow
             };
-            var identity = new ClaimsIdentity(claims, SchemeName);
-            var principal = new ClaimsPrincipal(identity);
-            var ticket = new AuthenticationTicket(principal, SchemeName);
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            var membership = new Membership
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
+                UserId = user.Id,
+                Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
+                Status = MembershipStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.AddRange(tenant, user, membership);
+            await db.SaveChangesAsync();
+            return;
         }
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 }

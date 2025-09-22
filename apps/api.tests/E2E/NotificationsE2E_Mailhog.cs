@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // AuthTestClientFlow
+using Appostolic.Api.Application.Auth; // IPasswordHasher
 
 namespace Appostolic.Api.Tests.E2E;
 
@@ -55,7 +57,7 @@ public class NotificationsE2E_Mailhog
                 });
                 builder.ConfigureServices(services =>
                 {
-                    // Use isolated in-memory DB and seed dev auth prerequisites
+                    // Use isolated in-memory DB
                     var dbDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
                     if (dbDescriptor != null) services.Remove(dbDescriptor);
                     var dbName = $"notif20-e2e-{Guid.NewGuid()}";
@@ -66,14 +68,37 @@ public class NotificationsE2E_Mailhog
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     db.Database.EnsureCreated();
 
-                    // Seed a dev user/tenant matching our headers
+                    // Seed user + tenant with password so we can exercise real login + tenant selection (no dev headers)
                     var email = "dev@example.com";
                     var slug = "acme";
-                    if (!db.Users.AsNoTracking().Any(u => u.Email == email))
+                    var password = "Password123!";
+                    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+                    var tenant = db.Tenants.FirstOrDefault(t => t.Name == slug);
+                    if (tenant == null)
                     {
-                        var tenant = new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = DateTime.UtcNow };
-                        var user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
-                        var membership = new Membership
+                        tenant = new Tenant { Id = Guid.NewGuid(), Name = slug, CreatedAt = DateTime.UtcNow };
+                        db.Tenants.Add(tenant);
+                    }
+
+                    var user = db.Users.FirstOrDefault(u => u.Email == email);
+                    if (user == null)
+                    {
+                        var (hash, salt, _) = hasher.HashPassword(password);
+                        user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow, PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+                        db.Users.Add(user);
+                    }
+                    else if (user.PasswordHash == null || user.PasswordSalt == null)
+                    {
+                        var (hash, salt, _) = hasher.HashPassword(password);
+                        var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
+                        db.Entry(user).CurrentValues.SetValues(updated);
+                    }
+
+                    var membership = db.Memberships.FirstOrDefault(m => m.UserId == user.Id && m.TenantId == tenant.Id);
+                    if (membership == null)
+                    {
+                        membership = new Membership
                         {
                             Id = Guid.NewGuid(),
                             TenantId = tenant.Id,
@@ -82,15 +107,17 @@ public class NotificationsE2E_Mailhog
                             Status = MembershipStatus.Active,
                             CreatedAt = DateTime.UtcNow
                         };
-                        db.AddRange(tenant, user, membership);
-                        db.SaveChanges();
+                        db.Memberships.Add(membership);
                     }
+
+                    db.SaveChanges();
                 });
             });
 
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        client.DefaultRequestHeaders.Add("x-dev-user", "dev@example.com");
-        client.DefaultRequestHeaders.Add("x-tenant", "acme");
+
+        // Exercise real auth flow (login + select tenant) replacing legacy dev headers
+    await AuthTestClientFlow.LoginAndSelectTenantAsync(factory, client, "dev@example.com", "acme");
 
         var to = "dev@example.com"; // Mailhog will accept any recipient locally
         var token = Guid.NewGuid().ToString("N");

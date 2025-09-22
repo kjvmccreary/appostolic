@@ -7,6 +7,8 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using Appostolic.Api.AuthTests; // AuthTestClientFlow
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -15,18 +17,25 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public TenantSettingsEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2 Phase A: migrate from mint helper UseTenantAsync to real password + login + select-tenant flow.
-    private async Task<HttpClient> ClientAsync()
+    // RDH Story 2 Phase A: migrated from legacy mint helper (UseTenantAsync) to real password + login + select-tenant flow.
+    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", "kevin-personal");
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
     public async Task Get_Settings_Returns_Empty_Object_When_Null()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         var resp = await client.GetAsync("/api/tenants/settings");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -37,7 +46,9 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Put_Settings_Deep_Merges()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         var seed = new { branding = new { colors = new { primary = "#123456", secondary = "#abcdef" } } };
         var seedResp = await client.PutAsJsonAsync("/api/tenants/settings", seed);
         seedResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -55,7 +66,9 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Succeeds_And_Stores_Metadata()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         // 1x1 PNG (validated in MinimalPngDecodeTests)
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using var content = new MultipartFormDataContent();
@@ -75,7 +88,9 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Unsupported_Media_Type()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         using var content = new MultipartFormDataContent();
         var bytes = Encoding.UTF8.GetBytes("plain");
         var fileContent = new ByteArrayContent(bytes);
@@ -88,7 +103,9 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Payload_Too_Large()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         using var content = new MultipartFormDataContent();
         var bytes = new byte[2 * 1024 * 1024 + 10];
         var fileContent = new ByteArrayContent(bytes);
@@ -101,7 +118,9 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Delete_Logo_Removes_Metadata()
     {
-    var client = await ClientAsync();
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
         // First upload
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using (var content = new MultipartFormDataContent())

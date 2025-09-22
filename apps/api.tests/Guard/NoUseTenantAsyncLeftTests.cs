@@ -6,18 +6,13 @@ using Xunit;
 namespace Appostolic.Api.Tests.Guard;
 
 /// <summary>
-/// Provisional guard test for RDH Story 2: enumerates any remaining usages of AuthTestClient.UseTenantAsync.
-/// Currently WARN-ONLY (does not fail) unless the environment variable AUTH_GUARD_ENFORCE_USE_TENANT_ASYNC == "1".
-/// Once all migrations complete, set the env var in CI to convert warnings into a failing assertion
-/// and then remove allowlisted files. Allowlist lets us keep intentional coverage tests until removal.
+/// Guard test for RDH Story 2: fails if any usages of removed AuthTestClient.UseTenantAsync remain.
 /// </summary>
 public class NoUseTenantAsyncLeftTests
 {
-    private static readonly string[] AllowList = new[]
-    {
-        // Temporary: helper tests or intentional legacy references (trim as migrations finish)
-        "AuthTestClientTests.cs" // tests explicitly validating the old helper (will be removed later)
-    };
+    // Allow list: only this guard test file is allowed to contain the literal search token
+    // because the assertion itself references the deprecated method name.
+    private static readonly string[] AllowList = new[] { nameof(NoUseTenantAsyncLeftTests) + ".cs" };
 
     [Fact]
     public void Detect_remaining_UseTenantAsync_usages()
@@ -30,24 +25,8 @@ public class NoUseTenantAsyncLeftTests
             .Where(f => !AllowList.Any(a => f.EndsWith(a, StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
-        var enforce = Environment.GetEnvironmentVariable("AUTH_GUARD_ENFORCE_USE_TENANT_ASYNC") == "1";
-        if (matches.Count > 0)
-        {
-            var msg = $"Found {matches.Count} remaining AuthTestClient.UseTenantAsync usages:\n" + string.Join('\n', matches.Select(Path.GetFileName));
-            if (enforce)
-            {
-                Assert.True(matches.Count == 0, msg); // fail build
-            }
-            else
-            {
-                // Non-enforcing: write to console so it appears in test logs.
-                Console.WriteLine("[guard][UseTenantAsync][warning] " + msg);
-            }
-        }
-        else
-        {
-            Console.WriteLine("[guard][UseTenantAsync] No remaining usages detected (allowlist ignored).");
-        }
+        var msg = matches.Count > 0 ? $"Found {matches.Count} remaining AuthTestClient.UseTenantAsync usages (excluding guard self-file):\n" + string.Join('\n', matches.Select(Path.GetFileName)) : null;
+        Assert.True(matches.Count == 0, msg);
     }
 
     private static string FindRepoRoot()

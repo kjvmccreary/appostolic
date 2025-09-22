@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Appostolic.Api.AuthTests; // AuthTestClientFlow
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -11,18 +13,25 @@ public class ToolCatalogTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public ToolCatalogTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2 Phase A: migrate from mint helper to real auth (password login + select tenant)
-    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
+    // RDH Story 2 Phase A: migrated from legacy mint helper to real password + login + select-tenant flow.
+    private const string DefaultPw = "Password123!";
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var c = f.CreateClient();
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
-        return c;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
     public async Task Tools_Catalog_Lists_Registered_Tools_With_Categories()
     {
-    var client = await CreateAuthedClientAsync(_factory);
+        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var client = _factory.CreateClient();
+        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
 
         var resp = await client.GetAsync("/api/agents/tools");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);

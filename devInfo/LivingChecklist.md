@@ -54,7 +54,7 @@ How to use
 - [x] JWT Story 9: Auth observability metrics (login/refresh/logout counters, rotation/reuse/expired, latency histograms) (2025-09-22)
 - [x] JWT Story 10: Documentation & Upgrade Guide (auth-upgrade guide, diagram, architecture updates) (2025-09-22)
 - [x] JWT Story 11: Cleanup & legacy artifact pruning (comments, unused helpers, transitional flag documentation, tag) (2025-09-22)
-- [ ] Dev Header Decommission (RDH) Story 2: Test migrations — ✅ PARTIAL (AgentTasks auth + assertions migrated 2025-09-22; continuing remaining suites)
+- [x] Dev Header Decommission (RDH) Story 2: Test migrations complete (all suites on real auth flows; helper removed; guard enforcing). Next: Story 3 deprecation middleware & handler removal.
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -63,7 +63,7 @@ How to use
 
 - [x] Tenant creation and membership flows (personal + invited)
 - [x] Role management UI (flags) with last‑admin guard surfaced
-- [ ] Basic Tenant settings UI — In 1.0 scope
+- [x] Basic Tenant settings UI — In 1.0 scope
   - [x] Implemented (Org Settings) with server guards; follow-ups: feature toggles
 
 ### Guardrails & Denomination Profiles

@@ -94,6 +94,12 @@ test:
 	  -p:CoverletOutput=./TestResults/coverage.cobertura.xml \
 	  --logger "trx;LogFileName=TestResults.trx"
 	cd apps/web && pnpm test -- --coverage
+	@echo "Running dev header guard (non-fatal pre-removal)..."
+	@./scripts/dev-header-guard.sh || echo "[guard][non-fatal] guard script reported issues (will become fatal after full migration)"
+
+# Strict dev header guard (CI can call once migrations complete)
+guard-dev-headers:
+	./scripts/dev-header-guard.sh
 
 fetest:
 	pnpm --filter @appostolic/web test
