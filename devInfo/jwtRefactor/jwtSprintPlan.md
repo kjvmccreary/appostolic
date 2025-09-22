@@ -660,6 +660,83 @@ Start Story 3 (tenant selection endpoint issuing tenant-scoped access + refresh 
 - (Story 5b) Cross-site SameSite=None scenario investigation (deferred).
 - (Story 5b) CSRF token double-submit validation (complements future refresh endpoint and SameSite=None changes).
 
+## Story 10: Documentation & Upgrade Guide — 🚧 IN PROGRESS (Planned)
+
+Goal: Formalize the JWT auth rollout for internal and external developers: how to enable, migrate, and roll back; clarify transitional flag behaviors; capture final architecture diagram for refresh/access flows, and provide operational guidance (key rotation, deprecation phases, observability usage).
+
+Acceptance Checklist:
+
+[ ] Upgrade Guide section (add to `RUNBOOK.md` or new `docs/auth-upgrade.md`):
+
+- Generating a secure signing key (Base64 256-bit) & environment variable placement.
+- Enabling cookie-based refresh (`AUTH__REFRESH_COOKIE_ENABLED`), optional silent refresh timeline.
+- Transitional flags table: (`AUTH__REFRESH_JSON_GRACE_ENABLED`, `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT`, `AUTH__REFRESH_DEPRECATION_DATE`, `AUTH__ALLOW_DEV_HEADERS`).
+- Rollback procedure: re-enable dev headers, reset grace flags, purge refresh tokens if compromise.
+- Key rotation: manual procedure (create new key, brief dual validation note deferred until multi-key support) + risk mitigation (short access TTL).
+- Refresh reuse / expired troubleshooting (how to interpret error codes).
+  [ ] SnapshotArchitecture updates:
+- Final simplified auth flow diagram (Login → Neutral Access + Refresh Cookie; Select Tenant; Refresh rotation; Logout/All).
+- Removal of placeholder internal refresh route references; explicit note about dev header decommission next sprint (link to RDH plan).
+  [ ] LivingChecklist: add & tick “JWT Story 10 – Documentation & Upgrade Guide”.
+  [ ] storyLog: entry summarizing completion with key doc artifact references.
+  [ ] Add `docs/` (or subfolder) diagram asset if not embedded inline (e.g., `docs/diagrams/auth-flow.v1.drawio` + exported PNG/SVG).
+  [ ] Document metric taxonomy usage (link to appendix) and how to interpret `auth.refresh.reuse_denied` vs `auth.refresh.expired` for support.
+  [ ] Add short “Writing Authenticated Tests” paragraph pointing to `TestAuthClient` and discouraging multi-step flows except when under test.
+  [ ] Clarify cookie security: HttpOnly, SameSite=Lax rationale; when to consider SameSite=None + CSRF token (future story reference).
+  [ ] Add forward reference to RDH sprint: dev header removal sequencing & why not removed within JWT sprint.
+
+Non-Goals:
+
+- Implementing multi-key validation (explicitly deferred).
+- Expanding session listing endpoints (post‑1.0 security UX).
+
+Risks / Mitigation:
+
+- Risk: Docs drift as RDH removes flags → Mitigate by explicitly calling which parts remain temporary and referencing removal plan.
+- Risk: Overly prescriptive key rotation before multi-key → Keep section labeled “Interim rotation approach”.
+
+Definition of Done: All acceptance items checked; commit(s) include doc changes; storyLog entry appended; no TODO placeholders left in the added sections.
+
+## Story 11: Cleanup & Legacy Removal — (Pending)
+
+Goal: Finalize JWT sprint scope by pruning artifacts introduced only for transition or experimentation, without encroaching on the Dev Header Decommission (RDH) responsibilities.
+
+AC (Scoping STRICTLY to JWT sprint remnants):
+
+[ ] Remove stale comments referencing: placeholder `_auth/refresh-neutral` route (already removed) or legacy plaintext permanence assumptions.
+[ ] Delete any unused error codes, constants, or feature flag checks that became no-ops after Stories 8–9 (EXCLUDING dev header flag & related code — defer to RDH).
+[ ] Ensure `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` documented as transitional; DO NOT remove yet (pending adoption window) — mark with TODO linking to future removal issue.
+[ ] Verify no dead test helpers superseded by `TestAuthClient`; remove obsolete helpers (e.g., manual login scaffolds) if entirely unused (grep before delete).
+[ ] Run grep for `TODO JWT-SHORT-LIVED` or similar markers; resolve or convert to explicit RDH / Post‑1.0 backlog references.
+[ ] Ensure no inline hashing duplication survived (all should use `RefreshTokenHashing`).
+[ ] Confirm metrics instrumentation has no dormant counters left commented out; remove commented prototypes.
+[ ] Tag repository `jwt-auth-rollout-complete` (annotated with summary & reference commit shas for key stories).
+[ ] Update `LivingChecklist.md` marking JWT sprint fully complete; add pointer to RDH sprint kickoff.
+[ ] Add storyLog entry summarizing cleanup scope & explicitly stating dev header removal deferred.
+
+Important Constraints (DO NOT VIOLATE — coordination with RDH):
+
+> NOTE: Do not remove dev header authentication handler, composite scheme wiring, or `AUTH__ALLOW_DEV_HEADERS` flag in Story 11. Those belong to RDH plan phased removal (test migration, deprecation middleware, removal, regression guard). Limiting this cleanup prevents story overlap and preserves a clear rollback boundary.
+
+Explicit Deferrals to RDH:
+
+- Dev header auth handler & composite scheme deletion.
+- Flag `AUTH__ALLOW_DEV_HEADERS` removal.
+- Regression guard test (`dev_headers_removed`).
+
+Post-Story 11 State:
+
+- Codebase stable with JWT flows; all remaining auth flags are either transitional (documented) or scheduled in RDH.
+- Documentation cross-links established so developers know next sprint location for header removal.
+
+Definition of Done:
+
+- All AC items checked, constraints honored, tag pushed, storyLog updated. No accidental deletion of RDH-targeted assets.
+
+Rollback (Story 11 changes only):
+
+- Revert cleanup commit or checkout tag `jwt-auth-rollout-complete` predecessor; minimal risk because production auth path unaffected by deletions.
+
 ## Recent Adjacent Hardening (2025-09-21)
 
 Outside the core JWT sprint stories, a small stabilization pass was completed to reduce future regression risk:
