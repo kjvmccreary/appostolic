@@ -468,6 +468,14 @@ app.UseSwaggerUI(c =>
 // Remove custom redirect that interfered with UI loading (browser now hits /swagger or /swagger/ and gets index.html)
 
 
+// Enforce HTTPS + HSTS in non-Development/Test environments. This keeps local dev/test flexible (plain HTTP)
+// while ensuring production traffic is secured and browsers remember to prefer HTTPS.
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Test"))
+{
+    app.UseHttpsRedirection();
+    app.UseHsts();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
