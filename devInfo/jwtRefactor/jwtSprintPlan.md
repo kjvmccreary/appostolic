@@ -429,22 +429,107 @@ Follow-ups / Deferred:
 - Admin forced logout endpoint (pending admin surface design) if not delivered here.
 - Observability counters (Story 9) to increment tokens_revoked on logout actions.
 
-### Story 8: Dev Headers Decommission (Flag Gate)
+### Story 8: Silent Refresh, Plaintext Removal & Body Path Deprecation — 🚧 IN PROGRESS (2025-09-21)
 
-Acceptance:
+Goals:
 
-- If AUTH\_\_ALLOW_DEV_HEADERS=false, DevHeaderAuthHandler not registered; requests with x-dev-user fail (401) encouraging Bearer usage.
-- Story adds doc for enabling headers locally.
-- Tests ensuring handler absent when config false.
+- Frontend performs automatic silent refresh using httpOnly `rt` cookie before access token expiry.
+- Remove plaintext `refresh.token` from auth JSON responses (login, magic consume, select-tenant, refresh) when new flag disables exposure.
+- Deprecate JSON body refresh path: allow during grace; once grace disabled, body-supplied token yields `refresh_body_disallowed`.
+- Add minimal client retry-once strategy for 401 (expired access) to transparently refresh.
+
+New Config Flags:
+
+- `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` (bool, default true) — when false, server omits `refresh.token` field in responses.
+- (Existing) `AUTH__REFRESH_JSON_GRACE_ENABLED` continues to govern body path; Story 8 may flip default to false post-adoption.
+
+Acceptance Criteria:
+
+1. When `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false`, responses contain `refresh: { id, expiresAt }` (or similar metadata if currently present) but NOT `token`.
+2. Frontend decodes access token `exp` (without persisting) and schedules a refresh at `exp - 60s` (bounded: minimum 5s in future; clamp negative to immediate attempt).
+3. Frontend `withAuthFetch` (or shared fetch wrapper) performs one retry on 401: triggers refresh call; if successful updates in-memory access and replays original request; if refresh fails (401/400) it surfaces original 401 and signals logout handler.
+4. Refresh client call uses `POST /api/auth/refresh` with `credentials: 'include'` and does NOT send body unless grace flag is enabled AND fallback cookie missing.
+5. When `AUTH__REFRESH_JSON_GRACE_ENABLED=false`, sending JSON `{ refreshToken }` returns 400 with `{ code: 'refresh_body_disallowed' }` (existing handler already mapped), test added.
+6. Web unit tests: (a) scheduler sets timer within expected window; (b) 401 first attempt triggers refresh + succeeds; (c) refresh failure propagates original 401; (d) plaintext omission test asserts shape.
+7. API integration test toggling `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false` asserts absence of `refresh.token` field.
+8. Documentation updated (SnapshotArchitecture What’s New + LivingChecklist + storyLog) citing new flag and removal plan.
+
+Out of Scope / Deferred:
+
+- Metrics counters (`auth.refresh.success|failure`) — follow-up Story 9.
+- CSRF double-submit token design (Story 10 / security hardening).
+- Access token cookie variant.
+
+Risks & Mitigations:
+
+- Race conditions near expiry → schedule refresh slightly earlier (60s) and guard with in-flight promise to prevent stampede.
+- Clock skew causing premature 401 — rely on backend short skew window; retry-once strategy covers edge.
+- Legacy clients expecting plaintext refresh token → controlled by flag; can re-enable if rollback needed.
+
+Follow-ups:
+
+- Flip default of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` to false in all envs post adoption.
+- Disable grace (`AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and remove body parsing code in a cleanup story.
 
 ### Story 9: Observability & Security Hardening
 
+Goals:
+
+Provide first wave of production-grade visibility over auth flows (issuance, rotation, revocation, suppression) and enforce lightweight safeguards (rate limiting hooks) without introducing performance regressions. All metrics/log names stable for future dashboards.
+
 Acceptance:
 
-- Structured log for token issuance (no secrets) includes user_id, tenant_id (if scoped), token_id (refresh only), action (issue|refresh|revoke), reason.
-- Metrics: counter tokens_issued, tokens_refreshed, tokens_revoked.
-- Optional trace attributes for auth actions.
-- Basic rate limiting (optional) on login, select-tenant, refresh (3–5 per second per IP). Document if deferred.
+1. Structured logs (no secrets) emitted for each auth event with consistent schema:
+
+- `auth.refresh.rotate` { user_id, refresh_id_old, refresh_id_new, tenant_id? }
+- `auth.refresh.reuse_denied` { user_id?, refresh_id?, reason }
+- `auth.refresh.expired` { user_id?, refresh_id }
+- `auth.refresh.plaintext_emitted` { user_id, refresh_id } (temporary; gated by flag; warn level)
+- `auth.refresh.plaintext_suppressed` { user_id } (info level sampled?)
+- `auth.logout.single` { user_id, token_found }
+- `auth.logout.all` { user_id, revoked_count }
+
+2. Metrics registered (OpenTelemetry / .NET Meter):
+
+- Counters: `auth_tokens_issued_total`, `auth_refresh_rotations_total`, `auth_refresh_reuse_denied_total`, `auth_refresh_expired_total`, `auth_refresh_plaintext_emitted_total` (TEMP), `auth_refresh_plaintext_suppressed_total`, `auth_logout_single_total`, `auth_logout_all_total`.
+- Histogram (optional): `auth_refresh_latency_ms` (time from request start to issuance) — may defer if complexity > value.
+
+3. Tracing: Add span attributes on existing request spans (Activity Enrichment) for refresh/logout endpoints: `auth.user_id`, `auth.tenant_id`, `auth.refresh.rotate=true` etc.
+4. Rate limiting (minimal): Middleware or endpoint filter applying token bucket (5 refresh/min per IP burst 3) with 429 response `{ code: 'rate_limited' }`. Config flag `AUTH__RATE_LIMIT_REFRESH_ENABLED` (default false) to allow staged rollout. If deferred, document and leave stub.
+5. Update `SnapshotArchitecture.md` Observability section with new metric & log taxonomy + deprecation notice for plaintext metrics.
+6. Update `LivingChecklist.md` marking Observability counters once merged.
+7. Add storyLog entry on completion.
+
+Non-Goals (Explicit):
+
+- Full-fledged per-user session analytics dashboard (future).
+- Adaptive anomaly detection — out-of-scope (manual dashboards only initially).
+
+Implementation Tasks:
+
+1. Introduce `AuthMetrics` static class exposing Meter + strongly-typed instruments.
+2. Inject logging helpers into endpoints (extension methods) to ensure uniform field sets.
+3. Add suppression/emission instrumentation in V1.cs where plaintext decision occurs.
+4. Add reuse/expired instrumentation in refresh error paths.
+5. Add logout instrumentation & counters.
+6. Add minimal token bucket (in-memory ConcurrentDictionary of sliding windows) with TODO comment for distributed alternative.
+7. Docs & story log update.
+
+Testing:
+
+- Unit test metrics increment (using TestMeterListener) for rotate, reuse, suppress.
+- Integration test: trigger refresh reuse and assert counter delta (optional; fallback to unit if instrumentation complexity high in integration environment).
+- Verify no PII (no email, no raw refresh token) in logs through a log capturing test.
+
+Risks:
+
+- Overlapping log volume — mitigate with consistent Info vs Warning levels; no Debug noise by default.
+- Rate limiting false positives — disabled by default; configurable thresholds.
+
+Follow-ups (post Story 9):
+
+- Add per-user session enumeration instrumentation once session listing endpoint lands.
+- Remove plaintext emitted/suppressed counters once flag retired.
 
 ### Story 9a: Nginx Reverse Proxy & Security Headers (OPTIONAL)
 
@@ -479,13 +564,21 @@ Acceptance:
 
 ## Risk & Mitigation
 
-| Risk                                | Impact                | Mitigation                                                                         |
-| ----------------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
-| Key leakage                         | Token forgery         | Use long random signing key; document rotation procedure.                          |
-| Forgotten revocation path           | Stale access remains  | Enforce short access TTL + version bump strategy.                                  |
-| Clock skew issues                   | False expiry failures | Allow ±60s skew in validation parameters.                                          |
-| Frontend token storage XSS          | Token theft           | Prefer httpOnly secure cookies (document local dev adjustments).                   |
-| Race conditions on refresh rotation | Reuse accepted        | Enforce single active chain by revoking old before issuing new inside transaction. |
+| Risk                      | Impact                | Mitigation                                                |
+| ------------------------- | --------------------- | --------------------------------------------------------- |
+| Key leakage               | Token forgery         | Use long random signing key; document rotation procedure. |
+| Forgotten revocation path | Stale access remains  | Enforce short access TTL + version bump strategy.         |
+| Clock skew issues         | False expiry failures | Allow ±60s skew in validation parameters.                 |
+
+## Deferred Follow-Ups Captured Post Story 8
+
+These were identified after completing Story 8 (silent refresh & plaintext suppression) and are queued for upcoming stories (primarily Story 9 and beyond):
+
+- Observability counters & structured events: `auth.refresh.rotation`, `auth.refresh.reuse_denied`, `auth.refresh.plaintext_emitted` (temporary), `auth.refresh.plaintext_suppressed`, `auth.logout.single`, `auth.logout.all`.
+- Feature flag retirement plan: schedule removal of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` after 2 releases with zero plaintext emissions in logs/metrics; document rollback note until deletion.
+- Session enumeration endpoint (`GET /api/auth/sessions`) returning active refresh token metadata (id, created_at, last_used_at?, expires_at) without plaintext for future session management UI.
+  | Frontend token storage XSS | Token theft | Prefer httpOnly secure cookies (document local dev adjustments). |
+  | Race conditions on refresh rotation | Reuse accepted | Enforce single active chain by revoking old before issuing new inside transaction. |
 
 ## Test Matrix (Representative)
 

@@ -628,6 +628,7 @@ public static class V1
             }
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
             logger.LogInformation("auth.logout.single user={UserId} tokenFound={TokenFound}", userId, rt != null);
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementLogoutSingle(userId, rt != null);
             return Results.NoContent();
         });
 
@@ -666,6 +667,7 @@ public static class V1
             }
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
             logger.LogInformation("auth.logout.all user={UserId} revokedCount={Count}", userId, count);
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementLogoutAll(userId, count);
             return Results.NoContent();
         });
         // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
@@ -786,12 +788,20 @@ public static class V1
                 http.Response.Headers["Sunset"] = deprecationDate!;
             }
 
-            // Story 8: exposePlainFlag can forcibly disable plaintext even during grace window for early hardening.
+            // Story 8 / 9: plaintext suppression logic + metrics instrumentation
             var exposePlainFlag = config.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-            var includePlaintextRefresh = exposePlainFlag && (graceEnabled || !refreshCookieEnabled); // after grace & when cookie on, omit token unless flag forces hide
-            object refreshObj = includePlaintextRefresh
-                ? new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" }
-                : new { expiresAt = newRefreshExpires, type = "neutral" };
+            var includePlaintextRefresh = exposePlainFlag && (graceEnabled || !refreshCookieEnabled);
+            object refreshObj;
+            if (includePlaintextRefresh)
+            {
+                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextEmitted(user.Id);
+            }
+            else
+            {
+                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
+            }
             var response = new
             {
                 user = new { user.Id, user.Email },
@@ -804,6 +814,8 @@ public static class V1
             // Basic structured log (counters deferred to Story 9)
             var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Refresh");
             logger.LogInformation("auth.refresh.rotate user={UserId} refreshId={RefreshId}", user.Id, rt.Id);
+            // TODO(Story9): Capture new refresh token GUID from IssueNeutralAsync return (extend service to return id) instead of placeholder duplicate.
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementRotation(user.Id, rt.Id, rt.Id);
 
             return Results.Ok(response);
         }).AllowAnonymous();
