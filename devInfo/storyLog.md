@@ -211,6 +211,15 @@
 - Follow-ups
   - Migrate `AuditsListingEndpointTests` and `UserProfileLoggingTests` next; continue with invites suites; introduce guard once majority of `UseTenantAsync` usages removed; consider consolidating duplicated password seeding helpers after additional migrations.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A AuditsListingEndpointTests Migration — ✅ PARTIAL
+
+- Summary
+  - Migrated `AuditsListingEndpointTests` off legacy mint helper (`CreateAuthedClientAsync` using `AuthTestClient.UseTenantAsync`) to real authentication flows via password seeding (`SeedPasswordAsync`) and `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added `DefaultPw` constant aligned with existing flow helpers. Replaced helper usage in all three tests (paging/total count, optional filters, invalid GUID filters) so each now exercises `/api/auth/login` + `/api/auth/select-tenant` endpoints before performing audited listing requests. Ensures paging logic, filter query binding (userId, changedByUserId, date range), and 400 error handling for malformed GUID and inverted date range occur under production JWT validation path (password hashing + refresh issuance + tenant token selection). Targeted run: 3 tests PASS (0 failed). No behavioral changes in assertions; only auth setup path replaced.
+- Rationale
+  - Extends Phase A coverage across audit listing scenarios, removing another cluster of mint helper dependencies and strengthening end-to-end verification that audit enumeration respects production auth and multi-tenancy middleware without relying on dev header shortcuts.
+- Follow-ups
+  - Next: migrate `UserProfileLoggingTests` (privacy audit). After invites & remaining privacy/audit suites migrated, introduce guard (CI grep or test assertion) preventing reintroduction of `UseTenantAsync` before proceeding to deprecation middleware and handler removal stories.
+
 - Files changed
   - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
   - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.

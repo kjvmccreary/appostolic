@@ -318,3 +318,12 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
   - Extends Phase A coverage into auditing domain, ensuring audit trail generation & noop semantics are validated via production authentication paths (password hash verification, refresh issuance, tenant token selection) rather than elevated mint shortcuts.
 - Follow-ups
   - Continue migrating remaining audit-related (`AuditsListingEndpointTests`, `UserProfileLoggingTests`) and invites suites next; prepare for guard introduction once majority of `UseTenantAsync` usages eliminated.
+
+2025-09-22 — Story 2 Phase A: AuditsListingEndpointTests Migrated — ✅ PARTIAL
+
+- Summary
+  - Migrated `AuditsListingEndpointTests` from legacy mint helper (`CreateAuthedClientAsync` invoking `AuthTestClient.UseTenantAsync`) to real authentication flow using password seeding + `AuthTestClientFlow.LoginAndSelectTenantAsync`. Introduced per-class `SeedPasswordAsync` and `DefaultPw` constant mirroring pattern established in prior migrations. All three tests now perform: seed acting admin user -> login -> select tenant -> exercise listing endpoint with paging, filtering, and validation of 400 responses for invalid GUIDs/date ranges through production auth code paths (password hashing, refresh issuance, tenant selection). Targeted run: 3 tests PASS (0 failed) confirming identical functional behavior post-migration (200 for valid paging/filter cases; 400 for malformed GUID and reversed date range) and ensuring no reliance on dev headers or mint helper elevation semantics.
+- Rationale
+  - Completes auditing listing coverage under real JWT flows, reducing residual surface area relying on mint shortcuts and strengthening confidence that authorization + model binding edge cases (invalid GUID handling) are executed through the standard pipeline.
+- Follow-ups
+  - Next: migrate `UserProfileLoggingTests` (privacy/audit adjacency) then invites-related suites. After remaining high-frequency helpers removed, introduce guard (grep/CI) to prevent future `UseTenantAsync` usages before proceeding to deprecation middleware and physical removal stories.
