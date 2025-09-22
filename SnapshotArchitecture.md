@@ -5,6 +5,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
 ## What’s new
 
 - IAM — Final legacy role cleanup & test alignment (2025-09-20)
+  - Auth/JWT — RDH Sprint Plan Initialized (2025-09-22)
+    - Added `devInfo/jwtRefactor/rdhSprintPlan.md` outlining the Dev Header Decommission sprint (RDH). Objective: fully remove development header authentication (`x-dev-user`, `x-tenant`) and associated composite scheme in favor of a single JWT-based auth path across all environments and tests. Plan includes phased test migration, deprecation middleware, physical removal, regression guard, and rollback tag strategy. See plan file for detailed stories, risks, and acceptance criteria.
   - IAM — Roles assignment endpoint duplication fix (2025-09-21)
     - Simplified `/api/tenants/{tenantId}/memberships/{userId}/roles` handler from three overlapping replacement/audit branches to a single provider-aware path. Previous logic executed twice under EF InMemory (no explicit transactions): first non-transaction branch then fallback branch that began a transaction and executed `set_config`, a relational-only call, causing test-only HTTP 500s. New implementation wraps replacement + audit in a transaction only when `SupportsExplicitTransactions()`; otherwise performs a single remove/add + audit. Guards raw SQL with try/catch for defensive safety. Result: four failing integration tests now pass; full suite green (223 passed / 1 skipped).
   - Auth/JWT — Composite Dev+Bearer Policy Scheme (Development) (2025-09-20)
@@ -41,6 +43,8 @@ This document describes the structure, runtime, and conventions of the Appostoli
         - Potential: Add `/api/auth/session` enumerator to expose active refresh token metadata (no plaintext) for future session management UI.
         - Observability counters: `auth.refresh.rotation`, `auth.refresh.reuse_denied`, `auth.refresh.plaintext_emitted` (temporary), `auth.refresh.plaintext_suppressed`.
         - Evaluate CSRF protection adjustments if moving to `SameSite=None` for any cross-origin flows.
+      - Auth/JWT — Story 9 Auth Observability Metrics (2025-09-22)
+        - Added first-wave OpenTelemetry metrics (Meter `Appostolic.Auth`) for login, refresh, token issuance, rotation, reuse/expired denial, plaintext emission/suppression (temporary), logout, and latency histograms. Chosen stable dot notation (`auth.login.success`, `auth.refresh.failure`, etc.) instead of earlier underscore placeholders documented in sprint plan. Endpoint `V1.cs` instrumented for /auth/login and /auth/refresh success/failure (bounded reason taxonomies) plus logout endpoints. Added rate‑limited counter increment path gated by existing refresh rate limiter flag. New test `AuthMetricsTests` asserts presence of new counters and histograms. Plaintext emission/suppression counters marked TEMP and will be removed post flag retirement. Documentation (this file, sprint plan, LivingChecklist, storyLog) updated; dashboards & span attribute enrichment deferred.
     - Added initial JWT access token infrastructure with `AuthJwtOptions` (issuer, audience, base64 signing key, TTLs, skew) and `JwtTokenService` (HS256). Authentication now registers `JwtBearerDefaults.AuthenticationScheme` plus retains the existing dev header scheme (conditional) for development ergonomics. A protected smoke endpoint `/auth-smoke/ping` validates end-to-end token issuance & validation, covered by new integration test `AuthJwtSmokeTests` issuing a neutral token. Swagger now includes a Bearer security definition alongside the DevHeaders scheme. Ephemeral signing key generation occurs only in Development when no key is configured; Production requires explicit `Auth:Jwt:SigningKey` (base64) and will fail fast if absent. Post-configure pattern applies validation parameters (issuer, audience, key, clock skew) without prematurely building a service provider. Subsequent stories will layer tenant claims, refresh tokens (secure httpOnly cookie), rotation & revocation via token_version, secure cookie flags (SameSite=Lax/Strict + secure), local HTTPS (Story 5a), nginx reverse proxy (Story 9a), and observability (counters for issuance/validation/failures).
   - After dropping legacy `role` columns and enforcing bitmask constraints, the invite creation endpoint now surfaces the generic `{ code: "NO_FLAGS" }` validation error when a request supplies only the deprecated single `role` field (and no `roles` / `rolesValue` flags). The earlier transition-specific `LEGACY_ROLE_DEPRECATED` error is now reserved only for the still-deprecated member single-role change endpoint (documented by its regression test) until that path is removed in a later story. Updated regression test `Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS` reflects this invariant; full API test suite passes (193/193) post-clean rebuild.
   - Rationale: With the legacy column physically removed, treating a legacy-only payload as simply “missing flags” simplifies client handling and avoids implying a reversible transitional path.
@@ -671,6 +675,52 @@ appostolic/
   - Persistence: `app.login_tokens` with indexes (unique on `token_hash`; `(email, created_at DESC)`; partial on `consumed_at IS NULL`). Raw tokens are never stored.
   - Email: `EmailKind.MagicLink` templates (Scriban) render subject/text/html; NotificationEnqueuer pre‑renders snapshots and stores only the token hash; logs avoid raw token.
   - Web integration: public pages `/magic/request` and `/magic/verify`; same‑origin proxies `/api-proxy/auth/magic/request` and `/api-proxy/auth/magic/consume` avoid CORS. The verify page bridges into the session via NextAuth Credentials (dual‑mode) and redirects to `/select-tenant` (honors optional `?next=`).
+
+#### Auth Observability Metrics (Story 9 — 2025-09-22)
+
+Meter: `Appostolic.Auth`
+
+Counters (increment-only):
+
+| Name                                    | Description                                                       | Key Tags                                      |
+| --------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------- |
+| `auth.tokens.issued`                    | Access tokens issued (neutral + tenant)                           | `user_id`, optional `tenant_id`               |
+| `auth.refresh.rotations`                | Successful refresh rotations (old revoked → new issued)           | `user_id`, `old_refresh_id`, `new_refresh_id` |
+| `auth.refresh.reuse_denied`             | Refresh attempts rejected due to reuse of revoked token           | optional `user_id`, `refresh_id`              |
+| `auth.refresh.expired`                  | Refresh attempts rejected due to expiration                       | optional `user_id`, `refresh_id`              |
+| `auth.refresh.plaintext_emitted` (TEMP) | Plaintext refresh token included in JSON (to monitor deprecation) | `user_id`                                     |
+| `auth.refresh.plaintext_suppressed`     | Plaintext emission suppressed (flag off)                          | `user_id`                                     |
+| `auth.login.success`                    | Successful password/magic login (neutral issuance)                | `user_id`, `memberships` (count)              |
+| `auth.login.failure`                    | Failed login attempt                                              | `reason`, optional `user_id`                  |
+| `auth.refresh.success`                  | Successful refresh (neutral access re-issue + rotation)           | `user_id`                                     |
+| `auth.refresh.failure`                  | Failed refresh attempt                                            | `reason`, optional `user_id`                  |
+| `auth.refresh.rate_limited`             | Refresh denied by rate limiter                                    | (no tags)                                     |
+| `auth.logout.single`                    | Single-device logout invocation                                   | `user_id`, `token_found` (bool)               |
+| `auth.logout.all`                       | Global logout (all sessions)                                      | `user_id`, `revoked_count`                    |
+
+Histograms:
+
+| Name                       | Unit | Description                        | Tags             |
+| -------------------------- | ---- | ---------------------------------- | ---------------- | -------- |
+| `auth.login.duration_ms`   | ms   | End-to-end login processing time   | `outcome=success | failure` |
+| `auth.refresh.duration_ms` | ms   | End-to-end refresh processing time | `outcome=success | failure` |
+
+Reason taxonomies (bounded, low-cardinality — add new values only with documentation update):
+
+Login failure reasons: `missing_fields`, `unknown_user`, `invalid_credentials`.
+
+Refresh failure reasons: `missing_refresh`, `refresh_body_disallowed`, `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `refresh_forbidden_tenant`, `rate_limited`.
+
+Design Notes:
+
+- Dot notation chosen for hierarchy readability and Prometheus/OpenTelemetry convention compatibility; underscores avoided in favor of dots except where legacy metrics already shipped (none external yet).
+- User/refresh IDs included only where already internal identifiers (no PII / plaintext tokens). Consider future sampling or attribute scrubbing if high-cardinality pressure observed; current usage limited to security forensics.
+- Plaintext emission counters are temporary; removal trigger: flag `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` disabled in all environments for two consecutive releases with zero `auth.refresh.plaintext_emitted` increments.
+- Tracing enrichment (span attributes `auth.user_id`, `auth.refresh.reason`, etc.) and dashboard exemplars (success ratio, p95 latency, failure reason breakdown, reuse anomaly alert) deferred to a later observability hardening pass.
+- Rate limiting instrumentation (`auth.refresh.rate_limited`) incremented in the guarded branch before failure return path ensuring latency histogram records with outcome `failure`.
+- All reason tag sets are intentionally small to protect backend/exporter cardinality; any future expansion must update this section and corresponding tests.
+
+Follow-ups (deferred): tracing span attributes; Grafana/Tempo dashboards; remove TEMP counters post rollout; potential consolidation of `reuse_denied` + `refresh.failure{reason=refresh_reuse}` into a single semantic view (keep raw counters for now for simpler alerting).
 
 - Passwords — Auth‑PW
   - API endpoints:
