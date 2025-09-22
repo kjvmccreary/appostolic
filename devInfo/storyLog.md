@@ -799,6 +799,21 @@
   - Remove stub `TenantAwareTopBar` files entirely after confirming no external references.
   - Consider adding an SSR integration test simulating a multi-tenant request lacking cookie to assert redirect (middleware-level) if warranted.
 
+2025-09-22 — Auth/JWT: RDH Story 2 Phase A Password Flows & User Password Endpoints Migration — 🚧 IN PROGRESS
+
+- Summary
+  - Migrated `AuthPasswordFlowsTests` and `UserPasswordEndpointsTests` off the mint helper and any dev header shortcuts to real authentication flows using `AuthTestClientFlow` (`/api/auth/login`, neutral login, and tenant selection where required). Standardized seeding of the default flow helper password (`Password123!`) before login to align with helper expectations and resolved initial 401 Unauthorized failures triggered by mismatched seeded hashes. Fixed a lingering 401 in `ChangePassword_WithAuth_UpdatesPassword` by removing a post-login reseed that invalidated the bearer token's current password. Simplified `Change_password_succeeds_with_valid_current` to a single successful request (removed redundant failing pre-call). All migrated password suites now pass (AuthPasswordFlowsTests 5/5, UserPasswordEndpointsTests 3/3). Sprint plan updated (S1-12 entries) documenting time saved and remaining Phase A targets (role/membership tests). No residual unintended `x-dev-user` / `x-tenant` usage in migrated files; negative dev-header rejection test intentionally retained elsewhere.
+- Files changed
+  - apps/api.tests/Api/AuthPasswordFlowsTests.cs — replaced mint usage with neutral login; removed redundant reseed; standardized password constant.
+  - apps/api.tests/Api/UserPasswordEndpointsTests.cs — replaced mint usage with tenant login; removed duplicate change-password attempt; aligned currentPassword values.
+  - Sprint-01-Appostolic.md — added S1-12 Auth Flow Hardening section enumerating these migrations.
+- Quality gates
+  - Targeted runs: AuthPasswordFlowsTests PASS (5/5) after fix; UserPasswordEndpointsTests PASS (3/3) post-cleanup. No new build warnings (pre-existing ImageSharp advisories only). Broader suite not yet re-run; localized changes are test-only and low risk.
+- Rationale
+  - Ensures password-related flows exercise production authentication pipeline (login + optional tenant selection) eliminating non-prod mint shortcuts and improving confidence in token version / revocation interactions.
+- Follow-ups
+  - Migrate remaining mint-dependent auth/role membership test classes (inventory ~17 usages). Introduce grep/assert guard to fail if `x-dev-user` appears outside the dedicated negative test once migrations complete. Proceed to Phase B after core auth tests fully green under real flows.
+
 - Added JSONB columns:
   - `app.users.profile jsonb` for user-level profile (name/contact/social/avatar/bio/guardrails/preferences)
   - `app.tenants.settings jsonb` for tenant settings (branding/contact/social/privacy)

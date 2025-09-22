@@ -130,3 +130,10 @@
 ## S1-11 — Security Contract Test
 
 - Dev Time Saved (A11-11): Manual 0.3h vs Actual 0.1h → Saved 0.2h ($14.40) — Test proving `/api/agent-tasks` requires dev headers (unauth 401/403, auth 200); Swagger remains public
+
+## S1-12 — Auth Flow Hardening (Story 2 Phase A)
+
+- Dev Time Saved (S1-12.1): Manual 1.4h vs Actual 0.45h → Saved 0.95h ($68.40) — Migrated `DevHeadersDisabledTests` to real login + tenant selection (positive path) eliminating mint helper usage
+- Dev Time Saved (S1-12.2): Manual 1.6h vs Actual 0.55h → Saved 1.05h ($75.60) — Migrated password-related tests (`AuthPasswordFlowsTests`, `UserPasswordEndpointsTests`) from mint helper to real `/api/auth/login` (+ neutral or tenant token as appropriate); resolved 401 issues by standardizing seeded password to `Password123!`; removed redundant call pattern
+- Remaining Phase A targets: role & membership tests, any lingering mint helper references (inventory shows ~17 non‑migrated usages)
+- Outcome: All migrated suites green; dev headers usage confined to explicit negative test only.

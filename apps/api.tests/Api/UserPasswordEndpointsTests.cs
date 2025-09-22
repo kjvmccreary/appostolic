@@ -13,10 +13,11 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     public UserPasswordEndpointsTests(WebAppFactory factory) => _factory = factory;
 
     // RDH Story 2: helper mints JWT tokens now
-    private static async Task<HttpClient> ClientAsync(WebAppFactory f)
+    private static async Task<HttpClient> ClientAsync(WebAppFactory f, string seedPassword)
     {
         var c = f.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(c, "kevin@example.com", "kevin-personal");
+        // Seeding moved to SeedPasswordAsync so we avoid duplicate hashing; seedPassword should match helper default
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
         return c;
     }
 
@@ -39,17 +40,17 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Change_password_succeeds_with_valid_current()
     {
-        await SeedPasswordAsync("Start1234");
-    var client = await ClientAsync(_factory);
-        var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Start1234", newPassword = "NewPass123" });
-        resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await SeedPasswordAsync("Password123!");
+    var client = await ClientAsync(_factory, "Password123!");
+    var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Password123!", newPassword = "NewPass123" });
+    resp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
     public async Task Change_password_rejects_invalid_current()
     {
-        await SeedPasswordAsync("Start1234");
-    var client = await ClientAsync(_factory);
+        await SeedPasswordAsync("Password123!");
+    var client = await ClientAsync(_factory, "Password123!");
         var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Wrong000", newPassword = "NewPass123" });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -57,9 +58,9 @@ public class UserPasswordEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Change_password_rejects_weak_password()
     {
-        await SeedPasswordAsync("Start1234");
-    var client = await ClientAsync(_factory);
-        var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Start1234", newPassword = "short" });
+        await SeedPasswordAsync("Password123!");
+    var client = await ClientAsync(_factory, "Password123!");
+        var resp = await client.PostAsJsonAsync("/api/users/me/password", new { currentPassword = "Password123!", newPassword = "short" });
         resp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 }

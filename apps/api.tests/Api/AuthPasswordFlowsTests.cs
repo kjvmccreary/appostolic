@@ -73,21 +73,23 @@ public class AuthPasswordFlowsTests : IClassFixture<WebAppFactory>
     public async Task ChangePassword_WithAuth_UpdatesPassword()
     {
         var client = _factory.CreateClient();
-        // RDH Story 2: migrated from dev headers to JWT bearer token
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
-
-        // Seed a starting password for the user
-        using (var scope = _factory.Services.CreateScope())
+        // RDH Story 2 Phase A: migrate from mint helper to real login + select-tenant flow
+        // Ensure the user has a seed password BEFORE invoking the real login endpoint
+        const string defaultPw = "Password123!"; // matches helper constant
+        using (var seedScope = _factory.Services.CreateScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
             var user = db.Users.AsNoTracking().Single(u => u.Email == "kevin@example.com");
-            var (h, s, it) = hasher.HashPassword("oldpw");
-            db.Users.Update(user with { PasswordHash = h, PasswordSalt = s, PasswordUpdatedAt = DateTime.UtcNow });
+            var (h0, s0, _) = hasher.HashPassword(defaultPw);
+            db.Users.Update(user with { PasswordHash = h0, PasswordSalt = s0, PasswordUpdatedAt = DateTime.UtcNow });
             db.SaveChanges();
         }
+        // Use neutral login (no tenant selection) because change-password endpoint operates on neutral context.
+        // IMPORTANT: Do not mutate password after issuing token; test needs currentPassword to match seeded value.
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginNeutralAsync(_factory, client, "kevin@example.com");
 
-        var resp = await client.PostAsJsonAsync("/api/auth/change-password", new { currentPassword = "oldpw", newPassword = "newpw!" });
+        var resp = await client.PostAsJsonAsync("/api/auth/change-password", new { currentPassword = defaultPw, newPassword = "newpw!" });
         Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
     }
 
@@ -103,21 +105,21 @@ public class AuthPasswordFlowsTests : IClassFixture<WebAppFactory>
     public async Task ChangePassword_WithWrongCurrent_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient();
-        // RDH Story 2: migrated from dev headers to JWT bearer token
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, "kevin@example.com", "kevin-personal");
-
-        // Ensure user has some password different from the one we'll submit
-        using (var scope = _factory.Services.CreateScope())
+        // RDH Story 2 Phase A: seed correct password then perform real login/select flow
+        const string seededCorrect = "Password123!"; // helper default
+        using (var seedScope = _factory.Services.CreateScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
             var user = db.Users.AsNoTracking().Single(u => u.Email == "kevin@example.com");
-            var (h, s, it) = hasher.HashPassword("correct-current");
-            db.Users.Update(user with { PasswordHash = h, PasswordSalt = s, PasswordUpdatedAt = DateTime.UtcNow });
+            var (h1, s1, _) = hasher.HashPassword(seededCorrect);
+            db.Users.Update(user with { PasswordHash = h1, PasswordSalt = s1, PasswordUpdatedAt = DateTime.UtcNow });
             db.SaveChanges();
         }
+    // Neutral login only; tenant selection not required for password change (tenant token caused 401 previously)
+    await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginNeutralAsync(_factory, client, "kevin@example.com");
 
-        var resp = await client.PostAsJsonAsync("/api/auth/change-password", new { currentPassword = "wrong-current", newPassword = "newpw!" });
+    var resp = await client.PostAsJsonAsync("/api/auth/change-password", new { currentPassword = "wrong-current", newPassword = "newpw!" });
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
