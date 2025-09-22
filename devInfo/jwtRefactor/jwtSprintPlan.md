@@ -518,6 +518,11 @@ Implementation Tasks (completion status):
 Testing:
 
 - Added `AuthMetricsTests` asserting presence/registration of new counters & histograms.
+
+### Development Auth Mode Update (2025-09-21)
+
+Dev header authentication (`x-dev-user` / `x-tenant`) is now strictly gated by explicit flag `AUTH__ALLOW_DEV_HEADERS=true` (removed implicit enablement in `Development` environment). Default local runs without setting this flag exercise real JWT flows end-to-end (login → neutral/tenant tokens → refresh rotation → logout), ensuring manual UI testing reflects production behavior. Integration tests that still rely on dev headers set the flag via `WebAppFactory` in-memory configuration; targeted tests (`DevHeadersDisabledTests`) assert 401 when the flag is false and validate pure JWT issuance still succeeds. This change hardens parity between dev and prod while retaining opt-in convenience for low-friction scripting.
+
 - Existing refresh reuse/expired integration tests indirectly exercise failure counters; explicit delta assertions deferred to later observability harness.
 - PII safety: counters/logs include only IDs or bounded reason strings (no raw tokens/emails); prior privacy logging tests cover absence of PII.
 
