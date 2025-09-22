@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using Xunit;
 
@@ -13,15 +14,19 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
 
     public AuditsListingEndpointTests(WebAppFactory factory) => _factory = factory;
 
-    /// <summary>
-    /// Helper that creates an HttpClient authorized as the given admin user for the specified tenant
-    /// using the JWT mint helper rather than legacy dev headers.
-    /// </summary>
-    private async Task<HttpClient> CreateAuthedClientAsync(User admin, Tenant tenant)
+    // RDH Story 2 Phase A: migrated from legacy mint helper (UseTenantAsync) to real auth flow.
+    // Pattern: seed password for acting user -> login -> select tenant via AuthTestClientFlow.
+    private const string DefaultPw = "Password123!"; // must stay aligned with AuthTestClientFlow.DefaultPassword
+
+    private async Task SeedPasswordAsync(string email, string password)
     {
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClient.UseTenantAsync(client, admin.Email, tenant.Name);
-        return client;
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
+        var (hash, salt, _) = hasher.HashPassword(password);
+        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     [Fact]
@@ -45,16 +50,19 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         );
         await db.SaveChangesAsync();
 
-    var client = await CreateAuthedClientAsync(admin, tenant);
+        // Real auth: seed password then login & select tenant
+        await SeedPasswordAsync(admin.Email, DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, admin.Email, tenant.Name);
 
         // take=2 should return most recent two (ChangedAt DESC), total=3, then skip=2 returns last one
         var r1 = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?take=2");
         r1.StatusCode.Should().Be(HttpStatusCode.OK);
         r1.Headers.TryGetValues("X-Total-Count", out var totalVals).Should().BeTrue();
         totalVals!.Single().Should().Be("3");
-    var p1 = await r1.Content.ReadFromJsonAsync<JsonElement>();
-    p1.ValueKind.Should().Be(JsonValueKind.Array);
-    p1.GetArrayLength().Should().Be(2);
+        var p1 = await r1.Content.ReadFromJsonAsync<JsonElement>();
+        p1.ValueKind.Should().Be(JsonValueKind.Array);
+        p1.GetArrayLength().Should().Be(2);
 
         var r2 = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?skip=2&take=2");
         r2.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -83,7 +91,9 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         db.Audits.AddRange(a1, a2, a3);
         await db.SaveChangesAsync();
 
-    var client = await CreateAuthedClientAsync(admin, tenant);
+        await SeedPasswordAsync(admin.Email, DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, admin.Email, tenant.Name);
 
         // Filter by target userId
         var rUser = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?userId={target1.Id}");
@@ -122,7 +132,9 @@ public class AuditsListingEndpointTests : IClassFixture<WebAppFactory>
         db.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = admin.Id, Roles = Roles.TenantAdmin, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
-    var client = await CreateAuthedClientAsync(admin, tenant);
+        await SeedPasswordAsync(admin.Email, DefaultPw);
+        var client = _factory.CreateClient();
+        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, admin.Email, tenant.Name);
 
         // invalid userId guid format
         var rBadUser = await client.GetAsync($"/api/tenants/{tenant.Id}/audits?userId=not-a-guid");
