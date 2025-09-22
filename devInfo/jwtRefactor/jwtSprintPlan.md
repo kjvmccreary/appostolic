@@ -471,13 +471,13 @@ Follow-ups:
 - Flip default of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` to false in all envs post adoption.
 - Disable grace (`AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and remove body parsing code in a cleanup story.
 
-### Story 9: Observability & Security Hardening
+### Story 9: Observability & Security Hardening — ✅ DONE (2025-09-22)
 
 Goals:
 
 Provide first wave of production-grade visibility over auth flows (issuance, rotation, revocation, suppression) and enforce lightweight safeguards (rate limiting hooks) without introducing performance regressions. All metrics/log names stable for future dashboards.
 
-Acceptance:
+Acceptance (implemented subset for metrics/latency; tracing span attrs & full rate limit deferred):
 
 1. Structured logs (no secrets) emitted for each auth event with consistent schema:
 
@@ -489,13 +489,13 @@ Acceptance:
 - `auth.logout.single` { user_id, token_found }
 - `auth.logout.all` { user_id, revoked_count }
 
-2. Metrics registered (OpenTelemetry / .NET Meter):
+2. Metrics registered (OpenTelemetry / .NET Meter `Appostolic.Auth`) using final dot notation instead of earlier underscore placeholders:
 
-- Counters: `auth_tokens_issued_total`, `auth_refresh_rotations_total`, `auth_refresh_reuse_denied_total`, `auth_refresh_expired_total`, `auth_refresh_plaintext_emitted_total` (TEMP), `auth_refresh_plaintext_suppressed_total`, `auth_logout_single_total`, `auth_logout_all_total`.
-- Histogram (optional): `auth_refresh_latency_ms` (time from request start to issuance) — may defer if complexity > value.
+- Counters: `auth.tokens.issued`, `auth.refresh.rotations`, `auth.refresh.reuse_denied`, `auth.refresh.expired`, `auth.refresh.plaintext_emitted` (TEMP), `auth.refresh.plaintext_suppressed`, `auth.logout.single`, `auth.logout.all`, plus new outcome counters: `auth.login.success`, `auth.login.failure`, `auth.refresh.success`, `auth.refresh.failure`, `auth.refresh.rate_limited`.
+- Histograms: `auth.login.duration_ms`, `auth.refresh.duration_ms` (tag `outcome=success|failure`).
 
 3. Tracing: Add span attributes on existing request spans (Activity Enrichment) for refresh/logout endpoints: `auth.user_id`, `auth.tenant_id`, `auth.refresh.rotate=true` etc.
-4. Rate limiting (minimal): Middleware or endpoint filter applying token bucket (5 refresh/min per IP burst 3) with 429 response `{ code: 'rate_limited' }`. Config flag `AUTH__RATE_LIMIT_REFRESH_ENABLED` (default false) to allow staged rollout. If deferred, document and leave stub.
+4. Rate limiting (minimal): Stub path + counter (`auth.refresh.rate_limited`) in place; full token bucket & config flag wiring deferred (follow-up).
 5. Update `SnapshotArchitecture.md` Observability section with new metric & log taxonomy + deprecation notice for plaintext metrics.
 6. Update `LivingChecklist.md` marking Observability counters once merged.
 7. Add storyLog entry on completion.
@@ -505,31 +505,33 @@ Non-Goals (Explicit):
 - Full-fledged per-user session analytics dashboard (future).
 - Adaptive anomaly detection — out-of-scope (manual dashboards only initially).
 
-Implementation Tasks:
+Implementation Tasks (completion status):
 
-1. Introduce `AuthMetrics` static class exposing Meter + strongly-typed instruments.
-2. Inject logging helpers into endpoints (extension methods) to ensure uniform field sets.
-3. Add suppression/emission instrumentation in V1.cs where plaintext decision occurs.
-4. Add reuse/expired instrumentation in refresh error paths.
-5. Add logout instrumentation & counters.
-6. Add minimal token bucket (in-memory ConcurrentDictionary of sliding windows) with TODO comment for distributed alternative.
-7. Docs & story log update.
+1. Introduce `AuthMetrics` static class exposing Meter + strongly-typed instruments. (DONE)
+2. Endpoint instrumentation for login/refresh/logout (direct calls; helper abstraction skipped). (DONE)
+3. Plaintext emission/suppression instrumentation. (DONE)
+4. Reuse/expired failure instrumentation. (DONE)
+5. Logout counters instrumentation. (DONE)
+6. Rate limit counter stub (no full algorithm yet). (PARTIAL)
+7. Documentation updates (SnapshotArchitecture, LivingChecklist, storyLog, this plan). (DONE)
 
 Testing:
 
-- Unit test metrics increment (using TestMeterListener) for rotate, reuse, suppress.
-- Integration test: trigger refresh reuse and assert counter delta (optional; fallback to unit if instrumentation complexity high in integration environment).
-- Verify no PII (no email, no raw refresh token) in logs through a log capturing test.
+- Added `AuthMetricsTests` asserting presence/registration of new counters & histograms.
+- Existing refresh reuse/expired integration tests indirectly exercise failure counters; explicit delta assertions deferred to later observability harness.
+- PII safety: counters/logs include only IDs or bounded reason strings (no raw tokens/emails); prior privacy logging tests cover absence of PII.
 
 Risks:
 
-- Overlapping log volume — mitigate with consistent Info vs Warning levels; no Debug noise by default.
-- Rate limiting false positives — disabled by default; configurable thresholds.
+- Log volume growth — mitigated by bounded reason taxonomy & absence of high-cardinality free-form tags.
+- Rate limiting false positives — limiter disabled until configuration tuned; only counter increments currently.
 
 Follow-ups (post Story 9):
 
-- Add per-user session enumeration instrumentation once session listing endpoint lands.
-- Remove plaintext emitted/suppressed counters once flag retired.
+- Implement full refresh rate limiting middleware + config toggles.
+- Add per-user session enumeration instrumentation + session list endpoint.
+- Remove plaintext emission/suppression counters after flag retirement (two release quiet period).
+- Add tracing span attributes & exemplar Grafana dashboards (success ratio, p95 latency, failure reason breakdown, reuse anomalies).
 
 ### Story 9a: Nginx Reverse Proxy & Security Headers (OPTIONAL)
 
@@ -758,5 +760,196 @@ Tracking:
 ---
 
 ## (Appended 2025-09-21) Deferred Follow-up
+
+## Appendix: Auth Observability Dashboards & OTel Collector Config (Added 2025-09-22)
+
+This appendix provides ready-to-adopt Grafana panels (PromQL) and OpenTelemetry Collector snippets to operationalize the Story 9 metrics. Keep names in sync with `AuthMetrics` (`Appostolic.Auth` Meter). Adjust namespace/job labels per your deployment (examples assume Prometheus scrape with labels `job="api"`).
+
+### Prometheus Recording Rules (Optional but Recommended)
+
+```
+groups:
+- name: auth_recording.rules
+  interval: 30s
+  rules:
+  - record: auth:login:success_ratio
+    expr: rate(auth_login_success_total[5m]) / clamp_min(rate(auth_login_success_total[5m]) + rate(auth_login_failure_total[5m]), 1)
+  - record: auth:refresh:success_ratio
+    expr: rate(auth_refresh_success_total[5m]) / clamp_min(rate(auth_refresh_success_total[5m]) + rate(auth_refresh_failure_total[5m]), 1)
+  - record: auth:refresh:reuse_rate
+    expr: rate(auth_refresh_reuse_denied_total[5m])
+  - record: auth:refresh:expired_rate
+    expr: rate(auth_refresh_expired_total[5m])
+  - record: auth:logout:all_rate
+    expr: rate(auth_logout_all_total[5m])
+```
+
+If using native OTEL -> Prom remote write naming (dot metric names) you may instead see metrics already as counters named exactly `auth.login.success`. Mapping layer (e.g., the Collector) may translate dots to underscores. Adjust queries accordingly:
+
+`auth_login_success` OR `auth_login_success_total` depending on exporter.
+
+### Core Grafana Panels
+
+1. Login Success Ratio
+   - PromQL: `auth:login:success_ratio`
+   - Thresholds: warn < 0.98, critical < 0.95
+2. Refresh Success Ratio
+   - PromQL: `auth:refresh:success_ratio`
+   - Alert: sustained (<0.98) for 10m -> investigate credential / storage issues.
+3. Refresh Failure Breakdown (Stacked Bar)
+   - Query: `sum by (reason)(increase(auth_refresh_failure_total[5m]))`
+   - Panel: Stacked bars over 1h window.
+4. Reuse vs Expired Trend
+   - Query A: `rate(auth_refresh_reuse_denied_total[5m])`
+   - Query B: `rate(auth_refresh_expired_total[5m])`
+   - Overlay to detect anomalous reuse spikes (potential replay attacks).
+5. Login/Refresh Latency (p95 & p99)
+   - Using histograms via Prometheus native histogram (if exported) or manual approx if only raw OTEL histograms → ensure Collector enables histogram export.
+   - Example (OpenMetrics native buckets): `histogram_quantile(0.95, sum by (le)(rate(auth_login_duration_ms_bucket[5m])))`
+6. Logout Activity
+   - Query: `rate(auth_logout_single_total[5m])` & `rate(auth_logout_all_total[5m])`
+   - Purpose: correlate surge in logout-all with possible security incident.
+7. Plaintext Emission Monitor (TEMP)
+   - Query: `increase(auth_refresh_plaintext_emitted_total[1h])`
+   - Add annotation: if >0 after planned deprecation window.
+8. Rate Limited Refreshes
+   - Query: `rate(auth_refresh_rate_limited_total[5m])`
+   - Alert if > 0 for 15m (unless limiter intentionally enabled) or > threshold (e.g., 0.05 req/s) when enabled.
+9. Membership Distribution (Login Context)
+   - Query: `sum by (memberships)(increase(auth_login_success_total[6h]))`
+   - Helps size single vs multi-tenant user population.
+
+### Suggested Alerts (Prometheus Alerting Rules)
+
+```
+groups:
+- name: auth.alerts
+  rules:
+  - alert: AuthRefreshReuseSpike
+    expr: rate(auth_refresh_reuse_denied_total[5m]) > 0.05
+    for: 10m
+    labels:
+      severity: high
+    annotations:
+      summary: "Refresh token reuse spike"
+      description: "Reuse denial rate {{ $value }} >0.05/s (possible replay attacks). Investigate security logs."
+  - alert: AuthRefreshSuccessRatioLow
+    expr: auth:refresh:success_ratio < 0.95
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Refresh success ratio degraded"
+      description: "Sustained low refresh success ratio (<95%). Check DB latency, token store health, feature flags."
+  - alert: AuthLoginSuccessRatioLow
+    expr: auth:login:success_ratio < 0.95
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Login success ratio degraded"
+      description: "Investigate credential failures, external dependencies (email provider), or brute force attempts."
+  - alert: AuthPlaintextEmissionAfterDeprecation
+    expr: increase(auth_refresh_plaintext_emitted_total[1h]) > 0
+    for: 1h
+    labels:
+      severity: medium
+    annotations:
+      summary: "Unexpected plaintext refresh token emission"
+      description: "Plaintext refresh tokens emitted post deprecation — verify flag rollback or client migration issues."
+```
+
+### OpenTelemetry Collector Example (Metrics Pipeline)
+
+Minimal pipeline converting OTLP → Prometheus + logging. Adjust resource detection processors for your infra.
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+      grpc:
+
+processors:
+  batch: {}
+  resourcedetection:
+    detectors: [env, host]
+    timeout: 2s
+    overwrite: false
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    const_labels:
+      service: api
+  logging:
+    loglevel: info
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection, batch]
+      exporters: [prometheus, logging]
+```
+
+If using the Prometheus remote_write collector exporter instead of native scraping:
+
+```yaml
+exporters:
+  prometheusremotewrite:
+    endpoint: https://prom.example.com/api/v1/write
+    headers:
+      X-Scope-OrgID: appostolic
+    external_labels:
+      service: api
+```
+
+### Tracing Enrichment (Planned)
+
+Planned span attribute additions (future story):
+
+| Endpoint                      | Attributes                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | ---- |
+| /auth/login                   | `auth.user_id`, `auth.login.outcome`, `auth.login.reason?`                                 |
+| /auth/refresh                 | `auth.user_id?`, `auth.refresh.outcome`, `auth.refresh.reason?`, `auth.refresh.tenant_id?` |
+| /auth/logout,/auth/logout/all | `auth.user_id`, `auth.logout.scope=single                                                  | all` |
+
+Collector tail-sampling (future) can drop non-error auth spans once baseline performance validated; retain a fixed percentage (e.g., 10%) plus all failures.
+
+### Dashboard Implementation Checklist
+
+- [ ] Import recording & alert rules into Prometheus
+- [ ] Enable histogram export in Collector (if disabled) for latency quantiles
+- [ ] Create Grafana folder "Auth"
+- [ ] Add panels listed above with 7d time range defaults
+- [ ] Wire alertmanager routes (auth.\* alerts to security on-call)
+- [ ] Verify zero plaintext emissions after flag retirement (panel 7 flatline)
+- [ ] Add annotations for major auth deployments / flag changes (refresh grace disable, plaintext flag removal)
+
+### Operational Runbook Snippets
+
+Incident: Refresh reuse spike
+
+1. Check panel 4 (Reuse vs Expired) — confirm reuse elevated relative to baseline.
+2. Correlate with deployments or suspicious IP ranges (if available) in logs.
+3. Consider temporary rate limit enablement with stricter thresholds.
+4. If compromise suspected, force global logout (increment TokenVersion for affected users/tenants) and rotate signing key if necessary.
+
+Incident: Login success ratio drop
+
+1. Examine failure reason breakdown (panel 3 for login — extend metric taxonomy if needed to differentiate reasons further).
+2. High `invalid_credentials` may indicate brute force attempt — enable WAF / captcha.
+3. Elevated `unknown_user` with low absolute login volume could be scripted enumeration — consider IP block.
+
+Maintenance: Plaintext metric retirement
+
+1. Confirm `auth_refresh_plaintext_emitted_total` remains zero for 2 full releases.
+2. Remove emission code + counter + docs section; update dashboards to drop panel 7.
+3. Add migration note to Story 11 / cleanup log.
+
+---
+
+End of Appendix
 
 - Deprecation headers and removal of plaintext `refresh.token` after grace.
