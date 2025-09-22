@@ -25,11 +25,24 @@ public class WebAppFactory : WebApplicationFactory<Program>
     /// </summary>
     public WebAppFactory WithSettings(Dictionary<string,string?> settings)
     {
+        // IMPORTANT: Previous implementation mutated a shared _overrides dictionary on the fixture instance.
+        // Because xUnit reuses the IClassFixture<WebAppFactory> across all tests in the assembly, overrides
+        // from one test (e.g. setting AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false) leaked into later tests
+        // that expected the default (true) behavior, causing flaky / order-dependent failures.
+        // To isolate configuration per test, we return a NEW factory instance that copies existing overrides
+        // and applies the new settings, leaving the original fixture state untouched.
+        var clone = new WebAppFactory();
+        // copy existing overrides first
+        foreach (var kvp in _overrides)
+        {
+            clone._overrides[kvp.Key] = kvp.Value;
+        }
+        // apply new overrides
         foreach (var kvp in settings)
         {
-            _overrides[kvp.Key] = kvp.Value;
+            clone._overrides[kvp.Key] = kvp.Value;
         }
-        return this;
+        return clone;
     }
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -45,8 +58,14 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Ensure JWT itself is enabled for tests (defensive)
                 ["AUTH__JWT__ENABLED"] = "true",
                 // Story 4: enable refresh cookie issuance in tests
-                ["AUTH__REFRESH_COOKIE_ENABLED"] = "true"
+                ["AUTH__REFRESH_COOKIE_ENABLED"] = "true",
+                // Story 8: Explicitly set plaintext exposure flag true by default so tests relying
+                // on default behavior are stable even if developer machine/environment sets it false.
+                // Individual tests override to false via WithSettings when validating suppression.
+                ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
             };
+            // Explicitly enable dev headers in test environment by default; targeted tests can disable by override.
+            dict["AUTH__ALLOW_DEV_HEADERS"] = "true";
             // Apply overrides from tests (Story 8 flag scenarios, etc.)
             foreach (var kvp in _overrides)
             {

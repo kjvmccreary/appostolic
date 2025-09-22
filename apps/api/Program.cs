@@ -177,7 +177,11 @@ builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
-var allowDevHeaders = builder.Environment.IsDevelopment() || (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+// Dev headers are now ALWAYS gated by the explicit AUTH__ALLOW_DEV_HEADERS flag (even in Development) so
+// that manual UI testing exercises the real JWT flow by default. Set AUTH__ALLOW_DEV_HEADERS=true locally
+// only when needing legacy header-based scripting convenience.
+var allowDevHeaders = (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? Environment.GetEnvironmentVariable("AUTH__ALLOW_DEV_HEADERS") ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
 
 // In Development we introduce a composite policy scheme that chooses Dev header auth when
 // the x-dev-user header is present, otherwise falls back to standard Bearer (JWT). This
@@ -228,27 +232,21 @@ if (jwtEnabled)
 if (allowDevHeaders)
 {
     authBuilder.AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
-
-    if (builder.Environment.IsDevelopment())
+    // Composite policy only when flag explicitly enabled.
+    authBuilder.AddPolicyScheme("BearerOrDev", "Bearer or Dev (auto)", opts =>
     {
-        // Register a policy scheme that inspects the request to decide which underlying scheme to use.
-        // If x-dev-user header exists -> Dev, else Bearer. Keeps production behavior untouched.
-        authBuilder.AddPolicyScheme("BearerOrDev", "Bearer or Dev (auto)", opts =>
+        opts.ForwardDefaultSelector = ctx =>
         {
-            opts.ForwardDefaultSelector = ctx =>
-            {
-                if (ctx.Request.Headers.ContainsKey("x-dev-user"))
-                    return DevHeaderAuthHandler.DevScheme;
-                return JwtBearerDefaults.AuthenticationScheme;
-            };
-        });
-        // Make the composite the default for Development so RequireAuthorization() triggers selector.
-        builder.Services.PostConfigure<AuthenticationOptions>(o =>
-        {
-            o.DefaultAuthenticateScheme = "BearerOrDev";
-            o.DefaultChallengeScheme = "BearerOrDev";
-        });
-    }
+            if (ctx.Request.Headers.ContainsKey("x-dev-user"))
+                return DevHeaderAuthHandler.DevScheme;
+            return JwtBearerDefaults.AuthenticationScheme;
+        };
+    });
+    builder.Services.PostConfigure<AuthenticationOptions>(o =>
+    {
+        o.DefaultAuthenticateScheme = "BearerOrDev";
+        o.DefaultChallengeScheme = "BearerOrDev";
+    });
 }
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
