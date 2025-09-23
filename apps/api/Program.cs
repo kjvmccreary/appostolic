@@ -483,8 +483,7 @@ app.Use(async (context, next) =>
             tenantIdStr = gid.ToString();
         else if (Guid.TryParse(context.User.FindFirst("tenant_id")?.Value, out var claimTid))
             tenantIdStr = claimTid.ToString();
-        else if (Guid.TryParse(context.Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var headerTid))
-            tenantIdStr = headerTid.ToString();
+        // Legacy X-Tenant-Id header removed (dev header deprecation). No fallback here.
 
         var requiredRoles = context.Items.TryGetValue("AuthRequiredRoles", out var rr) ? rr?.ToString() : null;
 
@@ -505,7 +504,8 @@ app.Use(async (context, next) =>
 // Middleware to set tenant from X-Tenant-Id header and set PostgreSQL local setting
 app.Use(async (context, next) =>
 {
-    var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+    // Legacy X-Tenant-Id header removed. Future: derive tenant scope exclusively from JWT claims.
+    string? tenantId = null; // placeholder until full tenant claim enrichment lands
     if (!string.IsNullOrWhiteSpace(tenantId) && Guid.TryParse(tenantId, out var tid))
     {
         // Store in HttpContext for downstream usage
@@ -522,6 +522,36 @@ app.Use(async (context, next) =>
 app.MapGet("/", () => Results.Ok(new { name = "appostolic-api", version = "0.0.0" }));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+
+// Story 4: Internal JWT key rotation health endpoint.
+// Provides visibility into active signing key, configured key count, and verification probe status.
+// Returns 200 with probe_result=false if verification failed (still surfacing data for diagnostics).
+app.MapGet("/internal/health/jwt-keys", (IJwtTokenService jwt) =>
+{
+    var probe = jwt.VerifyAllSigningKeys();
+    // We cannot directly enumerate key ids without exposing an API; reuse validation parameters to discover configured keys.
+    var parameters = jwt.CreateValidationParameters();
+    var keys = new List<string>();
+    if (parameters.IssuerSigningKeyResolver != null)
+    {
+        try
+        {
+            var resolved = parameters.IssuerSigningKeyResolver(string.Empty, null, null, parameters);
+            foreach (var k in resolved)
+            {
+                if (!string.IsNullOrWhiteSpace(k.KeyId)) keys.Add(k.KeyId!);
+            }
+        }
+        catch { /* best-effort enumeration */ }
+    }
+    return Results.Ok(new
+    {
+        active_key_id = keys.FirstOrDefault(),
+        total_configured_keys = keys.Count,
+        configured_key_ids = keys,
+        probe_result = probe
+    });
+}).WithTags("internal").WithDescription("JWT key rotation health (active key id, configured set, verification probe result).");
 
 // E2E helper endpoint for HTTPS cookie attribute validation (Story 5b)
 if (useE2EInMem)
@@ -567,35 +597,7 @@ app.MapAgentsEndpoints();
 app.MapUserProfileEndpoints();
 app.MapTenantSettingsEndpoints();
 
-app.MapGet("/lessons", async (HttpContext ctx, AppDbContext db) =>
-{
-    if (!ctx.Items.TryGetValue("TenantId", out _))
-        return Results.BadRequest(new { error = "Missing X-Tenant-Id header" });
-
-    var items = await db.Lessons.AsNoTracking().ToListAsync();
-    return Results.Ok(items);
-});
-
-app.MapPost("/lessons", async (HttpContext ctx, AppDbContext db, LessonCreate dto) =>
-{
-    if (!ctx.Items.TryGetValue("TenantId", out var v) || v is not Guid tenantId)
-        return Results.BadRequest(new { error = "Missing X-Tenant-Id header" });
-
-    var lesson = new Lesson
-    {
-        Id = Guid.NewGuid(),
-        TenantId = tenantId,
-        Title = dto.Title,
-        Status = LessonStatus.Draft,
-        Audience = LessonAudience.All,
-        CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow
-    };
-
-    db.Lessons.Add(lesson);
-    await db.SaveChangesAsync();
-    return Results.Created($"/lessons/{lesson.Id}", lesson);
-});
+// Lessons endpoints temporarily disabled pending tenant-claim wiring (legacy header removed in Story 3 refactor).
 
 // Auto-migrate for Development/Test (only for relational providers)
 using (var scope = app.Services.CreateScope())
