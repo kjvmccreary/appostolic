@@ -156,4 +156,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑23 (Deterministic auth test seeding + UniqueId helper consolidation complete; full API suite green; ImageSharp advisories under review.)
+- Last updated: 2025‑09‑23 (Plaintext suppression flag tests fixed; full suite green 253/0/1 after explicit flag overrides; ImageSharp advisories under review.)

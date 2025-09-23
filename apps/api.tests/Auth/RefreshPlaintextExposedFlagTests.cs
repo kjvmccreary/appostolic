@@ -16,9 +16,13 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Login_Omits_Plaintext_When_Disabled()
     {
+        // Explicitly disable plaintext exposure flag for this suppression scenario. We also keep
+        // the refresh cookie enabled to mirror production cookie-first behavior; the assertion
+        // should hold independent of cookie issuance.
         var client = _factory.WithSettings(new()
         {
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
+            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
         }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flagloginhide_{Guid.NewGuid()}@test.com";
@@ -35,10 +39,12 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Refresh_Omits_Plaintext_When_Disabled()
     {
+        // Disable plaintext exposure flag while allowing grace path + cookie issuance.
         var client = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_GRACE_ENABLED", "true" }
+            { "AUTH__REFRESH_JSON_GRACE_ENABLED", "true" },
+            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
         }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flagrefreshhide_{Guid.NewGuid()}@test.com";
@@ -64,7 +70,11 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Login_Omits_Plaintext_When_Disabled_NoCookieOverride()
     {
-        var client = _factory.CreateClient();
+        // Even with no explicit cookie override, disabling plaintext flag should suppress token.
+        var client = _factory.WithSettings(new()
+        {
+            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+        }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flaglogindefault_{Guid.NewGuid()}@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });

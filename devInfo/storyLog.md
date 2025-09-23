@@ -1,3 +1,27 @@
+### 2025-09-23 - Story: Auth Test Suite Final Green (Plaintext Suppression Flag Fix)
+
+Summary
+
+- Resolved the sole remaining failing test (`Login_Omits_Plaintext_When_Disabled`) caused by implicit assumption that the transitional flag `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` defaulted to `false` after earlier rollback to `true` for compatibility. Patched `RefreshPlaintextExposedFlagTests` so every suppression scenario explicitly overrides the flag to `false` via `WebAppFactory.WithSettings` (keeps cookie + grace settings explicit where relevant). Re‑ran the entire solution test suite: 0 failed / 253 passed / 1 skipped (254 total, ~38s local). Confirms no other suites depended on implicit plaintext suppression and that deterministic auth seeding + focused flow tests coexist cleanly with transitional exposure default.
+
+Rationale
+
+- Makes suppression tests self-describing and immune to future default flips; eliminates hidden coupling on global factory configuration while we retain plaintext emission in other auth tests during the staged deprecation window.
+
+Files Changed
+
+- `apps/api.tests/Auth/RefreshPlaintextExposedFlagTests.cs` — added explicit `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT="false"` in all three tests plus clarifying comments.
+
+Quality Gates
+
+- Full solution test run green (0 failed, 253 passed, 1 skipped). No production code touched; only test harness modifications. Auth flow, refresh rotation, logout, and suppression scenarios all validated concurrently.
+
+Follow-ups
+
+- Later story: flip global default to `false` after verifying no client reliance on plaintext remains; then remove flag entirely. Optional guard test to assert absence of `refresh.token` when default suppressed.
+
+---
+
 ### 2025-09-23 - Story: Finalize Auth Test Migration (Contract Test Refactor & Plaintext Suppression Scenarios)
 
 Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to deterministic tenant token issuance (seeding tenant, user, membership and minting JWT in-process) eliminating 400 select-tenant failure. Retained default `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=true` in `WebAppFactory` to avoid breaking existing tests that still validate body `refresh.token` during grace. Instead, updated `RefreshPlaintextExposedFlagTests` to explicitly disable the flag per test (renamed methods) to assert suppression behavior. Next step (future story): flip global default to false once all legacy token-body dependencies are removed.
