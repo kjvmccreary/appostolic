@@ -2,11 +2,8 @@ using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
-using Appostolic.Api.AuthTests; // real auth flow helper
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -23,23 +20,13 @@ public class DenominationsMetadataTests : IClassFixture<WebAppFactory>
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    // RDH Story 2: legacy dev headers removed; using JWT helper
-    private const string DefaultPw = "Password123!"; // align with other migrated tests
-    private async Task SeedPasswordAsync(string email, string password)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
     private async Task<HttpClient> CreateAuthedClientAsync()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var email = "denom-user@example.com";
+        var tenantSlug = $"denoms-{Guid.NewGuid():N}";
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, tenantSlug, owner: true);
         var c = _factory.CreateClient();
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", "kevin-personal");
+        c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return c;
     }
 

@@ -32,7 +32,7 @@
   <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
   <PackageReference Include="StackExchange.Redis" />
   <PackageReference Include="AWSSDK.S3" />
-  <!-- Image processing for avatar/logo optimization -->
+  <!-- Image processing for avatar/logo optimization (central version managed in Directory.Packages.props; upgraded from 3.1.4 due to GHSA advisories) -->
   <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
   <ItemGroup>

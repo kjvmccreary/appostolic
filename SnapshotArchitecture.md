@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot
 
-Generated: 2025-09-22 (RDH Story 3 complete; Story 4 pending)
+Generated: 2025-09-23 (Auth Test Deterministic Seeding complete; full suite green)
 Purpose: Fast context bootstrapping for new chats. Point‑in‑time only (no history). Evolution lives in `devInfo/storyLog.md` + git.
 
 ### 1. High‑Level Overview
@@ -138,6 +138,10 @@ Roles: Flags only (TenantAdmin|Approver|Creator|Learner)
 Migrations: `apps/api/Migrations`
 
 <!-- End of snapshot (refresh at end of each story) -->
+
+### 15. Test Strategy (Update 2025-09-23)
+
+Integration tests no longer perform multi-step password + login + select-tenant flows except in the small set of suites explicitly validating those auth endpoints. All other domain/integration tests now obtain JWTs via a deterministic seeding helper (TestAuthSeeder) that creates user, tenant, membership, and issues neutral or tenant-scoped access tokens directly. Benefits: (1) removes brittle coupling to auth flow shape, (2) reduces test runtime, (3) eliminates 403 regressions tied to omitted select-tenant, (4) stabilizes data setup with per-test unique fragments. Shared helper `UniqueId` (Frag/Slug/Email) standardizes short unique identifiers across tests (replacing scattered inline Guid slicing). A minimal set of end-to-end auth tests (login, select-tenant, refresh, logout, cookie/HTTPS, plaintext suppression, metrics) remain to exercise the real pipeline. Full API test suite passing post‑refactor: 239 passed / 1 skipped (34s arm64 local). E2E harness (api.e2e) still executes real server for cookie issuance & secure claim validation.
 
     - Added Makefile target `api-https` leveraging trusted dev certificate (`dotnet dev-certs https --trust`) to run API over HTTPS locally for true Secure cookie validation. Refresh cookie (`rt`) issuance logic updated (login, magic consume, select-tenant) to set `Secure = http.Request.IsHttps` (removed previous environment heuristic); over HTTP in Development cookie is not Secure, over HTTPS it is. New test `RefreshCookieHttpsTests` asserts absence of Secure over HTTP and simulated presence with `X-Forwarded-Proto: https`. Simplifies semantics ahead of general refresh endpoint (Story 6) and avoids false Secure flag expectations during local dev without TLS.
     - Follow-up (2025-09-20): Consolidated refresh cookie issuance into `IssueRefreshCookie` helper; added `trust-dev-certs` Makefile target; HTTPS test now uses HTTPS base address for deterministic `Request.IsHttps`.

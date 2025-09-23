@@ -1,12 +1,14 @@
 using System.Net.Http.Json;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Headers;
 using Appostolic.Api.Application.Privacy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 using Microsoft.AspNetCore.Hosting;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 
 namespace Appostolic.Api.Tests.Privacy;
 
@@ -21,34 +23,17 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
         var provider = new CapturingLoggerProvider();
         var customFactory = new LoggingWebAppFactory(provider, hashingEnabled: true);
         var client = customFactory.CreateClient();
-        // Migration off dev headers: exercise real auth login + select-tenant flow
-    using (var seedScope = customFactory.Services.CreateScope())
-        {
-            var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = db.Users.First(u => u.Email == "kevin@example.com");
-            var membership = db.Memberships.First(m => m.UserId == user.Id);
-            // ensure password so flow helper can login
-            if (user.PasswordHash is null || user.PasswordSalt is null)
-            {
-                var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-                var (hash, salt, _) = hasher.HashPassword("Password123!");
-                var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
-                db.Entry(user).CurrentValues.SetValues(updated);
-                db.SaveChanges();
-            }
-            var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
-            // Use the customized factory (with added logging + privacy options) for auth flow so emitted logs are captured
-            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(customFactory, client, user.Email, tenantSlug);
-        }
+
+        // Deterministic token issuance for kevin@example.com (preserves existing redaction expectation)
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(customFactory, "kevin@example.com", $"privacy-{Guid.NewGuid():N}".Substring(0, 20), owner: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var resp = await client.GetAsync("/api/users/me");
         resp.EnsureSuccessStatusCode();
-        // Inspect captured scopes
         var scopes = provider.Scopes;
         Assert.Contains(scopes, s => s.ContainsKey("user.email.redacted") && (string?)s["user.email.redacted"] == "k***@example.com");
         Assert.Contains(scopes, s => s.ContainsKey("user.email.hash"));
         Assert.DoesNotContain(scopes, s => s.ContainsKey("user.email.raw"));
-        // Also ensure no scope value equals raw email
         Assert.DoesNotContain(scopes, s => s.Any(kv => kv.Value is string sv && sv == "kevin@example.com"));
     }
 
@@ -58,23 +43,8 @@ public class UserProfileLoggingTests : IClassFixture<WebAppFactory>
         var provider = new CapturingLoggerProvider();
         var customFactory2 = new LoggingWebAppFactory(provider, hashingEnabled: false);
         var client = customFactory2.CreateClient();
-        using (var seedScope = customFactory2.Services.CreateScope())
-        {
-            var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = db.Users.First(u => u.Email == "kevin@example.com");
-            var membership = db.Memberships.First(m => m.UserId == user.Id);
-            if (user.PasswordHash is null || user.PasswordSalt is null)
-            {
-                var hasher = seedScope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-                var (hash, salt, _) = hasher.HashPassword("Password123!");
-                var updated = user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow };
-                db.Entry(user).CurrentValues.SetValues(updated);
-                db.SaveChanges();
-            }
-            var tenantSlug = db.Tenants.First(t => t.Id == membership.TenantId).Name;
-            // Use the customized factory for auth to ensure hashing disabled option is applied during request pipeline
-            var _ = await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(customFactory2, client, user.Email, tenantSlug);
-        }
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(customFactory2, "kevin@example.com", $"privacy-{Guid.NewGuid():N}".Substring(0, 20), owner: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var resp = await client.GetAsync("/api/users/me");
         resp.EnsureSuccessStatusCode();

@@ -2,9 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
-using Appostolic.Api.AuthTests; // AuthTestClientFlow
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -13,25 +11,25 @@ public class ToolCatalogTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public ToolCatalogTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2 Phase A: migrated from legacy mint helper to real password + login + select-tenant flow.
-    private const string DefaultPw = "Password123!";
-    private async Task SeedPasswordAsync(string email, string password)
+    /// <summary>
+    /// Creates an HttpClient with a freshly issued tenant-scoped JWT using the deterministic TestAuthSeeder.
+    /// This replaces the prior password + /auth/login + /auth/select-tenant choreography which added noise
+    /// for a test whose focus is simply enumerating registered tool metadata.
+    /// </summary>
+    private static async Task<HttpClient> CreateOwnerClientAsync(WebAppFactory factory)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+        var email = "tool-user@example.com";
+        var tenantSlug = $"tools-{Guid.NewGuid():N}";
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: true);
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     [Fact]
     public async Task Tools_Catalog_Lists_Registered_Tools_With_Categories()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync(_factory);
 
         var resp = await client.GetAsync("/api/agents/tools");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);

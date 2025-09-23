@@ -6,7 +6,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
-using Appostolic.Api.AuthTests; // AuthTestClientFlow
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,23 +19,24 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
 
     // RDH Story 2 Phase A: migrated from legacy mint helper (UseTenantAsync) to real password + login + select-tenant flow.
     private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
-    private async Task SeedPasswordAsync(string email, string password)
+    /// <summary>
+    /// Issues a tenant-scoped owner token for a fresh tenant; avoids the password + login + select sequence.
+    /// Returns configured HttpClient.
+    /// </summary>
+    private async Task<HttpClient> CreateOwnerClientAsync()
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+        var email = "tenant-settings-user@example.com";
+        var tenantSlug = $"tenant-settings-{Guid.NewGuid():N}";
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, tenantSlug, owner: true);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     [Fact]
     public async Task Get_Settings_Returns_Empty_Object_When_Null()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         var resp = await client.GetAsync("/api/tenants/settings");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -46,9 +47,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Put_Settings_Deep_Merges()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         var seed = new { branding = new { colors = new { primary = "#123456", secondary = "#abcdef" } } };
         var seedResp = await client.PutAsJsonAsync("/api/tenants/settings", seed);
         seedResp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -66,9 +65,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Succeeds_And_Stores_Metadata()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         // 1x1 PNG (validated in MinimalPngDecodeTests)
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using var content = new MultipartFormDataContent();
@@ -88,9 +85,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Unsupported_Media_Type()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         using var content = new MultipartFormDataContent();
         var bytes = Encoding.UTF8.GetBytes("plain");
         var fileContent = new ByteArrayContent(bytes);
@@ -103,9 +98,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Upload_Logo_Rejects_Payload_Too_Large()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         using var content = new MultipartFormDataContent();
         var bytes = new byte[2 * 1024 * 1024 + 10];
         var fileContent = new ByteArrayContent(bytes);
@@ -118,9 +111,7 @@ public class TenantSettingsEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Delete_Logo_Removes_Metadata()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        var client = await CreateOwnerClientAsync();
         // First upload
         var pngBytes = Convert.FromBase64String(ValidMinimalPngBase64);
         using (var content = new MultipartFormDataContent())

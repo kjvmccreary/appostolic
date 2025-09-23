@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 using SixLabors.ImageSharp;
@@ -11,6 +12,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Png;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.Tests.TestUtilities;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -23,26 +25,31 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
         _factory = factory;
     }
 
-    // RDH Story 2 Phase A: migrate from mint/dev helper to real password -> login -> select-tenant auth flow
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
+    // Story: JWT auth refactor – migrate avatar endpoint tests to deterministic seeding.
+    // Instead of exercising password login + select-tenant, we mint a real tenant-scoped JWT
+    // via TestAuthSeeder which:
+    //  - Creates user, tenant, membership with requested roles (owner true gives full flags)
+    //  - Issues a production-shape JWT using the real token service
+    // This removes brittle coupling to pre-seeded emails (e.g., kevin@example.com) and the
+    // legacy "kevin-personal" slug. Each test uses an isolated unique slug for safety.
 
-    private async Task SeedPasswordAsync(string email, string password)
+    // Generate short unique fragments (first 8 chars of GUID without hyphens)
+    // Replaced local Unique* helpers with shared UniqueId utilities
+
+    private async Task<HttpClient> CreateOwnerClientAsync(string scenario)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+    var email = UniqueId.Email("avatar");
+    var slug = UniqueId.Slug(scenario);
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slug, owner: true);
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     [Fact]
     public async Task UploadAvatar_Succeeds_WithPngUnder2MB()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("png-ok");
 
         // Minimal valid 1x1 PNG bytes (generated via ImageSharp to avoid CRC issues)
         var pngBytes = Convert.FromBase64String(
@@ -69,9 +76,7 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task UploadAvatar_Rejects_UnsupportedMediaType()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("reject-unsupported");
 
         var bytes = Encoding.UTF8.GetBytes("not-an-image");
         using var content = new MultipartFormDataContent();
@@ -86,9 +91,7 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task UploadAvatar_Rejects_TooLarge()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("reject-toolarge");
 
         // Create >2MB dummy PNG bytes (not a valid image, but size check happens first)
         var bytes = new byte[2 * 1024 * 1024 + 1];
@@ -104,9 +107,7 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task UploadAvatar_Rejects_TooRectangular()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("reject-rect");
 
         using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(2000, 800);
         using var ms = new MemoryStream();
@@ -125,9 +126,7 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task UploadAvatar_Downscales_LargeImage_To512Webp()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("downscale");
 
         using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(1024, 1024);
         using var ms = new MemoryStream();
@@ -149,9 +148,7 @@ public class UserAvatarEndpointsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task UploadAvatar_TransparentLogo_PreservesDimensions_Webp()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+    var client = await CreateOwnerClientAsync("transparent");
         // Build a 64x64 transparent PNG with a single red pixel to trigger lossless path
         byte[] bytes;
         using (var img = new Image<Rgba32>(64, 64))

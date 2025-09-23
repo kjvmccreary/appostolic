@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
+using Appostolic.Api.Tests.TestUtilities;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -25,32 +28,36 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public LegacyRoleWritePathDeprecationTests(WebAppFactory factory) => _factory = factory;
-    // RDH Story 2 Phase A: migrate to real password login + select-tenant flows.
-    private const string DefaultPw = "Password123!"; // must align with AuthTestClientFlow.DefaultPassword
+    // Story: JWT auth refactor – migrate to deterministic TestAuthSeeder issuance. Each test now
+    // creates a unique tenant + acting owner user (full role flags) without relying on the pre-seeded
+    // kevin@example.com / kevin-personal pair or password login/select flow.
 
-    private async Task SeedPasswordAsync(string email, string password)
+    // Local Unique* helpers removed; using shared UniqueId
+
+    private async Task<(HttpClient client, Guid tenantId)> CreateOwnerClientAsync(string scenario)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+    var email = UniqueId.Email("legacyrole");
+    var slug = UniqueId.Slug(scenario);
+        var (token, userId, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slug, owner: true);
+        // Optionally seed password hash for consistency (not required for bearer auth)
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId);
+            var (hash, salt, _) = hasher.HashPassword(TestAuthSeeder.DefaultPassword);
+            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (client, tenantId);
     }
 
     [Fact]
     public async Task Invite_with_legacy_role_only_is_rejected_with_NO_FLAGS()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-        }
+        var (client, tenantId) = await CreateOwnerClientAsync("invite-legacy-role");
 
         var resp = await client.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", new { email = $"legacy-invite-{Guid.NewGuid():N}@ex.com", role = "Editor" });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -63,14 +70,11 @@ public class LegacyRoleWritePathDeprecationTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Member_role_change_with_legacy_role_is_rejected()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        Guid tenantId; Guid targetUserId;
+        var (client, tenantId) = await CreateOwnerClientAsync("member-legacy-role");
+        Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
             var u = new User { Id = Guid.NewGuid(), Email = $"member-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
             db.Users.Add(u);
             db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });

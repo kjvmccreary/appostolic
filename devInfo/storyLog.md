@@ -292,6 +292,24 @@
 
 2025-09-22 — Auth/JWT: RDH Story 2 Phase A MembersManagementTests Migration — ✅ PARTIAL
 
+2025-09-23 — Auth/JWT / Testing: Deterministic Auth Seeding Refactor — ✅ DONE
+
+- Summary
+  - Replaced fragile multi-step password → /api/auth/login → /api/auth/select-tenant setup sequences across non-auth integration suites with a deterministic auth seeding helper (TestAuthSeeder) that provisions user, tenant, membership (Owner or specified roles), and issues neutral or tenant-scoped access tokens directly. Migrated remaining legacy suites (UserAvatar, UserPassword, AgentTasks, AuditTrail, LegacyRoleWritePathDeprecation, UserProfileLogging) plus earlier migrated domains to use CreateOwnerClient / CreateAuthedClient patterns. Removed all incidental dependencies on select-tenant side-effects (source of earlier 403 regressions) while retaining a focused set of true end-to-end auth flow tests (login, select-tenant rotation, refresh, logout, cookie HTTPS, plaintext suppression, metrics, token version revocation). Eliminated 18 prior failing tests (16 authorization 403s, 2 missing-seed data issues); full API suite now green (239 passed / 1 skipped, 34s local arm64). E2E project (api.e2e) smoke remains intact validating real HTTPS cookie + JWT path.
+- Rationale
+  - Speeds test runs and improves determinism by collapsing multi-hop HTTP auth choreography into single in-process seeding for cases where auth mechanics are not under test, reducing brittleness and future refactor cost. Ensures domain tests fail only for domain logic regressions, not auth flow drift.
+- Changes
+  - Updated helper usage across affected test files to call CreateOwnerClientAsync / CreateAuthedClientAsync (tenant-scoped) or variants that also seed password hashes when password mutation endpoints are under test.
+  - Consolidated unique identifier generation via GUID fragment helpers (candidate for follow-up centralization).
+  - Verified no residual reliance on deprecated login/select-tenant in non-auth suites via grep; retained auth suites intentionally.
+- Quality Gates
+  - Full API test run: 239 passed / 0 failed / 1 skipped. E2E run: 1/1 passed. No new warnings except pre-existing ImageSharp advisories (pending remediation story).
+- Follow-ups
+  - Consolidate duplicated UniqueFrag/UniqueSlug/UniqueEmail helpers into a shared test utility.
+  - Upgrade SixLabors.ImageSharp to patched version (advisories GHSA-2cmq-823j-5qj8, GHSA-63p8-c4ww-9cg7, GHSA-qxrv-gp6x-rc23, GHSA-rxmq-m78w-7wmc) after confirming green baseline.
+  - Consider trimming SnapshotArchitecture back to <250 line lean goal (file has re-expanded) in a documentation hardening pass.
+  - Add optional timing telemetry for seeded vs flow-based auth paths to track ongoing test performance.
+
 - Summary
   - Migrated `MembersManagementTests` off legacy mint helper path (`ClientAsync` / `AuthTestClient.UseTenantAsync`) to real password + JWT flows via `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added per-class `SeedPasswordAsync` (using `IPasswordHasher`) seeding the default password (`Password123!`) for involved users before invoking `/api/auth/login` then `/api/auth/select-tenant`. Replaced all helper calls with explicit flow sequence while retaining existing membership utilities (`EnsureAdminMembershipAsync`, `GetRoles`) and preserving test intent (role flag updates, last-admin prevention, member removal, forbidden viewer mutations). Targeted run: 5 tests PASS post-migration (0 failed / 5 passed) with expected status codes (200/204 for allowed operations, 403 for unauthorized role changes, 409 for last-admin protection) confirming production auth semantics fully exercised.
 - Files changed
@@ -303,6 +321,20 @@
   - Eliminates another cluster of mint helper dependencies in high-importance membership mutation paths, ensuring authorization & last-admin guard behavior are validated under real JWT issuance rather than elevated shortcuts—critical before removing dev header and mint infrastructure.
 - Follow-ups
   - Migrate invite and audit-related test suites next; then introduce a guard to prohibit residual `UseTenantAsync` usage. Consider centralizing duplicated password seeding logic into a shared test utility after broad Phase A coverage.
+    2025-09-23 — Testing: UniqueId Helper Consolidation — ✅ DONE
+
+- Summary
+  - Introduced centralized test identifier utility `UniqueId` (Frag, Slug, Email) under `apps/api.tests/TestUtilities/UniqueId.cs`, replacing scattered local helpers and ad-hoc inline Guid slicing across Avatar, AgentTasks, UserPassword, AuditTrail, and LegacyRoleWritePathDeprecation test suites. Provides uniform short hex fragments and sanitized slug/email composition.
+- Rationale
+  - Eliminates duplication and drift (different fragment lengths, domains, or formats), simplifies future guard enforcement, and standardizes on non-routable test email domain (`example.com`).
+- Implementation
+  - Added `UniqueId` static class with `Frag(int length=8)`, `Slug(string? prefix=null, int fragLength=8)`, and `Email(string? userPrefix=null, string domain="example.com", int fragLength=8)` plus basic sanitization. Existing test files already referencing a prior lightweight `UniqueId` were updated in-place earlier; this consolidation formalizes richer API & docs.
+- Quality Gates
+  - Spot build succeeds; grep for legacy helper names returns zero matches. No behavior changes to tests beyond identifier source.
+- Follow-ups
+  - Add guard test preventing reintroduction of `UniqueFrag`/`UniqueSlug`/`UniqueEmail` patterns.
+  - Reference helper in `SnapshotArchitecture.md` Test Strategy section.
+  - Consider collision counter/log (low priority; probability negligible for test scope).
 
 2025-09-22 — Auth/JWT: RDH Story 2 Phase A AuditTrailTests Migration — ✅ PARTIAL
 

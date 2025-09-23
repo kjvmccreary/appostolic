@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Appostolic.Api.AuthTests;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 using Microsoft.EntityFrameworkCore;
+using Appostolic.Api.Tests.TestUtilities;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -13,33 +15,36 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public AgentTasksEndpointsTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth endpoints.
-    // Pattern: seed password (IPasswordHasher) then invoke /api/auth/login + /api/auth/select-tenant via AuthTestClientFlow helper.
-    private const string DefaultPw = "Password123!";
+    // Story: JWT auth refactor – migrate agent task endpoint tests to deterministic TestAuthSeeder pattern.
+    // We mint an owner tenant-scoped token for a fresh (email, tenantSlug) pair per test sequence. Password login
+    // flow isn't under test here, so we seed the password hash directly for completeness though current endpoints
+    // only rely on Authorization header.
+    // Using shared UniqueId helpers (removed local duplication)
 
-    private static async Task SeedPasswordAsync(WebAppFactory f, string email, string pw)
+    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f, string scenario)
     {
-        using var scope = f.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var (hash, salt, _) = hasher.HashPassword(pw);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
-
-    private static async Task<HttpClient> CreateAuthedClientAsync(WebAppFactory f)
-    {
+    var email = UniqueId.Email("agenttasks");
+    var slug = UniqueId.Slug(scenario);
+        var (token, userId, _) = await TestAuthSeeder.IssueTenantTokenAsync(f, email, slug, owner: true);
+        // Optionally seed password so future password-dependent tests could reuse; not strictly required.
+        using (var scope = f.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId);
+            var (hash, salt, _) = hasher.HashPassword(TestAuthSeeder.DefaultPassword);
+            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
         var c = f.CreateClient();
-        await SeedPasswordAsync(f, "kevin@example.com", DefaultPw);
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(f, c, "kevin@example.com", "kevin-personal");
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return c;
     }
 
     [Fact]
     public async Task CreateTask_Returns201AndSummary()
     {
-    var client = await CreateAuthedClientAsync(_factory);
+    var client = await CreateAuthedClientAsync(_factory, "create");
         var agentId = Guid.Parse("11111111-1111-1111-1111-111111111111"); // ResearchAgent
         var body = JsonDocument.Parse("""{"agentId":"11111111-1111-1111-1111-111111111111","input":{"topic":"intro"}}""");
 
@@ -59,7 +64,7 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     public async Task GetDetails_WithTracesInitiallyEmpty()
     {
         await CreateTask_Returns201AndSummary();
-    var client = await CreateAuthedClientAsync(_factory);
+    var client = await CreateAuthedClientAsync(_factory, "details");
         var resp = await client.GetAsync($"/api/agent-tasks/{_lastId}?includeTraces=true");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
@@ -73,7 +78,7 @@ public class AgentTasksEndpointsTests : IClassFixture<WebAppFactory>
     public async Task List_Pending_ReturnsCreatedFirst()
     {
         await CreateTask_Returns201AndSummary();
-    var client = await CreateAuthedClientAsync(_factory);
+    var client = await CreateAuthedClientAsync(_factory, "list");
         var resp = await client.GetAsync("/api/agent-tasks?status=Pending&take=10&skip=0");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var arr = await resp.Content.ReadFromJsonAsync<JsonElement>();

@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Appostolic.Api.AuthTests; // Auth test real login + tenant selection flow
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 using Microsoft.EntityFrameworkCore;
 
 namespace Appostolic.Api.Tests.Api;
@@ -14,38 +14,22 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     public DevGrantRolesEndpointTests(WebAppFactory factory) => _factory = factory;
 
     /// <summary>
-    /// Create tenant-authenticated client via JWT for dev grant-roles endpoint tests.
+    /// Issues an owner token for a fresh dynamic tenant to exercise dev grant-roles endpoint deterministically.
     /// </summary>
-    private const string DefaultPw = "Password123!"; // match AuthTestClientFlow
-    private async Task SeedPasswordAsync(string email, string password)
+    private async Task<(HttpClient client, Guid tenantId)> CreateOwnerClientAsync()
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
-    private async Task<HttpClient> CreateAuthedAsync(string tenantSlug)
-    {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
+        var email = "dev-grant-owner@example.com";
+        var tenantSlug = $"devgrant-{Guid.NewGuid():N}";
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, tenantSlug, owner: true);
         var c = _factory.CreateClient();
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, c, "kevin@example.com", tenantSlug);
-        return c;
+        c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        return (c, tenantId);
     }
 
     [Fact]
     public async Task Grants_roles_to_new_user_and_membership()
     {
-        var client = await CreateAuthedAsync("kevin-personal");
-
-        Guid tenantId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = db.Tenants.First(t => t.Name == "kevin-personal").Id;
-        }
+        var (client, tenantId) = await CreateOwnerClientAsync();
 
         var email = $"dev-grant-{Guid.NewGuid():N}@ex.com";
         var resp = await client.PostAsJsonAsync("/api/dev/grant-roles", new { tenantId, email, roles = new[] { "Creator", "Learner" } });
@@ -64,13 +48,11 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles()
     {
-        var client = await CreateAuthedAsync("kevin-personal");
-        Guid tenantId;
+        var (client, tenantId) = await CreateOwnerClientAsync();
         Guid userId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = db.Tenants.First(t => t.Name == "kevin-personal").Id;
             var user = new User { Id = Guid.NewGuid(), Email = $"existing-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
             db.Users.Add(user);
             db.Memberships.Add(new Membership
@@ -103,14 +85,12 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Updates_existing_membership_roles_writes_audit()
     {
-        var client = await CreateAuthedAsync("kevin-personal");
-        Guid tenantId;
+        var (client, tenantId) = await CreateOwnerClientAsync();
         Guid userId;
         string email;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = db.Tenants.First(t => t.Name == "kevin-personal").Id;
             var user = new User { Id = Guid.NewGuid(), Email = $"audit-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
             db.Users.Add(user);
             db.Memberships.Add(new Membership
@@ -143,13 +123,7 @@ public class DevGrantRolesEndpointTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Returns_400_for_invalid_role_name()
     {
-        var client = await CreateAuthedAsync("kevin-personal");
-        Guid tenantId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = db.Tenants.First(t => t.Name == "kevin-personal").Id;
-        }
+        var (client, tenantId) = await CreateOwnerClientAsync();
         var resp = await client.PostAsJsonAsync("/api/dev/grant-roles", new { tenantId, email = "oops@example.com", roles = new[] { "NotARole" } });
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

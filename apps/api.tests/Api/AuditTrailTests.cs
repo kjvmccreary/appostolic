@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
+using Appostolic.Api.Tests.TestUtilities;
 
 namespace Appostolic.Api.Tests.Api
 {
@@ -11,54 +14,43 @@ namespace Appostolic.Api.Tests.Api
         private readonly WebAppFactory _factory;
         public AuditTrailTests(WebAppFactory factory) => _factory = factory;
 
-        // RDH Story 2 Phase A: migrated from legacy mint helper (UseTenantAsync) to real auth flow.
-        // Pattern per suite: seed password -> POST /api/auth/login -> POST /api/auth/select-tenant.
-        private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
+        // Story: JWT auth refactor – migrate audit trail tests to deterministic TestAuthSeeder
+        // approach. We mint an owner tenant-scoped token (grants full role flags) for a unique
+        // email + tenant slug per test, removing reliance on pre-seeded "kevin@example.com" and
+        // password login/select flows. Each test seeds a target user membership then exercises
+        // the roles update endpoint and inspects audit rows.
 
-        private async Task SeedPasswordAsync(string email, string password)
-        {
-            using var scope = _factory.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-            var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-            var (hash, salt, _) = hasher.HashPassword(password);
-            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-        }
+    // Duplicated Unique* helpers removed in favor of UniqueId
 
-        private static async Task EnsureAdminMembershipAsync(WebAppFactory f, string email, Guid tenantId)
+        private async Task<(HttpClient client, Guid tenantId, string actingEmail)> CreateOwnerClientAsync(string scenario)
         {
-            using var scope = f.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
-            if (user == null) return;
-            var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
-            var full = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner;
-            if (membership == null)
+            var email = UniqueId.Email("audit");
+            var slug = UniqueId.Slug(scenario);
+            var (token, userId, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slug, owner: true);
+            // Optional: seed password hash (not required for token auth but keeps consistency for potential future flows)
+            using (var scope = _factory.Services.CreateScope())
             {
-                db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = user.Id, Roles = full, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+                var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId);
+                var (hash, salt, _) = hasher.HashPassword(TestAuthSeeder.DefaultPassword);
+                db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
                 await db.SaveChangesAsync();
             }
-            else if ((membership.Roles & full) != full)
-            {
-                membership.Roles |= full;
-                await db.SaveChangesAsync();
-            }
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            return (client, tenantId, email);
         }
 
         [Fact]
         public async Task Set_roles_writes_audit_row_with_old_and_new_roles()
         {
-            await SeedPasswordAsync("kevin@example.com", DefaultPw);
-            var owner = _factory.CreateClient();
-            await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
+            var (owner, tenantId, actingEmail) = await CreateOwnerClientAsync("audit-setroles");
 
-            Guid tenantId;
             Guid targetUserId;
             using (var scope = _factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
                 // Seed a viewer with no flags
                 var u = new User { Id = Guid.NewGuid(), Email = $"aud-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
                 db.Users.Add(u);
@@ -75,9 +67,6 @@ namespace Appostolic.Api.Tests.Api
                 targetUserId = u.Id;
             }
 
-            // Defensive: ensure acting user has admin membership flags
-            await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
-            await LogMembershipAsync(_factory, tenantId, "kevin@example.com", nameof(Set_roles_writes_audit_row_with_old_and_new_roles));
             // Act: set flags to TenantAdmin
             var resp = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
             resp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -91,7 +80,7 @@ namespace Appostolic.Api.Tests.Api
                 var a = audits[0];
                 a.OldRoles.Should().Be(Roles.None);
                 a.NewRoles.Should().Be(Roles.TenantAdmin);
-                a.ChangedByEmail.Should().Be("kevin@example.com");
+                a.ChangedByEmail.Should().Be(actingEmail);
                 a.ChangedByUserId.Should().NotBeEmpty();
             }
         }
@@ -99,16 +88,12 @@ namespace Appostolic.Api.Tests.Api
         [Fact]
         public async Task Set_roles_noop_second_call_does_not_duplicate_audit()
         {
-            await SeedPasswordAsync("kevin@example.com", DefaultPw);
-            var owner = _factory.CreateClient();
-            await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
+            var (owner, tenantId, _) = await CreateOwnerClientAsync("audit-noop");
 
-            Guid tenantId;
             Guid targetUserId;
             using (var scope = _factory.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
                 // Seed member with no roles
                 var u = new User { Id = Guid.NewGuid(), Email = $"aud-noop-{Guid.NewGuid():N}@ex.com", CreatedAt = DateTime.UtcNow };
                 db.Users.Add(u);
@@ -125,8 +110,6 @@ namespace Appostolic.Api.Tests.Api
                 targetUserId = u.Id;
             }
 
-            await EnsureAdminMembershipAsync(_factory, "kevin@example.com", tenantId);
-            await LogMembershipAsync(_factory, tenantId, "kevin@example.com", nameof(Set_roles_noop_second_call_does_not_duplicate_audit));
             // First change: assign TenantAdmin
             var first = await owner.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "TenantAdmin" } });
             first.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -144,35 +127,6 @@ namespace Appostolic.Api.Tests.Api
             }
         }
 
-        /// <summary>
-        /// TEMP DEBUG: writes membership roles for acting user to console to investigate 403s.
-        /// </summary>
-        private static async Task LogMembershipAsync(WebAppFactory f, Guid tenantId, string email, string context)
-        {
-            try
-            {
-                using var scope = f.Services.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
-                if (user == null)
-                {
-                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} user=NOT_FOUND");
-                    return;
-                }
-                var membership = await db.Memberships.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
-                if (membership == null)
-                {
-                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} membership=NOT_FOUND tenant={tenantId}");
-                }
-                else
-                {
-                    Console.WriteLine($"[test][roles][debug] ctx={context} email={email} tenant={tenantId} roles={membership.Roles} value={(int)membership.Roles}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[test][roles][debug][error] ctx={context} {ex}");
-            }
-        }
+        // Removed legacy debug logging helper; deterministic seeding eliminates previous 403 race conditions.
     }
 }
