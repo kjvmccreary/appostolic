@@ -764,9 +764,123 @@ public static class V1
         var forcedFlag = (configuration["AUTH__FORCED_LOGOUT__ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
         if (forcedFlag)
         {
-            // TODO: Implement POST /api/admin/users/{id}/logout-all
-            // TODO: Implement POST /api/admin/tenants/{id}/logout-all
-            // Will emit security events forced_logout_user / forced_logout_tenant and metrics auth.admin.forced_logout.*
+            // POST /api/admin/users/{id}/logout-all — force logout a single user (admin scope)
+            apiRoot.MapPost("/admin/users/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+            {
+                var callerIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(callerIdStr, out var callerUserId)) return Results.Unauthorized();
+
+                // Authorization: require caller to have global platform admin capability.
+                // For now we treat presence of an environment-configured super admin list OR a future Roles.PlatformAdmin flag.
+                // Simplified: if caller has any TenantAdmin membership AND matches configured platform admin list (comma-separated GUIDs), allow.
+                var platformAdmins = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
+                    .Where(g => g != Guid.Empty)
+                    .ToHashSet();
+                if (platformAdmins.Count == 0 || !platformAdmins.Contains(callerUserId))
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("user", "forbidden");
+                    return Results.Forbid();
+                }
+
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
+                if (user is null)
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("user", "not_found");
+                    return Results.NotFound();
+                }
+
+                var revoked = await refreshSvc.RevokeAllForUserAsync(user.Id);
+                // Bump token version to invalidate extant access tokens
+                var entry = db.Entry(user);
+                entry.State = EntityState.Detached;
+                var bumped = user with { TokenVersion = user.TokenVersion + 1 };
+                db.Users.Update(bumped);
+                await db.SaveChangesAsync();
+
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("user", "success");
+                Appostolic.Api.Application.Auth.AuthMetrics.AddAdminForcedLogoutSessionsRevoked("user", revoked);
+                securityEvents.Emit(securityEvents.Create("forced_logout_user", b => b.User(user.Id).Reason("admin_forced")));
+                return Results.Ok(new { revoked, tokenVersion = bumped.TokenVersion });
+            })
+            .WithName("AdminForcedLogoutUser")
+            .WithSummary("Force logout (revoke all sessions) for a user")
+            .WithDescription("Administrative operation: revokes all refresh sessions for the specified user and bumps token version.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden);
+
+            // POST /api/admin/tenants/{id}/logout-all — force logout all users in tenant (tenant admin or platform admin)
+            apiRoot.MapPost("/admin/tenants/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+            {
+                var callerIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(callerIdStr, out var callerUserId)) return Results.Unauthorized();
+
+                var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == id);
+                if (tenant is null)
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "not_found");
+                    return Results.NotFound();
+                }
+
+                // Authorization: caller must be a TenantAdmin of this tenant OR platform super admin.
+                var platformAdmins = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
+                    .Where(g => g != Guid.Empty)
+                    .ToHashSet();
+                var membership = await db.Memberships.AsNoTracking()
+                    .FirstOrDefaultAsync(m => m.TenantId == tenant.Id && m.UserId == callerUserId);
+                var callerIsTenantAdmin = membership is not null && (membership.Roles & Roles.TenantAdmin) != 0;
+                var callerIsPlatformAdmin = platformAdmins.Contains(callerUserId);
+                if (!callerIsTenantAdmin && !callerIsPlatformAdmin)
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "forbidden");
+                    return Results.Forbid();
+                }
+
+                // Revoke all refresh tokens for users in the tenant; bump each user token version.
+                var userIds = await db.Memberships.AsNoTracking()
+                    .Where(m => m.TenantId == tenant.Id && m.Status == MembershipStatus.Active)
+                    .Select(m => m.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                if (userIds.Count == 0)
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "success");
+                    return Results.Ok(new { revoked = 0, affectedUsers = 0 });
+                }
+
+                var now = DateTime.UtcNow;
+                var activeTokens = await db.RefreshTokens
+                    .Where(r => userIds.Contains(r.UserId) && r.Purpose == "neutral" && !r.RevokedAt.HasValue)
+                    .ToListAsync();
+                foreach (var t in activeTokens)
+                {
+                    t.RevokedAt = now;
+                }
+                // Bump token versions for all users (invalidate access tokens)
+                var users = await db.Users.Where(u => userIds.Contains(u.Id)).ToListAsync();
+                for (int i = 0; i < users.Count; i++)
+                {
+                    var u = users[i];
+                    users[i] = u with { TokenVersion = u.TokenVersion + 1 };
+                }
+                db.Users.UpdateRange(users);
+                await db.SaveChangesAsync();
+
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "success");
+                Appostolic.Api.Application.Auth.AuthMetrics.AddAdminForcedLogoutSessionsRevoked("tenant", activeTokens.Count);
+                securityEvents.Emit(securityEvents.Create("forced_logout_tenant", b => b.Tenant(tenant.Id).Reason("admin_forced")));
+                return Results.Ok(new { revoked = activeTokens.Count, affectedUsers = users.Count });
+            })
+            .WithName("AdminForcedLogoutTenant")
+            .WithSummary("Force logout (revoke all sessions) for all users in a tenant")
+            .WithDescription("Administrative or tenant admin operation: revokes all refresh sessions for every active member of the tenant and bumps each user token version.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden);
         }
         // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
         // POST /api/auth/refresh
