@@ -31,7 +31,8 @@ public class DevHeadersRemovedTests
         req.Headers.Add("x-tenant", "kevin-personal");
         var resp = await client.SendAsync(req);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
-        // TODO (Story 3/4): When deprecation middleware / final removal adds structured body, assert JSON code here.
+    Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+    var body = await resp.Content.ReadFromJsonAsync<Dictionary<string,string>>();
+    Assert.Equal("dev_headers_deprecated", body?["code"]);
     }
 }

@@ -28,8 +28,10 @@ public class DevHeadersDisabledTests
         req.Headers.Add("x-tenant", "kevin-personal");
         var resp = await client.SendAsync(req);
 
-        // Assert: should be 401 because dev headers scheme not registered
-        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
+    // Assert: 401 with structured deprecation code
+    Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
+    var body = await resp.Content.ReadFromJsonAsync<Dictionary<string,string>>();
+    Assert.Equal("dev_headers_deprecated", body?["code"]);
     }
 
     [Fact]

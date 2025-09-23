@@ -103,6 +103,13 @@ public static class AuthMetrics
         description: "End-to-end duration for refresh requests (from endpoint entry to response)." 
     );
 
+    // Dev header deprecation (Story 3)
+    public static readonly Counter<long> DevHeadersDeprecated = Meter.CreateCounter<long>(
+        name: "auth.dev_headers.deprecated_requests",
+        unit: "{event}",
+        description: "Count of requests rejected due to deprecated dev header authentication attempt." 
+    );
+
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
     /// </summary>
@@ -230,5 +237,15 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "outcome", success ? "success" : "failure" } };
         RefreshDurationMs.Record(ms, tags);
+    }
+
+    /// <summary>
+    /// Increment dev header deprecation rejection counter. Tags include path for coarse attribution.
+    /// </summary>
+    public static void IncrementDevHeadersDeprecated(string? path)
+    {
+        var tags = new System.Diagnostics.TagList();
+        if (!string.IsNullOrEmpty(path)) tags.Add("path", path!);
+        DevHeadersDeprecated.Add(1, tags);
     }
 }

@@ -483,6 +483,9 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Test"))
     app.UseHsts();
 }
 
+// Story 3: Dev headers deprecation (reject legacy headers early when flag disabled)
+app.UseMiddleware<Appostolic.Api.App.Middleware.DevHeadersDeprecationMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
