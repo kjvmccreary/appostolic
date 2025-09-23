@@ -6,8 +6,7 @@ using Xunit;
 namespace Appostolic.Api.Tests.Auth;
 
 /// <summary>
-/// Verifies behavior of AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT flag controlling exposure of the plaintext refresh token
-/// across login and refresh endpoints.
+/// Story 2: Verifies plaintext refresh token is always omitted (flag retired).
 /// </summary>
 public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
 {
@@ -15,12 +14,11 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     public RefreshPlaintextExposedFlagTests(WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Login_Hides_Plaintext_When_Flag_Disabled()
+    public async Task Login_Always_Omits_Plaintext()
     {
         var client = _factory.WithSettings(new()
         {
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }, // cookie path active
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }
         }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flagloginhide_{Guid.NewGuid()}@test.com";
@@ -35,12 +33,11 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Refresh_Omits_Plaintext_When_Flag_Disabled_Even_During_Grace()
+    public async Task Refresh_Always_Omits_Plaintext()
     {
         var client = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" },
             { "AUTH__REFRESH_JSON_GRACE_ENABLED", "true" }
         }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
@@ -65,9 +62,9 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Login_Includes_Plaintext_When_Flag_Defaults_True()
+    public async Task Login_Omits_Plaintext_By_Default()
     {
-        var client = _factory.CreateClient(); // default flag true
+        var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flaglogindefault_{Guid.NewGuid()}@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -76,6 +73,6 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
         login.EnsureSuccessStatusCode();
         using var loginJson = JsonDocument.Parse(await login.Content.ReadAsStreamAsync());
         var refreshElement = loginJson.RootElement.GetProperty("refresh");
-        refreshElement.GetProperty("token").GetString().Should().NotBeNull();
+        refreshElement.TryGetProperty("token", out _).Should().BeFalse();
     }
 }

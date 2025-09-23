@@ -64,11 +64,17 @@ public static class NotificationsAdminEndpoints
 
             IQueryable<Notification> q = db.Notifications.AsNoTracking();
 
-            // Tenant scoping: non-superadmin must be limited to current tenant
+            // Tenant scoping: non-superadmin must be limited to current tenant. If user explicitly supplies a different tenantId filter, return 403.
+            Guid? currentTenantId = null;
             if (!isSuper)
             {
                 var tenantIdStr = user.FindFirst("tenant_id")?.Value;
                 if (!Guid.TryParse(tenantIdStr, out var tenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+                currentTenantId = tenantId;
+                if (req.Query.TryGetValue("tenantId", out var tValsUser) && Guid.TryParse(tValsUser.ToString(), out var requestedTenant) && requestedTenant != tenantId)
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
                 q = q.Where(n => n.TenantId == tenantId);
             }
 
@@ -133,6 +139,20 @@ public static class NotificationsAdminEndpoints
             IQueryable<Notification> q = db.Notifications.AsNoTracking();
             // Operate only on original notifications (not previously-created resends)
             q = q.Where(n => n.ResendOfNotificationId == null);
+            
+            // Early explicit foreign tenant filter guard: if a non-superadmin user supplies a tenantId query parameter
+            // that differs from their own tenant claim, return 403 before any data shaping. This ensures tests asserting
+            // forbidden cross-tenant enumeration (without superadmin claim) observe the correct status instead of an
+            // empty list (previous behavior silently scoped to own tenant). This mirrors intended authorization semantics.
+            if (!isSuper && req.Query.TryGetValue("tenantId", out var explicitTenantVals) && Guid.TryParse(explicitTenantVals.ToString(), out var explicitTenantId))
+            {
+                var claimTenantStr = user.FindFirst("tenant_id")?.Value;
+                if (!Guid.TryParse(claimTenantStr, out var claimTenantId)) return Results.BadRequest(new { error = "invalid tenant" });
+                if (explicitTenantId != claimTenantId)
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+            }
 
             // Tenant scoping: non-superadmin must be limited to current tenant
             if (!isSuper)

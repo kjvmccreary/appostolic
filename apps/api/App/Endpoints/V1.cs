@@ -259,21 +259,11 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 8: Conditional plaintext refresh token exposure.
-            // TRANSITIONAL FLAG: AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true initially, now typically false) controls
-            // including the raw refresh token in JSON responses. When false the client MUST rely on the httpOnly cookie `rt`.
-            // This flag will be retired after the adoption window (tracked in RDH / post‑1.0 backlog) — do not build new
-            // features depending on plaintext emission.
-            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-            object refreshObj;
-            if (exposePlainFlag)
-            {
-                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
-            }
-            else
-            {
-                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-            }
+            // Story 2: Plaintext refresh retirement – always omit plaintext token from JSON.
+            // Clients must rely on httpOnly cookie 'rt'. Former transitional flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT removed.
+            // Metrics: count suppression to validate no legacy dependency attempts.
+            var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             return Results.Ok(new
             {
@@ -515,24 +505,16 @@ public static class V1
                 };
             }
 
-            // Story 4: Issue refresh cookie when enabled (keeps JSON surface temporarily for transition; future story may omit token field when cookie active)
+            // Story 4 / Story 2 integration: cookie issuance retained; plaintext token permanently omitted (Story 2).
             var refreshCookieEnabled = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_COOKIE_ENABLED") ||
                 string.Equals(Environment.GetEnvironmentVariable("AUTH__REFRESH_COOKIE_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
             if (refreshCookieEnabled)
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 8 flag (TRANSITIONAL): hide plaintext refresh token when AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT = false (future removal planned)
-            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-            object refreshObj;
-            if (exposePlainFlag)
-            {
-                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
-            }
-            else
-            {
-                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-            }
+            // Story 2: Plaintext retired – always omit token, increment suppression metric.
+            var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             var resultPayload = new
             {
@@ -562,11 +544,25 @@ public static class V1
         //   403 - user not a member of requested tenant
     apiRoot.MapPost("/auth/select-tenant", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, SelectTenantDto body) =>
         {
-            if (body is null || string.IsNullOrWhiteSpace(body.RefreshToken) || string.IsNullOrWhiteSpace(body.Tenant))
-                return Results.BadRequest(new { error = "tenant and refreshToken are required" });
+            // Story 2 follow-up: plaintext refresh token removed from login/select responses.
+            // To preserve UX we now accept the neutral refresh token via httpOnly cookie 'rt'.
+            // Body.RefreshToken remains for backwards compatibility (grace period in earlier stories).
+            // Validation: tenant is required; refresh token may be supplied via body or cookie.
+            if (body is null || string.IsNullOrWhiteSpace(body.Tenant))
+                return Results.BadRequest(new { error = "tenant is required" });
 
-                // Refresh tokens hashed via centralized helper (Base64(SHA256(UTF8))).
-                var hash = RefreshTokenHashing.Hash(body.RefreshToken.Trim());
+            var suppliedRefresh = body.RefreshToken;
+            if (string.IsNullOrWhiteSpace(suppliedRefresh))
+            {
+                // Fallback to cookie when body token omitted (new invariant after plaintext retirement)
+                if (!http.Request.Cookies.TryGetValue("rt", out suppliedRefresh) || string.IsNullOrWhiteSpace(suppliedRefresh))
+                {
+                    return Results.BadRequest(new { error = "refresh token missing" });
+                }
+            }
+
+            // Refresh tokens hashed via centralized helper (Base64(SHA256(UTF8))).
+            var hash = RefreshTokenHashing.Hash(suppliedRefresh.Trim());
             var now = DateTime.UtcNow;
             var rt = await db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt is null || rt.RevokedAt.HasValue || rt.ExpiresAt <= now)
@@ -618,17 +614,9 @@ public static class V1
             {
                 IssueRefreshCookie(http, newRefresh, newRefreshExpires);
             }
-            // Story 8 flag enforcement
-            var exposePlainFlag = http.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-            object refreshObj;
-            if (exposePlainFlag)
-            {
-                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
-            }
-            else
-            {
-                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-            }
+            // Story 2: Plaintext retired – always omit token, increment suppression metric.
+            var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             return Results.Ok(new
             {
@@ -904,20 +892,9 @@ public static class V1
                 http.Response.Headers["Sunset"] = deprecationDate!;
             }
 
-            // Story 8 / 9: plaintext suppression logic + metrics instrumentation (TRANSITIONAL flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT; slated for removal post adoption)
-            var exposePlainFlag = config.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-            var includePlaintextRefresh = exposePlainFlag && (graceEnabled || !refreshCookieEnabled);
-            object refreshObj;
-            if (includePlaintextRefresh)
-            {
-                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextEmitted(user.Id);
-            }
-            else
-            {
-                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
-            }
+            // Story 2: Plaintext retired – always omit token and mark suppression.
+            var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
             var response = new
             {
                 user = new { user.Id, user.Email },
@@ -1808,29 +1785,8 @@ public static class V1
         // UPROF-11: Denomination presets metadata endpoint
     apiRoot.MapGet("/metadata/denominations", async (HttpContext ctx) =>
         {
-            // Auth required; allow dev header shortcut in non-production (mirrors other test helpers usage)
-            if (ctx.User?.Identity?.IsAuthenticated != true)
-            {
-                var env = ctx.RequestServices.GetRequiredService<IHostEnvironment>();
-                if (!env.IsProduction())
-                {
-                    // Accept x-dev-user header as implicit auth for local/test contexts
-                    if (ctx.Request.Headers.TryGetValue("x-dev-user", out var devUser) && !string.IsNullOrWhiteSpace(devUser))
-                    {
-                        var claims = new List<Claim>
-                        {
-                            new Claim(ClaimTypes.NameIdentifier, devUser!),
-                            new Claim(ClaimTypes.Email, devUser!)
-                        };
-                        var identity = new ClaimsIdentity(claims, "DevHeader");
-                        ctx.User = new ClaimsPrincipal(identity);
-                    }
-                }
-                if (ctx.User?.Identity?.IsAuthenticated != true)
-                {
-                    return Results.Unauthorized();
-                }
-            }
+            // Auth required; dev header shortcut removed (RDH). Require standard authentication.
+            if (ctx.User?.Identity?.IsAuthenticated != true) return Results.Unauthorized();
             // Load static JSON file; future enhancement: move to DB + versioning
             var file = Path.Combine(AppContext.BaseDirectory, "App", "Data", "denominations.json");
             Stream? dataStream = null;

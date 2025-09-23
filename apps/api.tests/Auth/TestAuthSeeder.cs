@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Appostolic.Api.Infrastructure.Auth.Jwt; // IJwtTokenService
 using Appostolic.Api.Tests; // WebAppFactory
 using Microsoft.Extensions.DependencyInjection; // CreateScope extension
+using Microsoft.Extensions.Configuration; // IConfiguration for superadmin allowlist
 
 namespace Appostolic.Api.AuthTests;
 
@@ -92,12 +93,34 @@ public static class TestAuthSeeder
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var jwt = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
     (Guid userId, bool userCreated) = await EnsureUserAsync(db, email);
     (Guid tenantId, string _tenantName, bool tenantCreated) = await EnsureTenantAsync(db, tenantSlug);
         await EnsureMembershipAsync(db, userId, tenantId, owner);
 
-        var claims = extraClaims ?? Array.Empty<Claim>();
+        // Build claim list: include any caller-supplied claims, then inject superadmin if email in allowlist.
+        var claimList = new List<Claim>();
+        if (extraClaims != null) claimList.AddRange(extraClaims);
+
+        // Mirror production allowlist logic so tests using direct issuance still model real auth behavior.
+        // This fixes earlier gap where allowlisted user (kevin@example.com) did not receive the superadmin claim
+        // when bypassing the /auth/login endpoint via TestAuthSeeder.
+        var allowlistRaw = config["Auth:SuperAdminEmails"] ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(allowlistRaw))
+        {
+            var parts = allowlistRaw
+                .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (parts.Contains(email))
+            {
+                claimList.Add(new Claim("superadmin", "true"));
+            }
+        }
+
+        var claims = claimList.ToArray();
         // token version currently always 0 in tests unless password rotation invalidates.
         var token = jwt.IssueTenantToken(userId.ToString(), tenantId, tenantSlug, 0, 0, email, claims);
         return (token, userId, tenantId);

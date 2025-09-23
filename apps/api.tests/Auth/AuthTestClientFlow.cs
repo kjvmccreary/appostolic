@@ -38,8 +38,16 @@ public static class AuthTestClientFlow
     public static async Task<(string neutral, string tenant, JsonObject selectJson)> LoginAndSelectTenantAsync(WebApplicationFactory<Program> factory, HttpClient client, string email, string tenantSlugOrId)
     {
         var (neutral, loginJson) = await LoginNeutralAsync(factory, client, email);
-        var refresh = loginJson["refresh"]!["token"]!.GetValue<string>();
-        var sel = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId, refreshToken = refresh });
+        // Story 2: plaintext refresh token retired; helper attempts to read it (for backward compat) but
+        // falls back to relying on the httpOnly cookie when omitted.
+        string? refresh = null;
+        if (loginJson?["refresh"] is JsonObject refreshObj && refreshObj.TryGetPropertyValue("token", out var tokenNode) && tokenNode is JsonValue tv && tv.TryGetValue<string>(out var tokenStr) && !string.IsNullOrWhiteSpace(tokenStr))
+        {
+            refresh = tokenStr;
+        }
+        var sel = refresh is not null
+            ? await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId, refreshToken = refresh })
+            : await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId });
         if (!sel.IsSuccessStatusCode)
         {
             throw new InvalidOperationException($"select-tenant failed: {(int)sel.StatusCode} {sel.ReasonPhrase}");
