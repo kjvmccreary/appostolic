@@ -217,6 +217,15 @@ Practices:
 
 Upcoming Hardening (not yet implemented baseline): Multi-key signing/rotation, session enumeration + selective revoke, CSRF strategy review if cross-site embedding arises, anomaly detection on refresh reuse attempts.
 
+Refresh Rate Limiting (Story 3 — 2025-09-23):
+
+- Endpoint `/api/auth/refresh` guarded by in-memory sliding window limiter (single evaluation per request). Key = (userId, ip) if refresh token valid; otherwise IP-only to detect brute-force invalid token spam.
+- Config: `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`, `AUTH__REFRESH_RATE_LIMIT_DRY_RUN` (dry-run increments counters but never blocks; emits observability events so thresholds can be tuned safely).
+- Enforcement: If attempts within window exceed Max (and not dry-run) responds 429 `{ code: "refresh_rate_limited", retryAfterSeconds }`.
+- Metrics: Histogram `auth.refresh.limiter.evaluation_ms{outcome=hit|block|dryrun_block}` records evaluation latency + outcome for tuning / anomaly tracking.
+- Security Events: Structured JSON log (`type: refresh_rate_limited`) emitted for real blocks and dry-run would-blocks (with `meta.dry_run=true`) including `ip`, optional `user_id`, optional `refresh_id`.
+- Rationale: Early abuse resistance with minimal complexity; single evaluation avoids double-counting and simplifies mental model. Future distributed backend (Redis) or algorithm swap (token bucket) can wrap the same interface.
+
 ---
 
 ### 14. Deployment / Ops (Current Minimal)

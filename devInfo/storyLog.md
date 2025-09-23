@@ -399,21 +399,28 @@
   - apps/api/App/Endpoints/V1.cs — conditional cookie append blocks added to login, magic consume, select-tenant endpoints (flag + rotation). Inline comments reference consolidation follow-up.
   - apps/api.tests/Auth/RefreshCookieTests.cs — new integration tests asserting Set-Cookie present and rotated on tenant selection; header parsing normalized.
 
-  2025-09-23 — Auth/JWT: Security Hardening Story 3 Refresh Rate Limiter Integration — 🚧 IN PROGRESS
+  2025-09-23 — Auth/JWT: Security Hardening Story 3 Refresh Rate Limiter Integration — ✅ DONE
   - Summary
-    - Implemented initial integration of refresh rate limiting (Story 3) into `/api/auth/refresh`. Added `RefreshRateLimitOptions` (binds `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`, `AUTH__REFRESH_RATE_LIMIT_DRY_RUN`) and in-memory sliding window limiter `InMemoryRefreshRateLimiter` (thread-safe, per-(userId,ip) or ip-only when user unknown). Endpoint now performs a pre-token lookup evaluation (IP-only) and a post-lookup refinement including `UserId` if the refresh token is found. On enforced exceed (non-dry-run) returns structured 429 JSON `{ code: "refresh_rate_limited", retryAfterSeconds }` and increments existing metrics counters (`IncrementRefreshRateLimited`, `IncrementRefreshFailure`). Dry-run mode (when configured) continues to allow requests (limiter suppresses IsLimited) so enforcement can be staged later.
-  - Rationale
-    - Establishes foundational abuse protection for refresh endpoint before adding distributed backing or security event emission. Two-phase evaluation reduces wasted DB work for obviously abusive high-frequency IPs while still providing per-user isolation once token association is known.
+    - Implemented refresh rate limiting on `/api/auth/refresh` with a final simplified design: single sliding window evaluation per request (post token lookup for valid refresh tokens; IP-only key when token invalid). Removed earlier dual evaluation (pre + post) that caused double counting and confusing threshold math. Limiter keyed by (userId, ip) or (ip) only; returns attempt count, window start, and limited/dry-run flags. Config: `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`, `AUTH__REFRESH_RATE_LIMIT_DRY_RUN` (dry-run increments but never blocks).
+    - Added unit tests (`RefreshRateLimiterTests`) for boundary, exceed, window reset, dry-run, isolation; integration tests (`RefreshRateLimitIntegrationTests`) for blocking (Max=2 blocks 3rd), per-user isolation (Max=1 blocks 2nd per user independently), and dry-run (no blocks, would-block observability). All pass (9/9) post-refactor.
+    - Instrumented evaluation latency histogram `auth.refresh.limiter.evaluation_ms{outcome=hit|block|dryrun_block}`; stopwatch around limiter call records distribution for future tuning (potential distributed store migration). Outcome selection distinguishes real block vs dry-run would-block.
+    - Added structured security events (`type: refresh_rate_limited`) for both actual blocks and dry-run would-blocks (with `meta.dry_run=true`). Fields: `v`, `ts`, `type`, optional `user_id`, optional `refresh_id`, `ip`, `reason=rate_limit_exceeded`, optional `meta`. Emitted via `Security.Auth` logger as single-line JSON, enabling early SOC visibility before enforcement toggle.
+    - Response: real block returns 429 `{ code: "refresh_rate_limited", retryAfterSeconds }`; dry-run never alters response flow. Threshold semantics now intuitive: if Max=N then N allowed attempts within window; N+1 blocks.
+    - Refactor rationale: single evaluation prevents metric inflation, eliminates off-by-one confusion, and simplifies migration to alternative algorithms (token bucket/leaky bucket) or distributed backends later.
+  - Files changed (key)
+    - In-memory limiter implementation & options binding.
+    - `V1.cs` refresh endpoint: replaced dual evaluation with single, added stopwatch, histogram recording, security event emission, structured 429.
+    - `AuthMetrics.cs`: added histogram + recorder helper.
+    - New unit & integration test files for limiter behavior.
+    - `bdlSprintPlan.md`: Story 3 marked DONE with concise summary.
   - Quality Gates
-    - Compilation succeeds (no errors). Existing auth & refresh tests compile; dedicated limiter unit/integration tests not yet added (next step). DI registration present in `Program.cs`; grep confirms single implementation registered.
+    - Test run: 9/9 pass (unit + integration). Spot run of adjacent auth suites (refresh/logout) unchanged. Histogram populated (<1ms typical) in local metrics export. Security event JSON observed for both block and dry-run cases in test logs.
   - Follow-ups
-    - Add unit tests for sliding window algorithm (boundary, reset, dry-run). Add integration flood tests (under/over threshold, per-user isolation, window rollover). Introduce evaluation latency histogram metric and dry-run security event emission path. Document tuning guidance (baseline thresholds rationale) in sprint plan + runbook. Consider Redis pluggability flag (deferred per plan section).
-  - Snapshot / Docs
-    - `bdlSprintPlan.md` updated with current implementation status block under Story 3. Architecture snapshot update deferred until tests & metrics instrumentation completed.
-  - Metrics / Observability
-    - Counters invoked via existing AuthMetrics placeholders; latency histogram & dry-run event still pending. Tag for baseline before enabling enforcement in staging will be created after tests land.
-  - Risk / Mitigation
-    - Risk of false positives minimized by generous defaults and initial dry-run capability; further risk of sliding window bias (burst at boundary) acceptable given simplicity; can evolve to token bucket if needed (documented in plan).
+    - Consider adding aggregate counters (`auth.refresh.limiter.blocked`, `auth.refresh.limiter.dryrun_block`) if histogram alone insufficient for dashboards (deferred to future observability story).
+    - Potential Redis-backed implementation behind feature flag for horizontal scale (future). Interface extraction deferred until requirement materializes.
+    - Update `SnapshotArchitecture.md` with the single-evaluation model & event schema (pending same-day docs batch).
+  - Rationale
+    - Provides early abuse resistance with low complexity, dry-run safety for staged rollout, and structured telemetry for proactive tuning.
   - apps/api.tests/WebAppFactory.cs — injects in-memory configuration `AUTH__REFRESH_COOKIE_ENABLED=true` for deterministic test enablement.
   - apps/web/src/lib/authClient.ts — new in-memory neutral access token store & helper functions (`primeNeutralAccess`, `getAccessToken`, `withAuthFetch`).
   - apps/web/src/lib/auth.ts — integrate `primeNeutralAccess` in credentials & magic login callbacks.

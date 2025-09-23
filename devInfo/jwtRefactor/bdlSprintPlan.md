@@ -10,7 +10,7 @@ Deliver a cohesive set of security & operability enhancements that strengthen ab
 
 ## In-Scope Stories
 
-1. Story 3: Refresh Rate Limiting & Abuse Protection
+1. Story 3: Refresh Rate Limiting & Abuse Protection ✅ DONE (2025-09-23)
 2. Story 4: Dual-Key Signing Grace Window
 3. Story 5: Tracing Span Enrichment (auth.\* attributes)
 4. Story 6: Structured Security Event Log
@@ -103,7 +103,7 @@ Add helper utilities under `apps/api.tests/` as needed (`AuthTestHelpers/` folde
 
 ## Story Details
 
-### Story 3: Refresh Rate Limiting & Abuse Protection
+### Story 3: Refresh Rate Limiting & Abuse Protection ✅ DONE (2025-09-23)
 
 Goal: Mitigate brute-force / token reuse storm attack surface.
 Acceptance:
@@ -118,15 +118,23 @@ Acceptance:
 
 Implementation Note (Phase 1): Limiter will be in-memory per application instance (thread-safe structure) which is sufficient while a single API instance handles the majority of auth traffic. A follow-up (not in this sprint) may introduce a distributed backend (Redis) if horizontal scaling introduces bypass potential.
 
-Current Implementation Status (2025-09-23 - in progress):
+Final Implementation Summary:
 
-- Options class (`RefreshRateLimitOptions`) bound from env vars added.
-- In-memory sliding window limiter (`InMemoryRefreshRateLimiter`) implemented & registered (singleton).
-- Refresh endpoint now invokes limiter pre and post token lookup (IP-only then user+IP refinement) returning structured 429 `{ code: "refresh_rate_limited", retryAfterSeconds }`.
-- Metrics counters invoked using existing `AuthMetrics` placeholders (`IncrementRefreshRateLimited`, `IncrementRefreshFailure`).
-- Dry-run flag respected indirectly via limiter (blocks suppressed when `DryRun=true`; structured response only sent when not dry-run). Explicit dry-run metrics/event emission still pending.
-- Pending: Dedicated evaluation latency metric, dry-run path event emission, unit tests & integration flood tests, documentation for tuning & ops playbook section.
-- Next Step: Add tests under `apps/api.tests` covering threshold, boundary, window reset, dry-run no-block, per-user isolation; then add evaluation histogram metric and (if in scope) security event stub.
+- Configuration surface implemented: `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`, `AUTH__REFRESH_RATE_LIMIT_DRY_RUN`.
+- In-memory sliding window limiter (`InMemoryRefreshRateLimiter`) keyed by `userId+ip` (falls back to ip-only) registered singleton.
+- Endpoint refined to a single limiter evaluation (after token lookup for valid refresh; ip-only on invalid) simplifying attempt semantics.
+- Returns structured 429 JSON `{ code: "refresh_rate_limited", retryAfterSeconds }` when not in dry-run.
+- Added histogram metric `auth.refresh.limiter.evaluation_ms{outcome=hit|block|dryrun_block}` and latency recorded for each evaluation.
+- Security event (schema v1) emitted for both real block and dry-run would-block cases with `meta.dry_run=true` in dry-run.
+- Counters wired: `auth.refresh.rate_limited`, `auth.refresh.failure` (reason=refresh_rate_limited) maintained.
+- Unit tests: limiter algorithm (boundary, exceed, reset, dry-run, isolation) added and passing.
+- Integration tests: blocking, dry-run no-block, per-user isolation all passing under single evaluation logic.
+- Documentation & Snapshot updates pending (next tasks) to reflect single-evaluation design; tuning guidance to be added with docs pass.
+
+Operational Notes:
+
+- Single evaluation reduces confusion vs earlier double increment design and aligns metrics with intuitive per-request counting.
+- Dry-run emission allows early observability without user impact; Grafana dashboard can distinguish `block` vs `dryrun_block` outcomes.
 
 Distributed (Redis) Upgrade Considerations (Deferred):
 

@@ -791,11 +791,27 @@ public static class V1
                 return Convert.ToBase64String(sha.ComputeHash(bytes));
             }
             var hash = HashRefresh(suppliedToken.Trim());
+            var evalSw = System.Diagnostics.Stopwatch.StartNew();
             var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt is null)
             {
                 // Evaluate limiter ip-only for invalid token paths (prevents unlimited invalid sprays)
                 evaluation = limiter.Evaluate(null, ip);
+                evalSw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(evalSw.Elapsed.TotalMilliseconds, evaluation.IsLimited ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
+                if (evaluation.IsLimited)
+                {
+                    // Structured security event (v1)
+                    var secLogger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Security.Auth");
+                    secLogger.LogInformation("{Json}", System.Text.Json.JsonSerializer.Serialize(new {
+                        v = 1,
+                        ts = DateTime.UtcNow,
+                        type = "refresh_rate_limited",
+                        ip = ip,
+                        reason = "window",
+                        meta = evaluation.DryRun ? new { dry_run = true } : null
+                    }));
+                }
                 if (evaluation.IsLimited)
                 {
                     failureReason = "refresh_rate_limited";
@@ -814,8 +830,22 @@ public static class V1
 
             // We have a valid refresh token, evaluate limiter with user dimension now.
             evaluation = limiter.Evaluate(rt.UserId, ip);
+            evalSw.Stop();
+            Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(evalSw.Elapsed.TotalMilliseconds, evaluation.IsLimited ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
             if (evaluation.IsLimited)
             {
+                // Structured security event (v1)
+                var secLogger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Security.Auth");
+                secLogger.LogInformation("{Json}", System.Text.Json.JsonSerializer.Serialize(new {
+                    v = 1,
+                    ts = DateTime.UtcNow,
+                    type = "refresh_rate_limited",
+                    user_id = rt.UserId,
+                    refresh_id = rt.Id,
+                    ip = ip,
+                    reason = "window",
+                    meta = evaluation.DryRun ? new { dry_run = true } : null
+                }));
                 failureReason = "refresh_rate_limited";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
