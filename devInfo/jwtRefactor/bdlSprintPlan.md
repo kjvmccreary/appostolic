@@ -1,0 +1,218 @@
+# Security Hardening Sprint Plan (Stories 3–9)
+
+Generated: 2025-09-23
+Source Extraction: See `triSprintPlan.md` (Stories 3–9 removed and centralized here)
+Baseline Tag Before Sprint: `jwt-auth-post-retire` (to be created immediately before merge of Story 3)
+
+## Sprint Objective
+
+Deliver a cohesive set of security & operability enhancements that strengthen abuse protection, rotation safety, traceability, incident response, and user session control while sharing a unified configuration & metrics taxonomy for long‑term maintainability.
+
+## In-Scope Stories
+
+1. Story 3: Refresh Rate Limiting & Abuse Protection
+2. Story 4: Dual-Key Signing Grace Window
+3. Story 5: Tracing Span Enrichment (auth.\* attributes)
+4. Story 6: Structured Security Event Log
+5. Story 7: Grafana Dashboards & Alert Rules as Code
+6. Story 8: Session Enumeration Backend
+7. Story 9: Admin Forced Logout & Bulk Tenant Invalidate
+
+## Unified Configuration Surface (Proposed)
+
+| Purpose                                     | Name                                      | Type           | Default (Dev)  | Default (Prod) | Notes                              |
+| ------------------------------------------- | ----------------------------------------- | -------------- | -------------- | -------------- | ---------------------------------- |
+| Refresh limiter window                      | `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS` | int            | 60             | 60             | Sliding window length              |
+| Refresh limiter max ops                     | `AUTH__REFRESH_RATE_LIMIT_MAX`            | int            | 30             | 20             | Revisit after live metrics         |
+| Rate limiter dry-run (no block)             | `AUTH__REFRESH_RATE_LIMIT_DRY_RUN`        | bool           | true           | false          | Allows initial staging observation |
+| Signing keys (ordered)                      | `AUTH__JWT__SIGNING_KEYS`                 | string (comma) | single dev key | rotated set    | First = active signer              |
+| Security event log enabled                  | `AUTH__SECURITY_EVENTS__ENABLED`          | bool           | false          | true           | Avoid local noise                  |
+| Security event log min level                | `AUTH__SECURITY_EVENTS__LEVEL`            | enum           | Information    | Information    | Could raise in high-volume         |
+| Session enumeration enabled                 | `AUTH__SESSIONS__ENUMERATION_ENABLED`     | bool           | true           | true           | Feature flag for rollout           |
+| Forced logout enabled                       | `AUTH__FORCED_LOGOUT__ENABLED`            | bool           | true           | true           | Allows quick disable if regression |
+| Token session fingerprint header (optional) | `AUTH__SESSIONS__FINGERPRINT_HEADER`      | string         | `X-Session-Fp` | `X-Session-Fp` | Client-provided stable device hint |
+| Security dashboard provisioning gate        | `AUTH__DASHBOARDS__APPLY_ENABLED`         | bool           | false          | true           | CI or ops task gate                |
+
+## Metrics Taxonomy (Prefix: `auth.`)
+
+| Metric                                      | Type      | Labels                              | Emitted By | Description                       |
+| ------------------------------------------- | --------- | ----------------------------------- | ---------- | --------------------------------- | ------------------------- |
+| `auth.refresh.rate_limited`                 | counter   | reason (window), user_present (y/n) | Story 3    | Count of blocked refresh attempts |
+| `auth.refresh.limiter.evaluation_ms`        | histogram | outcome (hit/miss/block)            | Story 3    | Latency impact of limiter         |
+| `auth.jwt.key_rotation.tokens_signed`       | counter   | key_id                              | Story 4    | Tokens signed per active key id   |
+| `auth.jwt.key_rotation.validation_failure`  | counter   | phase                               | Story 4    | Failures during multi-key verify  |
+| `auth.trace.enriched_spans`                 | counter   | span_kind                           | Story 5    | Number of auth spans enriched     |
+| `auth.security.events_emitted`              | counter   | type                                | Story 6    | Security events produced          |
+| `auth.session.enumeration.requests`         | counter   | outcome                             | Story 8    | Session list API usage            |
+| `auth.session.revoke.requests`              | counter   | outcome                             | Story 8    | Per-session revoke attempts       |
+| `auth.admin.forced_logout.requests`         | counter   | scope (user                         | tenant)    | Story 9                           | Forced logout invocations |
+| `auth.admin.forced_logout.sessions_revoked` | counter   | scope                               | Story 9    | Count of sessions invalidated     |
+
+All metrics should include `service` resource attribute and rely on existing OTLP exporters.
+
+## Structured Security Events Schema (Story 6)
+
+Versioned JSON line: `{ "v": 1, "ts": ISO8601, "type": <event_type>, "user_id?": <guid>, "tenant_id?": <guid>, "ip?": <string>, "refresh_id?": <guid>, "reason?": <string>, "meta?": { ... } }`
+
+Event Types (initial): `login_failure`, `refresh_reuse`, `refresh_expired`, `refresh_rate_limited`, `logout_all_user`, `logout_all_tenant`, `session_revoked_single`.
+
+Rules:
+
+- No emails or plaintext tokens.
+- `reason` constrained to controlled vocabulary (documented enum).
+- Schema stability guaranteed within major version (v=1) — additive only.
+
+## Rollout & Sequencing Strategy
+
+Recommended order balances dependency & risk:
+
+1. Story 4 first (Dual-Key) OR Story 3 first? Decision: Start with Story 4 to de-risk rotation early; minimal surface area. Tag `hardening-pre-limiter`.
+2. Story 3 (Rate Limiting) initially in dry-run mode (no blocks) + dashboard panel.
+3. Story 5 (Tracing Enrichment) — low risk instrumentation.
+4. Story 6 (Security Events) — enables downstream alert rules.
+5. Story 7 (Dashboards & Alerts) — codify panels now that metrics/events exist.
+6. Story 8 (Session Enumeration) — schema + API (impacts persistence; earlier than Story 9 to allow reuse).
+7. Story 9 (Forced Logout) — leverages enumeration model + events.
+
+After Story 3 validated (dry-run), flip `AUTH__REFRESH_RATE_LIMIT_DRY_RUN=false` in staging, observe, then production.
+
+## Risk Matrix
+
+| Risk                                              | Stories | Mitigation                                            | Rollback                                     |
+| ------------------------------------------------- | ------- | ----------------------------------------------------- | -------------------------------------------- |
+| Key rotation mis-validation causing 401 spike     | 4       | Add multi-key health probe & integration test harness | Revert config to prior single key string     |
+| Over-aggressive rate limits causing user friction | 3       | Start in dry-run; generous defaults; metrics review   | Set DRY_RUN=true or raise MAX                |
+| PII leakage in events                             | 6       | Explicit schema gate & unit test snapshot             | Disable `AUTH__SECURITY_EVENTS__ENABLED`     |
+| Dashboard drift vs metrics names                  | 7       | Declare metrics first & lock naming                   | Adjust provisioning script & re-import       |
+| Session enumeration performance regression        | 8       | Add index on `user_id` + `revoked_at`                 | Disable feature flag                         |
+| Forced logout revokes incomplete set              | 9       | Integration test covers chain & tokenversion          | Disable feature flag, manual incident script |
+
+## Testing Strategy Overview
+
+| Story | Test Types                                                                           |
+| ----- | ------------------------------------------------------------------------------------ |
+| 3     | Unit limiter algorithm, integration refresh flood, boundary window reset             |
+| 4     | Unit key parsing, integration sign/verify pre & post rotation, health endpoint probe |
+| 5     | Span listener asserts attributes, negative test ensures no PII                       |
+| 6     | Event emission snapshot, schema validation helper, disable flag test                 |
+| 7     | JSON dashboard lint, rule file parse, optional smoke metric mapping                  |
+| 8     | Migration test, list & revoke integration, ownership enforcement                     |
+| 9     | User & tenant forced logout integration, idempotency, metrics increments             |
+
+Add helper utilities under `apps/api.tests/` as needed (`AuthTestHelpers/` folder) to share fixture code.
+
+## Story Details
+
+### Story 3: Refresh Rate Limiting & Abuse Protection
+
+Goal: Mitigate brute-force / token reuse storm attack surface.
+Acceptance:
+
+- Sliding window or token bucket limiter keyed by user_id + IP (configurable thresholds).
+- Config: `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`, `AUTH__REFRESH_RATE_LIMIT_DRY_RUN`.
+- On exceed (non-dry-run): 429 JSON `{ code: "refresh_rate_limited" }`; increments metric & emits security event (type `refresh_rate_limited`).
+- Dry-run path still records evaluation metrics & event with `meta.dry_run=true`.
+- Tests: under threshold OK; boundary case; exceed; per-user isolation; window reset; dry-run no 429.
+- Docs: tuning guidance & ops playbook.
+  Success Metrics: Rate limit block ratio <0.1% normal traffic; evaluation latency p95 <1ms.
+
+### Story 4: Dual-Key Signing Grace Window
+
+Goal: Allow seamless signing key rotation.
+Acceptance:
+
+- Support ordered keys via `AUTH__JWT__SIGNING_KEYS` (comma list). First signs; all verify.
+- Fallback to legacy single key var if multi absent (deprecation warning logged once).
+- Health probe endpoint (internal) issues token with current key and verifies all keys round‑trip.
+- Rotation integration test: (A) -> (A,B) -> (B) with no invalidation of A tokens during overlap.
+- Metrics: `auth.jwt.key_rotation.tokens_signed{key_id}` increments; failures logged & counted.
+  Success Metrics: Rotation test passes; zero unexpected 401s in simulated overlap.
+
+### Story 5: Tracing Span Enrichment (auth.\* Attributes)
+
+Goal: Add fine-grained auth context to traces.
+Acceptance:
+
+- Enrich login/refresh/logout spans with attributes: `auth.user_id`, `auth.outcome`, `auth.reason?`, `auth.tenant_id?`.
+- No emails or PII values.
+- Unit test using ActivityListener asserts presence & absence (no email).
+- Metric counts enriched spans.
+  Success Metrics: Attributes visible & consistent across envs; test snapshot stable.
+
+### Story 6: Structured Security Event Log
+
+Goal: Emit machine‑consumable JSON security events.
+Acceptance:
+
+- Logger category `Security.Auth` produces schema v1 events.
+- Events for: login_failure, refresh_reuse, refresh_expired, refresh_rate_limited, logout_all_user, logout_all_tenant, session_revoked_single.
+- Config flag enable/disable.
+- Tests: snapshot events; invalid field injection prevented.
+  Success Metrics: Events consumed by sample parser script; no PII.
+
+### Story 7: Grafana Dashboards & Alert Rules as Code
+
+Goal: Codify and version control key auth security panels & alerts.
+Acceptance:
+
+- Add JSON dashboards referencing metrics defined above.
+- Add Prometheus alert & recording rules in `infra/observability/alerts/auth.rules.yaml`.
+- Lint script or CI check verifies parse.
+  Success Metrics: Manual import yields no missing metric errors.
+
+### Story 8: Session Enumeration Backend
+
+Goal: Provide API to list active sessions (refresh chains) per user.
+Acceptance:
+
+- Migration adds columns: `fingerprint` (nullable), `last_used_at`.
+- `GET /api/auth/sessions` returns sanitized list (id, createdAt, lastUsedAt, expiresAt, revoked, tenantId?).
+- `POST /api/auth/sessions/{id}/revoke` revokes single session chain (idempotent).
+- Tests: ownership; revoke effect; pagination not required initial.
+  Success Metrics: Typical response <50ms; correct filtering; metrics increment.
+
+### Story 9: Admin Forced Logout & Bulk Tenant Invalidate
+
+Goal: Provide incident containment tool.
+Acceptance:
+
+- Endpoint (admin) `POST /api/admin/users/{id}/logout-all` -> bump TokenVersion + revoke refreshes.
+- Endpoint (tenant admin) `POST /api/admin/tenants/{id}/logout-all` -> revoke all tenant refresh tokens; optionally bump.
+- Tests: user scope, tenant scope, unauthorized, idempotent repeat, metrics.
+  Success Metrics: All integration tests pass; events emitted for each forced logout.
+
+## Documentation & Artifacts To Update Per Story
+
+- `SnapshotArchitecture.md` (architecture delta & config additions)
+- `devInfo/storyLog.md` (story summary on completion)
+- `devInfo/LivingChecklist.md` (tick readiness items; add new ones if needed)
+- Runbook sections (Security / Incident Response / Observability) updated incrementally
+
+## Rollback Strategy
+
+Per-story feature flags + ability to revert config to previous keys or dry-run mode. Baseline tag before sprint start; optional mid-sprint tag after Stories 3–6 if needing partial release.
+
+## Done Definition for Sprint
+
+- All seven stories merged & feature flags defaulted to intended production state.
+- Dashboards display live data for new metrics.
+- Rotation simulation documented & reproducible.
+- Incident response: forced logout procedure documented & tested.
+- No open TODO comments referencing temporary instrumentation.
+
+## Open Questions / Decisions To Confirm Early
+
+| Topic                                            | Decision Needed By | Notes                                            |
+| ------------------------------------------------ | ------------------ | ------------------------------------------------ |
+| Limiter algorithm (sliding vs token bucket)      | Start of Story 3   | Choose based on complexity vs precision          |
+| Key ID encoding (kid header vs first bytes hash) | Story 4 dev        | For metrics clarity; propose KID header          |
+| Session fingerprint source                       | Story 8 dev        | Accept client header only vs server-derived hash |
+| Dashboards deployment path                       | Story 7 dev        | Manual import vs IaC apply script                |
+
+## Next Action
+
+Approve plan; create branch `sprint/security-hardening` to begin Story 4 implementation (dual-key) unless preference to start with rate limiting.
+
+---
+
+_End of bdlSprintPlan.md_

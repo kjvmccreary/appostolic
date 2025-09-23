@@ -88,86 +88,21 @@ Acceptance:
 - Docs updated + schedule final deletion story.
   Success Metrics: No emitted plaintext events; suppression counter increments only (optional) for final window.
 
-### Story 3: Refresh Rate Limiting & Abuse Protection (Bundled: Security Hardening Sprint)
+### Stories 3–9: Security Hardening Sprint (Extracted)
 
-Goal: Mitigate brute-force / reuse storm attack surface.
-Acceptance:
+The detailed plan for the bundled Security Hardening Sprint (Stories 3–9) has been moved to `bdlSprintPlan.md` to reduce duplication and centralize shared configuration, metrics taxonomy, and rollout strategy.
 
-- Sliding window or token bucket limiter keyed by user_id + IP (configurable thresholds).
-- Config: `AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS`, `AUTH__REFRESH_RATE_LIMIT_MAX`.
-- On exceed: 429 with code `refresh_rate_limited`; increment `auth.refresh.rate_limited`.
-- Tests: under threshold OK; boundary; over threshold -> 429; independent keys (different users) unaffected; reset after window.
-- Docs: security section updated; tuning guidance.
-  Success Metrics: Counter increments only in simulated test; no performance regression >1ms avg.
+Reference: See `devInfo/jwtRefactor/bdlSprintPlan.md` for full goals, acceptance criteria, metrics, risk matrix, and rollout/rollback procedures for:
 
-### Story 4: Dual-Key Signing Grace Window (Bundled: Security Hardening Sprint)
+- Story 3: Refresh Rate Limiting & Abuse Protection
+- Story 4: Dual-Key Signing Grace Window
+- Story 5: Tracing Span Enrichment
+- Story 6: Structured Security Event Log
+- Story 7: Grafana Dashboards & Alert Rules as Code
+- Story 8: Session Enumeration Backend
+- Story 9: Admin Forced Logout & Bulk Tenant Invalidate
 
-Goal: Allow seamless signing key rotation.
-Acceptance:
-
-- Support `AUTH__JWT__SIGNING_KEYS` (comma list) where first = active signer; all = valid verifiers.
-- Deprecate single-key var internally (still accepted for backward compat).
-- Add health endpoint claim verifying both keys accepted with generated tokens.
-- Tests: issue with key A -> validate; rotate config (A,B) -> tokens from A+B validate; new tokens signed with A (or newly first key after rotation).
-- Docs: rotation procedure updated (old/new overlap, cutover, removal).
-  Success Metrics: Rotation simulation test passes; no 401 spike during switch.
-
-### Story 5: Tracing Span Enrichment (auth.\* Attributes) (Bundled: Security Hardening Sprint)
-
-Goal: Add fine-grained auth context to traces.
-Acceptance:
-
-- Enrich login/refresh/logout spans with stable attributes: `auth.user_id`, `auth.outcome`, `auth.reason?`, `auth.tenant_id?`.
-- Add minimal unit test or snapshot verifying enrichment applied (activity listener).
-- Docs: Observability section updated.
-  Success Metrics: Attributes visible in trace backend for sample requests.
-
-### Story 6: Structured Security Event Log (Bundled: Security Hardening Sprint)
-
-Goal: Emit machine-consumable JSON security events.
-Acceptance:
-
-- Logger category `Security.Auth` writes JSON lines for: login_failure, refresh_reuse, refresh_expired, logout_all, rate_limit.
-- Schema versioned: `{ ts, type, user_id?, refresh_id?, reason?, ip?, tenant_id? }`.
-- Config flag to enable/disable (default enabled in prod, off in dev for noise).
-- Test: capture provider output verifying schema.
-- Docs: Runbook consuming events (SIEM piping snippet).
-  Success Metrics: Events appear; no PII (no emails / plaintext tokens).
-
-### Story 7: Grafana Dashboards & Alert Rules as Code (Bundled: Security Hardening Sprint)
-
-Goal: Materialize documented panels & alerts in repo.
-Acceptance:
-
-- Add `infra/observability/auth-dashboards/` with JSON dashboard(s).
-- Add Prometheus rule files for alerts + recording rules (from documentation).
-- Docs: link to repository path; LivingChecklist updated.
-- Optional validation script (lint JSON structure).
-  Success Metrics: Dashboards import cleanly (manual test notes).
-
-### Story 8: Session Enumeration Backend (Bundled: Security Hardening Sprint)
-
-Goal: Provide API to list active sessions (refresh chains) per user.
-Acceptance:
-
-- Extend schema: add `fingerprint` + `last_used_at` (nullable) to refresh tokens (if not present) via migration.
-- Endpoint: `GET /api/auth/sessions` returns sanitized list (id, createdAt, lastUsedAt, expiresAt, tenantId?, device? placeholder, revoked?).
-- Endpoint: `POST /api/auth/sessions/{id}/revoke` (single) with 204.
-- Tests: list returns only user-owned; revoke removes from active chain; revoked no longer refreshable.
-- Docs: support & security guidance.
-  Success Metrics: Endpoint latency <50ms typical; correct filtering.
-
-### Story 9: Admin Forced Logout & Bulk Tenant Invalidate (Bundled: Security Hardening Sprint)
-
-Goal: Incident containment tool.
-Acceptance:
-
-- Endpoint (admin only) `POST /api/admin/users/{id}/logout-all` (TokenVersion bump + revoke refreshes).
-- Endpoint (tenant admin) `POST /api/admin/tenants/{id}/logout-all` (revoke all user refresh tokens in tenant; optionally bump versions of impacted users).
-- AuthZ: proper policies enforced.
-- Tests: user scope, tenant scope, unauthorized access, idempotency.
-- Logs + metrics increments.
-  Success Metrics: All tests passing; no cross-tenant leakage.
+Rationale: These stories share overlapping instrumentation, configuration flags, and coordinated release value; centralizing avoids drift.
 
 ### Story 10: TokenVersion Cache & Validation Latency Metric
 
@@ -266,19 +201,13 @@ Summarized; promote in later sprints as capacity allows.
 
 ## Dependency Notes
 
-### Security Hardening Sprint Bundle
+### Security Hardening Sprint Bundle (Stories 3–9)
 
-Stories 3–9 are grouped into a dedicated Security Hardening Sprint to coordinate shared configuration surface, metric naming, dashboards, and a unified rollback/tag. This bundling defers implementation while clarifying intent:
+Detailed plan moved to `bdlSprintPlan.md` (central source for acceptance criteria, metrics taxonomy, rollout & risk). This triage file now tracks only ordering & dependency relationships.
 
-- Story 3: Refresh rate limiting
-- Story 4: Dual-key signing grace window
-- Story 5: Tracing span enrichment
-- Story 6: Structured security event log
-- Story 7: Dashboards & alert rules as code
-- Story 8: Session enumeration backend
-- Story 9: Admin forced logout & bulk tenant invalidate
+Reference: `devInfo/jwtRefactor/bdlSprintPlan.md`
 
-Bundle Rationale: Interlocking improvements around abuse prevention, observability, and incident response benefit from simultaneous release (single documentation update, integrated metrics, reduced piecemeal churn). Rollback: single tag pre-bundle; feature flags per story allow partial disable if needed post-merge.
+Summary: Stories 3–9 share configuration, metrics, and coordinated release value (abuse protection, trace enrichment, security events, dashboards, session control, forced logout). They will release together with per-story feature flags for granular rollback.
 
 - Story 13 depends on Story 2 completion + adoption verification.
 - Story 15 (cross-site branch) depends on Story 12 outcome if enabling SameSite=None.
