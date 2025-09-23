@@ -10,8 +10,10 @@ Deliver a cohesive set of security & operability enhancements that strengthen ab
 
 ## In-Scope Stories
 
+Progress: 1 / 7 stories complete, 1 in progress.
+
 1. Story 3: Refresh Rate Limiting & Abuse Protection ✅ DONE (2025-09-23)
-2. Story 4: Dual-Key Signing Grace Window
+2. Story 4: Dual-Key Signing Grace Window 🚧 IN PROGRESS
 3. Story 5: Tracing Span Enrichment (auth.\* attributes)
 4. Story 6: Structured Security Event Log
 5. Story 7: Grafana Dashboards & Alert Rules as Code
@@ -145,6 +147,40 @@ Distributed (Redis) Upgrade Considerations (Deferred):
 - Migration path: deploy in shadow mode reading Redis config but not enforcing until metrics confirm alignment (<2% variance vs memory sampler in staging).
 
 ### Story 4: Dual-Key Signing Grace Window
+
+Status: 🚧 IN PROGRESS (2025-09-23)
+
+Implementation Progress
+
+- [x] Multi-key configuration parsing (`AUTH__JWT__SIGNING_KEYS`) with backward compatibility
+- [x] Active signer = first key; all keys verify (IssuerSigningKeyResolver)
+- [x] `kid` header assigned (first 8 bytes hex) for observability
+- [x] Rotation integration tests (A -> A,B -> B) passing
+- [x] Health verification method `VerifyAllSigningKeys()` implemented (internal call)
+- [ ] Metrics: `auth.jwt.key_rotation.tokens_signed{key_id}`
+- [ ] Metrics: `auth.jwt.key_rotation.validation_failure{phase}`
+- [ ] Internal health endpoint `/internal/health/jwt-keys` (optional but planned)
+- [ ] Story log entry (final) + SnapshotArchitecture update (metrics + endpoint)
+- [ ] Upgrade/rotation runbook documentation (overlap procedure & rollback)
+
+Next Steps
+
+1. Wire signing + validation metrics emission inside `JwtTokenService` & key verification path.
+2. Add minimal internal health endpoint returning per-key verification status & active key id.
+3. Add tests covering metric counters (signing increments, simulated failure increments validation_failure).
+4. Update `SnapshotArchitecture.md` and append storyLog entry marking completion.
+5. Draft rotation runbook section (baseline overlap timeline, rollback path, monitoring signals) and link from plan.
+
+Exit Criteria (to mark ✅ DONE)
+
+- Metrics appear in local OTLP export with expected labels.
+- Health endpoint returns 200 with all keys valid (staging test) and fails gracefully if a key corrupt.
+- Story log & architecture snapshot updated; plan checklist items above all checked.
+
+Notes
+
+- We intentionally deferred metrics until limiter (Story 3) stabilized to avoid overlapping instrumentation churn.
+- Validation failures should be rare; consider emitting structured security event only if repeated (>1 per interval) to avoid noise (future enhancement, not in scope here).
 
 Goal: Allow seamless signing key rotation.
 Acceptance:
