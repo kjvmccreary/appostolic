@@ -65,8 +65,10 @@ public class NotificationsProdEndpointsTests : IClassFixture<WebAppFactory>
         var email = $"superadmin-{Guid.NewGuid():N}@example.com";
         var slugA = $"tenant-{Guid.NewGuid():N}".Substring(0,20);
         var slugB = $"tenant-{Guid.NewGuid():N}".Substring(0,20);
-        var (tokenA, _, tenantA) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slugA, owner: true);
-        var (tokenB, _, tenantB) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slugB, owner: true);
+    // Inject a superadmin claim to emulate allowlisted behavior (tests bypassing login endpoint must add explicitly)
+    var extra = new [] { new System.Security.Claims.Claim("superadmin", "true") };
+    var (tokenA, _, tenantA) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slugA, owner: true, extraClaims: extra);
+    var (tokenB, _, tenantB) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, slugB, owner: true, extraClaims: extra);
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenA);
 
         var nA = new Notification { Id = Guid.NewGuid(), Kind = EmailKind.Invite, ToEmail = "a@acme.com", DataJson = "{}", Status = NotificationStatus.Sent, CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, SentAt = DateTimeOffset.UtcNow, TenantId = tenantA };

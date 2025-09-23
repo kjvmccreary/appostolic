@@ -109,6 +109,11 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Story 8: Explicitly set plaintext exposure flag true by default so tests relying
                 // on default behavior are stable even if developer machine/environment sets it false.
                 // Individual tests override to false via WithSettings when validating suppression.
+                // Story 2 finalization: default to NOT exposing plaintext refresh token in JSON. Individual
+                // tests that need transitional exposure semantics can override to true via WithSettings.
+                // Transitional: keep plaintext refresh token exposed in JSON for existing auth flow tests
+                // until all tests and client code paths have migrated fully to cookie-only retrieval.
+                // Individual suppression tests call .WithSettings to set this to false.
                 ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
             };
             // Superadmin allowlist for flow-based elevation (Story 2 Phase A follow-up). This enables

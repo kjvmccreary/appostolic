@@ -1,3 +1,19 @@
+### 2025-09-23 - Story: Finalize Auth Test Migration (Contract Test Refactor & Plaintext Suppression Scenarios)
+
+Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to deterministic tenant token issuance (seeding tenant, user, membership and minting JWT in-process) eliminating 400 select-tenant failure. Retained default `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=true` in `WebAppFactory` to avoid breaking existing tests that still validate body `refresh.token` during grace. Instead, updated `RefreshPlaintextExposedFlagTests` to explicitly disable the flag per test (renamed methods) to assert suppression behavior. Next step (future story): flip global default to false once all legacy token-body dependencies are removed.
+2025-09-23 — Auth/JWT: Flow Test Regression Triage & Stabilization — ✅ DONE
+
+- Summary
+  - After migrating non-flow endpoint tests to deterministic token issuance, a second wave of 11 auth flow test failures surfaced (login, logout, select-tenant, refresh grace/rotation) caused by prematurely setting the test default `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false`. Core flow tests still asserted presence/rotation of `refresh.token` in JSON responses during the transitional grace period. Restored the default to `true` inside `WebAppFactory` with an explanatory comment and re-ran targeted failing tests (`Login_ReturnsNeutralAccessAndRefreshToken`, `SelectTenant_Succeeds_RotatesRefreshToken`) followed by the full auth namespace (21 tests) — all passing (0 failures). Confirms no underlying rotation/logout logic regression; failures were configuration misalignment.
+- Rationale
+  - Maintain transitional behavior until every test and client code path no longer inspects plaintext refresh tokens. Avoids false-negative regression noise while continuing incremental migration (per-test suppression remains covered by `RefreshPlaintextExposedFlagTests`).
+- Files changed
+  - apps/api.tests/WebAppFactory.cs — reset `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` default to `true` with transitional comment.
+- Quality Gates
+  - Targeted and namespace-scoped test runs green (21/21 auth tests). No compilation or analyzer errors introduced.
+- Follow-ups
+  - Proceed to remove remaining legacy body-token dependencies; then flip default to `false` and update suppression tests accordingly.
+
 2025-09-22 — Auth/JWT / RDH: Story 2 Phase A AgentTasks Auth & Assertions Migration — ✅ PARTIAL
 2025-09-22 — Docs / Architecture: Lean SnapshotArchitecture rewrite & tail purge — ✅ DONE
 

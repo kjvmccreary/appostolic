@@ -34,9 +34,12 @@ public class AgentTasksE2E_List : IClassFixture<WebApplicationFactory<Program>>
     public async Task Inbox_List_Orders_By_CreatedAt_Desc_And_Pages()
     {
         using var factory = CreateFactory();
-        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await SeedPasswordAsync(factory, "kevin@example.com", DefaultPw);
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(factory, client, "kevin@example.com", "kevin-personal");
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    // Deterministic setup: mint tenant token directly instead of flow login + select to remove flakiness
+    var email = "kevin@example.com";
+    var slug = "kevin-personal";
+    var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, slug, owner: true);
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         // Helper to create a task
         async Task<Guid> CreateTaskAsync(string topic)
@@ -101,45 +104,5 @@ public class AgentTasksE2E_List : IClassFixture<WebApplicationFactory<Program>>
         var onlyId = listDoc2.RootElement[0].GetProperty("id").GetGuid();
         Assert.Equal(t1, onlyId);
     }
-    private const string DefaultPw = "Password123!";
-    private static async Task SeedPasswordAsync(WebApplicationFactory<Program> factory, string email, string pw)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.EnsureCreated();
-        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == email);
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var (hash, salt, _) = hasher.HashPassword(pw);
-
-        if (user == null)
-        {
-            // Create user with password fields already populated to avoid duplicate tracking update.
-            var tenant = new Tenant { Id = Guid.NewGuid(), Name = "kevin-personal", CreatedAt = DateTime.UtcNow };
-            user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
-                CreatedAt = DateTime.UtcNow,
-                PasswordHash = hash,
-                PasswordSalt = salt,
-                PasswordUpdatedAt = DateTime.UtcNow
-            };
-            var membership = new Membership
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                UserId = user.Id,
-                Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-                Status = MembershipStatus.Active,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.AddRange(tenant, user, membership);
-            await db.SaveChangesAsync();
-            return; // no further update required
-        }
-
-        // Existing user path: attach updated password fields via new immutable record instance
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
+    // Legacy password seeding & flow-based auth removed – direct token issuance above.
 }

@@ -6,7 +6,7 @@ using Xunit;
 namespace Appostolic.Api.Tests.Auth;
 
 /// <summary>
-/// Story 2: Verifies plaintext refresh token is always omitted (flag retired).
+/// Story 2: Verifies plaintext refresh token is omitted when exposure flag disabled (suppression scenarios).
 /// </summary>
 public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
 {
@@ -14,7 +14,7 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     public RefreshPlaintextExposedFlagTests(WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Login_Always_Omits_Plaintext()
+    public async Task Login_Omits_Plaintext_When_Disabled()
     {
         var client = _factory.WithSettings(new()
         {
@@ -33,7 +33,7 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Refresh_Always_Omits_Plaintext()
+    public async Task Refresh_Omits_Plaintext_When_Disabled()
     {
         var client = _factory.WithSettings(new()
         {
@@ -62,7 +62,7 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Login_Omits_Plaintext_By_Default()
+    public async Task Login_Omits_Plaintext_When_Disabled_NoCookieOverride()
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");

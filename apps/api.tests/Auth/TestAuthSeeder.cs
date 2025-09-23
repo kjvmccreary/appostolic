@@ -74,8 +74,13 @@ public static class TestAuthSeeder
                 }
                 else if (rolesProp.PropertyType.IsEnum && rolesProp.PropertyType.Name == nameof(Roles))
                 {
-                    // Assign full admin style flags for owner, else no flags (viewer) to mirror previous tests.
-                    var value = owner ? (object)(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner) : (object)Roles.None;
+                    // IMPORTANT: A constraint (ck_memberships_roles_valid) now enforces roles <> 0 AND only defined bits.
+                    // Previous test helper behavior used Roles.None (0) for non-owner which now causes the insert to fail
+                    // silently in some relational providers or produce inconsistent state under the InMemory provider.
+                    // Use Roles.Learner as the minimal non-owner flag to satisfy the constraint while preserving semantics.
+                    var value = owner
+                        ? (object)(Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner)
+                        : (object)Roles.Learner; // minimal valid role instead of Roles.None (0)
                     rolesProp.SetValue(membership, value);
                 }
             }
@@ -88,7 +93,7 @@ public static class TestAuthSeeder
     /// <summary>
     /// Issues a tenant-scoped access token creating user/tenant/membership as needed. Returns (token, userId, tenantId).
     /// </summary>
-    public static async Task<(string token, Guid userId, Guid tenantId)> IssueTenantTokenAsync(WebAppFactory factory, string email, string tenantSlug, bool owner = true, IEnumerable<Claim>? extraClaims = null)
+    public static async Task<(string token, Guid userId, Guid tenantId)> IssueTenantTokenAsync(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, string email, string tenantSlug, bool owner = true, IEnumerable<Claim>? extraClaims = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -129,7 +134,7 @@ public static class TestAuthSeeder
     /// <summary>
     /// Issues a neutral (no tenant) token ensuring user exists. Returns (token, userId).
     /// </summary>
-    public static async Task<(string token, Guid userId)> IssueNeutralTokenAsync(WebAppFactory factory, string email, IEnumerable<Claim>? extraClaims = null)
+    public static async Task<(string token, Guid userId)> IssueNeutralTokenAsync(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, string email, IEnumerable<Claim>? extraClaims = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

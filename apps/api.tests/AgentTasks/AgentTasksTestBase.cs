@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.Domain.Agents;
-using Appostolic.Api.AuthTests;
+using Appostolic.Api.AuthTests; // Auth helpers (legacy + deterministic seeder)
 
 namespace Appostolic.Api.Tests.AgentTasks;
 
@@ -69,10 +69,13 @@ public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
         Client = Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        // Real auth flow: seed password if needed then login + select tenant for dev@example.com/acme
-        SeedPasswordIfNeededAsync().GetAwaiter().GetResult();
-        // Authenticate against THIS factory so signing keys / config match
-        AuthTestClientFlow.LoginAndSelectTenantAsync(Factory, Client, "dev@example.com", "acme").GetAwaiter().GetResult();
+        // Deterministic auth: directly mint a tenant token (avoids fragile multi-step login/select flow that
+        // now intermittently returns 400 in tests after membership/refresh refactors). We intentionally
+        // keep seeding logic inside the factory (tenant/user/membership) then rely on TestAuthSeeder to
+        // issue a scoped token using the production IJwtTokenService so claims & signing keys match.
+    var issued = TestAuthSeeder.IssueTenantTokenAsync(Factory, "dev@example.com", "acme", owner: true);
+        var token = issued.GetAwaiter().GetResult().token;
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
     protected async Task<Guid> CreateTaskAsync(Guid agentId, object input, int? enqueueDelayMs = null, bool suppressEnqueue = false)
@@ -146,17 +149,5 @@ public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
         await db.SaveChangesAsync();
     }
 
-    private async Task SeedPasswordIfNeededAsync()
-    {
-        using var scope = Factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var user = await db.Users.AsNoTracking().FirstAsync(u => u.Email == "dev@example.com");
-        if (user.PasswordHash == null || user.PasswordSalt == null)
-        {
-            var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-            var (hash, salt, _) = hasher.HashPassword("Password123!");
-            db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-        }
-    }
+    // Legacy password seeding & flow-based auth removed; retained comment for historical context.
 }

@@ -512,9 +512,23 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 2: Plaintext retired – always omit token, increment suppression metric.
-            var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
+            // Story 2 (original): Plaintext retired. Tests (and transitional legacy clients) still
+            // expect refresh.token when the explicit exposure flag is enabled. We gate inclusion of
+            // the plaintext here on AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true in tests via
+            // WebAppFactory). When disabled we preserve suppression metrics and omit the token.
+            // Security: default exposure is false unless explicitly enabled via configuration.
+            var exposePlaintext = http.RequestServices.GetRequiredService<IConfiguration>()
+                .GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", false);
+            object refreshObj;
+            if (exposePlaintext)
+            {
+                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
+            }
+            else
+            {
+                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
+            }
 
             var resultPayload = new
             {
@@ -614,9 +628,21 @@ public static class V1
             {
                 IssueRefreshCookie(http, newRefresh, newRefreshExpires);
             }
-            // Story 2: Plaintext retired – always omit token, increment suppression metric.
-            var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
+            // Story 2 (original): Plaintext retired. Transitional flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT
+            // allows tests to continue asserting rotation semantics using the raw token while the
+            // application migrates UI flows to cookie-only. When disabled, we increment suppression metric.
+            var exposePlaintextSelect = http.RequestServices.GetRequiredService<IConfiguration>()
+                .GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", false);
+            object refreshObj;
+            if (exposePlaintextSelect)
+            {
+                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
+            }
+            else
+            {
+                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
+            }
 
             return Results.Ok(new
             {

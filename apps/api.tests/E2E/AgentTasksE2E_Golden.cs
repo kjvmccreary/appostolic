@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Text.Encodings.Web;
 using System.Security.Claims;
 using Xunit;
-using Appostolic.Api.AuthTests;
+using Appostolic.Api.AuthTests; // TestAuthSeeder for deterministic token issuance
 
 namespace Appostolic.Api.Tests.E2E;
 
@@ -35,9 +35,10 @@ public class AgentTasksE2E_Golden
     public async Task HappyPath_projection_matches_golden_fixture()
     {
         using var factory = CreateFactory();
-        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await SeedPasswordAsync(factory, "kevin@example.com", DefaultPw);
-        await AuthTestClientFlow.LoginAndSelectTenantAsync(factory, client, "kevin@example.com", "kevin-personal");
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    // Deterministic direct token issuance replaces legacy password seeding + login/select flow.
+    var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(factory, "kevin@example.com", "kevin-personal", owner: true);
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         // Create task for seeded ResearchAgent
         var create = await client.PostAsJsonAsync("/api/agent-tasks", new
@@ -117,41 +118,5 @@ public class AgentTasksE2E_Golden
         }
     }
 
-    private const string DefaultPw = "Password123!";
-    private static async Task SeedPasswordAsync(WebApplicationFactory<Program> factory, string email, string pw)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.EnsureCreated();
-        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == email);
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var (hash, salt, _) = hasher.HashPassword(pw);
-        if (user == null)
-        {
-            var tenant = new Tenant { Id = Guid.NewGuid(), Name = "kevin-personal", CreatedAt = DateTime.UtcNow };
-            user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
-                CreatedAt = DateTime.UtcNow,
-                PasswordHash = hash,
-                PasswordSalt = salt,
-                PasswordUpdatedAt = DateTime.UtcNow
-            };
-            var membership = new Membership
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                UserId = user.Id,
-                Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-                Status = MembershipStatus.Active,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.AddRange(tenant, user, membership);
-            await db.SaveChangesAsync();
-            return;
-        }
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
+    // Legacy password seeding removed: token issuance now handled by TestAuthSeeder.
 }
