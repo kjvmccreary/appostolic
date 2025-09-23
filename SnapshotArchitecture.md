@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
-Generated: 2025-09-23
+Generated: 2025-09-23 (updated: superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---
@@ -74,7 +74,8 @@ Removed / Deprecated:
 
 Superadmin Elevation:
 
-- Config-driven allowlist (`Auth:SuperAdminEmails`) injects claim for privileged admin actions (e.g., notifications admin endpoints).
+- Config-driven allowlist (`Auth:SuperAdminEmails`) injects claim for privileged admin actions (e.g., notifications admin endpoints). Deterministic test token issuance (`TestAuthSeeder`) now mirrors this allowlist so tests bypassing `/auth/login` still receive the claim when appropriate.
+- Notifications listing endpoint now returns 403 if a non-superadmin explicitly supplies a different `tenantId` query (previously silently scoped). Superadmins may filter any tenant.
 
 ---
 

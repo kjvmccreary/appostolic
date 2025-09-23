@@ -396,6 +396,22 @@
   - Lint/Typecheck: No new issues introduced (scoped additions followed existing tsconfig and eslint baselines).
 - Rationale
   - Moves refresh token storage to an httpOnly cookie to mitigate XSS exfiltration and enables future silent refresh via standard credentialed requests. Keeps access token ephemeral in memory (short-lived) aligning with principle of least persistence.
+    2025-09-23 — Auth/JWT: Superadmin Claim Parity & Notifications Cross-Tenant Guard — ✅ DONE
+
+- Summary
+  - Added configuration-driven superadmin claim parity to deterministic test token issuance (`TestAuthSeeder`) ensuring tokens created directly in tests mirror production `/api/auth/login` allowlist behavior (`Auth:SuperAdminEmails`). Implemented early explicit 403 guard in notifications listing endpoint when a non-superadmin supplies a foreign `tenantId` query parameter (previous behavior silently scoped results, obscuring unauthorized enumeration attempts). Resolved failing `SuperAdminAllowlistTests` (previously: non-superadmin received 200 + empty list, superadmin saw empty list due to missing claim). Post-change targeted tests pass (2/2) and a regression avatar test remains green.
+- Files changed
+  - SnapshotArchitecture.md — updated generation line noting superadmin claim parity & stricter cross-tenant guard.
+  - (Earlier commit in same batch) apps/api.tests/Auth/TestAuthSeeder.cs — inject superadmin claim when email in allowlist.
+  - (Earlier commit in same batch) apps/api/App/Endpoints/NotificationsAdminEndpoints.cs — early foreign tenantId explicit 403 for non-superadmin.
+- Rationale
+  - Ensures security test fidelity by keeping deterministic seeding path authoritative and preventing silent authorization downgrades that could mask policy drift. Strengthens principle of explicit denial over silent narrowing for cross-tenant administrative queries.
+- Quality Gates
+  - Targeted test run: SuperAdminAllowlistTests PASS (2/2). Regression test (avatar upload) PASS. Build warnings unchanged (no new warnings introduced). No impact observed on unrelated suites (spot run subset only; full suite pending next batch).
+- Follow-ups
+  - Evaluate other admin listing endpoints (DLQ, replay) for consistent explicit foreign tenant guard semantics.
+  - Run full suite to confirm absence of regressions.
+  - Document potential standardization decision in SnapshotArchitecture if broader adoption pursued.
 - Follow-ups
   - Story 6: Implement `/api/auth/refresh` endpoint; retire placeholder route; remove `refresh.token` from JSON when cookie enabled (grace window for clients).
   - Story 5 / 5a: Local HTTPS & cookie secure enforcement; potential SameSite tightening after cross-origin flows evaluated.
