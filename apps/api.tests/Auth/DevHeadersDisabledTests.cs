@@ -12,14 +12,10 @@ namespace Appostolic.Api.Tests.Auth;
 public class DevHeadersDisabledTests
 {
     [Fact]
-    public async Task DevHeaders_Request_Fails_When_Flag_Disabled()
+    public async Task DevHeaders_Request_Fails_With_Removal_Code()
     {
-        // Arrange: clone factory with dev headers disabled
-        var factory = new WebAppFactory()
-            .WithSettings(new Dictionary<string,string?>
-            {
-                ["AUTH__ALLOW_DEV_HEADERS"] = "false"
-            });
+        // Arrange: factory (flag removed; headers always rejected)
+        var factory = new WebAppFactory();
         var client = factory.CreateClient();
 
         // Act: attempt to call an endpoint that requires auth using dev headers only
@@ -31,18 +27,14 @@ public class DevHeadersDisabledTests
     // Assert: 401 with structured deprecation code
     Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
     var body = await resp.Content.ReadFromJsonAsync<Dictionary<string,string>>();
-    Assert.Equal("dev_headers_deprecated", body?["code"]);
+    Assert.Equal("dev_headers_removed", body?["code"]);
     }
 
     [Fact]
-    public async Task JwtLogin_Flow_Works_When_DevHeaders_Disabled()
+    public async Task JwtLogin_Flow_Works_After_Removal()
     {
         // Arrange
-        var factory = new WebAppFactory()
-            .WithSettings(new Dictionary<string,string?>
-            {
-                ["AUTH__ALLOW_DEV_HEADERS"] = "false"
-            });
+        var factory = new WebAppFactory();
         var client = factory.CreateClient();
 
         // We need a seeded user with password; for simplicity create one directly via the DbContext

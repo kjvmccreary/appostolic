@@ -518,6 +518,31 @@
     - api.e2e project builds; test passes (1/1). No regressions expected—no production assemblies altered besides doc updates. Existing API & Web suites unaffected (pending full matrix run before merge).
   - Rationale
     - Provides deterministic, real TLS validation path ensuring the Secure attribute is genuinely set only under HTTPS transport, preventing false positives from simulated headers. Keeps integration suite lean while adding a focused layer for transport/security assertions.
+
+2025-09-22 — Auth/JWT / RDH: Story 4 Physical Removal of Dev Headers — ✅ DONE
+
+- Summary
+  - Physically removed legacy development header authentication path. Deleted `DevHeaderAuthHandler.cs`, removed composite policy scheme (`BearerOrDev`) and all conditional registration / flag logic from `Program.cs`, and stripped the `DevHeaders` Swagger security definition. Replaced deprecation middleware with a minimal permanent guard that returns 401 `{ code: "dev_headers_removed" }` whenever `x-dev-user` or `x-tenant` headers appear. Removed feature flag `AUTH__ALLOW_DEV_HEADERS` usage and the deprecation metric (`auth.dev_headers.deprecated_requests`) + increment helper from `AuthMetrics.cs`. Updated negative-path regression tests (`DevHeadersDisabledTests`, `DevHeadersRemovedTests`) to assert the final canonical error code. All other tests already migrated to real JWT flows in prior stories.
+- Files changed
+  - apps/api/Program.cs — removed Dev header scheme registration, composite scheme block, flag read, and Swagger security definition.
+  - apps/api/App/Infrastructure/Auth/DevHeaderAuthHandler.cs — deleted.
+  - apps/api/App/Middleware/DevHeadersDeprecationMiddleware.cs — simplified to unconditional 401 removal code (no metric/flag).
+  - apps/api/Application/Auth/AuthMetrics.cs — removed `DevHeadersDeprecated` counter + increment method.
+  - apps/api.tests/Auth/DevHeadersDisabledTests.cs & DevHeadersRemovedTests.cs — updated expectations from `dev_headers_deprecated` to `dev_headers_removed`; removed flag setup.
+  - docs/auth-upgrade.md — excised flag references; added removal notice & rollback tag instructions.
+  - devInfo/jwtRefactor/rdhSprintPlan.md — Story 4 acceptance items marked complete (runtime & tests); pending doc & tagging tasks annotated.
+  - devInfo/LivingChecklist.md — Story 4 item checked off.
+- Quality gates
+  - API build succeeded (no errors; pre-existing ImageSharp vulnerability warnings only). Updated tests compile; full suite run pending before merge (will capture pass counts in final commit message). Grep confirmed no remaining runtime references to `DevHeaderAuthHandler`, `BearerOrDev`, or `AUTH__ALLOW_DEV_HEADERS`.
+- Rationale
+  - Achieves single authentication pathway (JWT) across all environments; eliminates dormant attack surface and removes configuration complexity tied to transitional flag. Permanent guard preserves deterministic failure signal for any stale tooling still sending legacy headers while avoiding reintroduction complexity.
+- Rollback
+  - Tag to be created immediately prior to merge: `before-dev-header-removal`. Rollback requires checking out the tag (flag no longer available post-removal). If temporary restoration needed, reapply handler & composite scheme block from tag as a hotfix with explicit TEMP comment.
+- Follow-ups
+  - Update `SnapshotArchitecture.md` to remove deprecation phase narrative & composite scheme references (in progress).
+  - Optionally remove the temporary guard middleware entirely after short observation window if zero header attempts observed (future cleanup story).
+  - Add CI enforcement (grep) to fail on reintroduction of removed identifiers (planned Story 5 item reuse of guard script with tightened allowlist).
+
   - Follow-ups
     - Extend harness to exercise real auth flows post refresh endpoint (Story 6) or potentially migrate cookie issuance helper behind conditional compilation. Consider integrating api.e2e into CI (separate job) to guard against regressions in cookie security semantics.
 

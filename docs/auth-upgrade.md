@@ -17,7 +17,7 @@ AUTH__REFRESH_COOKIE_ENABLED=true       # Enable httpOnly cookie delivery (rt)
 AUTH__REFRESH_JSON_GRACE_ENABLED=true   # Transitional body + plaintext path ON initially
 AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false # Suppress plaintext refresh.token in JSON (recommended steady state)
 # AUTH__REFRESH_DEPRECATION_DATE=Mon, 29 Sep 2025 00:00:00 GMT   # (set when announcing body path sunset)
-# AUTH__ALLOW_DEV_HEADERS=false         # Keep false unless emergency dev header rollback required
+// Dev headers path removed (RDH Story 4); flag AUTH__ALLOW_DEV_HEADERS retired.
 ```
 
 Recommended staging/production add-ons:
@@ -50,13 +50,13 @@ If emergency compromise suspected: (a) rotate key (above); (b) optionally bulk r
 
 ## 3. Transitional Feature Flags
 
-| Flag                                  | Default (dev) | Purpose                                                   | Steady State                          | Rollback Action                                   |
-| ------------------------------------- | ------------- | --------------------------------------------------------- | ------------------------------------- | ------------------------------------------------- |
-| AUTH\_\_REFRESH_COOKIE_ENABLED        | true          | Issues httpOnly `rt` cookie                               | true                                  | Set false to revert to JSON-only (discouraged)    |
-| AUTH\_\_REFRESH_JSON_GRACE_ENABLED    | true          | Accepts JSON `{ refreshToken }` body + may emit plaintext | false                                 | Set true to re-allow body path                    |
-| AUTH\_\_REFRESH_JSON_EXPOSE_PLAINTEXT | false         | Emits plaintext `refresh.token` when true                 | false                                 | Set true temporarily if legacy client needs token |
-| AUTH\_\_REFRESH_DEPRECATION_DATE      | unset         | Adds `Deprecation` + `Sunset` headers on body usage       | unset after Phase 3                   | N/A (remove date)                                 |
-| AUTH\_\_ALLOW_DEV_HEADERS             | false         | (Legacy) enable dev header auth path                      | false (will be removed in RDH sprint) | Set true for emergency fallback                   |
+| Flag                                  | Default (dev) | Purpose                                                   | Steady State        | Rollback Action                                   |
+| ------------------------------------- | ------------- | --------------------------------------------------------- | ------------------- | ------------------------------------------------- |
+| AUTH\_\_REFRESH_COOKIE_ENABLED        | true          | Issues httpOnly `rt` cookie                               | true                | Set false to revert to JSON-only (discouraged)    |
+| AUTH\_\_REFRESH_JSON_GRACE_ENABLED    | true          | Accepts JSON `{ refreshToken }` body + may emit plaintext | false               | Set true to re-allow body path                    |
+| AUTH\_\_REFRESH_JSON_EXPOSE_PLAINTEXT | false         | Emits plaintext `refresh.token` when true                 | false               | Set true temporarily if legacy client needs token |
+| AUTH\_\_REFRESH_DEPRECATION_DATE      | unset         | Adds `Deprecation` + `Sunset` headers on body usage       | unset after Phase 3 | N/A (remove date)                                 |
+| (removed) AUTH\_\_ALLOW_DEV_HEADERS   | (n/a)         | Legacy dev header auth (removed Story 4)                  | n/a                 | n/a (rollback via tag, not flag)                  |
 
 Phases (Refresh Token Transport):
 
@@ -80,7 +80,7 @@ Scenario: regression in refresh rotation or cookie transport.
 Steps:
 
 1. Set `AUTH__REFRESH_JSON_GRACE_ENABLED=true` and (if needed) `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=true`.
-2. (Optional) Temporarily set `AUTH__ALLOW_DEV_HEADERS=true` to unblock internal testing while investigating.
+2. (Optional – legacy) If absolutely necessary pre-removal tag rollback, checkout tag `before-dev-header-removal`; dev headers cannot be re-enabled by flag.
 3. Capture metrics: `auth.refresh.failure`, `auth.refresh.reuse_denied`, logs with codes.
 4. Reproduce & patch; revert flags to steady state afterwards.
 
@@ -154,7 +154,7 @@ Use the test token mint helper (`TestAuthClient`) rather than scripting full log
 
 ## 11. Forward Looking (RDH Sprint & Post‑1.0)
 
-Upcoming Dev Header Decommission (RDH) will remove `AUTH__ALLOW_DEV_HEADERS`, the composite scheme, and residual header auth tests. See `devInfo/jwtRefactor/rdhSprintPlan.md` for phased plan (test migration → deprecation middleware → removal + regression guard). This guide will be updated post-RDH to drop rollback references to dev headers.
+Dev Header Decommission COMPLETE: Development headers (`x-dev-user`, `x-tenant`), the composite scheme, and feature flag have been removed. Any request sending those headers now receives 401 `{ "code": "dev_headers_removed" }`. Rollback path: checkout tag `before-dev-header-removal` if emergency reintroduction required (short-term only). See `devInfo/jwtRefactor/rdhSprintPlan.md` Story 4 entry for details.
 
 Planned Post‑1.0 Enhancements:
 
@@ -203,4 +203,4 @@ curl -i -X POST http://localhost:5198/api/auth/refresh \
 
 ---
 
-Last updated: 2025-09-22
+Last updated: 2025-09-22 (post dev header removal)

@@ -17,13 +17,9 @@ namespace Appostolic.Api.Tests.Auth;
 public class DevHeadersRemovedTests
 {
     [Fact]
-    public async Task DevHeader_Request_Is_Unauthorized()
+    public async Task DevHeader_Request_Is_Unauthorized_With_Removal_Code()
     {
-        var factory = new WebAppFactory()
-            .WithSettings(new Dictionary<string,string?>
-            {
-                ["AUTH__ALLOW_DEV_HEADERS"] = "false"
-            });
+        var factory = new WebAppFactory();
         var client = factory.CreateClient();
 
         var req = new HttpRequestMessage(HttpMethod.Get, "/auth-smoke/ping");
@@ -33,6 +29,6 @@ public class DevHeadersRemovedTests
 
     Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     var body = await resp.Content.ReadFromJsonAsync<Dictionary<string,string>>();
-    Assert.Equal("dev_headers_deprecated", body?["code"]);
+    Assert.Equal("dev_headers_removed", body?["code"]);
     }
 }

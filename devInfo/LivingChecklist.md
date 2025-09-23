@@ -56,7 +56,7 @@ How to use
 - [x] JWT Story 11: Cleanup & legacy artifact pruning (comments, unused helpers, transitional flag documentation, tag) (2025-09-22)
 - [x] Dev Header Decommission (RDH) Story 2: Test migrations complete (all suites on real auth flows; helper removed; guard enforcing).
 - [x] Dev Header Decommission (RDH) Story 3: Deprecation middleware active (`dev_headers_deprecated` 401 + metric) and documentation updated (snapshot lean rewrite 2025-09-22).
-- [ ] Dev Header Decommission (RDH) Story 4: Physical removal (handler, composite scheme, flag) — introduces final 401 code `dev_headers_removed` and removes temporary metric; rollback tag `before-dev-header-removal` to be created.
+- [x] Dev Header Decommission (RDH) Story 4: Physical removal (handler, composite scheme, flag) — final 401 `dev_headers_removed`; metric & flag removed; rollback tag pending creation before merge.
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
@@ -156,4 +156,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑22 (Lean snapshot rewrite complete; RDH Story 3 docs done; preparing Story 4 physical removal.)
+- Last updated: 2025‑09‑22 (Dev headers physically removed; docs updating; rollback tag pending.)

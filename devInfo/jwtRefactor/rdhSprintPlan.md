@@ -123,21 +123,22 @@ Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent
 
 #### Story 4: Physical Removal
 
-Acceptance (will produce canonical 401 code `dev_headers_removed`):
+Acceptance (canonical 401 code `dev_headers_removed`) — ✅ COMPLETED (pending docs & tagging follow-ups):
 
-[ ] Remove `DevHeaderAuthHandler` class & registrations (Program.cs + file delete).
-[ ] Remove composite policy scheme `BearerOrDev` and any selector logic.
-[ ] Delete flag references (`AUTH__ALLOW_DEV_HEADERS`) from code, config, and docs.
-[ ] Introduce final regression test asserting `x-dev-user` request now returns 401 `{ code: "dev_headers_removed" }` (replace prior `dev_headers_deprecated`).
-[ ] Replace deprecation middleware with a minimal rejection (or remove entirely) so pipeline cost is zero; NO lingering metric after grace verification.
-[ ] Update SnapshotArchitecture security/auth sections to reflect single-path auth; remove any mention of composite scheme or dev header lifecycle (only keep near-term Story 5 references).
-[ ] Remove any obsolete helpers, constants, or comments referencing dev headers.
-[ ] Ensure no `using` / DI service entries or stray scheme names remain via grep validation (`DevHeaderAuthHandler`, `BearerOrDev`, `x-dev-user`).
-[ ] Create rollback tag `before-dev-header-removal` immediately prior to merge (documented in story log).
-[ ] Run full build & test matrix (API + Web + e2e) and record passing counts in story log entry.
-[ ] Update LivingChecklist (mark removal done; add rollback tag note).
-[ ] Append story log entry (2025-09-XX) summarizing removal & rollback instructions.
-[ ] (Optional) Open PR to remove temporary negative-path tests once stable if deemed noise.
+[x] Remove `DevHeaderAuthHandler` class & registrations (Program.cs + file delete).
+[x] Remove composite policy scheme `BearerOrDev` and any selector logic.
+[x] Delete flag references (`AUTH__ALLOW_DEV_HEADERS`) from code (docs pending update below).
+[x] Introduce final regression tests asserting `x-dev-user` request returns 401 `{ code: "dev_headers_removed" }` (updated negative-path suites).
+[x] Replace deprecation middleware with minimal rejection (no metric, no flag) — permanent guard retained temporarily.
+[x] Remove obsolete metric & flag artifacts (`auth.dev_headers.deprecated_requests`).
+[x] Remove obsolete helpers/comments (handler file deleted, scheme block excised).
+[ ] Update SnapshotArchitecture security/auth sections (IN PROGRESS).
+[ ] Grep validation & adjust any lingering doc references (IN PROGRESS).
+[ ] Create rollback tag `before-dev-header-removal` immediately prior to merge (PENDING).
+[ ] Run full build & test matrix (web/e2e) & log counts (PENDING — API build green).
+[ ] Update LivingChecklist (PENDING).
+[ ] Append story log entry (PENDING — will include commit hash & rollback steps).
+[ ] (Optional) Evaluate retiring one of the two negative-path test files post‑stabilization.
 
 #### Story 5: Observability & Regression Guards
 

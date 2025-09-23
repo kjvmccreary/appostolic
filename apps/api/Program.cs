@@ -92,28 +92,6 @@ builder.Services.AddSwaggerGen(c =>
     // e.g., multiple InviteRequest records used in different endpoint groups
     c.CustomSchemaIds(type => type.FullName?.Replace('+', '.') ?? type.Name);
 
-    // Dev headers as API key security scheme
-    c.AddSecurityDefinition("DevHeaders", new OpenApiSecurityScheme
-    {
-        In = ParameterLocation.Header,
-        Name = "x-dev-user",
-        Type = SecuritySchemeType.ApiKey,
-        Description = "Provide dev user email in x-dev-user and tenant slug in x-tenant"
-    });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "DevHeaders"
-                }
-            },
-            new List<string>()
-        }
-    });
 
     // Bearer JWT (Story 1)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -186,11 +164,6 @@ builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
-// Dev headers are now ALWAYS gated by the explicit AUTH__ALLOW_DEV_HEADERS flag (even in Development) so
-// that manual UI testing exercises the real JWT flow by default. Set AUTH__ALLOW_DEV_HEADERS=true locally
-// only when needing legacy header-based scripting convenience.
-var allowDevHeaders = (builder.Configuration["AUTH__ALLOW_DEV_HEADERS"] ?? Environment.GetEnvironmentVariable("AUTH__ALLOW_DEV_HEADERS") ?? "false")
-    .Equals("true", StringComparison.OrdinalIgnoreCase);
 
 // In Development we introduce a composite policy scheme that chooses Dev header auth when
 // the x-dev-user header is present, otherwise falls back to standard Bearer (JWT). This
@@ -237,25 +210,6 @@ if (jwtEnabled)
             var svc = sp.GetRequiredService<IJwtTokenService>();
             o.TokenValidationParameters = svc.CreateValidationParameters();
         }));
-}
-if (allowDevHeaders)
-{
-    authBuilder.AddScheme<AuthenticationSchemeOptions, DevHeaderAuthHandler>(DevHeaderAuthHandler.DevScheme, _ => { });
-    // Composite policy only when flag explicitly enabled.
-    authBuilder.AddPolicyScheme("BearerOrDev", "Bearer or Dev (auto)", opts =>
-    {
-        opts.ForwardDefaultSelector = ctx =>
-        {
-            if (ctx.Request.Headers.ContainsKey("x-dev-user"))
-                return DevHeaderAuthHandler.DevScheme;
-            return JwtBearerDefaults.AuthenticationScheme;
-        };
-    });
-    builder.Services.PostConfigure<AuthenticationOptions>(o =>
-    {
-        o.DefaultAuthenticateScheme = "BearerOrDev";
-        o.DefaultChallengeScheme = "BearerOrDev";
-    });
 }
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
