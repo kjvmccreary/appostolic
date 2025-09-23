@@ -39,6 +39,10 @@
     <Compile Remove="Migrations/20240911120000_Initial.cs" />
     <Compile Remove="tools/**" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Analyzer enforcing dev header removal invariants -->
+    <ProjectReference Include="../../packages/devheaders-analyzer/Appostolic.DevHeadersAnalyzer.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
   <!-- Ensure denomination presets JSON is copied & embedded; avoid duplicate implicit include by using Update -->
   <ItemGroup>
     <Content Update="App/Data/denominations.json">

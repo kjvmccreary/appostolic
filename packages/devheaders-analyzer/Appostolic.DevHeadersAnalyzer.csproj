@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Appostolic.DevHeadersAnalyzer</AssemblyName>
+    <RootNamespace>Appostolic.DevHeadersAnalyzer</RootNamespace>
+    <Nullable>enable</Nullable>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <PackageId>Appostolic.DevHeadersAnalyzer</PackageId>
+    <Authors>Appostolic</Authors>
+    <Description>Analyzer enforcing removal of legacy development header auth artifacts (x-dev-user, x-tenant, DevHeaderAuthHandler, BearerOrDev, AUTH__ALLOW_DEV_HEADERS).</Description>
+    <PackageTags>Roslyn Analyzer Security Auth</PackageTags>
+    <!-- Simplify: disable release tracking for now -->
+    <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

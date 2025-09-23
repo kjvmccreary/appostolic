@@ -21,6 +21,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../api/Appostolic.Api.csproj" />
+    <!-- Analyzer enforcing dev header removal invariants -->
+    <ProjectReference Include="../../packages/devheaders-analyzer/Appostolic.DevHeadersAnalyzer.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="E2E/fixtures/golden-task.json">

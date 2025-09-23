@@ -1,0 +1,5 @@
+root = true
+
+# C# analyzer severities
+[*.cs]
+dotnet_diagnostic.RDH0001.severity = error

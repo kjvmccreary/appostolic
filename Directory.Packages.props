@@ -37,5 +37,8 @@
     <!-- JWT Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="7.6.0" />
+    <!-- Roslyn analyzer infrastructure -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
   </ItemGroup>
 </Project>
