@@ -15,14 +15,14 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 
 ### High‑Level Outcomes
 
-[ ] All integration & unit tests obtain auth via JWT issuance (login, mint helper, or token service) — no remaining `x-dev-user` usage.
-[ ] Dev header auth handler & composite scheme fully removed from `Program.cs`.
-[ ] Feature flag `AUTH__ALLOW_DEV_HEADERS` deleted (or stubbed, reading results in no effect / logged warning).
-[ ] Attempted usage of `x-dev-user` / `x-tenant` after removal yields deterministic 401 with structured error (`dev_headers_removed`).
-[ ] Temporary detection middleware & metric removed after zero-usage verification window (final cleanup).
-[ ] Documentation (SnapshotArchitecture, LivingChecklist, Upgrade Guide, sprint plan) updated; legacy references removed.
-[ ] Story log entry summarizing removal & rollback approach.
-[ ] Rollback tag (`before-dev-header-removal`) created.
+[x] All integration & unit tests obtain auth via JWT issuance (login/flow helper or direct token service) — no remaining functional `x-dev-user` usage (only negative-path tests).
+[x] Dev header auth handler & composite scheme fully removed from `Program.cs`.
+[x] Feature flag `AUTH__ALLOW_DEV_HEADERS` deleted (reads now inert / removed) — legacy doc references pending cleanup.
+[x] Attempted usage of `x-dev-user` / `x-tenant` returns 401 with `{ code: "dev_headers_removed" }`.
+[x] Temporary deprecation middleware & metric removed after zero-usage verification window.
+[ ] Documentation (SnapshotArchitecture final wording, LivingChecklist tick, Upgrade Guide snippet) fully updated (IN PROGRESS — tracked Story 6).
+[ ] Story log entry summarizing removal & rollback approach (PENDING — to append 2025-09-23).
+[x] Rollback tag (`before-dev-header-removal`) created.
 
 ### Architectural Context (Delta)
 
@@ -30,23 +30,27 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 - Target: Single auth pipeline: HttpContext principal always built from JWT; any header shortcuts rejected early.
 - Supporting changes: Robust test token mint helper + seeded data utilities remove original rationale for dev headers.
 
-### Story Breakdown (Updated 2025-09-22 — Progress Reflects Latest Migrations)
+### Current State (2025-09-23)
 
-#### Story 0: Inventory & Baseline Metrics (Optional but Recommended) — ✅ PARTIAL
+Removal complete in code: handler, composite scheme, feature flag, and metrics eliminated. All tests (API: 239 passed / 1 skipped; E2E HTTPS cookie: 1 passed) green post-removal and after security dependency upgrade (ImageSharp 3.1.11). Negative-path suites (`DevHeadersDisabledTests`, `DevHeadersRemovedTests`) assert canonical `dev_headers_removed` code. CI/guard tests also enforce absence of legacy identifier helpers. Remaining work is purely documentation + final story log entry + Upgrade Guide snippet and LivingChecklist tick. No pending functional risk; rollback tag `before-dev-header-removal` present. Next actions consolidated under Story 6.
+
+### Story Breakdown (Updated 2025-09-23 — Reflects Post-Removal Status)
+
+#### Story 0: Inventory & Baseline Metrics (Optional but Recommended) — ✅ DONE
 
 [x] List all code references to `x-dev-user` / `x-tenant` / `DevHeaderAuthHandler` / `BearerOrDev`.
 [x] Count tests using dev headers (grep) and categorize by suite (auth, notifications, etc.).
-[ ] Add a temporary counter/metric (`auth.dev_headers.requests`) in existing code path (if still active) for a short measurement window. (Deferred — may be skipped if migration proceeds smoothly.)
-[x] Document inventory snapshot in this plan (append section) for audit trail.
+[~] Temporary counter/metric (`auth.dev_headers.requests`) — Deferred intentionally (not needed once migration pace confirmed).
+[x] Document inventory snapshot in this plan for audit trail.
 
-#### Story 1: Test Token Helper Consolidation — ✅ PARTIAL
+#### Story 1: Test Token Helper Consolidation — ✅ DONE
 
 [x] Introduce / confirm presence of issuance services (existing `IJwtTokenService` methods for neutral & tenant). (Explicit wrapper `TestTokenIssuer` deferred.)
 [x] Provide `AuthTestClient` facade used by tests (original mint helper) AND new flow-based `AuthTestClientFlow` exercising real `/api/auth/login` + `/api/auth/select-tenant` (adopted in `UserProfileLoggingTests`). (Replaces planned `UseTenantAsync` scope.)
 [x] Add multi-membership & rotation coverage tests (`LoginMultiTenantTests`).
 [x] Update `WebAppFactory` with neutral token issuance helper (`EnsureNeutralToken`).
 [x] Superadmin elevation moved from mint helper to config-driven claim injection in normal auth flow (`Auth:SuperAdminEmails`).
-[x] Document helper usage guideline in external `README` (plan section present; README update still pending).
+[~] Document helper usage guideline in external `README` (deferred to Story 6 docs bundle; in-plan table accepted interim).
 
 ##### Helper Usage Guideline (Story 1)
 
@@ -71,7 +75,7 @@ Deprecation Plan:
 - Mint helper usages (`AuthTestClient.*`) will be systematically replaced after Phase A/B when flow-based stability is confirmed.
 - A CI lint rule (Story 5) will eventually flag remaining mint helper calls outside explicitly allowed legacy folders.
 
-#### Story 2: Migrate Integration Tests (Batch Refactor) — ✅ PARTIAL
+#### Story 2: Migrate Integration Tests (Batch Refactor) — ✅ DONE
 
 Migration Progress Snapshot (updated 2025-09-22):
 
@@ -102,7 +106,7 @@ Migration Progress Snapshot (updated 2025-09-22):
   - [x] AgentTasksContractTests (auth + list/filter pagination migrated; deterministic assertions in place)
   - [x] AgentTasksE2E tests (flow auth: removed TestAuthHandler & dev headers; password seeding + LoginAndSelectTenant 2025-09-22)
 
-Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent Task suites, then introduce guard asserting zero legacy mint usages (except explicitly allowed transitional helpers) before deprecation mode.
+Planned Next Focus (superseded): All targeted suites migrated. Guard tests in place; focus shifted to documentation (Story 6).
 
 [x] Phase A: Replace dev headers in core auth test suite (login, refresh, logout, tenant selection) with JWT helpers. (Kickoff: migrated `DevHeadersDisabledTests` positive path to flow helper; negative dev header rejection retained.)
 [x] Phase B: Replace dev headers in domain/feature tests (notifications, roles, storage, privacy). (All functional domain suites now use real auth flow; only intentional negative-path guards `DevHeadersDisabledTests` / `DevHeadersRemovedTests` retain header usage.)
@@ -112,7 +116,7 @@ Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent
 [x] Update affected fixtures removing `x-dev-user` convenience branches. (Factory & shared helpers contain no auto-injection branches; grep verified.)
 [x] Ensure all modified tests still green (full suite previously green; guard test added without introducing failures.)
 
-#### Story 3: Deprecation Mode (Soft Block)
+#### Story 3: Deprecation Mode (Soft Block) — ✅ DONE
 
 [x] Flip default: `AUTH__ALLOW_DEV_HEADERS` forced false (feature effectively off) in all environments.
 [x] Introduce `DevHeadersDeprecationMiddleware` (early pipeline) returning 401 with `{ code: "dev_headers_deprecated" }` if `x-dev-user` present (before auth executes) — only while cleanup ongoing.
@@ -121,9 +125,9 @@ Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent
 [x] Documentation: mark dev headers as deprecated (plan + SnapshotArchitecture snapshot updated 2025-09-22; no history retained in file).
 [x] Verify zero legitimate test usage (CI green) before proceeding. (Full suite 239 passed / 0 failed 2025-09-22.)
 
-#### Story 4: Physical Removal
+#### Story 4: Physical Removal — ✅ DONE (Doc follow-ups in Story 6)
 
-Acceptance (canonical 401 code `dev_headers_removed`) — ✅ COMPLETED (pending docs & tagging follow-ups):
+Acceptance (canonical 401 code `dev_headers_removed`):
 
 [x] Remove `DevHeaderAuthHandler` class & registrations (Program.cs + file delete).
 [x] Remove composite policy scheme `BearerOrDev` and any selector logic.
@@ -132,47 +136,50 @@ Acceptance (canonical 401 code `dev_headers_removed`) — ✅ COMPLETED (pending
 [x] Replace deprecation middleware with minimal rejection (no metric, no flag) — permanent guard retained temporarily.
 [x] Remove obsolete metric & flag artifacts (`auth.dev_headers.deprecated_requests`).
 [x] Remove obsolete helpers/comments (handler file deleted, scheme block excised).
-[ ] Update SnapshotArchitecture security/auth sections (IN PROGRESS).
-[ ] Grep validation & adjust any lingering doc references (IN PROGRESS).
+[ ] Update SnapshotArchitecture security/auth sections (IN PROGRESS — wording tweak outstanding; structural update done).
+[ ] Grep validation & adjust any lingering doc references (IN PROGRESS — final sweep after Upgrade Guide addition).
 [x] Create rollback tag `before-dev-header-removal` immediately prior to merge (COMPLETED 2025-09-22).
-[ ] Run full build & test matrix (web/e2e) & log counts (PENDING — API build green).
-[ ] Update LivingChecklist (PENDING).
-[ ] Append story log entry (PENDING — will include commit hash & rollback steps).
+[x] Run full build & test matrix (API + E2E) & log counts (Completed 2025-09-23; web unaffected).
+[ ] Update LivingChecklist (PENDING — to mark dev header removal complete).
+[ ] Append story log entry (PENDING — will include commit hash fed61a6 & rollback steps).
 [ ] (Optional) Evaluate retiring one of the two negative-path test files post‑stabilization.
 
-#### Story 5: Observability & Regression Guards
+#### Story 5: Observability & Regression Guards — ✅ DONE (Residual optional smoke test evaluation)
 
 [x] Add a lint/CI script to fail build if patterns `x-dev-user` or `DevHeaderAuthHandler` appear (excluding historical docs folder). (ENFORCING guard updated 2025-09-22; includes patterns: headers, handler, scheme id, flag, legacy helper.)
-[ ] Add (or confirm) minimal integration test verifying `x-dev-user` request returns 401 `dev_headers_removed` (final canonical error code after removal). (Negative-path tests exist; evaluate need for separate lightweight smoke.)
+[x] Confirm negative-path integration tests verify 401 `dev_headers_removed` (existing `DevHeadersRemovedTests`). (Separate lightweight smoke deemed unnecessary.)
 [ ] Add documentation snippet to Upgrade Guide: “Dev headers removed — how to adapt” (post-removal adaptation guidance snippet pending).
 [x] Remove temporary metric (`auth.dev_headers.deprecated_requests`) once stable (handled in Story 4 removal commit).
 
-#### Story 6: Documentation & Cleanup
+#### Story 6: Documentation & Cleanup — 🚧 IN PROGRESS
 
-[ ] Update `SnapshotArchitecture.md` (remove composite scheme, add simplified flow diagram).
+[ ] Update `SnapshotArchitecture.md` wording (single auth path explicit; simplified flow diagram) — STRUCTURE updated earlier, finalize phrasing.
 [ ] Update `LivingChecklist.md` marking dev header removal item DONE.
 [ ] Append storyLog entry summarizing decommission timeline & commit references.
-[ ] Add rollback instructions to Upgrade Guide.
-[ ] Tag repo `dev-headers-removed` after merge.
+[ ] Add rollback instructions + adaptation steps to Upgrade Guide.
+[ ] Tag repo `dev-headers-removed` after merge (post-doc commit).
+[ ] Grep final sweep & remove stale references (paired with Upgrade Guide update).
+[ ] README examples: replace dev header curl with login + bearer examples.
+[ ] Helper README section: include UniqueId consolidation reference (bonus consistency).
 
 #### Story 7 (Optional Hardening Enhancements)
 
 [ ] (Optional) Add short TTL memory cache for TokenVersion (perf) if load test indicates need.
 [ ] (Optional) Add security alert rule for repeated 401 `dev_headers_removed` (potential scripted probing).
 
-### Guard Checklist (Authoritative Regression & Safety Gates)
+### Guard Checklist (Authoritative Regression & Safety Gates) — Status 2025-09-23
 
 Purpose: Ensures decommission intent persists after merge; any reintroduction of dev headers or shortcut flows fails fast.
 
 Static / CI Guards
 
-- [ ] CI grep (or lint script) fails build on forbidden patterns: `x-dev-user`, `x-tenant`, `DevHeaderAuthHandler`, `BearerOrDev` (allowlist: `/docs/`, `/devInfo/`, sprint plan historical sections)
+- [x] CI/grep (lint script) fails build on forbidden patterns: `x-dev-user`, `x-tenant`, `DevHeaderAuthHandler`, `BearerOrDev` (allowlist applied for docs / historical plan).
 - [ ] Optional Roslyn analyzer (future) to flag auth header based identity injection
 
 Runtime / Integration Guards
 
-- [ ] Test: sending `x-dev-user` header returns 401 `{ code: "dev_headers_removed" }`
-- [ ] Test: enumerate registered auth schemes and assert none match `Dev` / `BearerOrDev`
+- [x] Test: sending `x-dev-user` header returns 401 `{ code: "dev_headers_removed" }`
+- [x] Test: enumerate registered auth schemes and assert none match `Dev` / `BearerOrDev`
 - [ ] Test: multi-tenant login returns memberships WITHOUT auto tenant token
 - [ ] Test: select-tenant rotates refresh (old neutral revoked)
 - [ ] Test: superadmin allowlist (config) injects claim; non-allowlisted user lacks claim
@@ -180,17 +187,17 @@ Runtime / Integration Guards
 
 Helper / API Surface Guards
 
-- [ ] No usages of removed helpers: `UseTenantAsync`, `UseSuperAdminAsync` (grep enforced)
+- [x] No usages of removed helpers: `UseTenantAsync`, `UseSuperAdminAsync` (grep enforced & guard test)
 - [ ] (If mint endpoint retained temporarily) Test ensures it cannot set superadmin when email not in allowlist
 - [ ] Plan to remove mint endpoint (tracked follow-up) or convert to internal-only if still needed
 
 Documentation & Traceability
 
-- [ ] `SnapshotArchitecture.md` updated: single auth path, removed handler section
+- [ ] `SnapshotArchitecture.md` final wording updated: single auth path, removed handler section
 - [ ] `LivingChecklist.md` item checked with link to removal PR
 - [ ] Upgrade Guide section: "Dev headers removed – migration steps"
 - [ ] Story log final entry summarizing decommission & rollback tag
-- [ ] Tag `before-dev-header-removal` created & referenced in docs
+- [x] Tag `before-dev-header-removal` created & referenced (pending doc link)
 
 Observability (Optional)
 
@@ -208,13 +215,13 @@ Exit Validation
 - [ ] CI guard proves effective by intentionally injecting a forbidden token in a dry-run branch (manual validation)
 - [ ] Rollback instructions verified (checkout tag builds/tests green)
 
-### Acceptance Summary (Sprint Exit Criteria) — CURRENT STATUS
+### Acceptance Summary (Sprint Exit Criteria) — LIVE STATUS 2025-09-23
 
-[ ] No code / tests reference dev headers. (IN PROGRESS — migrations active)
-[ ] All authentication in local + CI uses JWT flows. (PARTIAL — several suites migrated)
-[ ] Removal & rationale documented (architecture + story log + upgrade guide). (PARTIAL — story log entries added; docs pending)
-[ ] Regression guard test in place verifying 401 on dev header usage. (NOT STARTED)
-[ ] Rollback path (tag + optional reintroduce commit link) documented. (NOT STARTED — to be finalized Story 6)
+[x] No runtime code or positive-path tests reference dev headers (only intentional negative-path tests remain).
+[x] All authentication in local + CI uses JWT flows exclusively.
+[ ] Removal & rationale fully documented (SnapshotArchitecture wording + Upgrade Guide + story log final entry) — IN PROGRESS.
+[x] Regression guard test(s) verify 401 `dev_headers_removed` and absence of legacy schemes.
+[x] Rollback path established (`before-dev-header-removal` tag); documentation pending final inline references.
 
 ### Risk & Mitigation
 
@@ -449,3 +456,11 @@ Next Steps: Finalize helper capability review (ensure `TestAuthClient` sufficien
   - Full re-run of AgentTasks related tests after remaining migrations to confirm no hidden coupling.
   - Introduce global guard (CI grep) once all suites migrated to flag reintroduction of removed helpers or dev headers.
   - Proceed to remaining privacy/logging suites then begin Story 3 deprecation middleware.
+
+2025-09-23 — Post-Removal Consolidation:
+
+- Physical removal completed (Story 4) and regression guards (Story 5) active; all suites green (API 239 passed / 1 skipped; E2E HTTPS 1 passed).
+- ImageSharp upgraded (security advisories resolved) as part of parallel hardening.
+- UniqueId helper consolidation merged; guard prevents legacy identifier helpers.
+- Pending: Documentation bundle (Story 6) — SnapshotArchitecture wording tweak, LivingChecklist tick, Upgrade/README examples, story log final entry, tag `dev-headers-removed` after merge.
+- Risk profile now low; rollback tag confirmed; remaining work purely doc/communication.
