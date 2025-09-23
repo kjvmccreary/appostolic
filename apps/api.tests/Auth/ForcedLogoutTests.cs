@@ -52,17 +52,39 @@ public class ForcedLogoutTests : IClassFixture<WebAppFactory>
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
 
-    [Fact(Skip="Platform admin elevation harness not yet implemented in tests")] 
-    public void ForcedLogoutUser_SucceedsForPlatformAdmin()
+    [Fact]
+    public async Task ForcedLogoutUser_SucceedsForPlatformAdmin()
     {
-        // Create a new factory instance with PLATFORM__SUPER_ADMINS set to caller user after signup (needs two-phase or we set env before startup via factory API if available).
-        // Simplification: Use existing factory; if env not set test will skip (cannot elevate). In a more advanced harness we'd inject config.
-        var superAdmins = Environment.GetEnvironmentVariable("PLATFORM__SUPER_ADMINS");
-        if (string.IsNullOrWhiteSpace(superAdmins))
-        {
-            // Skip test gracefully (xUnit style) if platform admin list absent.
-            return; // In CI, ensure this var is populated to exercise path.
-        }
+        // Use factory clone with augmented PLATFORM__SUPER_ADMINS list to include caller
+        var callerEmail = "platformadmin@example.com";
+        var factory = _factory.WithSettings(new(){ ["PLATFORM__SUPER_ADMINS"] = $"kevin@example.com,{callerEmail}" });
+        var client = factory.CreateClient();
+
+        // Create target user
+        var targetEmail = "forced-target@example.com";
+        var signupTarget = await client.PostAsJsonAsync("/api/auth/signup", new { email = targetEmail, password = "Pass1234!" });
+        signupTarget.EnsureSuccessStatusCode();
+        var loginTarget = await client.PostAsJsonAsync("/api/auth/login", new { email = targetEmail, password = "Pass1234!" });
+        loginTarget.EnsureSuccessStatusCode();
+        var targetJson = JsonDocument.Parse(await loginTarget.Content.ReadAsStringAsync());
+        var targetUserId = targetJson.RootElement.GetProperty("access").GetProperty("claims").GetProperty("sub").GetGuid();
+
+        // Create caller user (becoming platform admin via allowlist)
+        var signupCaller = await client.PostAsJsonAsync("/api/auth/signup", new { email = callerEmail, password = "Pass1234!" });
+        signupCaller.EnsureSuccessStatusCode();
+        var loginCaller = await client.PostAsJsonAsync("/api/auth/login", new { email = callerEmail, password = "Pass1234!" });
+        loginCaller.EnsureSuccessStatusCode();
+        var callerJson = JsonDocument.Parse(await loginCaller.Content.ReadAsStringAsync());
+        var callerAccess = callerJson.RootElement.GetProperty("access").GetProperty("token").GetString();
+
+        // Invoke forced logout
+        var req = new HttpRequestMessage(HttpMethod.Post, $"/api/admin/users/{targetUserId}/logout-all");
+        req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", callerAccess);
+        var resp = await client.SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var respJson = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        Assert.True(respJson.RootElement.GetProperty("revoked").GetInt32() >= 0);
+        Assert.True(respJson.RootElement.GetProperty("tokenVersion").GetInt32() >= 1);
     }
 
     [Fact]

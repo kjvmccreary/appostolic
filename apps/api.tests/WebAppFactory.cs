@@ -114,7 +114,11 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Transitional: keep plaintext refresh token exposed in JSON for existing auth flow tests
                 // until all tests and client code paths have migrated fully to cookie-only retrieval.
                 // Individual suppression tests call .WithSettings to set this to false.
-                ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
+                ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true",
+                // Story 9: ensure forced logout endpoints enabled in tests by default
+                ["AUTH__FORCED_LOGOUT__ENABLED"] = "true",
+                // Story 9: default platform super admin allowlist (will be augmented per-test via WithSettings)
+                ["PLATFORM__SUPER_ADMINS"] = "kevin@example.com"
             };
             // Superadmin allowlist for flow-based elevation (Story 2 Phase A follow-up). This enables
             // login/select-tenant issued tokens for kevin@example.com to include superadmin=true claim
