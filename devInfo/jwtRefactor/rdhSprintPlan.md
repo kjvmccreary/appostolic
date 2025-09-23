@@ -114,23 +114,30 @@ Planned Next Focus: Complete Invitations + Remaining Notifications Admin + Agent
 
 #### Story 3: Deprecation Mode (Soft Block)
 
-[ ] Flip default: `AUTH__ALLOW_DEV_HEADERS` forced false (feature effectively off) in all environments.
-[ ] Introduce `DevHeadersDeprecationMiddleware` (early pipeline) returning 401 with `{ code: "dev_headers_deprecated" }` if `x-dev-user` present (before auth executes) — only while cleanup ongoing.
-[ ] Add metric counter `auth.dev_headers.deprecated_requests` & structured log for visibility.
-[ ] Add test asserting deprecated response when header used.
-[ ] Documentation: mark dev headers as deprecated (plan + SnapshotArchitecture What’s New).
-[ ] Verify zero legitimate test usage (CI green) before proceeding.
+[x] Flip default: `AUTH__ALLOW_DEV_HEADERS` forced false (feature effectively off) in all environments.
+[x] Introduce `DevHeadersDeprecationMiddleware` (early pipeline) returning 401 with `{ code: "dev_headers_deprecated" }` if `x-dev-user` present (before auth executes) — only while cleanup ongoing.
+[x] Add metric counter `auth.dev_headers.deprecated_requests` & structured log for visibility.
+[x] Add test asserting deprecated response when header used. (Updated `DevHeadersDisabledTests` & `DevHeadersRemovedTests` temporarily expect `dev_headers_deprecated`).
+[x] Documentation: mark dev headers as deprecated (plan + SnapshotArchitecture snapshot updated 2025-09-22; no history retained in file).
+[x] Verify zero legitimate test usage (CI green) before proceeding. (Full suite 239 passed / 0 failed 2025-09-22.)
 
 #### Story 4: Physical Removal
 
-[ ] Remove `DevHeaderAuthHandler` class & registrations.
-[ ] Remove composite policy scheme `BearerOrDev` usage.
-[ ] Delete flag references (`AUTH__ALLOW_DEV_HEADERS`).
-[ ] Remove deprecation middleware (optional: keep detection variant for a single release behind internal env var — choose minimal).
-[ ] Update security section in SnapshotArchitecture (single-path auth, simplified threat surface).
-[ ] Remove any legacy helper methods or constants referencing dev headers.
-[ ] Ensure no `using` / DI service entries remain for removed handler.
-[ ] Run full build & test matrix (API + Web + e2e).
+Acceptance (will produce canonical 401 code `dev_headers_removed`):
+
+[ ] Remove `DevHeaderAuthHandler` class & registrations (Program.cs + file delete).
+[ ] Remove composite policy scheme `BearerOrDev` and any selector logic.
+[ ] Delete flag references (`AUTH__ALLOW_DEV_HEADERS`) from code, config, and docs.
+[ ] Introduce final regression test asserting `x-dev-user` request now returns 401 `{ code: "dev_headers_removed" }` (replace prior `dev_headers_deprecated`).
+[ ] Replace deprecation middleware with a minimal rejection (or remove entirely) so pipeline cost is zero; NO lingering metric after grace verification.
+[ ] Update SnapshotArchitecture security/auth sections to reflect single-path auth; remove any mention of composite scheme or dev header lifecycle (only keep near-term Story 5 references).
+[ ] Remove any obsolete helpers, constants, or comments referencing dev headers.
+[ ] Ensure no `using` / DI service entries or stray scheme names remain via grep validation (`DevHeaderAuthHandler`, `BearerOrDev`, `x-dev-user`).
+[ ] Create rollback tag `before-dev-header-removal` immediately prior to merge (documented in story log).
+[ ] Run full build & test matrix (API + Web + e2e) and record passing counts in story log entry.
+[ ] Update LivingChecklist (mark removal done; add rollback tag note).
+[ ] Append story log entry (2025-09-XX) summarizing removal & rollback instructions.
+[ ] (Optional) Open PR to remove temporary negative-path tests once stable if deemed noise.
 
 #### Story 5: Observability & Regression Guards
 
