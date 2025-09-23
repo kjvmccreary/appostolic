@@ -156,6 +156,40 @@ Use the test token mint helper (`TestAuthClient`) rather than scripting full log
 
 Dev Header Decommission COMPLETE: Development headers (`x-dev-user`, `x-tenant`), the composite scheme, and feature flag have been removed. Any request sending those headers now receives 401 `{ "code": "dev_headers_removed" }`. Rollback path: checkout tag `before-dev-header-removal` if emergency reintroduction required (short-term only). See `devInfo/jwtRefactor/rdhSprintPlan.md` Story 4 entry for details.
 
+### 11.1 Dev Headers Removal (RDH) – Migration Steps
+
+What changed:
+
+- Removed: `DevHeaderAuthHandler`, composite policy scheme `BearerOrDev`, feature flag `AUTH__ALLOW_DEV_HEADERS`.
+- Added: Permanent guard rejecting any request containing `x-dev-user` or `x-tenant` with 401 `{ code: "dev_headers_removed" }`.
+- Unified: All environments (dev/test/CI/prod) now exercise the same JWT + refresh rotation path.
+
+How to adapt local workflows:
+
+1. Use real login + (optional) select-tenant in manual cURL or API client flows.
+2. Replace any scripts that previously set `x-dev-user` / `x-tenant` with a small login helper capturing the returned access token.
+3. For integration tests: ensure they use flow helpers (`AuthTestClientFlow.LoginAndSelectTenantAsync`) or deterministic token issuance helpers rather than header injection.
+4. Remove any `.env` vars like `DEV_USER`, `DEV_TENANT` (no longer used by web proxy routes).
+5. Confirm guard tests/grep pass (`scripts/dev-header-guard.sh`).
+
+Rollback (LAST RESORT, short window only):
+
+1. `git checkout before-dev-header-removal` (tag created pre-physical removal) OR revert the removal commit series.
+2. Rebuild & run tests; dev headers will function again under that snapshot.
+3. Forward path: re-apply required commits excluding dev header code if reverting only to investigate a regression.
+
+Operational considerations:
+
+- Metrics related to deprecation (`auth.dev_headers.deprecated_requests`) have been removed; any dashboards referencing them should be updated.
+- Security posture improved by eliminating an alternate implicit auth path; review any pending tooling that assumed header-based impersonation.
+- Monitor for unexpected 401 `dev_headers_removed` occurrences shortly after deployment; they indicate stale clients or scripts.
+
+Reference Files:
+
+- `devInfo/jwtRefactor/rdhSprintPlan.md`
+- `SnapshotArchitecture.md` (Auth & Flags sections)
+- `scripts/dev-header-guard.sh`
+
 Planned Post‑1.0 Enhancements:
 
 - Multi-key signing & automated key rotation window.

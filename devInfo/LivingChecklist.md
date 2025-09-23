@@ -135,7 +135,7 @@ How to use
 ## Process & docs (keep in sync)
 
 - [x] After each story: append `devInfo/storyLog.md` (same summary as PR/assistant), update `SnapshotArchitecture.md`, and tick items here
-- [ ] At sprint close: review gaps, move deferrals to Post‑1.0, and ensure this checklist reflects reality
+- [x] At sprint close: review gaps, move deferrals to Post‑1.0, and ensure this checklist reflects reality (Dev headers removed; rollback tag to be created `dev-headers-removed`)
 
 ## Post‑1.0 candidates (parking lot)
 

@@ -138,10 +138,31 @@
   - Implemented `/api/auth/logout` (single refresh token revoke) and `/api/auth/logout/all` (bulk revoke + TokenVersion bump) endpoints. Single logout now enforces an explicit token when a JSON body is present: an empty `{}` body (or body missing `refreshToken`) returns 400 `{ code: "missing_refresh" }` rather than falling back to the cookie, aligning with test expectations and encouraging explicit client intent. Global logout revokes all active neutral refresh tokens for the user via `IRefreshTokenService.RevokeAllForUserAsync` then increments `User.TokenVersion` using record replacement (detach + updated copy) to invalidate all outstanding access tokens immediately (existing bearer validation rejects older version). Both endpoints clear the refresh cookie (expires in past) when present and return 204 on success; operations are idempotent (already revoked/missing treated as success). Structured logs emit `auth.logout.single user=<id> tokenFound=<bool>` and `auth.logout.all user=<id> revokedCount=<n>`.
   - Files changed
     - `apps/api/App/Endpoints/V1.cs` — Added logout + logout/all handlers; added `missing_refresh` error path; adjusted JSON body parsing to distinguish between “no body” and “body present but missing field”. Hardened claim extraction (fallback to `ClaimTypes.NameIdentifier`).
+      2025-09-23 — Auth/JWT / RDH: Story 6 Dev Header Decommission Documentation & Finalization — ✅ DONE
+
+  - Summary
+    - Completed documentation and cleanup phase of Dev Header Decommission (RDH). Added Upgrade Guide section 11.1 (migration/adaptation steps, rollback tag) and removed remaining dev header references from `apps/api/README.md`, `apps/web/README.md`, and `apps/api.tests/AgentTasks/README.md`. Updated sprint plan (`rdhSprintPlan.md`) to reflect completed LivingChecklist tick and README replacements; adjusted Story 6 checklist marking pending only story log (this entry), final grep sweep, and tag creation (tag to follow this commit: `dev-headers-removed`). LivingChecklist updated to mark dev header removal complete; architecture snapshot already reflected single-path JWT model (no wording changes needed). Ensures repos now have zero functional reliance on dev headers with only intentional historical references preserved in sprint plan and story log.
+  - Rationale
+    - Finalizes the decommission by eradicating stale operational guidance that could mislead contributors into using removed shortcuts, increases confidence in single-path auth assumptions, and provides an explicit adaptation guide for any external scripts or local workflows still expecting header-based impersonation. Establishes a permanent rollback boundary (`before-dev-header-removal`) and a forward-looking guard (grep script + negative-path tests) to prevent regression.
+  - Quality Gates
+    - Grep (pre-commit) shows no occurrences of `x-dev-user` or `AUTH__ALLOW_DEV_HEADERS` outside documented historical plan/story log allowlist. All existing tests previously green (239 passed / 1 skipped API + 1 HTTPS E2E). No code changes beyond docs; risk isolated to documentation clarity. Upgrade Guide section added without altering prior numbering except adding 11.1 subsection.
+  - Rollback
+    - Short-term rollback: checkout tag `before-dev-header-removal` (restores handler, composite scheme). Long-term rollback discouraged; adaptation guide favors real JWT flows. Post-tag creation `dev-headers-removed` will serve as forward reference for audits.
+  - Follow-ups
+    - Create annotated tag `dev-headers-removed` after merging this commit.
+    - Optionally prune one redundant negative-path test file after a stability window.
+    - Future: consider Roslyn analyzer to disallow introducing new custom auth handlers referencing dev headers.
+  - References
+    - `devInfo/jwtRefactor/rdhSprintPlan.md` (Story 6 section)
+    - `docs/auth-upgrade.md` (Section 11.1)
+    - `scripts/dev-header-guard.sh`
+    - `SnapshotArchitecture.md` (Auth & Flags sections)
+
     - `apps/api/Application/Services/RefreshTokenService.cs` (prior commit) — Added `RevokeAllForUserAsync` used by logout-all.
     - `apps/api.tests/Auth/LogoutTests.cs` — New integration tests: single logout reuse, global logout TokenVersion invalidation, missing refresh token 400, idempotent second logout, diagnostic pre-logout access.
     - `SnapshotArchitecture.md` — Updated What’s New (Story 7 marked complete with details).
     - `devInfo/LivingChecklist.md` — (Pending) Will tick Story 7 line on next checklist update.
+
   - Quality gates
     - All `LogoutTests` passing (5/5). TokenVersion bump verified by 401 on /api/me with old access token post logout-all. No regressions in existing refresh or login tests (spot run subset; full suite unchanged functionally).
   - Rationale

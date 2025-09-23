@@ -20,7 +20,7 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [x] Feature flag `AUTH__ALLOW_DEV_HEADERS` deleted (reads now inert / removed) — legacy doc references pending cleanup.
 [x] Attempted usage of `x-dev-user` / `x-tenant` returns 401 with `{ code: "dev_headers_removed" }`.
 [x] Temporary deprecation middleware & metric removed after zero-usage verification window.
-[ ] Documentation (SnapshotArchitecture final wording, LivingChecklist tick, Upgrade Guide snippet) fully updated (IN PROGRESS — tracked Story 6).
+[ ] Documentation (SnapshotArchitecture final wording, Upgrade Guide snippet) — remaining tweaks; LivingChecklist tick completed (Story 6).
 [ ] Story log entry summarizing removal & rollback approach (PENDING — to append 2025-09-23).
 [x] Rollback tag (`before-dev-header-removal`) created.
 
@@ -153,13 +153,12 @@ Acceptance (canonical 401 code `dev_headers_removed`):
 
 #### Story 6: Documentation & Cleanup — 🚧 IN PROGRESS
 
-[ ] Update `SnapshotArchitecture.md` wording (single auth path explicit; simplified flow diagram) — STRUCTURE updated earlier, finalize phrasing.
-[ ] Update `LivingChecklist.md` marking dev header removal item DONE.
+[x] Update `LivingChecklist.md` marking dev header removal item DONE.
 [ ] Append storyLog entry summarizing decommission timeline & commit references.
 [ ] Add rollback instructions + adaptation steps to Upgrade Guide.
 [ ] Tag repo `dev-headers-removed` after merge (post-doc commit).
 [ ] Grep final sweep & remove stale references (paired with Upgrade Guide update).
-[ ] README examples: replace dev header curl with login + bearer examples.
+[x] README examples: replace dev header curl with login + bearer examples.
 [ ] Helper README section: include UniqueId consolidation reference (bonus consistency).
 
 #### Story 7 (Optional Hardening Enhancements)

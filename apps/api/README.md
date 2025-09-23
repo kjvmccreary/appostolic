@@ -302,12 +302,9 @@ API responses
 
 - `GET /api/agent-tasks/{id}` returns totals and `estimatedCostUsd` (when pricing is enabled). The list endpoint includes `totalTokens` on each summary row.
 
-### Dev headers and trace context
+### Telemetry user/tenant context (post dev-headers removal)
 
-- Dev-only authentication uses headers:
-  - `x-dev-user: dev@example.com`
-  - `x-tenant: acme`
-- Tenant/user are carried in telemetry (Activity/log tags) during tool execution for observability. AgentTrace rows themselves only persist tool/model inputs/outputs and timing, not PII.
+User and tenant correlation now originate exclusively from validated JWT claims. For each authenticated request, middleware attaches user/tenant identifiers to the current Activity and structured logs. `AgentTrace` rows continue to persist only tool/model inputs/outputs and timing metadata (no raw PII). Any attempt to send deprecated dev headers (`x-dev-user`, `x-tenant`) is rejected early with `401 {"code":"dev_headers_removed"}` and nothing is recorded.
 
 ### See also
 

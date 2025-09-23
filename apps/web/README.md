@@ -8,18 +8,15 @@ This Next.js app includes a developer “Run Agent” panel at `/dev/agents` tha
 
 ## How the web panel talks to the API
 
-All calls are made server-side through App Router proxy routes under `app/api-proxy/*` to avoid CORS and to attach development headers automatically:
+All calls are made server-side through App Router handlers under `app/api-proxy/*` (avoids CORS and keeps credentials server‑only). Development headers were removed; the proxy now forwards a real Bearer JWT derived from the authenticated session. During local development the login page obtains a neutral access + refresh cookie; tenant selection upgrades to a tenant-scoped access token which the proxy attaches as `Authorization: Bearer <token>`.
 
-- `GET /api-proxy/dev/agents` → lists seeded agents
-- `POST /api-proxy/agent-tasks` → creates a new task
-- `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → fetches task details + traces
+Routes:
 
-These proxy routes forward requests to the API base URL and inject required dev headers so the API authenticates the request in Development:
+- `GET /api-proxy/dev/agents` → lists seeded agents (Bearer auth)
+- `POST /api-proxy/agent-tasks` → creates a new task (Bearer auth)
+- `GET /api-proxy/agent-tasks/{id}?includeTraces=true` → fetches task details + traces (Bearer auth)
 
-- `x-dev-user: ${DEV_USER}`
-- `x-tenant: ${DEV_TENANT}`
-
-The values come from server-only env vars, validated at startup in `src/lib/serverEnv.ts`.
+If a request is made without a valid access token the proxy returns 401 and the client triggers a silent refresh (if a valid refresh cookie exists) or redirects to login.
 
 ## Required environment variables
 
@@ -29,15 +26,13 @@ Create `apps/web/.env.local` with:
 # Where the API is listening
 NEXT_PUBLIC_API_BASE=http://localhost:5198
 
-# Dev header auth (used by server proxy routes only)
-DEV_USER=kevin@example.com
-DEV_TENANT=kevin-personal
+# (Optional) logging / feature flags can go here
 ```
 
 Notes:
 
 - After editing `.env.local`, restart the Next.js dev server.
-- These values are read by the server proxy route handlers and are not exposed to the browser.
+- No user/tenant dev header env vars are required; authentication flows mirror production (login + refresh cookie + Bearer token).
 
 ## End-to-end flow
 
@@ -79,7 +74,7 @@ TODO: Add screenshots of:
 ## Troubleshooting
 
 - If `/dev/agents` fails to load agents, verify `.env.local` and that the API is running.
-- If task creation returns 401/403, double-check `DEV_USER` and `DEV_TENANT` match seeded dev values on the API.
+- If task creation returns 401/403, ensure your session is valid (try logging out/in) and tenant selection completed.
 - If polling never reaches a terminal state, check the API Worker logs; the ResearchAgent may hit MaxSteps (this is acceptable in dev and still validates the pipeline).
 
 ## End-to-end (Playwright) smoke test

@@ -10,10 +10,8 @@ This folder contains deterministic integration tests for the AgentTasks API. Tes
 
 ## Test environment
 
-- Environment: Development (ensures dev-only endpoints and worker run)
-- Auth: Dev header auth is simulated; the factory seeds a dev user/tenant/membership and adds default headers
-  - `x-dev-user: dev@example.com`
-  - `x-tenant: acme`
+- Environment: Development (ensures background worker runs)
+- Auth: Tests obtain JWT access tokens via helpers (`AuthTestClientFlow.LoginAndSelectTenantAsync`) which perform real login + tenant selection against in-memory seeded credentials. Legacy dev headers were removed; any attempt to send them results in 401 `{ code: "dev_headers_removed" }`.
 - Data provider: EF Core InMemory (fast and process-local)
 
 ## Determinism helpers (Development-only)
