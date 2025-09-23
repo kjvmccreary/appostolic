@@ -8,9 +8,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api", "apps\api\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api.Tests", "apps\api.tests\Appostolic.Api.Tests.csproj", "{AFB9B80A-6806-45A3-AD92-87D80A5A771E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api.E2E", "apps/api.e2e/Appostolic.Api.E2E.csproj", "{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Api.E2E", "apps\api.e2e\Appostolic.Api.E2E.csproj", "{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Notifications.Worker", "apps/notifications-worker/Appostolic.Notifications.Worker.csproj", "{7E2E7B7C-5F79-4B1F-9AA3-09D2D7D9E4B9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.Notifications.Worker", "apps\notifications-worker\Appostolic.Notifications.Worker.csproj", "{7E2E7B7C-5F79-4B1F-9AA3-09D2D7D9E4B9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "packages", "packages", "{76B4ADB5-6A99-4ABB-A34B-5096EFFF19DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.DevHeadersAnalyzer", "packages\devheaders-analyzer\Appostolic.DevHeadersAnalyzer.csproj", "{3493E399-B746-430C-BE12-602ED28DF22E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostolic.DevHeadersAnalyzer.Tests", "packages\devheaders-analyzer.tests\Appostolic.DevHeadersAnalyzer.Tests.csproj", "{6AC48DBA-2137-4F87-B5FA-B5C88244C505}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,6 +36,14 @@ Global
 		{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3493E399-B746-430C-BE12-602ED28DF22E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3493E399-B746-430C-BE12-602ED28DF22E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3493E399-B746-430C-BE12-602ED28DF22E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3493E399-B746-430C-BE12-602ED28DF22E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AC48DBA-2137-4F87-B5FA-B5C88244C505}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AC48DBA-2137-4F87-B5FA-B5C88244C505}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AC48DBA-2137-4F87-B5FA-B5C88244C505}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AC48DBA-2137-4F87-B5FA-B5C88244C505}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -38,6 +52,8 @@ Global
 		{C18CC7D7-9255-BF7C-9A8B-4DEE89CC1065} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
 		{AFB9B80A-6806-45A3-AD92-87D80A5A771E} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
 		{7B2D74B9-5C5C-4145-AF10-9C2A7C7A6F11} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
+		{3493E399-B746-430C-BE12-602ED28DF22E} = {76B4ADB5-6A99-4ABB-A34B-5096EFFF19DD}
+		{6AC48DBA-2137-4F87-B5FA-B5C88244C505} = {76B4ADB5-6A99-4ABB-A34B-5096EFFF19DD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DFFAB466-9588-4392-8EB0-D9FE5D2952B0}
