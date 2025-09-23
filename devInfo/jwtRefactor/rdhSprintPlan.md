@@ -20,8 +20,8 @@ Move the platform to a single, uniform authentication & authorization mechanism 
 [x] Feature flag `AUTH__ALLOW_DEV_HEADERS` deleted (reads now inert / removed) — legacy doc references pending cleanup.
 [x] Attempted usage of `x-dev-user` / `x-tenant` returns 401 with `{ code: "dev_headers_removed" }`.
 [x] Temporary deprecation middleware & metric removed after zero-usage verification window.
-[ ] Documentation (SnapshotArchitecture final wording, Upgrade Guide snippet) — remaining tweaks; LivingChecklist tick completed (Story 6).
-[ ] Story log entry summarizing removal & rollback approach (PENDING — to append 2025-09-23).
+[x] Documentation (SnapshotArchitecture final wording, Upgrade Guide snippet) — completed and aligned with final removal.
+[x] Story log entry summarizing removal & rollback approach (appended 2025-09-23).
 [x] Rollback tag (`before-dev-header-removal`) created.
 
 ### Architectural Context (Delta)
@@ -136,28 +136,28 @@ Acceptance (canonical 401 code `dev_headers_removed`):
 [x] Replace deprecation middleware with minimal rejection (no metric, no flag) — permanent guard retained temporarily.
 [x] Remove obsolete metric & flag artifacts (`auth.dev_headers.deprecated_requests`).
 [x] Remove obsolete helpers/comments (handler file deleted, scheme block excised).
-[ ] Update SnapshotArchitecture security/auth sections (IN PROGRESS — wording tweak outstanding; structural update done).
-[ ] Grep validation & adjust any lingering doc references (IN PROGRESS — final sweep after Upgrade Guide addition).
+[x] Update SnapshotArchitecture security/auth sections (final wording committed).
+[x] Grep validation & adjust any lingering doc references (final sweep completed before tagging).
 [x] Create rollback tag `before-dev-header-removal` immediately prior to merge (COMPLETED 2025-09-22).
 [x] Run full build & test matrix (API + E2E) & log counts (Completed 2025-09-23; web unaffected).
-[ ] Update LivingChecklist (PENDING — to mark dev header removal complete).
-[ ] Append story log entry (PENDING — will include commit hash fed61a6 & rollback steps).
+[x] Update LivingChecklist (marked dev header removal complete).
+[x] Append story log entry (includes rollback tag & summary).
 [ ] (Optional) Evaluate retiring one of the two negative-path test files post‑stabilization.
 
 #### Story 5: Observability & Regression Guards — ✅ DONE (Residual optional smoke test evaluation)
 
 [x] Add a lint/CI script to fail build if patterns `x-dev-user` or `DevHeaderAuthHandler` appear (excluding historical docs folder). (ENFORCING guard updated 2025-09-22; includes patterns: headers, handler, scheme id, flag, legacy helper.)
 [x] Confirm negative-path integration tests verify 401 `dev_headers_removed` (existing `DevHeadersRemovedTests`). (Separate lightweight smoke deemed unnecessary.)
-[ ] Add documentation snippet to Upgrade Guide: “Dev headers removed — how to adapt” (post-removal adaptation guidance snippet pending).
+[x] Add documentation snippet to Upgrade Guide: “Dev headers removed — how to adapt” (Section 11.1 added).
 [x] Remove temporary metric (`auth.dev_headers.deprecated_requests`) once stable (handled in Story 4 removal commit).
 
-#### Story 6: Documentation & Cleanup — 🚧 IN PROGRESS
+#### Story 6: Documentation & Cleanup — ✅ DONE
 
 [x] Update `LivingChecklist.md` marking dev header removal item DONE.
-[ ] Append storyLog entry summarizing decommission timeline & commit references.
-[ ] Add rollback instructions + adaptation steps to Upgrade Guide.
-[ ] Tag repo `dev-headers-removed` after merge (post-doc commit).
-[ ] Grep final sweep & remove stale references (paired with Upgrade Guide update).
+[x] Append storyLog entry summarizing decommission timeline & commit references.
+[x] Add rollback instructions + adaptation steps to Upgrade Guide.
+[x] Tag repo `dev-headers-removed` (post-doc commit pushed).
+[x] Grep final sweep & remove stale references (paired with Upgrade Guide update).
 [x] README examples: replace dev header curl with login + bearer examples.
 [ ] Helper README section: include UniqueId consolidation reference (bonus consistency).
 
@@ -173,34 +173,34 @@ Purpose: Ensures decommission intent persists after merge; any reintroduction of
 Static / CI Guards
 
 - [x] CI/grep (lint script) fails build on forbidden patterns: `x-dev-user`, `x-tenant`, `DevHeaderAuthHandler`, `BearerOrDev` (allowlist applied for docs / historical plan).
-- [ ] Optional Roslyn analyzer (future) to flag auth header based identity injection
+- [x] Roslyn analyzer RDH0001 enforcing dev header artifact prohibition (project + test harness)
 
 Runtime / Integration Guards
 
 - [x] Test: sending `x-dev-user` header returns 401 `{ code: "dev_headers_removed" }`
 - [x] Test: enumerate registered auth schemes and assert none match `Dev` / `BearerOrDev`
-- [ ] Test: multi-tenant login returns memberships WITHOUT auto tenant token
-- [ ] Test: select-tenant rotates refresh (old neutral revoked)
-- [ ] Test: superadmin allowlist (config) injects claim; non-allowlisted user lacks claim
-- [ ] Test: negative resend / notifications cross-tenant forbidden for non-superadmin user (ensures no silent elevation)
+- [x] Test: multi-tenant login returns memberships WITHOUT auto tenant token (LoginMultiTenantTests.Login_MultiMembership_NoAutoSelection_NoTenantToken)
+- [x] Test: select-tenant rotates refresh (old neutral revoked) (LoginMultiTenantTests.Login_MultiMembership_SelectTenant_RotatesAndRevokesOldRefresh)
+- [ ] Test: superadmin allowlist (config) injects claim; non-allowlisted user lacks claim (covered indirectly by cross-tenant notification filtering; explicit claim assertion deferred to backlog)
+- [x] Test: negative resend / notifications cross-tenant forbidden for non-superadmin user (NotificationsProdEndpointsTests.Tenant_owner_can_resend_within_tenant_and_is_forbidden_cross_tenant)
 
 Helper / API Surface Guards
 
 - [x] No usages of removed helpers: `UseTenantAsync`, `UseSuperAdminAsync` (grep enforced & guard test)
-- [ ] (If mint endpoint retained temporarily) Test ensures it cannot set superadmin when email not in allowlist
-- [ ] Plan to remove mint endpoint (tracked follow-up) or convert to internal-only if still needed
+- [ ] (If mint endpoint retained) Test ensures it cannot set superadmin when email not in allowlist (backlog)
+- [ ] Plan to remove or internalize mint endpoint (/api/test/mint-tenant-token) (backlog)
 
 Documentation & Traceability
 
-- [ ] `SnapshotArchitecture.md` final wording updated: single auth path, removed handler section
-- [ ] `LivingChecklist.md` item checked with link to removal PR
-- [ ] Upgrade Guide section: "Dev headers removed – migration steps"
-- [ ] Story log final entry summarizing decommission & rollback tag
+- [x] `SnapshotArchitecture.md` final wording updated: single auth path, removed handler section
+- [x] `LivingChecklist.md` item checked with link to removal PR/tag
+- [x] Upgrade Guide section: "Dev headers removed – migration steps"
+- [x] Story log final entry summarizing decommission & rollback tag
 - [x] Tag `before-dev-header-removal` created & referenced (pending doc link)
 
 Observability (Optional)
 
-- [ ] Temporary metric (`auth.dev_headers.deprecated_requests`) removed OR dashboard shows sustained zero beyond grace window
+- [x] Temporary metric (`auth.dev_headers.deprecated_requests`) removed
 - [ ] Optional alert on spike of denied dev header attempts (post-removal)
 
 Security / Hardening (Optional Enhancements)
@@ -210,7 +210,7 @@ Security / Hardening (Optional Enhancements)
 
 Exit Validation
 
-- [ ] Full test matrix green after removal commit
+- [x] Full test matrix green after removal commit
 - [ ] CI guard proves effective by intentionally injecting a forbidden token in a dry-run branch (manual validation)
 - [ ] Rollback instructions verified (checkout tag builds/tests green)
 
