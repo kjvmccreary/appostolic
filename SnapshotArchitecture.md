@@ -58,7 +58,7 @@ Core Flows:
 1. Login (`/api/auth/login`) → returns neutral access + refresh (cookie) + memberships list; auto-issues tenant token only if exactly one membership.
 2. Select Tenant (`/api/auth/select-tenant`) → exchanges neutral refresh for new rotated refresh + tenant-scoped access token.
 3. Refresh (`/api/auth/refresh`) → rotates refresh, returns new neutral access (optionally tenant token if query `tenant=` supplied`). During rotation the old refresh token row has `LastUsedAt`stamped (if null) just before its`RevokedAt` is set, preserving historical usage while excluding it from active session enumeration.
-4. Logout single (`/api/auth/logout`) → revoke specific refresh (cookie or provided); logout all (`/api/auth/logout/all`) → revoke all + increment `TokenVersion`.
+4. Logout single (`/api/auth/logout`) → revoke specific refresh (cookie or provided); logout all (`/api/auth/logout/all`) → revoke all + increment `TokenVersion`; forced logout admin endpoints (`/api/admin/users/{id}/logout-all`, `/api/admin/tenants/{id}/logout-all`) allow privileged remote revocation + token version bump (flag: `AUTH__FORCED_LOGOUT__ENABLED`).
 5. Session enumeration (`/api/auth/sessions`) → lists up to 50 active (non‑revoked, unexpired) neutral refresh tokens for the authenticated user including: `id, createdAt, lastUsedAt, expiresAt, fingerprint, current`. `current` is determined by hashing the inbound `rt` cookie value and comparing to stored `TokenHash`.
 6. Per‑session revoke (`/api/auth/sessions/{id}/revoke`) → idempotent revoke of a single active refresh token; emits security event `session_revoked_single` on first revoke.
 
@@ -156,7 +156,7 @@ Outcome: Faster, stable tests (API: ~240 tests total; majority deterministic) wi
 OpenTelemetry instrumentation (configurable exporter endpoint):
 
 - Traces: ASP.NET Core, HttpClient, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`, `Appostolic.Auth`).
-- Metrics: Auth counters (login success/failure, refresh success/failure, rotation, reuse denied, logout single/all, plaintext emission/suppression TEMP), histograms for login/refresh latency, refresh limiter evaluation histogram, key rotation counters (`auth.jwt.key_rotation.tokens_signed{kid}`, `auth.jwt.key_rotation.validation_failure{phase}`), session metrics (`auth.session.enumeration.requests{outcome=success|disabled}`, `auth.session.revoke.requests{outcome}`), security events (`auth.security.events_emitted{type}`), tracing enrichment (`auth.trace.enriched_spans{span_kind,outcome}`).
+- Metrics: Auth counters (login success/failure, refresh success/failure, rotation, reuse denied, logout single/all, admin forced logout requests/sessions revoked, plaintext emission/suppression TEMP), histograms for login/refresh latency, refresh limiter evaluation histogram, key rotation counters (`auth.jwt.key_rotation.tokens_signed{kid}`, `auth.jwt.key_rotation.validation_failure{phase}`), session metrics (`auth.session.enumeration.requests{outcome=success|disabled}`, `auth.session.revoke.requests{outcome}`), security events (`auth.security.events_emitted{type}`), tracing enrichment (`auth.trace.enriched_spans{span_kind,outcome}`).
 - Logs: Structured console (dev), OTLP exporter if configured.
 
 Future (not yet baseline): Span enrichment (user/tenant anonymized dimensions), dashboards, anomaly detection.
@@ -203,6 +203,7 @@ Examples (ENV or config):
 - `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` (bool; transitional, default false)
 - `AUTH__REFRESH_JSON_GRACE_ENABLED` (bool; allows JSON body refresh fallback during migration)
 - `Auth:SuperAdminEmails` (comma-separated superadmin allowlist)
+- `AUTH__FORCED_LOGOUT__ENABLED` (bool; enables admin / tenant forced logout endpoints)
 - `Storage:Mode` (local | s3)
 - `E2E_INMEM_DB` (bool; enable EF InMemory for certain E2E runs)
 
@@ -267,7 +268,7 @@ Otherwise prefer updating `devInfo/storyLog.md` and sprint plan documents.
 
 ### 17. Quick Reference (Cheat Sheet)
 
-Auth Endpoints: `/api/auth/login`, `/api/auth/refresh`, `/api/auth/select-tenant`, `/api/auth/logout`, `/api/auth/logout/all`, `/api/auth/sessions`, `/api/auth/sessions/{id}/revoke`
+Auth Endpoints: `/api/auth/login`, `/api/auth/refresh`, `/api/auth/select-tenant`, `/api/auth/logout`, `/api/auth/logout/all`, `/api/auth/sessions`, `/api/auth/sessions/{id}/revoke`, `/api/admin/users/{id}/logout-all`, `/api/admin/tenants/{id}/logout-all`
 Token Claims (neutral): `sub`, `v` (token version)
 Token Claims (tenant): `sub`, `v`, `tenant_id`, `tenant_slug`, `roles` flags (numeric or baked logic server-side)
 Error Codes (examples): `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `missing_refresh`, `token_version_mismatch`, `dev_headers_removed`

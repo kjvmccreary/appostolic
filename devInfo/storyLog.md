@@ -1,4 +1,39 @@
-### 2025-09-23 - Story: Grafana Dashboards & Alert Rules (Story 7) Kickoff — 🚧 IN PROGRESS
+### 2025-09-23 - Story: Admin Forced Logout & Tenant Bulk Invalidate (Story 9) — ✅ DONE
+
+Summary
+
+- Implemented forced logout administrative endpoints: `POST /api/admin/users/{id}/logout-all` (platform superadmin scope) and `POST /api/admin/tenants/{id}/logout-all` (tenant admin of target tenant or platform superadmin). Both revoke all active neutral refresh tokens and bump affected user TokenVersion(s) to invalidate outstanding access tokens.
+- Added feature flag `AUTH__FORCED_LOGOUT__ENABLED` gating endpoint registration for rapid disable if regression discovered.
+- Instrumented metrics: `auth.admin.forced_logout.requests{scope=user|tenant,outcome}` and `auth.admin.forced_logout.sessions_revoked{scope}` for observability of incident response operations and blast radius. Integrated into existing OpenTelemetry meter.
+- Extended structured security event vocabulary with `forced_logout_user` and `forced_logout_tenant` (bounded `reason=admin_forced`), emitted on successful operations. Events flow through existing `Security.Auth` logger with metrics increment.
+- Added platform superadmin allowlist config (`PLATFORM__SUPER_ADMINS`) leveraged in tests; updated `WebAppFactory` to enable forced logout flag and set default superadmin seed for deterministic elevation.
+- Created integration tests covering forbidden user-level forced logout without admin rights, tenant scope forbidden for non-member, and success path for platform admin (augmenting allowlist at factory clone). Included baseline assertions on HTTP status and response payload structure (revoked count & tokenVersion bump).
+
+Rationale
+
+- Provides immediate incident containment tool for compromised credentials or suspected session token leakage (targeted account) and broader containment for tenant-wide compromise scenarios (e.g., credential stuffing cluster, insider threat). TokenVersion bump ensures rapid invalidation of extant access tokens without requiring per-token blacklist.
+
+Files Changed / Added
+
+- `apps/api/App/Endpoints/V1.cs` — added forced logout endpoints (flag gated), revocation + TokenVersion bump logic, metrics & security events emission.
+- `apps/api/Application/Auth/AuthMetrics.cs` — added forced logout counters + helpers.
+- `apps/api/Application/Auth/SecurityEvents.cs` — extended allowed event types.
+- `apps/api/Program.cs` — feature flag read.
+- `apps/api.tests/WebAppFactory.cs` — enabled flag & platform superadmin config for tests.
+- `apps/api.tests/Auth/ForcedLogoutTests.cs` — new integration tests.
+- `SnapshotArchitecture.md` — updated session model, metrics, flags, endpoint list.
+- `devInfo/LivingChecklist.md` — added checklist entry (Story 9b) marked done.
+
+Quality Gates
+
+- All modified code compiles cleanly; forced logout tests pass alongside existing auth suite (incremental run locally prior to commit). Metrics and security events follow naming taxonomy. No schema changes required.
+
+Follow-ups / Deferred
+
+- Additional metrics assertion tests (tag correctness) and security event capture validation for tenant scope could be added (low risk enhancement).
+- Documentation of incident response runbook (revocation procedure & dashboard correlation) to be expanded in observability / ops docs (future minor docs pass).
+
+---
 
 Summary
 

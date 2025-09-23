@@ -55,6 +55,7 @@ How to use
 - [x] JWT Story 10: Documentation & Upgrade Guide (auth-upgrade guide, diagram, architecture updates) (2025-09-22)
 - [x] JWT Story 11: Cleanup & legacy artifact pruning (comments, unused helpers, transitional flag documentation, tag) (2025-09-22)
 - [x] JWT Story 8b: Session enumeration & per-session revoke (endpoints + schema, fingerprint + last_used_at, tests, metrics, security event) (2025-09-23)
+- [x] JWT Story 9b: Admin forced user & tenant bulk logout endpoints (metrics, security events, tests) (2025-09-23)
 - [x] Dev Header Decommission (RDH) Story 2: Test migrations complete (all suites on real auth flows; helper removed; guard enforcing).
 - [x] Dev Header Decommission (RDH) Story 3: Deprecation middleware active (`dev_headers_deprecated` 401 + metric) and documentation updated (snapshot lean rewrite 2025-09-22).
 - [x] Dev Header Decommission (RDH) Story 4: Physical removal (handler, composite scheme, flag) — final 401 `dev_headers_removed`; metric & flag removed; rollback tag pending creation before merge.
