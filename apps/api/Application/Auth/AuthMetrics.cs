@@ -110,6 +110,19 @@ public static class AuthMetrics
         description: "Latency of refresh rate limiter evaluation (single evaluation). outcome=hit|block|dryrun_block" 
     );
 
+    // Story 4 (Key Rotation): Per-key signing visibility & validation probe failures.
+    public static readonly Counter<long> KeyRotationTokensSigned = Meter.CreateCounter<long>(
+        name: "auth.jwt.key_rotation.tokens_signed",
+        unit: "{token}",
+        description: "Count of access tokens signed by a given active signing key. Tag: kid=<key id>"
+    );
+
+    public static readonly Counter<long> KeyRotationValidationFailure = Meter.CreateCounter<long>(
+        name: "auth.jwt.key_rotation.validation_failure",
+        unit: "{event}",
+        description: "Count of failures during multi-key verification health probe. Tag: phase=issue|validate" 
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -247,6 +260,24 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "outcome", outcome } };
         RefreshLimiterEvaluationMs.Record(ms, tags);
+    }
+
+    /// <summary>
+    /// Record that a token was signed by the current active key (kid).
+    /// </summary>
+    public static void IncrementKeyRotationTokenSigned(string keyId)
+    {
+        var tags = new System.Diagnostics.TagList { { "kid", keyId } };
+        KeyRotationTokensSigned.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a failure in the VerifyAllSigningKeys probe. phase: issue | validate.
+    /// </summary>
+    public static void IncrementKeyRotationValidationFailure(string phase)
+    {
+        var tags = new System.Diagnostics.TagList { { "phase", phase } };
+        KeyRotationValidationFailure.Add(1, tags);
     }
 
 }

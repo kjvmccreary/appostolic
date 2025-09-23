@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Appostolic.Api.Application.Auth; // Metrics instrumentation
 
 namespace Appostolic.Api.Infrastructure.Auth.Jwt;
 
@@ -105,6 +106,8 @@ public class JwtTokenService : IJwtTokenService
         header[JwtHeaderParameterNames.Kid] = _activeKeyId;
         var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
         var token = new JwtSecurityToken(header, payload);
+        // Story 4 metrics: record active key usage.
+        AuthMetrics.IncrementKeyRotationTokenSigned(_activeKeyId);
         return _handler.WriteToken(token);
     }
 
@@ -163,6 +166,8 @@ public class JwtTokenService : IJwtTokenService
         header[JwtHeaderParameterNames.Kid] = _activeKeyId;
         var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
         var token = new JwtSecurityToken(header, payload);
+        // Story 4 metrics: record active key usage.
+        AuthMetrics.IncrementKeyRotationTokenSigned(_activeKeyId);
         return _handler.WriteToken(token);
     }
 
@@ -170,15 +175,39 @@ public class JwtTokenService : IJwtTokenService
 
     public bool VerifyAllSigningKeys()
     {
+        // Story 4: Avoid inflating key usage metrics with probe token; construct manually & validate.
+        string? probeToken;
         try
         {
-            var testToken = IssueNeutralToken("health_probe", 0, null, Array.Empty<Claim>());
+            var now = DateTime.UtcNow;
+            var claims = new List<Claim>
+            {
+                new(JwtRegisteredClaimNames.Sub, "health_probe"),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new(JwtRegisteredClaimNames.Iat, Epoch(now).ToString(), ClaimValueTypes.Integer64),
+                new("v", "0")
+            };
+            var header = new JwtHeader(_signingCreds);
+            header[JwtHeaderParameterNames.Kid] = _activeKeyId;
+            var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(5));
+            var token = new JwtSecurityToken(header, payload);
+            probeToken = _handler.WriteToken(token);
+        }
+        catch
+        {
+            AuthMetrics.IncrementKeyRotationValidationFailure("issue");
+            return false;
+        }
+
+        try
+        {
             var parameters = CreateValidationParameters();
-            _handler.ValidateToken(testToken, parameters, out _);
+            _handler.ValidateToken(probeToken, parameters, out _);
             return true;
         }
         catch
         {
+            AuthMetrics.IncrementKeyRotationValidationFailure("validate");
             return false;
         }
     }
