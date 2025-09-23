@@ -103,6 +103,13 @@ public static class AuthMetrics
         description: "End-to-end duration for refresh requests (from endpoint entry to response)." 
     );
 
+    // Story 3: Limiter evaluation latency (single evaluation per request after refactor). Outcome tag: hit (under), block, dryrun_block (would block but dry-run).
+    public static readonly Histogram<double> RefreshLimiterEvaluationMs = Meter.CreateHistogram<double>(
+        name: "auth.refresh.limiter.evaluation_ms",
+        unit: "ms",
+        description: "Latency of refresh rate limiter evaluation (single evaluation). outcome=hit|block|dryrun_block" 
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -231,6 +238,15 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "outcome", success ? "success" : "failure" } };
         RefreshDurationMs.Record(ms, tags);
+    }
+
+    /// <summary>
+    /// Record the latency of a refresh limiter evaluation with outcome tag (hit|block|dryrun_block).
+    /// </summary>
+    public static void RecordRefreshLimiterEvaluation(double ms, string outcome)
+    {
+        var tags = new System.Diagnostics.TagList { { "outcome", outcome } };
+        RefreshLimiterEvaluationMs.Record(ms, tags);
     }
 
 }

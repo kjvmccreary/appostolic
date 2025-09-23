@@ -162,6 +162,16 @@ builder.Services.AddOptions<AuthJwtOptions>()
     });
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+// Story 3: Refresh rate limiting options (memory implementation)
+builder.Services.AddOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions>()
+    .Configure(o =>
+    {
+        var cfg = builder.Configuration;
+        if (int.TryParse(cfg["AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS"], out var w)) o.WindowSeconds = w;
+        if (int.TryParse(cfg["AUTH__REFRESH_RATE_LIMIT_MAX"], out var m)) o.Max = m;
+        if (bool.TryParse(cfg["AUTH__REFRESH_RATE_LIMIT_DRY_RUN"], out var dr)) o.DryRun = dr;
+    });
+builder.Services.AddSingleton<Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter, Appostolic.Api.Infrastructure.Auth.Refresh.InMemoryRefreshRateLimiter>();
 
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
 

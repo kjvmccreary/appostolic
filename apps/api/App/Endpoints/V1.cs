@@ -733,27 +733,19 @@ public static class V1
         // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
         // Returns: { user, memberships, access, refresh, tenantToken? }
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
-        apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc) =>
+        apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts) =>
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string? failureReason = null;
             var now = DateTime.UtcNow;
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
-            // Optional lightweight rate limiting (in-memory) - Story 9 scaffold
-            var rateLimitEnabled = config.GetValue<bool>("AUTH__RATE_LIMIT_REFRESH_ENABLED", false);
-            if (rateLimitEnabled)
-            {
-                var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                if (RefreshRateLimiter.ShouldLimit(ip))
-                {
-                    failureReason = "rate_limited";
-                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
-                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
-                    sw.Stop();
-                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
-                    return Results.StatusCode(StatusCodes.Status429TooManyRequests);
-                }
-            }
+            // Story 3 (refined): Perform rate limit evaluation only AFTER we know the userId (when possible)
+            // to avoid double counting (previous implementation evaluated twice per request which complicated
+            // threshold reasoning in tests & ops). We defer evaluation until after refresh token lookup.
+            // For invalid / missing tokens we will still evaluate ip-only just before returning 401 so abuse
+            // (spraying invalid tokens) is still limited.
+            var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            Appostolic.Api.Infrastructure.Auth.Refresh.RateLimitEvaluation evaluation; // populated later (ip-only or user+ip)
             var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
             var deprecationDate = config["AUTH__REFRESH_DEPRECATION_DATE"]; // RFC1123 date string optional
             string? bodyToken = null;
@@ -802,11 +794,34 @@ public static class V1
             var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && r.Purpose == "neutral");
             if (rt is null)
             {
+                // Evaluate limiter ip-only for invalid token paths (prevents unlimited invalid sprays)
+                evaluation = limiter.Evaluate(null, ip);
+                if (evaluation.IsLimited)
+                {
+                    failureReason = "refresh_rate_limited";
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                    sw.Stop();
+                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                    return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
+                }
                 failureReason = "refresh_invalid";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            // We have a valid refresh token, evaluate limiter with user dimension now.
+            evaluation = limiter.Evaluate(rt.UserId, ip);
+            if (evaluation.IsLimited)
+            {
+                failureReason = "refresh_rate_limited";
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
             }
             if (rt.RevokedAt.HasValue)
             {

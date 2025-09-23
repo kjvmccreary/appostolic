@@ -118,6 +118,16 @@ Acceptance:
 
 Implementation Note (Phase 1): Limiter will be in-memory per application instance (thread-safe structure) which is sufficient while a single API instance handles the majority of auth traffic. A follow-up (not in this sprint) may introduce a distributed backend (Redis) if horizontal scaling introduces bypass potential.
 
+Current Implementation Status (2025-09-23 - in progress):
+
+- Options class (`RefreshRateLimitOptions`) bound from env vars added.
+- In-memory sliding window limiter (`InMemoryRefreshRateLimiter`) implemented & registered (singleton).
+- Refresh endpoint now invokes limiter pre and post token lookup (IP-only then user+IP refinement) returning structured 429 `{ code: "refresh_rate_limited", retryAfterSeconds }`.
+- Metrics counters invoked using existing `AuthMetrics` placeholders (`IncrementRefreshRateLimited`, `IncrementRefreshFailure`).
+- Dry-run flag respected indirectly via limiter (blocks suppressed when `DryRun=true`; structured response only sent when not dry-run). Explicit dry-run metrics/event emission still pending.
+- Pending: Dedicated evaluation latency metric, dry-run path event emission, unit tests & integration flood tests, documentation for tuning & ops playbook section.
+- Next Step: Add tests under `apps/api.tests` covering threshold, boundary, window reset, dry-run no-block, per-user isolation; then add evaluation histogram metric and (if in scope) security event stub.
+
 Distributed (Redis) Upgrade Considerations (Deferred):
 
 - Use Redis fixed-window or sliding-window Lua script; include key structure: `rl:refresh:{userId}:{ip}`.
