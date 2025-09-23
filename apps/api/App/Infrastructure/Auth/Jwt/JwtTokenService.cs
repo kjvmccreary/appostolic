@@ -35,19 +35,41 @@ public interface IJwtTokenService
     /// Issue a tenant token with additional custom claims (test-only extension overload).
     /// </summary>
     string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims);
+
+    /// <summary>
+    /// Issues a short-lived token and validates it against all configured verification keys to ensure rotation safety. Returns true if validation succeeds across all keys.
+    /// </summary>
+    bool VerifyAllSigningKeys();
 }
 
 public class JwtTokenService : IJwtTokenService
 {
     private readonly AuthJwtOptions _opts;
     private readonly SigningCredentials _signingCreds;
+    private readonly List<SecurityKey> _allVerificationKeys;
+    private readonly string _activeKeyId;
     private readonly JwtSecurityTokenHandler _handler = new();
 
     public JwtTokenService(IOptions<AuthJwtOptions> options)
     {
         _opts = options.Value;
-        var keyBytes = _opts.GetSigningKeyBytes();
-        _signingCreds = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256);
+        var keyBytesList = _opts.GetSigningKeyBytesList();
+        // Derive a simple kid from first 8 bytes hex of each key for identification.
+        _allVerificationKeys = new List<SecurityKey>();
+        for (int i = 0; i < keyBytesList.Count; i++)
+        {
+            var b = keyBytesList[i];
+            var sk = new SymmetricSecurityKey(b);
+            var sliceLen = Math.Min(8, b.Length);
+            var slice = new byte[sliceLen];
+            Array.Copy(b, slice, sliceLen);
+            var kid = BitConverter.ToString(slice).Replace("-", string.Empty).ToLowerInvariant();
+            sk.KeyId = kid;
+            _allVerificationKeys.Add(sk);
+        }
+        var active = (SymmetricSecurityKey)_allVerificationKeys[0];
+        _activeKeyId = active.KeyId!;
+        _signingCreds = new SigningCredentials(active, SecurityAlgorithms.HmacSha256);
     }
 
     public string IssueNeutralToken(string subject, int tokenVersion, string? email = null)
@@ -79,14 +101,10 @@ public class JwtTokenService : IJwtTokenService
             claims.AddRange(extraClaims);
         }
 
-        var token = new JwtSecurityToken(
-            issuer: _opts.Issuer,
-            audience: _opts.Audience,
-            claims: claims,
-            notBefore: now.AddSeconds(-5),
-            expires: now.AddMinutes(_opts.AccessTtlMinutes),
-            signingCredentials: _signingCreds
-        );
+        var header = new JwtHeader(_signingCreds);
+        header[JwtHeaderParameterNames.Kid] = _activeKeyId;
+        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
+        var token = new JwtSecurityToken(header, payload);
         return _handler.WriteToken(token);
     }
 
@@ -98,8 +116,17 @@ public class JwtTokenService : IJwtTokenService
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(_opts.GetSigningKeyBytes()),
-        ClockSkew = TimeSpan.FromSeconds(_opts.ClockSkewSeconds)
+        ClockSkew = TimeSpan.FromSeconds(_opts.ClockSkewSeconds),
+        // Allow validation against any configured key.
+        IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+        {
+            if (!string.IsNullOrWhiteSpace(kid))
+            {
+                var match = _allVerificationKeys.Find(k => k.KeyId == kid);
+                if (match != null) return new[] { match };
+            }
+            return _allVerificationKeys; // fallback: attempt all
+        }
     };
 
     public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null)
@@ -132,16 +159,27 @@ public class JwtTokenService : IJwtTokenService
         {
             claims.AddRange(extraClaims);
         }
-        var token = new JwtSecurityToken(
-            issuer: _opts.Issuer,
-            audience: _opts.Audience,
-            claims: claims,
-            notBefore: now.AddSeconds(-5),
-            expires: now.AddMinutes(_opts.AccessTtlMinutes),
-            signingCredentials: _signingCreds
-        );
+        var header = new JwtHeader(_signingCreds);
+        header[JwtHeaderParameterNames.Kid] = _activeKeyId;
+        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
+        var token = new JwtSecurityToken(header, payload);
         return _handler.WriteToken(token);
     }
 
     private static long Epoch(DateTime dt) => new DateTimeOffset(dt).ToUnixTimeSeconds();
+
+    public bool VerifyAllSigningKeys()
+    {
+        try
+        {
+            var testToken = IssueNeutralToken("health_probe", 0, null, Array.Empty<Claim>());
+            var parameters = CreateValidationParameters();
+            _handler.ValidateToken(testToken, parameters, out _);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

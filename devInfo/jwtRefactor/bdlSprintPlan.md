@@ -116,6 +116,16 @@ Acceptance:
 - Docs: tuning guidance & ops playbook.
   Success Metrics: Rate limit block ratio <0.1% normal traffic; evaluation latency p95 <1ms.
 
+Implementation Note (Phase 1): Limiter will be in-memory per application instance (thread-safe structure) which is sufficient while a single API instance handles the majority of auth traffic. A follow-up (not in this sprint) may introduce a distributed backend (Redis) if horizontal scaling introduces bypass potential.
+
+Distributed (Redis) Upgrade Considerations (Deferred):
+
+- Use Redis fixed-window or sliding-window Lua script; include key structure: `rl:refresh:{userId}:{ip}`.
+- Add jitter to expiry to avoid thundering window resets.
+- Include `AUTH__REFRESH_RATE_LIMIT_MODE=memory|redis` for pluggability.
+- Metrics parity: same counters; add label `backend` (memory|redis) if introduced.
+- Migration path: deploy in shadow mode reading Redis config but not enforcing until metrics confirm alignment (<2% variance vs memory sampler in staging).
+
 ### Story 4: Dual-Key Signing Grace Window
 
 Goal: Allow seamless signing key rotation.
