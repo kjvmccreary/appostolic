@@ -1,0 +1,135 @@
+{
+  "id": null,
+  "uid": "auth-overview",
+  "title": "Auth Overview",
+  "tags": ["auth", "appostolic"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(up, job)",
+        "refresh": 1,
+        "current": { "text": "api", "value": "api", "selected": true },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Login Success % (5m)",
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 * sum(rate(auth_login_success{job=~\"$job\"}[5m])) / clamp_max(sum(rate(auth_login_success{job=~\"$job\"}[5m])) + sum(rate(auth_login_failure{job=~\"$job\"}[5m])), 1e9)",
+          "legendFormat": "success%"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Login Failures by Reason (rate/5m)",
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (reason)(rate(auth_login_failure{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Refresh Failures by Reason (rate/5m)",
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (reason)(rate(auth_refresh_failure{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Rate Limiter Outcomes (block vs dryrun)",
+      "id": 4,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (outcome)(rate(auth_refresh_limiter_evaluation_ms_count{job=~\"$job\",outcome!=\"hit\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "eval/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Security Events by Type (rate/5m)",
+      "id": 5,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (type)(rate(auth_security_events_emitted{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "events/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Key Rotation Tokens Signed (rate/5m)",
+      "id": 6,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (kid)(rate(auth_jwt_key_rotation_tokens_signed{job=~\"$job\"}[5m]))",
+          "legendFormat": "kid={{kid}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "tokens/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Login p95 Latency (ms)",
+      "id": 7,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(auth_login_duration_ms_bucket{job=~\"$job\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Refresh p95 Latency (ms)",
+      "id": 8,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(auth_refresh_duration_ms_bucket{job=~\"$job\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    }
+  ]
+}

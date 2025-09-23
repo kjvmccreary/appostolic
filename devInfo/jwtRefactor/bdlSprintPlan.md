@@ -10,13 +10,13 @@ Deliver a cohesive set of security & operability enhancements that strengthen ab
 
 ## In-Scope Stories
 
-Progress: 1 / 7 stories complete, 1 in progress.
+Progress: 4 / 7 stories complete. (Story 6 completed – dry-run meta + refresh_invalid added 2025-09-23)
 
 1. Story 3: Refresh Rate Limiting & Abuse Protection ✅ DONE (2025-09-23)
-2. Story 4: Dual-Key Signing Grace Window 🚧 IN PROGRESS
-3. Story 5: Tracing Span Enrichment (auth.\* attributes)
-4. Story 6: Structured Security Event Log
-5. Story 7: Grafana Dashboards & Alert Rules as Code
+2. Story 4: Dual-Key Signing Grace Window ✅ DONE (2025-09-23)
+3. Story 5: Tracing Span Enrichment (auth.\* attributes) ✅ DONE (2025-09-23)
+4. Story 6: Structured Security Event Log ✅ DONE (2025-09-23)
+5. Story 7: Grafana Dashboards & Alert Rules as Code 🚧 IN PROGRESS (2025-09-23)
 6. Story 8: Session Enumeration Backend
 7. Story 9: Admin Forced Logout & Bulk Tenant Invalidate
 
@@ -56,7 +56,7 @@ All metrics should include `service` resource attribute and rely on existing OTL
 
 Versioned JSON line: `{ "v": 1, "ts": ISO8601, "type": <event_type>, "user_id?": <guid>, "tenant_id?": <guid>, "ip?": <string>, "refresh_id?": <guid>, "reason?": <string>, "meta?": { ... } }`
 
-Event Types (initial): `login_failure`, `refresh_reuse`, `refresh_expired`, `refresh_rate_limited`, `logout_all_user`, `logout_all_tenant`, `session_revoked_single`.
+Event Types (initial + Phase 2 additions): `login_failure`, `refresh_reuse`, `refresh_expired`, `refresh_invalid`, `refresh_rate_limited`, `logout_all_user`, `logout_all_tenant`, `session_revoked_single`.
 
 Rules:
 
@@ -146,22 +146,49 @@ Distributed (Redis) Upgrade Considerations (Deferred):
 - Metrics parity: same counters; add label `backend` (memory|redis) if introduced.
 - Migration path: deploy in shadow mode reading Redis config but not enforcing until metrics confirm alignment (<2% variance vs memory sampler in staging).
 
-### Story 4: Dual-Key Signing Grace Window
+### Story 4: Dual-Key Signing Grace Window ✅ DONE (2025-09-23)
 
-Status: 🚧 IN PROGRESS (2025-09-23)
+Summary:
 
-Implementation Progress
+- Implemented ordered multi-key signing via `AUTH__JWT__SIGNING_KEYS` (first key signs; all keys verify) with backward compatibility for single-key config.
+- Deterministic `kid` (first 8 bytes hex) header added for observability & metrics labeling.
+- Metrics added: `auth.jwt.key_rotation.tokens_signed{kid}`, `auth.jwt.key_rotation.validation_failure{phase}`.
+- Internal health endpoint `/internal/health/jwt-keys` returns `{ active_key_id, configured_key_ids[], total_configured_keys, probe_result }`.
+- Tests: rotation lifecycle (A -> A,B -> B) (`DualKeySigningTests`), metrics counter increments (`KeyRotationMetricsTests`), endpoint shape (`JwtKeysHealthEndpointTests`). Negative-path failure simulation deferred (requires injectable probe seam) and documented.
+- Documentation: SnapshotArchitecture observability section updated; sprint plan & story log entry added; runbook (below) embedded.
 
-- [x] Multi-key configuration parsing (`AUTH__JWT__SIGNING_KEYS`) with backward compatibility
-- [x] Active signer = first key; all keys verify (IssuerSigningKeyResolver)
-- [x] `kid` header assigned (first 8 bytes hex) for observability
-- [x] Rotation integration tests (A -> A,B -> B) passing
-- [x] Health verification method `VerifyAllSigningKeys()` implemented (internal call)
-- [ ] Metrics: `auth.jwt.key_rotation.tokens_signed{key_id}`
-- [ ] Metrics: `auth.jwt.key_rotation.validation_failure{phase}`
-- [ ] Internal health endpoint `/internal/health/jwt-keys` (optional but planned)
-- [ ] Story log entry (final) + SnapshotArchitecture update (metrics + endpoint)
-- [ ] Upgrade/rotation runbook documentation (overlap procedure & rollback)
+Rotation Runbook (Condensed):
+
+1. Add new key (A -> A,B). Deploy.
+2. Observe both kids counters increment; probe_result true; zero validation_failure.
+3. After access TTL + buffer, remove old key (A,B -> B). Deploy.
+4. Verify only kid=B increments; probe_result true; 401 rate stable.
+5. If anomaly (401 spike or validation_failure>0) revert to previous list and investigate.
+6. After two clean rotations, securely destroy retired key material.
+
+Failure Signals / Response:
+
+- validation_failure{phase=issue}: key parsing/base64 error → revert env & fix secret.
+- validation_failure{phase=validate}: resolver/ordering mismatch → revert; confirm key order & integrity.
+- Spike in 401 signature errors without validation_failure: removed key still in-flight; extend overlap in future.
+
+Rollback Path:
+
+- Reintroduce prior key at head of list preserving original order (e.g., `A,B`) so former signer resumes if cutover fails.
+
+Operational Checklist Before Removing Old Key:
+
+- Health endpoint: `probe_result=true`.
+- Both key_ids observed in `tokens_signed` over ≥5m window.
+- `validation_failure` counter stable at 0.
+- No abnormal auth 401 surge.
+
+Deferred (Out of Scope): structured security event on repeated validation failures; deterministic negative-path test seam.
+
+Follow-ups:
+
+- Consider DI seam for forced probe failure if operational need arises.
+- Potential security event emission threshold for repeated validation failures.
 
 Next Steps
 
@@ -207,18 +234,64 @@ Remaining (to fully close story):
 - Story log & architecture snapshot update (pending after metrics wiring).
 - Docs: rotation procedure (overlap window, cutover checklist, rollback steps).
 
-### Story 5: Tracing Span Enrichment (auth.\* Attributes)
+### Story 5: Tracing Span Enrichment (auth.\* Attributes) ✅ DONE (2025-09-23)
 
-Goal: Add fine-grained auth context to traces.
-Acceptance:
+Summary:
 
-- Enrich login/refresh/logout spans with attributes: `auth.user_id`, `auth.outcome`, `auth.reason?`, `auth.tenant_id?`.
-- No emails or PII values.
-- Unit test using ActivityListener asserts presence & absence (no email).
-- Metric counts enriched spans.
-  Success Metrics: Attributes visible & consistent across envs; test snapshot stable.
+- Added `AuthTracing` helper (`ActivitySource("Appostolic.Auth")`) and enrichment method that tags spans with non-PII attributes: `auth.user_id`, optional `auth.tenant_id`, `auth.outcome`, optional `auth.reason`.
+- Introduced metric counter `auth.trace.enriched_spans{span_kind, outcome}` via `AuthMetrics.TraceEnrichedSpans` + helper `IncrementTraceEnriched`.
+- Implemented enrichment for login / refresh / logout paths (success & failure) and ensured failure reasons use bounded machine codes (e.g., refresh_reuse, refresh_expired) — no emails, no plaintext tokens.
+- Added unit test `TracingEnrichmentTests` validating attribute presence, absence of `email`, and counter increment semantics (span_kind mapping server|internal).
+- Deferred negative path forcing of artificial failure spans to avoid brittle dependency injection seams; rely on natural failure scenarios already covered in existing auth tests.
 
-### Story 6: Structured Security Event Log
+Acceptance Mapping:
+
+- Attributes present on spans (verified via test listener) ✅
+- No PII/email attributes emitted (assertion in test) ✅
+- Metric increments per enrichment (counter observed in test) ✅
+- Stable bounded reason codes only on failure ✅
+
+Follow-ups:
+
+- Consider adding enrichment to password change / select-tenant flows for completeness (out of immediate scope).
+- Potential sampling strategy adjustment if span volume grows (evaluate after Story 6 events addition).
+
+### Story 6: Structured Security Event Log ✅ DONE (2025-09-23 – completed)
+
+Status / Plan (Phase 1):
+
+- Add config flags (`AUTH__SECURITY_EVENTS__ENABLED`, `AUTH__SECURITY_EVENTS__LEVEL`).
+- Introduce `SecurityEventWriter` with schema v1 (internal DTO + JSON serialization) ensuring bounded `type` & `reason` vocabularies.
+- Emit events for: login_failure, refresh_reuse, refresh_expired, refresh_rate_limited (leveraging existing limiter outcome), logout_all_user, logout_all_tenant (from existing logout-all endpoint), and session_revoked_single (placeholder until Story 8 enumeration introduces per-session revoke path).
+- Add counter metric `auth.security.events_emitted{type}` (declared but minimally consumed until dashboards in Story 7).
+- Unit tests: schema serialization (snapshot), PII guard (no email / plaintext token), bounded reason enforcement.
+- Integration test (subset): trigger login_failure & refresh_reuse to assert emission (capture via in-memory sink).
+
+Deferred to Phase 2 (same story unless scope swells):
+
+- Event sampling / level gating logic (respect `AUTH__SECURITY_EVENTS__LEVEL`).
+- Structured correlation (trace/span id injection) — will include if trivial; else Story 7.
+- Failure retry/backoff (not needed: events best-effort; rely on log pipeline).
+
+Exit Criteria for Story 6 (revised – all met 2025-09-23):
+
+- Flags present & documented (`AUTH__SECURITY_EVENTS__ENABLED`, level flag acknowledged even if gating postponed).
+- Writer + schema v1 stable with unit + integration tests.
+- Structured events emitted & integration-tested for: login_failure, refresh_reuse, refresh_expired, refresh_invalid, refresh_rate_limited (incl. dry-run variant), logout_all_user. ✅
+- Pending future endpoints emit events when implemented: logout_all_tenant, session_revoked_single.
+- Dry-run limiter event test asserts `meta.dry_run=true`. ✅
+- Optional correlation meta (trace/span) deferred; documented for Story 7 consideration. 💤 Deferred
+- Sprint plan & story log updated on completion; architecture snapshot updated if correlation meta added.
+
+Implementation Progress (Final):
+
+- Metric `auth.security.events_emitted{type}` + increment helper implemented.
+- `SecurityEventWriter` (schema v1) with bounded vocab & PII guard (rejects email-like reason/meta values).
+- Registered writer + meter/source wiring in `Program.cs`.
+- Unit tests: create/emit success, unsupported type, unsupported reason, PII guard all passing.
+- Phase 2 updates (2025-09-23): integrated writer into refresh rate-limited branches (replacing ad-hoc JSON), refresh_expired, refresh_reuse, login_failure, logout_all_user, and newly added refresh_invalid path (previously metrics-only). Added integration tests for refresh_expired, refresh_rate_limited, logout_all_user, refresh_invalid.
+- Completed: dry-run rate-limited emission test (`Emits_DryRun_Rate_Limited_Event_With_Meta`).
+- Deferred: future events (`logout_all_tenant`, `session_revoked_single`) until endpoints exist; optional trace/span meta enrichment.
 
 Goal: Emit machine‑consumable JSON security events.
 Acceptance:
@@ -229,7 +302,38 @@ Acceptance:
 - Tests: snapshot events; invalid field injection prevented.
   Success Metrics: Events consumed by sample parser script; no PII.
 
-### Story 7: Grafana Dashboards & Alert Rules as Code
+### Story 7: Grafana Dashboards & Alert Rules as Code 🚧 IN PROGRESS (2025-09-23)
+
+Initial Implementation (Phase 1)
+
+- Added Grafana dashboard JSON (`infra/grafana/dashboards/auth-overview.json`, `auth-security.json`) with panels for:
+  - Login success % & failures by reason
+  - Refresh failures by reason
+  - Rate limiter outcomes (block vs dryrun_block)
+  - Security events by type
+  - Key rotation tokens signed per kid
+  - p95 login & refresh latency (histogram_quantile)
+  - Security-focused invalid/reuse/expired panel & ratios
+- Added Prometheus alert rules (`infra/alerts/auth-rules.yml`): high login failure ratio, refresh reuse spike, rate limit blocks spike, key rotation validation failure, excessive refresh_invalid events.
+- Added README detailing application and metric naming conventions.
+
+Planned (Phase 2)
+
+- Optional apply script (Grafana HTTP API) gated by `AUTH__DASHBOARDS__APPLY_ENABLED`.
+- Add SLO/error budget panels & exemplar trace linkage once tracing UI available.
+- Evaluate additional session-centric panels after Story 8 introduces enumeration metrics.
+
+Phase 2 Progress (Validation Lint Added 2025-09-23)
+
+- Added `DashboardMetricsValidationTests` ensuring all PromQL metric identifiers in dashboard JSON and alert rules map to known auth instruments (including histogram derivatives). Prevents silent drift/typos (e.g., wrong underscore conversion) before import.
+- This satisfies the Sprint Plan acceptance requirement for a lint/parse check without introducing optional provisioning automation.
+
+Exit Criteria (for completion)
+
+- Dashboards imported & rendering live data in dev/staging.
+- Alert rules loaded with no Prometheus syntax errors.
+- README documents usage & thresholds; sprint story log updated.
+- (Optional) Apply script + CI integration if time permits.
 
 Goal: Codify and version control key auth security panels & alerts.
 Acceptance:

@@ -1,0 +1,114 @@
+{
+  "id": null,
+  "uid": "auth-security",
+  "title": "Auth Security Events",
+  "tags": ["auth", "security", "appostolic"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(up, job)",
+        "refresh": 1,
+        "current": { "text": "api", "value": "api", "selected": true }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Event Rate by Type (5m)",
+      "id": 10,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (type)(rate(auth_security_events_emitted{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "events/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Login Failures by Reason (5m)",
+      "id": 11,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (reason)(rate(auth_login_failure{job=~\"$job\"}[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Refresh Invalid / Reuse / Expired (5m)",
+      "id": 12,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_security_events_emitted{job=~\"$job\",type=\"refresh_invalid\"}[5m]))",
+          "legendFormat": "invalid"
+        },
+        {
+          "expr": "sum(rate(auth_security_events_emitted{job=~\"$job\",type=\"refresh_reuse\"}[5m]))",
+          "legendFormat": "reuse"
+        },
+        {
+          "expr": "sum(rate(auth_security_events_emitted{job=~\"$job\",type=\"refresh_expired\"}[5m]))",
+          "legendFormat": "expired"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Rate Limit Blocks vs Dry-Run (5m)",
+      "id": 13,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (outcome)(rate(auth_refresh_limiter_evaluation_ms_count{job=~\"$job\",outcome!~=\"hit\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Login Failure Ratio (5m)",
+      "id": 14,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(sum(rate(auth_login_failure{job=~\"$job\"}[5m])) / clamp_max(sum(rate(auth_login_success{job=~\"$job\"}[5m])) + sum(rate(auth_login_failure{job=~\"$job\"}[5m])),1e9))"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "type": "stat",
+      "title": "Refresh Reuse Ratio (15m)",
+      "id": 15,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(auth_refresh_reuse_denied{job=~\"$job\"}[15m])) / clamp_max(sum(rate(auth_refresh_success{job=~\"$job\"}[15m])) + sum(rate(auth_refresh_failure{job=~\"$job\"}[15m])),1e9)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Key Rotation Validation Failures (1h)",
+      "id": 16,
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "sum(increase(auth_jwt_key_rotation_validation_failure{job=~\"$job\"}[1h]))" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    }
+  ]
+}

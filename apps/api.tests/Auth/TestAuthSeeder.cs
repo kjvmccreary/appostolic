@@ -20,6 +20,51 @@ public static class TestAuthSeeder
     public const string DefaultPassword = "Password123!"; // keep consistent with AuthTestClientFlow
 
     /// <summary>
+    /// Ensures user exists and seeds password hash/salt using production hasher so login endpoint can authenticate.
+    /// Idempotent: will not overwrite existing password fields if already set.
+    /// </summary>
+    public static async Task<Guid> SeedUserWithPasswordAsync(IServiceProvider root, string email, string password)
+    {
+        using var scope = root.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
+        var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (existing != null)
+        {
+            // Only update if password not previously set (byte[] null or empty)
+            if (existing.PasswordHash is null || existing.PasswordHash.Length == 0)
+            {
+                var (hash, salt, _) = hasher.HashPassword(password);
+                // User is a record with init-only properties; create a clone using 'with'
+                var updated = existing with
+                {
+                    PasswordHash = hash,
+                    PasswordSalt = salt,
+                    PasswordUpdatedAt = DateTime.UtcNow
+                };
+                // Detach original tracked entity then attach updated clone
+                db.Entry(existing).State = EntityState.Detached;
+                db.Users.Update(updated);
+                await db.SaveChangesAsync();
+            }
+            return existing.Id;            
+        }
+        var (phash, psalt, _) = hasher.HashPassword(password);
+        var user = new User 
+        { 
+            Id = Guid.NewGuid(), 
+            Email = email, 
+            CreatedAt = DateTime.UtcNow,
+            PasswordHash = phash,
+            PasswordSalt = psalt,
+            PasswordUpdatedAt = DateTime.UtcNow
+        };
+        db.Users.Add(user);        
+        await db.SaveChangesAsync();
+        return user.Id;
+    }
+
+    /// <summary>
     /// Ensures a user row exists (optionally with password hash already seeded externally) and returns its id.
     /// Does not modify password fields (responsibility of dedicated password seeding helpers to mirror production hashing).
     /// </summary>

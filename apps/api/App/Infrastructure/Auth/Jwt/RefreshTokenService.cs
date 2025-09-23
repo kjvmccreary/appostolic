@@ -14,7 +14,7 @@ public interface IRefreshTokenService
     /// <summary>
     /// Issue a neutral refresh token for a user, persisting hash. Returns refresh token Id, plaintext token and expiry.
     /// </summary>
-    Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays);
+    Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null);
 
     /// <summary>
     /// Validate a presented neutral refresh token (plaintext). Returns entity if active and unexpired; null otherwise.
@@ -41,7 +41,7 @@ public class RefreshTokenService : IRefreshTokenService
         _db = db;
     }
 
-    public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays)
+    public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null)
     {
         var token = GenerateToken();
         var hash = Hash(token);
@@ -55,7 +55,8 @@ public class RefreshTokenService : IRefreshTokenService
             TokenHash = hash,
             Purpose = "neutral",
             CreatedAt = now,
-            ExpiresAt = expires
+            ExpiresAt = expires,
+            Fingerprint = string.IsNullOrWhiteSpace(fingerprint) ? null : fingerprint
         };
         _db.RefreshTokens.Add(entity);
         await _db.SaveChangesAsync();
@@ -67,10 +68,13 @@ public class RefreshTokenService : IRefreshTokenService
         if (string.IsNullOrWhiteSpace(plaintextToken)) return null;
         var hash = Hash(plaintextToken);
         var now = DateTime.UtcNow;
-        var rt = await _db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.UserId == userId && r.TokenHash == hash && r.Purpose == "neutral");
+        var rt = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.UserId == userId && r.TokenHash == hash && r.Purpose == "neutral");
         if (rt == null) return null;
         if (rt.RevokedAt.HasValue) return null;
         if (rt.ExpiresAt <= now) return null;
+        // Update LastUsedAt (only on successful validation) then detach clone for return to avoid exposing tracking modifications upstream unintentionally.
+        rt.LastUsedAt = now;
+        await _db.SaveChangesAsync();
         return rt;
     }
 

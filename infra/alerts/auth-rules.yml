@@ -1,0 +1,53 @@
+groups:
+  - name: auth.rules
+    interval: 1m
+    rules:
+      - alert: HighLoginFailureRatio
+        expr: sum(rate(auth_login_failure[5m])) / (sum(rate(auth_login_success[5m])) + sum(rate(auth_login_failure[5m]))) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          team: auth
+        annotations:
+          summary: 'Login failure ratio > 30%'
+          description: 'More than 30% of login attempts failing over the last 5 minutes. Investigate potential credential stuffing or outage.'
+
+      - alert: RefreshReuseSpike
+        expr: sum(rate(auth_refresh_reuse_denied[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: auth
+        annotations:
+          summary: 'Refresh reuse attempts elevated'
+          description: 'Reuse denied rate exceeded 5 per 5m. Could indicate token theft or replay attempts.'
+
+      - alert: RefreshRateLimitBlocksSpike
+        expr: sum(rate(auth_refresh_limiter_evaluation_ms_count{outcome="block"}[5m])) > 1
+        for: 10m
+        labels:
+          severity: info
+          team: auth
+        annotations:
+          summary: 'Refresh rate limiter actively blocking'
+          description: '>1 enforced block per 5m window. Validate thresholds; tune if causing user friction.'
+
+      - alert: KeyRotationValidationFailure
+        expr: increase(auth_jwt_key_rotation_validation_failure[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'JWT key rotation validation failure'
+          description: 'At least one key rotation validation failure in last 15m. Possible configuration issue; rollback may be required.'
+
+      - alert: ExcessiveRefreshInvalidEvents
+        expr: sum(rate(auth_security_events_emitted{type="refresh_invalid"}[15m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          team: auth
+        annotations:
+          summary: 'High volume refresh_invalid security events'
+          description: 'More than 50 invalid refresh attempts per 15m; possible brute force or instrumentation error.'

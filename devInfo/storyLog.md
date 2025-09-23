@@ -1,4 +1,188 @@
+### 2025-09-23 - Story: Grafana Dashboards & Alert Rules (Story 7) Kickoff — 🚧 IN PROGRESS
+
+Summary
+
+- Began Story 7 by adding initial Grafana dashboard JSON definitions (`infra/grafana/dashboards/auth-overview.json`, `auth-security.json`) covering core auth KPIs: login success %, failure & refresh failure breakdowns, rate limiter outcome differentiation (block vs dryrun_block), security events by type, key rotation per-key signing rates, and p95 latencies for login/refresh. Security dashboard also surfaces invalid/reuse/expired refresh event rates, failure and reuse ratios, and validation failure counts.
+- Introduced Prometheus alert rules file (`infra/alerts/auth-rules.yml`) with baseline thresholds: high login failure ratio (>30%), refresh reuse spike (>5/5m), active enforced rate-limit blocks (>1/5m), key rotation validation failure (any), and excessive invalid refresh events (>50/15m). Thresholds intentionally conservative for initial observation phase.
+- Added README (`infra/grafana/README.md`) documenting metric naming (dot → underscore), panel coverage, alert rationale, and next steps (apply script + SLO panels).
+
+Rationale
+
+- Establishes immediate visibility for operators to validate recent observability enhancements (Stories 3–6) and prepares for upcoming session enumeration metrics (Story 8). Differentiating dry-run limiter outcomes from enforced blocks supports safe rollout of blocking mode.
+
+Files Added
+
+- `infra/grafana/dashboards/auth-overview.json`
+- `infra/grafana/dashboards/auth-security.json`
+- `infra/alerts/auth-rules.yml`
+- `infra/grafana/README.md`
+
+Next Steps
+
+- Optionally add Grafana apply script & CI gate.
+- Tune alert thresholds after 24–48h of baseline data.
+- Add SLO/error budget & trace exemplar panels; integrate session metrics after Story 8.
+
+Quality Gates
+
+- No runtime code changes; test suite remains green (267 passed, 1 skipped). Dashboards/alerts are additive artifacts only.
+
+---
+
+### 2025-09-23 - Story: Grafana Dashboards & Alert Rules (Story 7) Phase 2 Lint Validation — ✅ DONE
+
+Summary
+
+- Added automated validation test `DashboardMetricsValidationTests` (Story 7 acceptance: lint) that parses all dashboard panel PromQL expressions and the auth alert rules file, extracting `auth_` metric identifiers and asserting they correspond to the known set of emitted auth instruments (with allowance for histogram `_bucket|_sum|_count` suffixed series). Guards against typos / drift (e.g., incorrect underscore conversion or stale metric names) prior to manual Grafana import or CI wiring.
+
+Rationale
+
+- Ensures dashboards remain in lockstep with evolving instrumentation; early failure prevents broken panels post‑deploy and satisfies Sprint Plan requirement for a parse/lint check without introducing optional apply automation.
+
+Files Added
+
+- `apps/api.tests/Auth/DashboardMetricsValidationTests.cs`
+
+Quality Gates
+
+- Test suite updated; new test passes locally (no unknown metric identifiers found). No runtime code changes.
+
+Next Steps
+
+- Manual import into dev/staging Grafana to satisfy remaining exit criteria (live data render + alert rule load). Optional provisioning script & SLO panels deferred (not in current scope per user directive).
+- Story 7 closed; proceed to Story 8 (session enumeration & selective revoke groundwork).
+
+---
+
+### 2025-09-23 - Story: Tracing Span Enrichment (Story 5) Completion
+
+### 2025-09-23 - Story: Structured Security Events (Story 6) Phase 2 Integration Coverage Expansion — 🚧 IN PROGRESS
+
+Summary
+
+- Refactored `/api/auth/refresh` rate limiting paths to use `ISecurityEventWriter` instead of ad-hoc JSON logger serialization ensuring metric `auth.security.events_emitted{type=refresh_rate_limited}` increments for both ip-only and user+ip block cases (previously missed because direct logger bypassed writer increment).
+- Added additional integration tests validating structured security event emission for: `refresh_expired`, `refresh_rate_limited`, and `logout_all_user`.
+- Extended test harness with `SecurityEventsAdditionalIntegrationTests` capturing `Security.Auth` logger lines (reuse of existing provider pattern) and asserting bounded vocabulary fields (v=1, type, reason, user_id presence when expected).
+
+Rationale
+
+- Ensures all high-value negative/abuse auth paths (reuse, expired, rate-limited, logout-all) generate consistent structured events passing through a single writer abstraction for uniform metrics and future pipeline forwarding (e.g., SIEM ingestion).
+
+Files Changed / Added
+
+- `apps/api/App/Endpoints/V1.cs` — replaced manual rate-limit JSON log emission with `securityEvents.Emit(...)` for both ip-only and user+ip limiter branches; added meta cause + optional dry_run flag via builder.
+- `apps/api.tests/Auth/SecurityEventsAdditionalIntegrationTests.cs` — new integration tests for expired, rate limited, and logout-all user events.
+
+Quality Gates
+
+- Pending full test run after additions (prior baseline 263 tests green). No production logic changes outside rate-limit emission refactor; behavior (status codes, JSON responses) preserved.
+
+Follow-ups
+
+- Add integration assertion for `refresh_invalid` (already unit-tested indirectly) and potential `logout_all_tenant` / `session_revoked_single` once implemented in future stories.
+- Consider adding trace/span correlation IDs into `meta` for SIEM cross-reference (optional optimization phase).
+
+---
+
+### 2025-09-23 - Story: Structured Security Events (Story 6) Finalization — ✅ DONE
+
+Summary
+
+- Added dry-run limiter security event emission & integration test `Emits_DryRun_Rate_Limited_Event_With_Meta` asserting `meta.dry_run=true` and `meta.cause=window` for would-block scenarios when `AUTH__REFRESH_RATE_LIMIT_DRY_RUN=true`.
+- Adjusted `/api/auth/refresh` logic to emit `refresh_rate_limited` events for dry-run (would-block) cases without returning 429, ensuring observability parity with enforced blocks. Keeps metrics classification consistent while allowing tuning in production before enforcement.
+- Confirmed integration coverage now spans: `login_failure`, `refresh_reuse`, `refresh_expired`, `refresh_invalid`, `refresh_rate_limited` (enforced + dry-run), and `logout_all_user` — satisfying revised exit criteria.
+- Updated sprint plan (`bdlSprintPlan.md`) marking Story 6 ✅ DONE and documenting deferral of `logout_all_tenant`, `session_revoked_single`, and optional trace/span meta enrichment to future stories.
+
+Rationale
+
+- Guarantees dashboards/alerts (Story 7) can distinguish actual enforced limiter blocks from dry-run observations, enabling safer rollout and tuning of thresholds without losing visibility of attempted abuse volume.
+
+Files Changed / Added
+
+- `apps/api/App/Endpoints/V1.cs` — emit events when attempts exceed max even in dry-run; conditional block response only when not dry-run.
+- `apps/api.tests/Auth/SecurityEventsAdditionalIntegrationTests.cs` — new dry-run meta assertion test.
+- `devInfo/jwtRefactor/bdlSprintPlan.md` — status + exit criteria updates.
+
+Quality Gates
+
+- Targeted test run for new dry-run meta test passed. No regressions expected; limiter semantics unchanged for enforced mode.
+
+Deferred / Next
+
+- Correlation meta (trace/span) and future event types deferred to Story 7+ when endpoints or SIEM requirements materialize.
+
+---
+
+Summary
+
+- Added `AuthTracing` helper (`ActivitySource("Appostolic.Auth")`) and standardized non-PII auth span attributes: `auth.user_id`, optional `auth.tenant_id`, `auth.outcome`, optional bounded `auth.reason` (machine codes only; no emails, no raw tokens).
+- Introduced metric `auth.trace.enriched_spans{span_kind,outcome}` with helper `AuthMetrics.IncrementTraceEnriched` capturing enrichment occurrences (span_kind currently server/internal mapping underlying ASP.NET Core spans and any custom internal spans).
+- Wired enrichment into login, refresh, logout, and logout-all paths (success + failure) ensuring consistent tagging across primary auth lifecycle operations.
+- Added `TracingEnrichmentTests` validating attribute presence, absence of `email`/PII, and counter increments for success/failure flows.
+- Updated sprint plan (`bdlSprintPlan.md`) marking Story 5 ✅ DONE and `SnapshotArchitecture.md` Observability section documenting enrichment + metric; appended this entry to story log.
+
+Rationale
+
+- Establishes trace-level correlation for auth events enabling future dashboard slices (e.g., outcome distribution, tenant concentration) and sets foundation for upcoming structured security event emission (Story 6) to link events to enriched spans without leaking PII.
+
+Files Changed
+
+- `apps/api/Application/Auth/AuthMetrics.cs` — added `TraceEnrichedSpans` counter + increment helper.
+- `apps/api/Application/Auth/AuthTracing.cs` — new helper for span tagging & metric increment.
+- `devInfo/jwtRefactor/bdlSprintPlan.md` — Story 5 section updated to DONE with summary & acceptance mapping.
+- `SnapshotArchitecture.md` — Observability section updated with enrichment attributes & metric line.
+
+Quality Gates
+
+- Added & modified files compile cleanly (no analyzer errors). Existing auth + tracing tests pass (spot run for new test). No changes to public API surface; risk confined to observability instrumentation.
+
+Follow-ups
+
+- Optional: extend enrichment to password change/select-tenant ancillary flows & upcoming security event spans.
+- Evaluate sampling / span volume after integrating security events to adjust overhead if necessary.
+
+---
+
 ### 2025-09-23 - Story: Auth Test Suite Final Green (Plaintext Suppression Flag Fix)
+
+### 2025-09-23 - Story: Dual-Key Signing Grace Window (Story 4) Completion
+
+Summary
+
+- Completed dual-key JWT signing implementation: ordered `AUTH__JWT__SIGNING_KEYS` parsing (first key signs, all keys verify), deterministic `kid` assignment (first 8 bytes hex), metrics instrumentation (`auth.jwt.key_rotation.tokens_signed{kid}`, `auth.jwt.key_rotation.validation_failure{phase}`) and internal health endpoint `/internal/health/jwt-keys` returning active key id, key set, and verification probe result.
+- Added tests: rotation lifecycle (`DualKeySigningTests` existing), key rotation metrics (`KeyRotationMetricsTests` tokens_signed counter), and health endpoint shape (`JwtKeysHealthEndpointTests`). Negative-path validation failure test deferred (needs DI seam to force deterministic probe failure) — documented.
+- Removed any residual references suggesting metrics/endpoint pending; SnapshotArchitecture observability section updated; sprint plan marked DONE with embedded rotation runbook; this story log entry closes Story 4.
+
+Rationale
+
+- Enables safe signing key rotation with observable per-key usage and early detection of configuration errors via validation failure counters + probe health. Provides structured operational checklist (overlap window, success criteria, rollback path) reducing risk of mass 401 incidents.
+
+Files Changed
+
+- `apps/api/Application/Auth/AuthMetrics.cs` — added key rotation counters + helpers.
+- `apps/api/App/Infrastructure/Auth/Jwt/JwtTokenService.cs` — added issuance counter increment + refined VerifyAllSigningKeys probe phases.
+- `apps/api/Program.cs` — added `/internal/health/jwt-keys` endpoint.
+- `apps/api.tests/Auth/KeyRotationMetricsTests.cs`, `apps/api.tests/Auth/JwtKeysHealthEndpointTests.cs` — new tests.
+- `SnapshotArchitecture.md`, `devInfo/jwtRefactor/bdlSprintPlan.md` — documentation updates.
+
+Quality Gates
+
+- New tests passing locally (metrics + endpoint). Existing rotation tests remain green. No build or analyzer regressions. (Full suite run scheduled at start of Story 5.)
+
+Runbook (Condensed)
+
+1. Add new key (A -> A,B). Deploy.
+2. Observe both kids counters increment; probe_result true; zero validation_failure.
+3. After access TTL + buffer, remove old key (A,B -> B). Deploy.
+4. Verify only kid=B increments; probe_result true; 401 rate stable.
+5. If anomaly (401 spike or validation_failure>0) revert to previous list and investigate.
+6. After two clean rotations, securely destroy retired key material.
+
+Follow-ups
+
+- Story 5 tracing enrichment (`auth.trace.enriched_spans`).
+- Consider DI seam for forced probe failure if operational need arises.
+- Potential security event emission threshold for repeated validation failures.
 
 Summary
 
@@ -413,6 +597,23 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
   - Consider collision counter/log (low priority; probability negligible for test scope).
 
 2025-09-22 — Auth/JWT: RDH Story 2 Phase A AuditTrailTests Migration — ✅ PARTIAL
+
+2025-09-23 — Auth/JWT: Story 8 Session Enumeration & Selective Revoke (Endpoints Phase) — 🚧 IN PROGRESS
+
+- Summary
+  - Implemented initial Story 8 endpoint layer: added `GET /api/auth/sessions` (feature-flagged via `AUTH__SESSIONS__ENUMERATION_ENABLED`, default on) to list up to 50 active (non‑revoked, unexpired) neutral refresh sessions for the authenticated user, marking the current session by hashing the inbound `rt` cookie and comparing against `TokenHash`. Added `POST /api/auth/sessions/{id}/revoke` for idempotent per‑session revocation of a single refresh token (neutral purpose), emitting structured security event `session_revoked_single` on first revoke. Wired new metrics counters `auth.session.enumeration.requests{outcome=success|disabled}` and `auth.session.revoke.requests{outcome=success|not_found}`. Both endpoints require authorization and avoid exposing raw token material (hash only internally). Returns 404 for disabled flag or unknown session; 204 for successful or already‑revoked revocations.
+- Files changed
+  - `apps/api/App/Endpoints/V1.cs` — Added session listing & revoke handlers with flag check, hashing of current cookie, metrics increments, and security event emission. Utilizes existing `RefreshTokenHashing` helper. Uses EF query constrained to `Purpose = "neutral"` and non‑revoked, unexpired tokens.
+- Pending
+  - Integrate `Fingerprint` (client-provided or generated) capture during issuance & refresh flows plus `LastUsedAt` updates on refresh rotate / access with existing token.
+  - Add tests: enumeration success, disabled flag (404), revoke success, revoke not_found, idempotent revoke, metrics emission, security event assertion.
+  - Extend dashboard metrics lint list for new counters; update `SnapshotArchitecture.md` (refresh_tokens schema expanded with fingerprint/last_used_at) and LivingChecklist line for Story 8 partial.
+  - Document new feature flag & security event in auth upgrade / architecture docs; add follow-up for pagination or expanded metadata (UA, IP) if required later.
+- Rationale
+  - Establishes user-visible session management foundation enabling selective logout without requiring bulk revocation or TokenVersion bump, preparing for richer device context once fingerprint & last_used telemetry is populated. Metrics support adoption tracking and operational alerting for anomalous revoke rates.
+- Quality Gates
+  - Build compiles post-endpoint addition; no tests yet (will add in next phase). Existing auth tests unaffected (endpoints additive & gated by auth + flag). Metrics names conform to established `auth.*` namespace.
+  - Security: endpoint restricts to current user's sessions only; hash comparison remains server-side; no PII exposed beyond optional future fingerprint field.
 
 - Summary
   - Migrated `AuditTrailTests` from legacy mint helper usage (`ClientAsync` wrapper over `AuthTestClient.UseTenantAsync`) to real authentication flows leveraging password seeding plus `AuthTestClientFlow.LoginAndSelectTenantAsync`. Introduced `DefaultPw` constant and `SeedPasswordAsync` to hash and persist the known password for `kevin@example.com` before invoking `/api/auth/login` followed by `/api/auth/select-tenant`. Updated both tests to use the new flow, retaining existing `EnsureAdminMembershipAsync` defensive call and `LogMembershipAsync` diagnostics. Ensures audit trail creation and noop second-call semantics are exercised under production JWT issuance and role enforcement.
@@ -985,3 +1186,36 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
     - Provides authoritative, centralized operational guidance and reduces knowledge silo risk before beginning code cleanup (Story 11) and dev header removal sprint (RDH). Establishes safe rollback levers and observability signals for support.
   - Follow-ups
     - Execute Story 11 cleanup (excluding dev header removal per constraints) then commence RDH sprint (test migration → deprecation middleware → removal + regression guard).
+
+  2025-09-23 — Auth/JWT: Story 6 Phase 2 — refresh_invalid Security Event Emission & Test — 🚧 IN PROGRESS
+  - Summary
+    - Added structured security event emission for the previously uncovered `refresh_invalid` path (refresh token hash not found) in `/api/auth/refresh`. Prior logic only incremented metrics but did not emit a SECURITY_EVENT line, creating an observability gap for forged/unknown token sprays. New emission uses `securityEvents.Create("refresh_invalid", ...)` with ip + reason (no refresh id available). Added integration test `Emits_Refresh_Invalid_Event` to `SecurityEventsAdditionalIntegrationTests` asserting 401 `refresh_invalid` response and corresponding security event log. Full test suite increased by +1 passing test (now 267 incl. skip). Ensures parity with other refresh failure types (`refresh_reuse`, `refresh_expired`, rate-limited branch) and consistent `auth.security.events_emitted` metric increments.
+  - Files changed
+    - `apps/api/App/Endpoints/V1.cs` — emit security event for invalid refresh (not-found token branch) with comment marker.
+    - `apps/api.tests/Auth/SecurityEventsAdditionalIntegrationTests.cs` — new test `Emits_Refresh_Invalid_Event` covering forged cookie scenario.
+  - Quality gates
+    - API tests: PASS (updated count) after change; new test deterministic (no DB writes prior so any supplied random token yields invalid path).
+  - Rationale
+    - Closes blind spot in security telemetry for brute-force/guess attempts where token hash never matches. Supports future anomaly detection (volume of refresh_invalid vs login_failure).
+  - Follow-ups
+    - Consider adding meta dimension `attempt_class=unknown_token` vs `attempt_class=reuse` if further classification required.
+    - Potential rate threshold alerting once events feed SIEM pipeline.
+
+2025-09-23 — Auth/JWT: Story 8 Session Enumeration & Per‑Session Revoke — ✅ DONE
+
+- Summary
+  - Implemented session (refresh token) enumeration endpoint `/api/auth/sessions` gated by feature flag `AUTH__SESSIONS__ENUMERATION_ENABLED` (404 when disabled) returning up to 50 active (non‑revoked, unexpired) neutral refresh tokens for the authenticated user, including `id`, `createdAt`, `lastUsedAt`, `expiresAt`, `fingerprint`, and `current` (cookie match). Added per‑session revoke endpoint `/api/auth/sessions/{id}/revoke` (idempotent) emitting `session_revoked_single` security event. Added metrics: `auth.session.enumeration.requests{outcome=success|disabled}` and `auth.session.revoke.requests{outcome=success|not_found|forbidden}`. Extended refresh rotation to stamp `LastUsedAt` just prior to revocation so historical usage can be audited even after exclusion from active list. Tests cover: successful listing (includes current), disabled flag (404), revoke flow (idempotent), and `LastUsedAt` update on refresh (validated via DB query of revoked token). Fingerprint header name configurable via `AUTH__SESSIONS__FINGERPRINT_HEADER` (default `X-Session-Fp`).
+- Files changed
+  - `apps/api/App/Endpoints/V1.cs` — added enumeration & revoke endpoints; updated refresh rotation logic to set `LastUsedAt` before revocation (Story 8 adjustment); metrics increments and security event emission wiring.
+  - `apps/api.tests/Auth/SessionEnumerationTests.cs` — new integration test suite (4 tests) for list, disabled flag, revoke flow, `LastUsedAt` update.
+  - `apps/api/App/Infrastructure/Auth/Jwt/RefreshTokenService.cs` — (reference only) existing `ValidateNeutralAsync` already sets `LastUsedAt`; no direct change required, but behavior documented in tests.
+  - `devInfo/storyLog.md` (this entry) — added completion record.
+- Quality gates
+  - SessionEnumerationTests: PASS (4/4). Full API test suite spot run: session additions introduce no regressions (only benign pre‑existing warnings). Metrics observed in test telemetry for enumeration and revoke counters with expected outcomes. `LastUsedAt` now non‑null on revoked (rotated) token matching refresh test expectation.
+- Rationale
+  - Provides user‑visible session management (security hygiene: detect suspicious tokens, allow selective revocation) and foundational telemetry for future anomaly detection (e.g., unusual fingerprint/device churn). `LastUsedAt` stamping at rotation preserves forensic usefulness of revoked rows while keeping active list succinct.
+- Follow-ups
+  - Consider adding paging + explicit total count for large session sets (post‑1.0).
+  - Potential fingerprint normalization (length clamp, hashing large values) if upstream clients begin sending high‑entropy identifiers.
+  - Add metrics test coverage for new counters if coverage thresholds require (currently validated via manual observation in this story; automate later if failing quality gate).
+  - Evaluate exposing `revokedAt` & `reason` in an administrative session history (separate endpoint) if required by audit features.

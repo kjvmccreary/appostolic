@@ -4,7 +4,7 @@ These instructions complement `AGENTS.md` and nested `AGENTS.md` files.
 
 ## Core rules (root)
 
-- Keep `SnapshotArchitecture.md` up to date at the end of each story.
+- Keep `SnapshotArchitecture.md` up to date at the end of each story. Do not add information about the story, however. Only update that file if any of the architectural elements of the system have changed.
 - For .NET migrations, include the `.Designer.cs` file and run `make migrate`.
 - Append `devInfo/storyLog.md` with the same summary used in the assistant output.
 - Mark stories as 🚧 IN PROGRESS once you begin work on them.

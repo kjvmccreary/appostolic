@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
-Generated: 2025-09-23 (updated: superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard; dual-key JWT signing scaffold implemented — metrics & endpoint pending)
+Generated: 2025-09-23 (updated: key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---
@@ -100,7 +100,7 @@ Core tables (schema `app`):
 - `tenants` (Id, Name unique, Settings JSONB)
 - `memberships` (Id, TenantId, UserId, Roles flags, Status)
 - `invitations` (granular Roles, Token, ExpiresAt)
-- `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Metadata JSONB)
+- `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Fingerprint?, LastUsedAt?, Metadata JSONB) // Story 8: fingerprint + last_used_at added for session enumeration & selective revoke
 - `login_tokens` (magic link tokens: Email (citext), TokenHash, Purpose, Expires/Consumed)
 - `audits` (role change records)
 - `lessons` (sample domain / future content)
@@ -153,10 +153,13 @@ Outcome: Faster, stable tests (API: ~240 tests total; majority deterministic) wi
 OpenTelemetry instrumentation (configurable exporter endpoint):
 
 - Traces: ASP.NET Core, HttpClient, custom sources (`Appostolic.AgentRuntime`, `Appostolic.Tools`)
-- Metrics: Auth counters (login success/failure, refresh success/failure, rotation, reuse denied, logout single/all, plaintext emission/suppression TEMP), histograms for login/refresh latency.
+- Metrics: Auth counters (login success/failure, refresh success/failure, rotation, reuse denied, logout single/all, plaintext emission/suppression TEMP), histograms for login/refresh latency, refresh limiter evaluation histogram, key rotation counters (`auth.jwt.key_rotation.tokens_signed{kid}`, `auth.jwt.key_rotation.validation_failure{phase}`).
 - Logs: Structured console (dev), OTLP exporter if configured.
 
 Future (not yet baseline): Span enrichment (user/tenant anonymized dimensions), dashboards, anomaly detection.
+
+- Auth tracing enrichment: standardized auth span attributes (`auth.user_id`, optional `auth.tenant_id`, `auth.outcome`, optional `auth.reason`) emitted only on auth operation spans (login/refresh/logout). No PII (emails, raw tokens) recorded.
+- Metric `auth.trace.enriched_spans{span_kind, outcome}` increments each time enrichment occurs; supports dashboard correlation between span volume and auth outcomes.
 
 ---
 

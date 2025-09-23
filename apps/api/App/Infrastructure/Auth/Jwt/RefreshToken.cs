@@ -15,4 +15,13 @@ public class RefreshToken
     public DateTime ExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public string? Metadata { get; set; } // JSON (device, ip, user-agent) future use
+    /// <summary>
+    /// Story 8: Optional stable device/browser fingerprint provided by client (e.g., header X-Session-Fp) or derived hash of user-agent.
+    /// Used for session enumeration UI grouping. Not security-sensitive.
+    /// </summary>
+    public string? Fingerprint { get; set; }
+    /// <summary>
+    /// Story 8: Last time this refresh token was used to obtain a new access token (rotation or tenant selection). Null until first use post-login.
+    /// </summary>
+    public DateTime? LastUsedAt { get; set; }
 }

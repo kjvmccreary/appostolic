@@ -123,6 +123,32 @@ public static class AuthMetrics
         description: "Count of failures during multi-key verification health probe. Tag: phase=issue|validate" 
     );
 
+    // Story 5: Tracing span enrichment counter (counts number of auth-related spans we enriched with attributes)
+    public static readonly Counter<long> TraceEnrichedSpans = Meter.CreateCounter<long>(
+        name: "auth.trace.enriched_spans",
+        unit: "{span}",
+        description: "Count of auth spans enriched with standardized attributes (auth.user_id, auth.outcome, etc). Tag: span_kind=server|internal" 
+    );
+
+    // Story 6: Security events emitted counter
+    public static readonly Counter<long> SecurityEventsEmitted = Meter.CreateCounter<long>(
+        name: "auth.security.events_emitted",
+        unit: "{event}",
+        description: "Count of structured auth security events emitted. Tag: type=<event_type>" 
+    );
+
+    // Story 8: Session enumeration & selective revoke
+    public static readonly Counter<long> SessionEnumerationRequests = Meter.CreateCounter<long>(
+        name: "auth.session.enumeration.requests",
+        unit: "{request}",
+        description: "Count of session enumeration (list) requests. outcome=success|disabled" 
+    );
+    public static readonly Counter<long> SessionRevokeRequests = Meter.CreateCounter<long>(
+        name: "auth.session.revoke.requests",
+        unit: "{request}",
+        description: "Count of per-session revoke requests. outcome=success|not_found|forbidden" 
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -278,6 +304,25 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "phase", phase } };
         KeyRotationValidationFailure.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record that an auth span was enriched. spanKind: server|internal. outcome optional (success|failure) for server spans.
+    /// </summary>
+    public static void IncrementTraceEnriched(string spanKind, string? outcome = null)
+    {
+        var tags = new System.Diagnostics.TagList { { "span_kind", spanKind } };
+        if (!string.IsNullOrWhiteSpace(outcome)) tags.Add("outcome", outcome);
+        TraceEnrichedSpans.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record that a structured security event was emitted.
+    /// </summary>
+    public static void IncrementSecurityEvent(string type)
+    {
+        var tags = new System.Diagnostics.TagList { { "type", type } };
+        SecurityEventsEmitted.Add(1, tags);
     }
 
 }

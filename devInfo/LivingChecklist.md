@@ -54,6 +54,7 @@ How to use
 - [x] JWT Story 9: Auth observability metrics (login/refresh/logout counters, rotation/reuse/expired, latency histograms) (2025-09-22)
 - [x] JWT Story 10: Documentation & Upgrade Guide (auth-upgrade guide, diagram, architecture updates) (2025-09-22)
 - [x] JWT Story 11: Cleanup & legacy artifact pruning (comments, unused helpers, transitional flag documentation, tag) (2025-09-22)
+- [ ] JWT Story 8b: Session enumeration & per-session revoke (endpoints + schema) — IN PROGRESS (2025-09-23 partial: endpoints, metrics counters added; pending fingerprint/last_used wiring & tests)
 - [x] Dev Header Decommission (RDH) Story 2: Test migrations complete (all suites on real auth flows; helper removed; guard enforcing).
 - [x] Dev Header Decommission (RDH) Story 3: Deprecation middleware active (`dev_headers_deprecated` 401 + metric) and documentation updated (snapshot lean rewrite 2025-09-22).
 - [x] Dev Header Decommission (RDH) Story 4: Physical removal (handler, composite scheme, flag) — final 401 `dev_headers_removed`; metric & flag removed; rollback tag pending creation before merge.
@@ -156,4 +157,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑23 (Plaintext suppression flag tests fixed; full suite green 253/0/1 after explicit flag overrides; ImageSharp advisories under review.)
+- Last updated: 2025‑09‑23 (Story 4 dual-key signing metrics + health endpoint docs; Story 7 Grafana dashboards + alerts + lint test closed; plaintext suppression flag tests fixed earlier; ImageSharp advisories under review.)

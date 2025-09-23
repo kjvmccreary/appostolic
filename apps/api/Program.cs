@@ -31,6 +31,7 @@ using Amazon.S3;
 using Amazon;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
+using Appostolic.Api.Application.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -272,6 +273,9 @@ builder.Services.AddSingleton<Appostolic.Api.Application.Auth.IPasswordHasher, A
 // Privacy: PII hasher (hashes emails/phones using SHA-256 + pepper)
 builder.Services.AddSingleton<Appostolic.Api.Application.Privacy.IPIIHasher, Appostolic.Api.Application.Privacy.Sha256PIIHasher>();
 
+// Story 6: Structured security events writer
+builder.Services.AddSingleton<ISecurityEventWriter, SecurityEventWriter>();
+
 // Storage: conditional S3/MinIO vs local filesystem
 var storageMode = (builder.Configuration["Storage:Mode"] ?? "local").ToLowerInvariant();
 if (storageMode == "s3")
@@ -325,6 +329,8 @@ builder.Services.AddOpenTelemetry()
         t.AddAspNetCoreInstrumentation()
          .AddHttpClientInstrumentation()
          .AddSource("Appostolic.AgentRuntime", "Appostolic.Tools");
+    // Include auth tracing source for enrichment spans
+    t.AddSource("Appostolic.Auth");
 
         var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
         // Allow disabling noisy console exporters in Development with QUIET_CONSOLE_TELEMETRY=true
@@ -346,7 +352,8 @@ builder.Services.AddOpenTelemetry()
         m.AddAspNetCoreInstrumentation()
          .AddHttpClientInstrumentation()
          .AddRuntimeInstrumentation()
-         .AddMeter("Appostolic.Metrics");
+         .AddMeter("Appostolic.Metrics")
+         .AddMeter("Appostolic.Auth"); // AuthMetrics.Meter name
 
         var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
         var quietConsole = (builder.Configuration["QUIET_CONSOLE_TELEMETRY"] ?? Environment.GetEnvironmentVariable("QUIET_CONSOLE_TELEMETRY") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
@@ -790,6 +797,9 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
             b.Property(x => x.Metadata).HasColumnName("metadata").HasColumnType("jsonb").IsRequired(false);
+            // Story 8 session enumeration additions
+            b.Property(x => x.Fingerprint).HasColumnName("fingerprint").HasColumnType("varchar(128)").IsRequired(false);
+            b.Property(x => x.LastUsedAt).HasColumnName("last_used_at").IsRequired(false);
             b.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("ix_refresh_tokens_user_created");
             b.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("ux_refresh_tokens_token_hash");
             // Future: partial index for active tokens (revoked_at IS NULL) if needed for performance

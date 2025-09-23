@@ -212,7 +212,8 @@ public static class V1
             // Neutral token pair
             var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
+            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -383,7 +384,7 @@ public static class V1
 
         // POST /api/auth/login (AllowAnonymous)
         // Story 2: returns neutral access+refresh token pair + memberships; optional tenant access token when single membership or tenant explicitly requested.
-    apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, LoginDto dto) =>
+    apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, LoginDto dto) =>
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string? failureReason = null;
@@ -391,6 +392,7 @@ public static class V1
             {
                 failureReason = "missing_fields";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason);
+                securityEvents.Emit(securityEvents.Create("login_failure", b => b.Reason(failureReason)));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.BadRequest(new { error = "email and password are required" });
@@ -406,6 +408,7 @@ public static class V1
             {
                 failureReason = "unknown_user";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason);
+                securityEvents.Emit(securityEvents.Create("login_failure", b => b.Reason(failureReason)));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Unauthorized();
@@ -416,6 +419,7 @@ public static class V1
             {
                 failureReason = "invalid_credentials";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginFailure(failureReason, user.Id);
+                securityEvents.Emit(securityEvents.Create("login_failure", b => { b.User(user.Id).Reason(failureReason); }));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Unauthorized();
@@ -463,7 +467,8 @@ public static class V1
                 ? jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims!)
                 : jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
+            var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -603,7 +608,8 @@ public static class V1
             // Rotate refresh (revoke old + issue new neutral) BEFORE issuing new access token
             await refreshSvc.RevokeAsync(rt.Id);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             // Superadmin allowlist claim injection (mirrors login endpoint logic)
@@ -713,7 +719,7 @@ public static class V1
         });
 
         // POST /api/auth/logout/all - revoke all active neutral refresh tokens and bump token version (invalidating current access tokens)
-        api.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc) =>
+    apiRoot.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
         {
             // Support tokens where the handler mapped 'sub' to NameIdentifier
             var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -745,8 +751,7 @@ public static class V1
                     Expires = DateTimeOffset.UtcNow.AddDays(-1)
                 });
             }
-            var logger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Auth.Logout");
-            logger.LogInformation("auth.logout.all user={UserId} revokedCount={Count}", userId, count);
+                securityEvents.Emit(securityEvents.Create("logout_all_user", b => b.User(userId).Reason("user_requested")));
             var act2 = System.Diagnostics.Activity.Current;
             act2?.SetTag("auth.user_id", userId);
             act2?.SetTag("auth.event", "logout.all");
@@ -759,7 +764,7 @@ public static class V1
         // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
         // Returns: { user, memberships, access, refresh, tenantToken? }
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
-        apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts) =>
+    apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts) =>
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string? failureReason = null;
@@ -824,31 +829,34 @@ public static class V1
                 // Evaluate limiter ip-only for invalid token paths (prevents unlimited invalid sprays)
                 evaluation = limiter.Evaluate(null, ip);
                 evalSw.Stop();
-                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(evalSw.Elapsed.TotalMilliseconds, evaluation.IsLimited ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
-                if (evaluation.IsLimited)
+                // Determine if the request would have been blocked (attempts > max) even in dry-run mode.
+                var wouldBlock = evaluation.Attempts > evaluation.Max;
+                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(
+                    evalSw.Elapsed.TotalMilliseconds,
+                    wouldBlock ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
+                if (wouldBlock)
                 {
-                    // Structured security event (v1)
-                    var secLogger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Security.Auth");
-                    secLogger.LogInformation("{Json}", System.Text.Json.JsonSerializer.Serialize(new {
-                        v = 1,
-                        ts = DateTime.UtcNow,
-                        type = "refresh_rate_limited",
-                        ip = ip,
-                        reason = "window",
-                        meta = evaluation.DryRun ? new { dry_run = true } : null
-                    }));
-                }
-                if (evaluation.IsLimited)
-                {
+                    // For both enforced and dry-run we emit a security event; only enforced path returns 429 / increments block counters.
                     failureReason = "refresh_rate_limited";
-                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
-                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
-                    sw.Stop();
-                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
-                    return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
+                    securityEvents.Emit(securityEvents.Create("refresh_rate_limited", b =>
+                    {
+                        b.Ip(ip).Reason("refresh_rate_limited").Meta("cause", "window");
+                        if (evaluation.DryRun) b.Meta("dry_run", "true");
+                    }));
+                    if (evaluation.IsLimited)
+                    {
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                        sw.Stop();
+                        Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                        return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
+                    }
                 }
                 failureReason = "refresh_invalid";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                // Story 6 Phase 2: Emit structured security event for invalid refresh attempts (was previously missing for not-found token path)
+                // We cannot include a refresh token id (unknown), so emit only ip and reason for correlation.
+                securityEvents.Emit(securityEvents.Create("refresh_invalid", b => b.Ip(ip).Reason(failureReason)));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -857,33 +865,33 @@ public static class V1
             // We have a valid refresh token, evaluate limiter with user dimension now.
             evaluation = limiter.Evaluate(rt.UserId, ip);
             evalSw.Stop();
-            Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(evalSw.Elapsed.TotalMilliseconds, evaluation.IsLimited ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
-            if (evaluation.IsLimited)
+            var userWouldBlock = evaluation.Attempts > evaluation.Max;
+            Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshLimiterEvaluation(
+                evalSw.Elapsed.TotalMilliseconds,
+                userWouldBlock ? (evaluation.DryRun ? "dryrun_block" : "block") : "hit");
+            if (userWouldBlock)
             {
-                // Structured security event (v1)
-                var secLogger = http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Security.Auth");
-                secLogger.LogInformation("{Json}", System.Text.Json.JsonSerializer.Serialize(new {
-                    v = 1,
-                    ts = DateTime.UtcNow,
-                    type = "refresh_rate_limited",
-                    user_id = rt.UserId,
-                    refresh_id = rt.Id,
-                    ip = ip,
-                    reason = "window",
-                    meta = evaluation.DryRun ? new { dry_run = true } : null
-                }));
                 failureReason = "refresh_rate_limited";
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
-                sw.Stop();
-                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
-                return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
+                securityEvents.Emit(securityEvents.Create("refresh_rate_limited", b =>
+                {
+                    b.User(rt.UserId).Refresh(rt.Id).Ip(ip).Reason("refresh_rate_limited").Meta("cause", "window");
+                    if (evaluation.DryRun) b.Meta("dry_run", "true");
+                }));
+                if (evaluation.IsLimited)
+                {
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshRateLimited();
+                    Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                    sw.Stop();
+                    Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                    return Results.Json(new { code = "refresh_rate_limited", retryAfterSeconds = evaluation.WindowSeconds }, statusCode: StatusCodes.Status429TooManyRequests);
+                }
             }
             if (rt.RevokedAt.HasValue)
             {
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementReuseDenied(rt.UserId, rt.Id);
                 failureReason = "refresh_reuse";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                securityEvents.Emit(securityEvents.Create("refresh_reuse", b => { b.User(rt.UserId).Refresh(rt.Id).Ip(ip).Reason(failureReason); }));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_reuse" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -893,6 +901,7 @@ public static class V1
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementExpired(rt.UserId, rt.Id);
                 failureReason = "refresh_expired";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                securityEvents.Emit(securityEvents.Create("refresh_expired", b => { b.User(rt.UserId).Refresh(rt.Id).Ip(ip).Reason(failureReason); }));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_expired" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -903,6 +912,7 @@ public static class V1
             {
                 failureReason = "refresh_invalid";
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                securityEvents.Emit(securityEvents.Create("refresh_invalid", b => b.Reason(failureReason).Refresh(rt.Id).Ip(ip)));
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.Json(new { code = "refresh_invalid" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -940,9 +950,16 @@ public static class V1
             // Rotate refresh (revocation + new issuance). Intentionally avoids explicit transaction when using InMemory provider
             // (transactions not supported). Production relational providers still get sequential revoke+issue which is acceptable
             // for this rotation scenario (low contention domain); future optimization can add provider-specific atomic path.
+            // Story 8: Mark last usage timestamp prior to revocation so session history reflects actual usage even after exclusion from active enumeration.
+            if (rt.LastUsedAt == null)
+            {
+                rt.LastUsedAt = now;
+                try { await db.SaveChangesAsync(); } catch { /* non-fatal; continue rotation */ }
+            }
             await refreshSvc.RevokeAsync(rt.Id); // sets revoked_at & reason="rotated"
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+            var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
 
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
             // Existing service issues neutral access tokens via IssueAccessToken (used in login). Reuse neutral path (no tenant claims).
@@ -1009,6 +1026,66 @@ public static class V1
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
+
+        // Story 8: List active sessions (refresh tokens) for current user
+        apiRoot.MapGet("/auth/sessions", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var cfg = http.RequestServices.GetRequiredService<IConfiguration>();
+            var enabled = (cfg["AUTH__SESSIONS__ENUMERATION_ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (!enabled)
+            {
+                Appostolic.Api.Application.Auth.AuthMetrics.SessionEnumerationRequests.Add(1, new System.Diagnostics.TagList { { "outcome", "disabled" } });
+                return Results.NotFound(new { code = "sessions_disabled" });
+            }
+            var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
+            string? currentRefreshHash = null;
+            if (http.Request.Cookies.TryGetValue("rt", out var rtPlain) && !string.IsNullOrWhiteSpace(rtPlain))
+            {
+                try { currentRefreshHash = Appostolic.Api.Infrastructure.Auth.Jwt.RefreshTokenHashing.Hash(rtPlain); } catch { }
+            }
+            // Query top 50 active (non-revoked, unexpired) sessions newest first
+            var now = DateTime.UtcNow;
+            var sessions = await db.RefreshTokens
+                .Where(r => r.UserId == userId && r.Purpose == "neutral" && !r.RevokedAt.HasValue && r.ExpiresAt > now)
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(50)
+                .Select(r => new {
+                    id = r.Id,
+                    createdAt = r.CreatedAt,
+                    lastUsedAt = r.LastUsedAt,
+                    expiresAt = r.ExpiresAt,
+                    fingerprint = r.Fingerprint,
+                    current = currentRefreshHash != null && r.TokenHash == currentRefreshHash
+                })
+                .ToListAsync();
+            Appostolic.Api.Application.Auth.AuthMetrics.SessionEnumerationRequests.Add(1, new System.Diagnostics.TagList { { "outcome", "success" } });
+            return Results.Json(new { sessions });
+        }).RequireAuthorization();
+
+        // Story 8: Revoke a single session (refresh token) by id
+        apiRoot.MapPost("/auth/sessions/{id:guid}/revoke", async (HttpContext http, ClaimsPrincipal principal, Guid id, AppDbContext db, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+        {
+            var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
+            var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Id == id && r.Purpose == "neutral");
+            if (rt == null || rt.UserId != userId)
+            {
+                Appostolic.Api.Application.Auth.AuthMetrics.SessionRevokeRequests.Add(1, new System.Diagnostics.TagList { { "outcome", "not_found" } });
+                return Results.NotFound(new { code = "session_not_found" });
+            }
+            if (!rt.RevokedAt.HasValue)
+            {
+                rt.RevokedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+                securityEvents.Emit(securityEvents.Create("session_revoked_single", b => { b.User(userId).Refresh(rt.Id).Reason("user_requested"); }));
+                Appostolic.Api.Application.Auth.AuthMetrics.SessionRevokeRequests.Add(1, new System.Diagnostics.TagList { { "outcome", "success" } });
+                return Results.NoContent();
+            }
+            // Idempotent
+            Appostolic.Api.Application.Auth.AuthMetrics.SessionRevokeRequests.Add(1, new System.Diagnostics.TagList { { "outcome", "success" } });
+            return Results.NoContent();
+        }).RequireAuthorization();
 
         // GET /api/me
         api.MapGet("/me", (ClaimsPrincipal user) =>
@@ -1899,7 +1976,7 @@ public static class V1
         var testHelpersEnabled = !env.IsProduction() && (config["AUTH__TEST_HELPERS_ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
         if (testHelpersEnabled)
         {
-            apiRoot.MapPost("/test/mint-tenant-token", async (AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MintTenantTokenRequest dto) =>
+            apiRoot.MapPost("/test/mint-tenant-token", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, MintTenantTokenRequest dto) =>
             {
                 if (dto is null || string.IsNullOrWhiteSpace(dto.Email)) return Results.BadRequest(new { error = "email is required" });
                 var email = dto.Email.Trim();
@@ -1929,7 +2006,8 @@ public static class V1
                 var proj = memberships.Select(m => new { tenantId = m.TenantId, tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var n) ? n : string.Empty, roles = (int)m.Roles }).ToList();
                 var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
                 var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
-                var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays);
+                var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
+                var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
                 var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
                 object? tenantToken = null; Guid? selectedTenant = null; int rolesBitmask = 0; string tenantSlugSel = string.Empty;
                 if (proj.Count == 1 && (dto.AutoTenant == true || string.IsNullOrWhiteSpace(dto.Tenant)))
