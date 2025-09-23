@@ -57,6 +57,21 @@
 
 2025-09-20 — Auth/JWT: Story 5a Local HTTPS & Secure Refresh Cookie Validation — ✅ DONE
 
+2025-09-23 — Auth/JWT: Security Hardening Story 4 Dual-Key Signing Scaffold — ✅ PARTIAL
+
+- Summary
+  - Introduced dual-key JWT signing scaffold: added `AUTH__JWT__SIGNING_KEYS` (ordered list, first signs, all verify) with backward compatibility for legacy `AUTH__JWT__SIGNING_KEY`. Implemented key parsing in `AuthJwtOptions` (`GetSigningKeyBytesList`) and updated `JwtTokenService` to assign `kid` headers (first 8 bytes hex) and use `IssuerSigningKeyResolver` to validate tokens across all configured keys. Added health verification method `VerifyAllSigningKeys()` plus rotation integration tests (`DualKeySigningTests`) covering A → A,B → B (legacy A token rejected once removed). Ensures future rotations can proceed with a deterministic overlap period.
+- Rationale
+  - De-risks upcoming operational key rotations by validating multi-key verification logic before introducing production key changes. Establishes deterministic KID derivation without external dependency and sets foundation for metrics & health endpoint.
+- Quality Gates
+  - New tests: 2 passed (rotation lifecycle + health). No existing tests broken. SnapshotArchitecture updated with scaffold note. No public surface area modifications beyond config.
+- Follow-ups
+  - Add metrics (`auth.jwt.key_rotation.tokens_signed`, `auth.jwt.key_rotation.validation_failure`).
+  - Optional internal endpoint `/internal/health/jwt-keys` exposing verification status.
+  - Document rotation runbook (overlap, cutover, rollback) in sprint plan and runbook.
+  - Integrate structured log event for failed validation attempts (if any) once metrics added.
+  - Close Story 4 after metrics + docs; then proceed with Story 3 limiter enforcement (currently queued next).
+
 - Summary
   - Implemented local HTTPS enablement path and hardened refresh cookie Secure flag behavior. Added Makefile target `api-https` to run the API on `https://localhost:5198` (requires one-time `dotnet dev-certs https --trust`). Updated all refresh cookie issuance blocks in `V1.cs` (login, magic consume, select-tenant) to set `Secure = http.Request.IsHttps` removing the previous environment heuristic that could mark cookies Secure under pure HTTP in Development. Added integration test `RefreshCookieHttpsTests` confirming the cookie omits `Secure` over HTTP and (simulated via `X-Forwarded-Proto: https`) includes it when HTTPS is indicated. This sets the stage for reliable browser SameSite/Secure behavior prior to broader refresh endpoint rollout (Story 6) and reduces accidental confusion during QA where Secure cookies would not appear without HTTPS. Plan, SnapshotArchitecture, LivingChecklist updated; story marked complete.
   - Files changed

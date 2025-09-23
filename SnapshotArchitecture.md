@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
-Generated: 2025-09-23 (updated: superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
+Generated: 2025-09-23 (updated: superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard; dual-key JWT signing scaffold implemented — metrics & endpoint pending)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---

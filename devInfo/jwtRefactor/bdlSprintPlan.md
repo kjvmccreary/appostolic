@@ -138,6 +138,21 @@ Acceptance:
 - Metrics: `auth.jwt.key_rotation.tokens_signed{key_id}` increments; failures logged & counted.
   Success Metrics: Rotation test passes; zero unexpected 401s in simulated overlap.
 
+Implementation Status (2025-09-23):
+
+- Multi-key config parsing (`AUTH__JWT__SIGNING_KEYS`) implemented with backward compatible single-key support.
+- Active key = first; all keys verify via `IssuerSigningKeyResolver`.
+- `kid` header added (first 8-byte hex slice) for observability.
+- Rotation test added (`DualKeySigningTests`) covering A → A,B → B (legacy token invalid once key removed) and health validation method.
+- Health probe method `VerifyAllSigningKeys()` available (no public endpoint yet).
+
+Remaining (to fully close story):
+
+- Emit metrics (`auth.jwt.key_rotation.tokens_signed`, `auth.jwt.key_rotation.validation_failure`).
+- Optional internal health endpoint (`/internal/health/jwt-keys`).
+- Story log & architecture snapshot update (pending after metrics wiring).
+- Docs: rotation procedure (overlap window, cutover checklist, rollback steps).
+
 ### Story 5: Tracing Span Enrichment (auth.\* Attributes)
 
 Goal: Add fine-grained auth context to traces.
