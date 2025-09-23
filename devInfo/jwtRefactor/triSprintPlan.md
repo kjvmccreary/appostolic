@@ -25,39 +25,39 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 
 ## Triage Table
 
-| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                               |
-| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | ------------------------------------------------------------------- |
-| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note — ✅ DONE 2025-09-23 |
-| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion — ✅ DONE 2025-09-23      |
-| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy                      |
-| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation                          |
-| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause                  |
-| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs                                    |
-| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts                      |
-| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations                          |
-| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user)                      |
-| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                         |
-| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                      |
-| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                             |
-| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                           |
-| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                              |
-| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests              |
-| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation                          |
-| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                                |
-| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                                            |
-| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                                          |
-| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                                         |
-| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                               |
-| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                                    |
-| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                                            |
-| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                       |
-| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                               |
-| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                  |
-| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                              |
-| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                     |
-| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                          |
-| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                     |
-| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                             |
+| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                                                      |
+| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | ------------------------------------------------------------------------------------------ |
+| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note — ✅ DONE 2025-09-23                        |
+| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion — ✅ DONE 2025-09-23                             |
+| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy — 🔒 Bundled: Security Hardening Sprint     |
+| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation — 🔒 Bundled: Security Hardening Sprint         |
+| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause — 🔒 Bundled: Security Hardening Sprint |
+| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs — 🔒 Bundled: Security Hardening Sprint                   |
+| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts — 🔒 Bundled: Security Hardening Sprint     |
+| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations — 🔒 Bundled: Security Hardening Sprint         |
+| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user) — 🔒 Bundled: Security Hardening Sprint     |
+| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                                                |
+| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                                             |
+| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                                                    |
+| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                                                  |
+| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                                                     |
+| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests                                     |
+| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation                                                 |
+| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                                                       |
+| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                                                                   |
+| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                                                                 |
+| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                                                                |
+| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                                                      |
+| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                                                           |
+| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                                                                   |
+| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                                              |
+| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                                                      |
+| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                                         |
+| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                                                     |
+| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                                            |
+| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                                                 |
+| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                                            |
+| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                                                    |
 
 ---
 
@@ -88,7 +88,7 @@ Acceptance:
 - Docs updated + schedule final deletion story.
   Success Metrics: No emitted plaintext events; suppression counter increments only (optional) for final window.
 
-### Story 3: Refresh Rate Limiting & Abuse Protection
+### Story 3: Refresh Rate Limiting & Abuse Protection (Bundled: Security Hardening Sprint)
 
 Goal: Mitigate brute-force / reuse storm attack surface.
 Acceptance:
@@ -100,7 +100,7 @@ Acceptance:
 - Docs: security section updated; tuning guidance.
   Success Metrics: Counter increments only in simulated test; no performance regression >1ms avg.
 
-### Story 4: Dual-Key Signing Grace Window
+### Story 4: Dual-Key Signing Grace Window (Bundled: Security Hardening Sprint)
 
 Goal: Allow seamless signing key rotation.
 Acceptance:
@@ -112,7 +112,7 @@ Acceptance:
 - Docs: rotation procedure updated (old/new overlap, cutover, removal).
   Success Metrics: Rotation simulation test passes; no 401 spike during switch.
 
-### Story 5: Tracing Span Enrichment (auth.\* Attributes)
+### Story 5: Tracing Span Enrichment (auth.\* Attributes) (Bundled: Security Hardening Sprint)
 
 Goal: Add fine-grained auth context to traces.
 Acceptance:
@@ -122,7 +122,7 @@ Acceptance:
 - Docs: Observability section updated.
   Success Metrics: Attributes visible in trace backend for sample requests.
 
-### Story 6: Structured Security Event Log
+### Story 6: Structured Security Event Log (Bundled: Security Hardening Sprint)
 
 Goal: Emit machine-consumable JSON security events.
 Acceptance:
@@ -134,7 +134,7 @@ Acceptance:
 - Docs: Runbook consuming events (SIEM piping snippet).
   Success Metrics: Events appear; no PII (no emails / plaintext tokens).
 
-### Story 7: Grafana Dashboards & Alert Rules as Code
+### Story 7: Grafana Dashboards & Alert Rules as Code (Bundled: Security Hardening Sprint)
 
 Goal: Materialize documented panels & alerts in repo.
 Acceptance:
@@ -145,7 +145,7 @@ Acceptance:
 - Optional validation script (lint JSON structure).
   Success Metrics: Dashboards import cleanly (manual test notes).
 
-### Story 8: Session Enumeration Backend
+### Story 8: Session Enumeration Backend (Bundled: Security Hardening Sprint)
 
 Goal: Provide API to list active sessions (refresh chains) per user.
 Acceptance:
@@ -157,7 +157,7 @@ Acceptance:
 - Docs: support & security guidance.
   Success Metrics: Endpoint latency <50ms typical; correct filtering.
 
-### Story 9: Admin Forced Logout & Bulk Tenant Invalidate
+### Story 9: Admin Forced Logout & Bulk Tenant Invalidate (Bundled: Security Hardening Sprint)
 
 Goal: Incident containment tool.
 Acceptance:
@@ -265,6 +265,20 @@ Summarized; promote in later sprints as capacity allows.
 ---
 
 ## Dependency Notes
+
+### Security Hardening Sprint Bundle
+
+Stories 3–9 are grouped into a dedicated Security Hardening Sprint to coordinate shared configuration surface, metric naming, dashboards, and a unified rollback/tag. This bundling defers implementation while clarifying intent:
+
+- Story 3: Refresh rate limiting
+- Story 4: Dual-key signing grace window
+- Story 5: Tracing span enrichment
+- Story 6: Structured security event log
+- Story 7: Dashboards & alert rules as code
+- Story 8: Session enumeration backend
+- Story 9: Admin forced logout & bulk tenant invalidate
+
+Bundle Rationale: Interlocking improvements around abuse prevention, observability, and incident response benefit from simultaneous release (single documentation update, integrated metrics, reduced piecemeal churn). Rollback: single tag pre-bundle; feature flags per story allow partial disable if needed post-merge.
 
 - Story 13 depends on Story 2 completion + adoption verification.
 - Story 15 (cross-site branch) depends on Story 12 outcome if enabling SameSite=None.
