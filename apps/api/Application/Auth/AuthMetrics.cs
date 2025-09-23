@@ -149,6 +149,18 @@ public static class AuthMetrics
         description: "Count of per-session revoke requests. outcome=success|not_found|forbidden" 
     );
 
+    // Story 9: Admin / Tenant forced logout
+    public static readonly Counter<long> AdminForcedLogoutRequests = Meter.CreateCounter<long>(
+        name: "auth.admin.forced_logout.requests",
+        unit: "{request}",
+        description: "Count of forced logout requests. scope=user|tenant; outcome=success|not_found|forbidden|disabled" 
+    );
+    public static readonly Counter<long> AdminForcedLogoutSessionsRevoked = Meter.CreateCounter<long>(
+        name: "auth.admin.forced_logout.sessions_revoked",
+        unit: "{session}",
+        description: "Count of sessions (refresh tokens) revoked via forced logout. scope=user|tenant" 
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -323,6 +335,25 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "type", type } };
         SecurityEventsEmitted.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a forced logout request attempt.
+    /// </summary>
+    public static void IncrementAdminForcedLogoutRequest(string scope, string outcome)
+    {
+        var tags = new System.Diagnostics.TagList { { "scope", scope }, { "outcome", outcome } };
+        AdminForcedLogoutRequests.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record the number of sessions revoked by a forced logout.
+    /// </summary>
+    public static void AddAdminForcedLogoutSessionsRevoked(string scope, int count)
+    {
+        if (count <= 0) return;
+        var tags = new System.Diagnostics.TagList { { "scope", scope } };
+        AdminForcedLogoutSessionsRevoked.Add(count, tags);
     }
 
 }

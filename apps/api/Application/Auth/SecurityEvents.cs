@@ -57,7 +57,16 @@ public class SecurityEventWriter : ISecurityEventWriter
 {
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "login_failure", "refresh_reuse", "refresh_expired", "refresh_invalid", "refresh_rate_limited", "logout_all_user", "logout_all_tenant", "session_revoked_single"
+        // login
+        "login_failure",
+        // refresh / token lifecycle
+        "refresh_reuse", "refresh_expired", "refresh_invalid", "refresh_rate_limited",
+        // user initiated logout variants
+        "logout_all_user", "session_revoked_single",
+        // admin / tenant scope (Story 9)
+        "forced_logout_user", // admin forced a single user logout-all
+        "forced_logout_tenant", // admin forced tenant-wide logout-all
+        "logout_all_tenant" // (if emitted when a tenant admin triggers a bulk self action)
     };
     private static readonly HashSet<string> AllowedReasons = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -86,15 +95,17 @@ public class SecurityEventWriter : ISecurityEventWriter
 
     public SecurityEvent Create(string type, Action<SecurityEventBuilder> configure)
     {
-        if (!AllowedTypes.Contains(type)) throw new ArgumentException($"Unsupported security event type '{type}'", nameof(type));
+        if (!AllowedTypes.Contains(type))
+            throw new ArgumentException($"Unsupported security event type '{type}'", nameof(type));
+
         var b = new SecurityEventBuilder();
         configure(b);
         var evt = b.Build();
         evt.Type = type;
+
         if (evt.Reason != null && !AllowedReasons.Contains(evt.Reason))
-        {
             throw new ArgumentException($"Unsupported security event reason '{evt.Reason}'", nameof(type));
-        }
+
         return evt;
     }
 

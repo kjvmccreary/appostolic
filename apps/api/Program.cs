@@ -276,6 +276,10 @@ builder.Services.AddSingleton<Appostolic.Api.Application.Privacy.IPIIHasher, App
 // Story 6: Structured security events writer
 builder.Services.AddSingleton<ISecurityEventWriter, SecurityEventWriter>();
 
+// Story 9: Forced logout feature flag (admin / tenant). This will gate new endpoints.
+var forcedLogoutEnabled = (builder.Configuration["AUTH__FORCED_LOGOUT__ENABLED"] ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
+
 // Storage: conditional S3/MinIO vs local filesystem
 var storageMode = (builder.Configuration["Storage:Mode"] ?? "local").ToLowerInvariant();
 if (storageMode == "s3")

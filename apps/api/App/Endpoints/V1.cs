@@ -759,6 +759,15 @@ public static class V1
             Appostolic.Api.Application.Auth.AuthMetrics.IncrementLogoutAll(userId, count);
             return Results.NoContent();
         });
+
+        // Story 9: Forced logout admin endpoints (placeholder - gated by AUTH__FORCED_LOGOUT__ENABLED)
+        var forcedFlag = (configuration["AUTH__FORCED_LOGOUT__ENABLED"] ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (forcedFlag)
+        {
+            // TODO: Implement POST /api/admin/users/{id}/logout-all
+            // TODO: Implement POST /api/admin/tenants/{id}/logout-all
+            // Will emit security events forced_logout_user / forced_logout_tenant and metrics auth.admin.forced_logout.*
+        }
         // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
         // POST /api/auth/refresh
         // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
