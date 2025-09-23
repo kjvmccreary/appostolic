@@ -25,45 +25,45 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 
 ## Triage Table
 
-| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                  |
-| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | ------------------------------------------------------ |
-| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note         |
-| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion              |
-| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy         |
-| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation             |
-| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause     |
-| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs                       |
-| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts         |
-| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations             |
-| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user)         |
-| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain            |
-| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing         |
-| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                |
-| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed              |
-| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                 |
-| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests |
-| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation             |
-| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                   |
-| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                               |
-| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                             |
-| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                            |
-| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                  |
-| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                       |
-| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                               |
-| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                          |
-| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                  |
-| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                     |
-| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                 |
-| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                        |
-| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                             |
-| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                        |
-| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                |
+| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                               |
+| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | ------------------------------------------------------------------- |
+| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note — ✅ DONE 2025-09-23 |
+| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion — ✅ DONE 2025-09-23      |
+| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy                      |
+| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation                          |
+| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause                  |
+| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs                                    |
+| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts                      |
+| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations                          |
+| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user)                      |
+| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                         |
+| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                      |
+| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                             |
+| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                           |
+| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                              |
+| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests              |
+| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation                          |
+| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                                |
+| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                                            |
+| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                                          |
+| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                                         |
+| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                               |
+| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                                    |
+| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                                            |
+| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                       |
+| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                               |
+| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                  |
+| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                              |
+| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                     |
+| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                          |
+| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                     |
+| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                             |
 
 ---
 
 ## Prioritized Sprint Candidate Stories (1–16)
 
-### Story 1: Dev Header Decommission & Regression Guard
+### Story 1: Dev Header Decommission & Regression Guard — ✅ DONE (2025-09-23)
 
 Goal: Fully remove dev header authentication (handler, composite wiring, flag) with a safe rollback toggle.
 Acceptance:
@@ -76,7 +76,7 @@ Acceptance:
 - Rollback documented (set emergency flag true + redeploy).
   Success Metrics: All auth tests green; no reliance on dev headers in CI.
 
-### Story 2: Plaintext Refresh Flag Retirement (Phase-Out)
+### Story 2: Plaintext Refresh Flag Retirement (Phase-Out) — ✅ DONE (2025-09-23)
 
 Goal: Enforce cookie-only refresh and retire plaintext emission path.
 Acceptance:
