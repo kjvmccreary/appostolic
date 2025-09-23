@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -11,35 +13,20 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesRolesFlagsTests(WebAppFactory factory) => _factory = factory;
-    // RDH Story 2 Phase A migration: use real password login + select-tenant instead of legacy mint helper.
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
 
-    private async Task SeedPasswordAsync(string email, string password)
+    // Story 5 Refactor: direct tenant-scoped token issuance for owner user.
+    private static async Task<(HttpClient client, Guid tenantId)> CreateOwnerClientAsync(WebAppFactory factory, string email = "kevin@example.com", string tenantSlug = "kevin-personal")
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
-
-    private static async Task<Guid> GetTenantIdAsync(WebAppFactory factory, string slug = "kevin-personal")
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var t = await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == slug);
-        return t.Id;
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: true);
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (client, tenantId);
     }
 
     [Fact]
     public async Task Create_Invite_With_Roles_Flags_Persists_And_Lists()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        var tenantId = await GetTenantIdAsync(_factory);
+    var (client, tenantId) = await CreateOwnerClientAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
         // Legacy 'role' field is now deprecated and rejected. Provide only flags.
@@ -60,10 +47,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Accept_Invite_Sets_Membership_Roles_Flags()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        var tenantId = await GetTenantIdAsync(_factory);
+    var (client, tenantId) = await CreateOwnerClientAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
 
         var payload = new { email, roles = new[] { "Learner" } };
@@ -85,9 +69,10 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
         }
 
         // Invitee performs neutral login (no tenant selection yet) before accepting invite
-        await SeedPasswordAsync(email, DefaultPw); // ensure password for login
-        var invitedClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginNeutralAsync(_factory, invitedClient, email);
+    // Invite acceptance: simulate invitee account creation & neutral auth by issuing a neutral token.
+    var (neutralToken, _) = await TestAuthSeeder.IssueNeutralTokenAsync(_factory, email);
+    var invitedClient = _factory.CreateClient();
+    invitedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", neutralToken);
         var accept = await invitedClient.PostAsJsonAsync("/api/invites/accept", new { token });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -103,10 +88,7 @@ public class InvitesRolesFlagsTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Create_Invite_With_Invalid_Role_Flag_Is_400()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        var tenantId = await GetTenantIdAsync(_factory);
+    var (client, tenantId) = await CreateOwnerClientAsync(_factory);
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
         var payload = new { email, roles = new[] { "NotARealRole" } };
         var resp = await client.PostAsJsonAsync($"/api/tenants/{tenantId}/invites", payload);

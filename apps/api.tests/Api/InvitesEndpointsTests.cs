@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -11,39 +13,22 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public InvitesEndpointsTests(WebAppFactory factory) => _factory = factory;
-    // RDH Story 2 Phase A: migrate from legacy mint/dev helper to real password -> login -> select-tenant flow.
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
 
-    /// <summary>
-    /// Seed (or update) a usable password hash for a test user to enable real /api/auth/login flow.
-    /// Idempotent: if password already set, it is overwritten to known default to avoid drift.
-    /// </summary>
-    private async Task SeedPasswordAsync(string email, string password)
+    // Story 5 Refactor: Use TestAuthSeeder to issue a tenant-scoped owner token directly instead of
+    // password seeding + AuthTestClientFlow login/select-tenant choreography. This keeps the test
+    // focused on invite lifecycle semantics rather than auth plumbing.
+    private static async Task<(HttpClient client, Guid tenantId)> CreateOwnerClientAsync(WebAppFactory factory, string email = "kevin@example.com", string tenantSlug = "kevin-personal")
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-    }
-
-    private static async Task<Guid> GetTenantIdAsync(WebAppFactory factory, string slug = "kevin-personal")
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var t = await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == slug);
-        return t.Id;
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: true);
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (client, tenantId);
     }
 
     [Fact]
     public async Task Invites_Full_Lifecycle_Create_Resend_Accept_Revoke()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var client = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
-        var tenantId = await GetTenantIdAsync(_factory);
+        var (client, tenantId) = await CreateOwnerClientAsync(_factory);
 
         // Start with clean slate for a unique email
         var email = $"invitee-{Guid.NewGuid():N}@example.com";
@@ -126,11 +111,12 @@ public class InvitesEndpointsTests : IClassFixture<WebAppFactory>
 
         // Accept via signup using invite token
         var signup = new { email = email, password = "Password123!", inviteToken = token };
-        var signupResp = await client.PostAsJsonAsync("/api/auth/signup", signup);
+        // Use a fresh unauthenticated client to simulate external signup path
+        var signupClient = _factory.CreateClient();
+        var signupResp = await signupClient.PostAsJsonAsync("/api/auth/signup", signup);
         signupResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
-    // Re-authenticate as original owner (signup flow may have altered auth context / bearer) before performing admin delete
-    await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, client, "kevin@example.com", "kevin-personal");
+        // Original client still has owner bearer token for remaining admin operations
 
         // List shows acceptedAt set and acceptedByEmail equals invitee
         var list2 = await client.GetAsync($"/api/tenants/{tenantId}/invites");

@@ -4,6 +4,8 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
+using System.Net.Http.Headers;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -12,38 +14,47 @@ public class MembersListTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public MembersListTests(WebAppFactory factory) => _factory = factory;
 
-    // RDH Story 2 Phase A: migrate from mint helper (test-only token issuance) to real auth flow.
-    // We seed a known password (matches AuthTestClientFlow default) then perform:
-    //   POST /api/auth/login  -> obtain neutral access + refresh
-    //   POST /api/auth/select-tenant -> obtain tenant-scoped access token
-    // This ensures the members listing endpoint is exercised under production authentication paths.
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
+    // Story 5 Refactor: Use TestAuthSeeder to issue tenant-scoped tokens directly.
+    // These tests focus on authorization behavior of listing members, not the auth pipeline.
 
-    private async Task SeedPasswordAsync(string email, string password)
+    private static async Task<(HttpClient client, Guid tenantId)> CreateOwnerAsync(WebAppFactory factory, string email, string tenant)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenant, owner: true);
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (client, tenantId);
+    }
+
+    private static async Task<HttpClient> CreateViewerAsync(WebAppFactory factory, string email, Guid tenantId, string tenantSlug)
+    {
+        // Ensure membership with no admin flags
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+            }
+            var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
+            if (membership == null)
+            {
+                db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = user.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }
+        }
+        var (viewerToken, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: false);
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", viewerToken);
+        return client;
     }
 
     [Fact]
     public async Task Owner_can_list_members()
     {
-        // Seed owner password (factory seeds user & membership already)
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var owner = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
-
-        Guid tenantId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-        }
+        var (owner, tenantId) = await CreateOwnerAsync(_factory, "kevin@example.com", "kevin-personal");
 
         var resp = await owner.GetAsync($"/api/tenants/{tenantId}/members");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -55,22 +66,9 @@ public class MembersListTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Viewer_gets_403_for_members_list()
     {
-        Guid tenantId;
-        string viewerEmail;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-            viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
-            var u = new User { Id = Guid.NewGuid(), Email = viewerEmail, CreatedAt = DateTime.UtcNow };
-            db.Users.Add(u);
-            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = u.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-        }
-        // Seed viewer password & perform real auth + tenant selection (roles = Learner only)
-        await SeedPasswordAsync(viewerEmail, DefaultPw);
-        var viewer = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, viewer, viewerEmail, "kevin-personal");
+        var (ownerClient, tenantId) = await CreateOwnerAsync(_factory, "kevin@example.com", "kevin-personal"); // owner not used further, just ensures tenant exists
+        var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
+        var viewer = await CreateViewerAsync(_factory, viewerEmail, tenantId, "kevin-personal");
         var resp = await viewer.GetAsync($"/api/tenants/{tenantId}/members");
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -79,12 +77,7 @@ public class MembersListTests : IClassFixture<WebAppFactory>
     public async Task Unauthenticated_request_returns_401_or_403()
     {
         using var unauth = _factory.CreateClient(); // No auth performed
-        Guid tenantId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            tenantId = (await db.Tenants.AsNoTracking().FirstAsync(t => t.Name == "kevin-personal")).Id;
-        }
+        var (_, tenantId) = await CreateOwnerAsync(_factory, "kevin@example.com", "kevin-personal");
 
         var resp = await unauth.GetAsync($"/api/tenants/{tenantId}/members");
         resp.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);

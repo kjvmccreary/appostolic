@@ -47,9 +47,10 @@ public static class AgentTasksEndpoints
             }
 
             // Create task
-            // Capture request context (tenant slug + user email) from dev headers for later processing
-            var requestTenant = ctx.Request.Headers["x-tenant"].FirstOrDefault();
-            var requestUser = ctx.Request.Headers["x-dev-user"].FirstOrDefault();
+            // Capture request context from authenticated principal claims (post dev header removal).
+            // Claims provided by JWT issuance: tenant_slug (when tenant selected) and email.
+            var requestTenant = ctx.User.FindFirst("tenant_slug")?.Value;
+            var requestUser = ctx.User.FindFirst("email")?.Value;
 
             var task = new AgentTask(Guid.NewGuid(), agent.Id, req.Input.RootElement.GetRawText())
             {
@@ -115,8 +116,8 @@ public static class AgentTasksEndpoints
 
             return Results.Created($"/api/agent-tasks/{task.Id}", summary);
         })
-        .WithSummary("Create an agent task and enqueue it for processing")
-        .WithDescription("Validates the agent, persists the task (status=Pending), and enqueues it via IAgentTaskQueue. Requires dev headers in Development.");
+    .WithSummary("Create an agent task and enqueue it for processing")
+    .WithDescription("Validates the agent, persists the task (status=Pending), and enqueues it via IAgentTaskQueue. Authenticated JWT required (dev headers removed).");
 
         // GET /api/agent-tasks/{id}
         group.MapGet("{id:guid}", async (

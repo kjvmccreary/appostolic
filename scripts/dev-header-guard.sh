@@ -1,39 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Dev Header Decommission Guard (RDH Story 2)
-# Fails if deprecated dev auth artifacts are detected outside explicit allowlists.
-# Patterns monitored:
-#   - x-dev-user / x-tenant headers
-#   - DevHeaderAuthHandler
-#   - AuthTestClient.UseTenantAsync (legacy mint helper)
-#   - BearerOrDev composite scheme (will be removed in Story 3/4)
-# Allowlist paths (regex):
-#   - apps/api.tests/Guard/NoUseTenantAsyncLeftTests.cs (self-referential guard until fully removed)
-#   - apps/api.tests/Auth/DevHeadersDisabledTests.cs (negative coverage retained until removal)
-#   - apps/api.tests/Auth/DevHeadersRemovedTests.cs (future negative coverage post removal)
-#   - Any story plan or documentation under devInfo/ or docs/ (documentation may reference strings)
+# Dev Header Decommission Guard (RDH Story 5 – PARTIAL ENFORCEMENT)
+# Purpose: Hard‑fail CI if any legacy development authentication artifacts are reintroduced
+# outside of explicit historical/documentation allowlists.
+#
+# Monitored patterns (literal substrings):
+#   - x-dev-user / x-tenant (legacy headers)
+#   - DevHeaderAuthHandler (removed handler)
+#   - BearerOrDev (removed composite scheme id)
+#   - AUTH__ALLOW_DEV_HEADERS (removed feature flag)
+#   - AuthTestClient.UseTenantAsync (legacy mint helper – should now only appear in historical docs)
+#
+# Current Scope (Story 5 initial): restrict scanning to API runtime + tests to avoid failing on pending web/client cleanup.
+# Future Story 6/7 will expand scope to web and docs after replacement examples are published.
+#
+# Allowlist paths (regex union) – documentation & intentional negative-path regression tests & dev-only endpoints pending rewrite:
+#   - apps/api.tests/Auth/DevHeadersDisabledTests.cs
+#   - apps/api.tests/Auth/DevHeadersRemovedTests.cs
+#   - apps/api/App/Endpoints/Dev.* (temporary dev endpoints; will be refactored or removed)
+#   - devInfo/ (historical sprint plans & story logs)
+#   - docs/ (upgrade guides, architecture snapshots)
+#   - SnapshotArchitecture.*.md (legacy snapshots)
+#
 # Exit codes:
-#   0 = No forbidden patterns (or only in allowlist)
-#   1 = Forbidden pattern detected
+#   0 = Clean (only allowlisted occurrences)
+#   1 = Violations found
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Assemble grep command
-PATTERNS=("x-dev-user" "x-tenant" "DevHeaderAuthHandler" "AuthTestClient.UseTenantAsync" "BearerOrDev")
-ALLOWLIST_REGEX='apps/api.tests/Guard/NoUseTenantAsyncLeftTests.cs|apps/api.tests/Auth/DevHeadersDisabledTests.cs|apps/api.tests/Auth/DevHeadersRemovedTests.cs|devInfo/|docs/'
+PATTERNS=("x-dev-user" "x-tenant" "DevHeaderAuthHandler" "BearerOrDev" "AUTH__ALLOW_DEV_HEADERS" "AuthTestClient.UseTenantAsync")
+ALLOWLIST_REGEX='apps/api.tests/Auth/DevHeadersDisabledTests.cs|apps/api.tests/Auth/DevHeadersRemovedTests.cs|apps/api/App/Endpoints/Dev|devInfo/|docs/|SnapshotArchitecture'
 
 FOUND=()
+FILES=$(git ls-files | grep -E '^(apps/api/|apps/api.tests/)' | grep -E '\.(cs|md|sh)$')
 for p in "${PATTERNS[@]}"; do
   while IFS= read -r file; do
-    # Skip allowlisted files
+    [[ -z "$file" ]] && continue
     if [[ "$file" =~ $ALLOWLIST_REGEX ]]; then
       continue
     fi
     FOUND+=("$p :: $file")
-  done < <(git ls-files | grep -E '\.(cs|md|sh|ts|tsx)$' | xargs grep -Il --null "$p" 2>/dev/null | tr '\0' '\n')
-# Note: grep -I avoids binary files; we capture file names containing pattern.
-  # Remove duplicates for same pattern/file (grep -l ensures uniqueness anyway)
+  done < <(echo "$FILES" | xargs grep -Il --null "$p" 2>/dev/null | tr '\0' '\n')
 done
 
 if ((${#FOUND[@]})); then

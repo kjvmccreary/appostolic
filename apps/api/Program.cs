@@ -438,7 +438,7 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Test"))
 }
 
 // Story 3: Dev headers deprecation (reject legacy headers early when flag disabled)
-app.UseMiddleware<Appostolic.Api.App.Middleware.DevHeadersDeprecationMiddleware>();
+app.UseMiddleware<Appostolic.Api.App.Middleware.LegacyDevHeadersGuardMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -446,32 +446,7 @@ app.UseAuthorization();
 // Use conventional middleware to set tenant and manage transaction
 app.UseMiddleware<TenantScopeMiddleware>();
 
-// Development dev-header correlation: propagate tenant/user via Activity baggage and tags
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path.Value ?? string.Empty;
-    if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
-    {
-        await next();
-        return;
-    }
-
-    var devTenant = context.Request.Headers["x-tenant"].FirstOrDefault();
-    var devUser = context.Request.Headers["x-dev-user"].FirstOrDefault();
-
-    if (!string.IsNullOrWhiteSpace(devTenant))
-    {
-        Activity.Current?.AddBaggage("tenant", devTenant);
-        Activity.Current?.SetTag("tenant", devTenant);
-    }
-    if (!string.IsNullOrWhiteSpace(devUser))
-    {
-        Activity.Current?.AddBaggage("user", devUser);
-        Activity.Current?.SetTag("user", devUser);
-    }
-
-    await next();
-});
+// Removed legacy dev header correlation middleware (Story 5): user/tenant context now derives solely from JWT claims.
 
 // Static files for media (avatars/logos) under /media
 var mediaBase = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "web.out", "media");

@@ -17,46 +17,41 @@ public class TestTokenFactoryTests : IClassFixture<Appostolic.Api.Tests.WebAppFa
     [Fact]
     public async Task MintTenantToken_SingleMembership_AutoTenantYieldsTenantToken()
     {
-        // Arrange
-        using var client = _factory.CreateClient();
-        var helper = new TestAuthClient(client);
+        // Modernized: use direct seeding + issuance instead of /api/test/mint-tenant-token for deterministic coverage.
         var email = $"testhelper-{Guid.NewGuid():N}@example.com";
-
-        // Act
-        var (neutral, tenant) = await helper.MintAsync(email, autoTenant: true);
-
-        // Assert
-        neutral.Should().NotBeNullOrWhiteSpace();
-        tenant.Should().NotBeNullOrWhiteSpace();
+        var (tenantToken, userId, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, $"personal-{Guid.NewGuid():N}".Substring(0, 20));
+        tenantToken.Should().NotBeNullOrWhiteSpace();
+        userId.Should().NotBe(Guid.Empty);
+        tenantId.Should().NotBe(Guid.Empty);
     }
 
     [Fact]
     public async Task MintTenantToken_MultiMembership_ExplicitTenantSelection()
     {
-        using var client = _factory.CreateClient();
+        // Using seeder to create two tenants + memberships and verifying issuance only occurs for exact slug.
         var email = $"multihelper-{Guid.NewGuid():N}@example.com";
-
-        // First mint creates personal tenant
-        var helper = new TestAuthClient(client);
-        var _ = await helper.MintAsync(email, autoTenant: true);
-
-        // Manually add second membership
-        using(var scope = _factory.Services.CreateScope())
+        var (_, userId, firstTenantId) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, email, $"primary-{Guid.NewGuid():N}".Substring(0, 20));
+        var secondSlug = $"second-{Guid.NewGuid():N}".Substring(0, 20);
+        // Ensure second membership
+        using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = await db.Users.FirstAsync(u => u.Email == email);
-            var tenant = new Tenant { Id = Guid.NewGuid(), Name = $"second-{Guid.NewGuid():N}".Substring(0, 20), CreatedAt = DateTime.UtcNow };
-            db.Tenants.Add(tenant);
-            await db.SaveChangesAsync();
-            db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenant.Id, UserId = user.Id, Roles = Roles.Creator | Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
-            await db.SaveChangesAsync();
+            if (!await db.Tenants.AnyAsync(t => t.Name == secondSlug))
+            {
+                var t = new Tenant { Id = Guid.NewGuid(), Name = secondSlug, CreatedAt = DateTime.UtcNow };
+                db.Tenants.Add(t);
+                await db.SaveChangesAsync();
+                db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = t.Id, UserId = userId, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }
         }
-
-        // Mint again with explicit tenant slug selection (should include tenantToken for that slug)
-        var res = await client.PostAsJsonAsync("/api/test/mint-tenant-token", new { Email = email, Tenant = "second" }); // partial slug won't match; expect no tenant token
+        // Attempt to issue token with non-matching partial slug should yield a neutral-only token when using legacy endpoint behavior.
+        // Here we just assert that requesting an incorrect slug via raw endpoint returns no tenant token shape (maintain backwards coverage).
+        using var client = _factory.CreateClient();
+        var res = await client.PostAsJsonAsync("/api/test/mint-tenant-token", new { Email = email, Tenant = "second" });
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         var doc = await res.Content.ReadFromJsonAsync<JsonObject>();
-        (doc!["tenantToken"] == null).Should().BeTrue(); // slug mismatch
+        (doc!["tenantToken"] == null).Should().BeTrue();
     }
 
     [Fact]

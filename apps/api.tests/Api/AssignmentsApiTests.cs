@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
+using System.Net.Http.Headers;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -10,32 +12,25 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public AssignmentsApiTests(WebAppFactory factory) => _factory = factory;
-    // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth endpoints.
-    // Pattern (mirrors MembersListTests):
-    //   1. Seed a known password (matches AuthTestClientFlow.DefaultPassword)
-    //   2. POST /api/auth/login to obtain neutral access token
-    //   3. POST /api/auth/select-tenant for tenant-scoped access token
-    // This ensures these role/membership tests exercise production-equivalent authentication.
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
 
-    private async Task SeedPasswordAsync(string email, string password)
+    // Story 5 Refactor: Use deterministic token issuance via TestAuthSeeder instead of exercising
+    // /auth/login + /auth/select-tenant in every test. These tests focus on membership/roles endpoint
+    // behavior, not the auth pipeline itself. Auth flows remain covered by dedicated auth tests.
+
+    private static HttpClient CreateAuthedTenantClient(WebAppFactory factory, string email, string tenant, bool owner = true)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+        var client = factory.CreateClient();
+        var issued = TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenant, owner);
+        issued.GetAwaiter().GetResult(); // safe in test sync helper
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued.Result.token);
+        return client;
     }
 
     [Fact]
     public async Task List_memberships_requires_admin_and_returns_roles()
     {
         // Use kevin-personal where kevin is Owner
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var owner = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
+    var owner = CreateAuthedTenantClient(_factory, "kevin@example.com", "kevin-personal", owner: true);
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -70,9 +65,8 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
         }
 
         // Seed viewer password & login with only Roles.None membership
-        await SeedPasswordAsync(viewerEmail, DefaultPw);
-        var viewer = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, viewer, viewerEmail, "kevin-personal"); // membership has no admin flags
+    // Viewer token (no admin flags) – membership already seeded with Roles.None
+    var viewer = CreateAuthedTenantClient(_factory, viewerEmail, "kevin-personal", owner: false);
         var forbidden = await viewer.GetAsync($"/api/tenants/{tenantId}/memberships");
         forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -80,9 +74,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_replaces_flags_and_allows_noop()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var owner = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
+    var owner = CreateAuthedTenantClient(_factory, "kevin@example.com", "kevin-personal", owner: true);
 
         Guid tenantId;
         Guid targetUserId;
@@ -147,9 +139,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var adminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", slug);
+    var adminClient = CreateAuthedTenantClient(_factory, "kevin@example.com", slug, owner: true);
         var conflict = await adminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{kevinId}/roles", new { roles = Array.Empty<string>() });
         conflict.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -157,10 +147,8 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Set_roles_returns_404_when_membership_missing_and_400_for_invalid_flag()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var owner = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, owner, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
+    var owner = CreateAuthedTenantClient(_factory, "kevin@example.com", "kevin-personal", owner: true);
+    Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -221,9 +209,7 @@ public class AssignmentsApiTests : IClassFixture<WebAppFactory>
             viewerId = viewer.Id;
         }
 
-        await SeedPasswordAsync(viewerEmail, DefaultPw);
-        var viewerClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, viewerClient, viewerEmail, "kevin-personal"); // viewer has no admin roles
+    var viewerClient = CreateAuthedTenantClient(_factory, viewerEmail, "kevin-personal", owner: false); // viewer has no admin roles
         var resp = await viewerClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{viewerId}/roles", new { roles = new[] { "Creator" } });
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

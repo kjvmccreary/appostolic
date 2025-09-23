@@ -111,8 +111,6 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 // Individual tests override to false via WithSettings when validating suppression.
                 ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
             };
-            // Explicitly enable dev headers in test environment by default; targeted tests can disable by override.
-            dict["AUTH__ALLOW_DEV_HEADERS"] = "true";
             // Superadmin allowlist for flow-based elevation (Story 2 Phase A follow-up). This enables
             // login/select-tenant issued tokens for kevin@example.com to include superadmin=true claim
             // eliminating reliance on test mint superadmin helper.
@@ -172,28 +170,14 @@ public class WebAppFactory : WebApplicationFactory<Program>
             if (enqDesc != null) services.Remove(enqDesc);
             services.AddScoped<INotificationEnqueuer, NotificationEnqueuer>();
 
-            // Seed dev user/tenant/membership expected by DevHeaderAuthHandler (flags-only model)
-            using var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.EnsureCreated();
-            if (!db.Users.AsNoTracking().Any(u => u.Email == "kevin@example.com"))
-            {
-                var tenant = new Tenant { Id = Guid.NewGuid(), Name = "kevin-personal", CreatedAt = DateTime.UtcNow };
-                var user = new User { Id = Guid.NewGuid(), Email = "kevin@example.com", CreatedAt = DateTime.UtcNow };
-                var membership = new Membership
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenant.Id,
-                    UserId = user.Id,
-                    // Full composite flags for initial admin user
-                    Roles = Roles.TenantAdmin | Roles.Approver | Roles.Creator | Roles.Learner,
-                    Status = MembershipStatus.Active,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.AddRange(tenant, user, membership);
-                db.SaveChanges();
-            }
+            // Removed dev header auth seeding (Story 5): tests now rely solely on real auth flows & token issuance helpers.
+
+            // Story 5 Regression: Provide baseline test user seeding now that legacy dev header seeding was removed.
+            // Several auth flow tests assume the existence of kevin@example.com prior to invoking endpoints like
+            // /api/auth/forgot-password. Without an initial user row those tests fail with InvalidOperationException
+            // (Sequence contains no elements) when querying Users. We add a lightweight hosted service that runs once
+            // per TestServer startup to ensure this canonical user exists without introducing cross‑test state leakage.
+            services.AddHostedService<TestUserSeedHostedService>();
         });
     }
 
@@ -220,6 +204,37 @@ public class WebAppFactory : WebApplicationFactory<Program>
         }
         catch { return new Dictionary<string,string>(); }
     }
+}
+
+/// <summary>
+/// Hosted service that seeds a canonical baseline user required by multiple auth flow tests. Replaces the previous
+/// dev header driven seeding logic that was removed in Story 5. Keeps responsibility isolated from WebAppFactory
+/// configuration plumbing and avoids premature ServiceProvider builds.
+/// </summary>
+internal sealed class TestUserSeedHostedService : IHostedService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    public TestUserSeedHostedService(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var email = "kevin@example.com";
+        if (!db.Users.Any(u => u.Email == email))
+        {
+            db.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
 /// <summary>

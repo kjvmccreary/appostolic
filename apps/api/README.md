@@ -41,12 +41,30 @@ Source references:
 - Entities: `apps/api/Domain/Agents/*.cs`
 - Registry (read-only, v1): `apps/api/Application/Agents/AgentRegistry.cs`
 
-### Auth & Tenant Scoping (Dev)
+### Auth & Tenant Scoping
 
-- Send headers on `/api/*` requests:
-  - `x-dev-user: dev@example.com`, `x-tenant: acme`
-- Tenant scope: middleware starts a tx and sets `app.tenant_id` via `set_config(...)`; skips `/health*` and `/swagger*`.
-  - Middleware: `apps/api/App/Infrastructure/MultiTenancy/TenantScopeMiddleware.cs`
+Authentication now uses JWT Bearer tokens only (dev headers removed). Obtain a neutral token by logging in, then (optionally) select a tenant to receive a tenant-scoped access token.
+
+Quick flow (example user already seeded):
+
+```bash
+# Login (email/password) → returns neutral access token & refresh cookie
+curl -s -X POST http://localhost:5198/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"kevin@example.com","password":"Password123!"}' | jq '{ access, memberships }'
+
+# Select tenant (replace TENANT_ID from memberships array) → returns tenant-scoped access
+curl -s -X POST http://localhost:5198/api/auth/select-tenant \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <NEUTRAL_ACCESS_TOKEN>" \
+  -d '{"tenantId":"<TENANT_ID>"}' | jq '{ access }'
+
+# Authenticated request
+curl -s http://localhost:5198/api/me \
+  -H "Authorization: Bearer <TENANT_ACCESS_TOKEN>" | jq .
+```
+
+Tenant scoping is applied by `TenantScopeMiddleware` using claims from the access token; dev headers are rejected with `401 {"code":"dev_headers_removed"}` if still present.
 
 ### Endpoints & OpenAPI
 
@@ -61,11 +79,11 @@ Source references:
 - Quick links: API base `http://localhost:5198`, Health `GET /health`
 - Make targets: `make api`, `make migrate`, `make bootstrap`, `make sdk`, `make web`, `make mobile`
 
-### cURL smoke test (dev headers)
+### cURL smoke test
 
 ```bash
-curl -s http://localhost:5198/api/me \
-  -H "x-dev-user: kevin@example.com" -H "x-tenant: kevin-personal" | jq .
+# Assuming you have exported TENANT_ACCESS from the select-tenant step:
+curl -s http://localhost:5198/api/me -H "Authorization: Bearer $TENANT_ACCESS" | jq .
 ```
 
 Swagger UI note: If you see JSON at `/swagger`, open `/swagger/` (trailing slash).
@@ -77,31 +95,13 @@ Swagger UI note: If you see JSON at `/swagger`, open `/swagger/` (trailing slash
 
 ---
 
-## Dev Tool Invoker
+## Dev Tool Invoker (Legacy)
 
-Development-only helper to smoke-test tool calls via HTTP. Available only in Development environment and respects existing dev headers authentication and tenant scoping.
+The previous dev-header based tool invoker endpoints are deprecated. Future local testing should occur via authenticated agent/task flows or dedicated CLI utilities. Any request attempting to use legacy headers will receive `401 dev_headers_removed`.
 
-Example:
+### Dev Agents Demo (Legacy)
 
-```bash
-curl -s http://localhost:5198/api/dev/tool-call \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
-  -H "Content-Type: application/json" \
-  -d '{ "name":"web.search", "input": { "q":"intro", "take": 3 } }' | jq .
-```
-
-The endpoint resolves the tool from the registry and executes it with a synthetic context, returning the ToolCallResult (success, output, error, durationMs).
-
-### Dev Agents Demo (Development only)
-
-Run the seeded ResearchAgent inline; returns the created task and its traces:
-
-```bash
-curl -s http://localhost:5198/api/dev/agents/demo \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
-  -H "Content-Type: application/json" \
-  -d '{ "topic": "Intro to EF Core" }' | jq '.task.status, .traces | length'
-```
+Inline demo endpoint retained temporarily for Development but no longer accepts dev headers; authenticate with a tenant-scoped Bearer token.
 
 ## Agents API (A10)
 
@@ -119,20 +119,20 @@ Endpoints
 - DELETE /api/agents/{id} — delete
 - GET /api/agents/tools — read-only tool catalog for allowlisting in UI
 
-cURL examples (Development headers required)
+cURL examples (Bearer auth)
 
 ```bash
 # List agents (enabled only)
 curl -s "http://localhost:5198/api/agents?take=50" \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ id, name, model, temperature, maxSteps })'
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq 'map({ id, name, model, temperature, maxSteps })'
 
 # Include disabled too
 curl -s "http://localhost:5198/api/agents?includeDisabled=true&take=50" \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ id, name, isEnabled })'
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq 'map({ id, name, isEnabled })'
 
 # Create an agent (explicitly disabled example)
 curl -s http://localhost:5198/api/agents \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
+  -H "Authorization: Bearer $TENANT_ACCESS" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Researcher",
@@ -146,11 +146,11 @@ curl -s http://localhost:5198/api/agents \
 
 # Get details
 curl -s http://localhost:5198/api/agents/<AGENT_ID> \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq '{ id, name, toolAllowlist }'
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq '{ id, name, toolAllowlist }'
 
 # Update (enable)
 curl -s -X PUT http://localhost:5198/api/agents/<AGENT_ID> \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" \
+  -H "Authorization: Bearer $TENANT_ACCESS" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Researcher",
@@ -164,11 +164,11 @@ curl -s -X PUT http://localhost:5198/api/agents/<AGENT_ID> \
 
 # Delete
 curl -s -X DELETE http://localhost:5198/api/agents/<AGENT_ID> \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" -i | head -n1
+  -H "Authorization: Bearer $TENANT_ACCESS" -i | head -n1
 
 # Tool catalog (read-only)
 curl -s http://localhost:5198/api/agents/tools \
-  -H "x-dev-user: dev@example.com" -H "x-tenant: acme" | jq 'map({ name, category, description })'
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq 'map({ name, category, description })'
 ```
 
 ## Agent Tasks API (S1-09)
@@ -177,9 +177,9 @@ Use these endpoints to create tasks for a deterministic agent and optionally fet
 
 Important:
 
-- Include dev headers on all `/api/*` calls: `x-dev-user` and `x-tenant`.
+- All `/api/*` calls require a valid Bearer token (JWT). Obtain via login + tenant selection (see Auth section above).
 - Swagger UI at http://localhost:5198/swagger/ (note trailing slash).
-- For now, tasks will be created with `Pending` status; A09-05 will connect a queue worker to execute tasks.
+- Tasks are created `Pending`; background worker processes asynchronously.
 
 Concrete IDs:
 
@@ -190,17 +190,17 @@ Examples:
 ```bash
 # Create
 curl -s http://localhost:5198/api/agent-tasks \
-  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" \
+  -H "Authorization: Bearer $TENANT_ACCESS" \
   -H "Content-Type: application/json" \
   -d '{ "agentId":"11111111-1111-1111-1111-111111111111", "input": { "topic": "Beatitudes" } }' | jq .
 
 # Get w/ traces
 curl -s "http://localhost:5198/api/agent-tasks/<TASK_ID>?includeTraces=true" \
-  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" | jq .
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq .
 
 # List (may be empty if none Running yet)
 curl -s "http://localhost:5198/api/agent-tasks?status=Running&take=10&skip=0" \
-  -H "x-dev-user: kevin@example.com" -H "x-tenant: acme" | jq .
+  -H "Authorization: Bearer $TENANT_ACCESS" | jq .
 ```
 
 Tip: In VS Code’s Run and Debug panel, use the task "Dev: web+api+mobile" to start the API (and web/mobile) with `pnpm dev`. Or use `make api` to run just the API at http://localhost:5198.

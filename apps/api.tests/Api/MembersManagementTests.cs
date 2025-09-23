@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Appostolic.Api.AuthTests; // TestAuthSeeder
+using System.Net.Http.Headers;
 
 namespace Appostolic.Api.Tests.Api;
 
@@ -10,19 +12,37 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
     public MembersManagementTests(WebAppFactory factory) => _factory = factory;
-    // RDH Story 2 Phase A: migrate from legacy mint helper (UseTenantAsync) to real auth flow.
-    // Pattern: seed password -> POST /api/auth/login -> POST /api/auth/select-tenant.
-    private const string DefaultPw = "Password123!"; // must match AuthTestClientFlow.DefaultPassword
-
-    private async Task SeedPasswordAsync(string email, string password)
+    // Story 5 Refactor: Use TestAuthSeeder to create memberships & issue tokens.
+    private static async Task<(HttpClient client, Guid tenantId)> CreateAdminAsync(WebAppFactory factory, string email, string tenantSlug)
     {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<Appostolic.Api.Application.Auth.IPasswordHasher>();
-        var user = await db.Users.AsNoTracking().SingleAsync(u => u.Email == email);
-        var (hash, salt, _) = hasher.HashPassword(password);
-        db.Users.Update(user with { PasswordHash = hash, PasswordSalt = salt, PasswordUpdatedAt = DateTime.UtcNow });
-        await db.SaveChangesAsync();
+        var (token, _, tenantId) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: true);
+        var c = factory.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (c, tenantId);
+    }
+    private static async Task<HttpClient> CreateNonAdminAsync(WebAppFactory factory, string email, Guid tenantId, string tenantSlug)
+    {
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                user = new User { Id = Guid.NewGuid(), Email = email, CreatedAt = DateTime.UtcNow };
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+            }
+            var membership = await db.Memberships.FirstOrDefaultAsync(m => m.UserId == user.Id && m.TenantId == tenantId);
+            if (membership == null)
+            {
+                db.Memberships.Add(new Membership { Id = Guid.NewGuid(), TenantId = tenantId, UserId = user.Id, Roles = Roles.Learner, Status = MembershipStatus.Active, CreatedAt = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }
+        }
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(factory, email, tenantSlug, owner: false);
+        var c = factory.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return c;
     }
 
     /// <summary>
@@ -69,12 +89,8 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task TenantAdmin_can_add_TenantAdmin_flag_to_member()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var adminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", "kevin-personal");
-
-        Guid tenantId;
-        Guid targetUserId;
+    var (adminClient, tenantId) = await CreateAdminAsync(_factory, "kevin@example.com", "kevin-personal");
+    Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -109,9 +125,9 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Non_admin_cannot_change_roles()
     {
-        Guid tenantId;
-        string nonAdminEmail;
-        Guid targetUserId;
+    Guid tenantId;
+    string nonAdminEmail;
+    Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -129,9 +145,8 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
             targetUserId = b.Id;
         }
 
-        await SeedPasswordAsync(nonAdminEmail, DefaultPw);
-        var nonAdminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, nonAdminClient, nonAdminEmail, "kevin-personal"); // membership is Learner only
+        var (_, adminTenantId) = await CreateAdminAsync(_factory, "kevin@example.com", "kevin-personal"); // ensure tenant & admin membership exist
+        var nonAdminClient = await CreateNonAdminAsync(_factory, nonAdminEmail, tenantId, "kevin-personal");
         var attempt = await nonAdminClient.PostAsJsonAsync($"/api/tenants/{tenantId}/memberships/{targetUserId}/roles", new { roles = new[] { "Creator" } });
         attempt.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -139,11 +154,8 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Cannot_remove_last_TenantAdmin()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var adminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
-        Guid adminUserId;
+    var (adminClient, tenantId) = await CreateAdminAsync(_factory, "kevin@example.com", "kevin-personal");
+    Guid adminUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -173,11 +185,8 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Remove_non_admin_member()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var adminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
-        Guid targetUserId;
+    var (adminClient, tenantId) = await CreateAdminAsync(_factory, "kevin@example.com", "kevin-personal");
+    Guid targetUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -203,12 +212,9 @@ public class MembersManagementTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Remove_TenantAdmin_flag_when_another_admin_exists()
     {
-        await SeedPasswordAsync("kevin@example.com", DefaultPw);
-        var adminClient = _factory.CreateClient();
-        await Appostolic.Api.AuthTests.AuthTestClientFlow.LoginAndSelectTenantAsync(_factory, adminClient, "kevin@example.com", "kevin-personal");
-        Guid tenantId;
-        Guid primaryAdminUserId;
-        Guid secondAdminUserId;
+    var (adminClient, tenantId) = await CreateAdminAsync(_factory, "kevin@example.com", "kevin-personal");
+    Guid primaryAdminUserId;
+    Guid secondAdminUserId;
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

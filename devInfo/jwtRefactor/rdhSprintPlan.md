@@ -134,7 +134,7 @@ Acceptance (canonical 401 code `dev_headers_removed`) — ✅ COMPLETED (pending
 [x] Remove obsolete helpers/comments (handler file deleted, scheme block excised).
 [ ] Update SnapshotArchitecture security/auth sections (IN PROGRESS).
 [ ] Grep validation & adjust any lingering doc references (IN PROGRESS).
-[ ] Create rollback tag `before-dev-header-removal` immediately prior to merge (PENDING).
+[x] Create rollback tag `before-dev-header-removal` immediately prior to merge (COMPLETED 2025-09-22).
 [ ] Run full build & test matrix (web/e2e) & log counts (PENDING — API build green).
 [ ] Update LivingChecklist (PENDING).
 [ ] Append story log entry (PENDING — will include commit hash & rollback steps).
@@ -142,10 +142,10 @@ Acceptance (canonical 401 code `dev_headers_removed`) — ✅ COMPLETED (pending
 
 #### Story 5: Observability & Regression Guards
 
-[ ] Add a lint/CI script to fail build if patterns `x-dev-user` or `DevHeaderAuthHandler` appear (excluding historical docs folder).
-[ ] Add a minimal integration test verifying `x-dev-user` request returns 401 `dev_headers_removed` (final canonical error code after removal).
-[ ] Add documentation snippet to Upgrade Guide: “Dev headers removed — how to adapt”.
-[ ] Remove temporary metric (`auth.dev_headers.deprecated_requests`) once stable (optional line item if introduced in Story 3).
+[x] Add a lint/CI script to fail build if patterns `x-dev-user` or `DevHeaderAuthHandler` appear (excluding historical docs folder). (ENFORCING guard updated 2025-09-22; includes patterns: headers, handler, scheme id, flag, legacy helper.)
+[ ] Add (or confirm) minimal integration test verifying `x-dev-user` request returns 401 `dev_headers_removed` (final canonical error code after removal). (Negative-path tests exist; evaluate need for separate lightweight smoke.)
+[ ] Add documentation snippet to Upgrade Guide: “Dev headers removed — how to adapt” (post-removal adaptation guidance snippet pending).
+[x] Remove temporary metric (`auth.dev_headers.deprecated_requests`) once stable (handled in Story 4 removal commit).
 
 #### Story 6: Documentation & Cleanup
 

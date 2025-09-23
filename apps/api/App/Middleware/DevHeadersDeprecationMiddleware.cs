@@ -11,12 +11,12 @@ namespace Appostolic.Api.App.Middleware;
 /// NOTE: Middleware retained temporarily (instead of full deletion) to emit the stable error code
 /// while client tooling is updated. It can be fully removed in a later cleanup story.
 /// </summary>
-public class DevHeadersDeprecationMiddleware
+public class LegacyDevHeadersGuardMiddleware
 {
     private readonly RequestDelegate _next;
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
-    public DevHeadersDeprecationMiddleware(RequestDelegate next, IConfiguration _)
+    public LegacyDevHeadersGuardMiddleware(RequestDelegate next, IConfiguration _)
     {
         _next = next;
     }
