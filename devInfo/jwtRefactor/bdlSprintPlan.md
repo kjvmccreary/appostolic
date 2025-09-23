@@ -10,14 +10,14 @@ Deliver a cohesive set of security & operability enhancements that strengthen ab
 
 ## In-Scope Stories
 
-Progress: 4 / 7 stories complete. (Story 6 completed – dry-run meta + refresh_invalid added 2025-09-23)
+Progress: 5 / 7 stories complete. (Story 8 session enumeration & selective revoke completed 2025-09-23; includes schema columns, endpoints, metrics, security event, tests)
 
 1. Story 3: Refresh Rate Limiting & Abuse Protection ✅ DONE (2025-09-23)
 2. Story 4: Dual-Key Signing Grace Window ✅ DONE (2025-09-23)
 3. Story 5: Tracing Span Enrichment (auth.\* attributes) ✅ DONE (2025-09-23)
 4. Story 6: Structured Security Event Log ✅ DONE (2025-09-23)
 5. Story 7: Grafana Dashboards & Alert Rules as Code 🚧 IN PROGRESS (2025-09-23)
-6. Story 8: Session Enumeration Backend
+6. Story 8: Session Enumeration Backend ✅ DONE (2025-09-23)
 7. Story 9: Admin Forced Logout & Bulk Tenant Invalidate
 
 ## Unified Configuration Surface (Proposed)
