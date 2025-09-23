@@ -262,3 +262,166 @@ Refresh Hashing: Base64(SHA256(plaintext)) — never store plaintext
 ---
 
 End of Snapshot.
+
+---
+
+### Appendix A — Visual Diagrams (Mermaid)
+
+These diagrams are code-review friendly. Update only if underlying flow/relationships materially change.
+
+#### A1. Auth Sequence (Login → Select Tenant → Refresh Loop)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant User
+  participant WebApp
+  participant API
+  participant DB as Postgres
+  User->>WebApp: Enter credentials
+  WebApp->>API: POST /api/auth/login
+  API->>DB: Verify user + password hash
+  DB-->>API: User + memberships
+  API-->>WebApp: 200 { access(neutral), refresh(cookie), memberships }
+  note over WebApp: Access token in memory
+  User->>WebApp: Select tenant
+  WebApp->>API: POST /api/auth/select-tenant { tenant }
+  API->>DB: Validate membership & rotate refresh
+  DB-->>API: New refresh row
+  API-->>WebApp: 200 { access(neutral), tenantToken, refresh(cookie) }
+  loop Silent Refresh (pre-expiry ~60s)
+    WebApp->>API: POST /api/auth/refresh (cookie)
+    API->>DB: Validate + rotate
+    DB-->>API: Rotation ok
+    API-->>WebApp: 200 { access(neutral)[+tenantToken?] }
+  end
+```
+
+#### A2. Request Auth Flow (Decision Path)
+
+```mermaid
+flowchart LR
+  A[HTTP Request] --> B{Bearer JWT?}
+  B -- No --> U[401 Unauthorized]
+  B -- Yes --> C[Validate Signature & Claims]
+  C --> D{TokenVersion current?}
+  D -- No --> UV[401 token_version_mismatch]
+  D -- Yes --> E{Tenant claims present?}
+  E -- No --> N[Neutral Principal]
+  E -- Yes --> T[Tenant Principal]
+  N --> X[Endpoint Handler]
+  T --> X
+  X --> R[Response + Metrics]
+```
+
+#### A3. Component Overview
+
+```mermaid
+graph TD
+  subgraph Clients
+    W[Web (Next.js)]
+    M[Mobile (Expo)]
+  end
+  subgraph API[.NET Minimal API]
+    A1[Auth Endpoints]
+    A2[Domain Endpoints]
+    A3[Agent Runtime]
+    A4[Notifications]
+  end
+  subgraph Persistence
+    DB[(Postgres)]
+    OBJ[(MinIO/S3)]
+    REDIS[(Redis)]
+  end
+  subgraph External
+    SG[SendGrid]
+    SMTP[SMTP/Mailhog]
+  end
+  W --> A1
+  M --> A1
+  W --> A2
+  M --> A2
+  A1 --> DB
+  A2 --> DB
+  A2 --> OBJ
+  A3 --> DB
+  A3 --> REDIS
+  A4 --> DB
+  A4 --> SG
+  A4 --> SMTP
+```
+
+#### A4. Core Entity Relationships (Abbreviated)
+
+```mermaid
+erDiagram
+  USER ||--o{ MEMBERSHIP : has
+  TENANT ||--o{ MEMBERSHIP : contains
+  USER ||--o{ REFRESH_TOKEN : owns
+  USER ||--o{ LOGIN_TOKEN : requests
+  TENANT ||--o{ INVITATION : issues
+  USER ||--o{ INVITATION : creates
+  MEMBERSHIP ||--o{ AUDIT : changesRoles
+
+  USER {
+    uuid Id
+    string Email
+    int TokenVersion
+  }
+  TENANT {
+    uuid Id
+    string Name
+  }
+  MEMBERSHIP {
+    uuid Id
+    uuid TenantId
+    uuid UserId
+    int Roles
+  }
+  REFRESH_TOKEN {
+    uuid Id
+    uuid UserId
+    string TokenHash
+    datetime ExpiresAt
+    datetime? RevokedAt
+  }
+  LOGIN_TOKEN {
+    uuid Id
+    citext Email
+    string TokenHash
+    datetime ExpiresAt
+    datetime? ConsumedAt
+  }
+  INVITATION {
+    uuid Id
+    uuid TenantId
+    string Email
+    int Roles
+    datetime ExpiresAt
+  }
+  AUDIT {
+    uuid Id
+    uuid TenantId
+    uuid UserId
+    int OldRoles
+    int NewRoles
+    datetime ChangedAt
+  }
+```
+
+#### A5. Silent Refresh State Machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Schedule : Login Success
+  Schedule --> Waiting
+  Waiting --> Refreshing : Timer Fires (T-60s)
+  Refreshing --> Schedule : 200 OK
+  Refreshing --> RetryOnce : 401 Access expired edge
+  RetryOnce --> Refreshing : Retry Refresh
+  Refreshing --> AuthError : 401 reuse/invalid
+  AuthError --> [*]
+```
+
+End of Appendix.
