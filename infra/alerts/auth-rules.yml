@@ -42,6 +42,16 @@ groups:
           summary: 'JWT key rotation validation failure'
           description: 'At least one key rotation validation failure in last 15m. Possible configuration issue; rollback may be required.'
 
+      - alert: RefreshReuseAnomaly
+        expr: (sum(rate(auth_refresh_reuse_denied[5m])) > 2) and (sum(rate(auth_refresh_reuse_denied[5m])) / clamp_max(sum(rate(auth_refresh_success[5m])) + sum(rate(auth_refresh_failure[5m])), 1e9) > 0.02)
+        for: 10m
+        labels:
+          severity: warning
+          team: auth
+        annotations:
+          summary: 'Refresh reuse anomaly (elevated ratio + count)'
+          description: 'Reuse denied rate crossed hybrid threshold ( >2/5m AND >2% of refresh attempts for 10m ). Investigate potential token theft or session replay. Steps: 1) Check auth-security dashboard reuse ratio panel 2) Correlate with security events (refresh_reuse vs refresh_invalid) 3) Sample recent affected refresh ids & user distribution 4) Consider forced logout or key rotation if concentrated.'
+
       - alert: ExcessiveRefreshInvalidEvents
         expr: sum(rate(auth_security_events_emitted{type="refresh_invalid"}[15m])) > 50
         for: 5m

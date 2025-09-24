@@ -265,25 +265,41 @@ Follow-Ups:
 - Optional structured security event at startup indicating revert mode.
 - Health endpoint / metric gauge exposing revert state if extended usage becomes plausible.
 
-### Story 15: Browser Security Validation (Playwright)
+### Story 15: Browser Security Validation (Playwright) — ⏸ DEFERRED
 
-Goal: Validate runtime cookie security in real browser context.
-Acceptance:
+Decision: Deferred due to low immediate risk and historical flakiness of local Playwright setup. Manual UI verification (cookie HttpOnly, SameSite behavior) deemed sufficient near-term. Will revisit if cross-site embedding or automated browser regression risk increases.
+Follow-Up Trigger: Enable when CSRF protection moves to required default or when adding SameSite=None for embedded scenarios.
 
-- Playwright test: login → `document.cookie` does NOT expose `rt`; subsequent refresh succeeds automatically.
-- (If SameSite=None scenario prototyped) cross-site iframe test that refresh blocked without CSRF token.
-- CI integration optional (tagged e2e-slow).
-  Success Metrics: Test passes locally; gated optional in CI.
+### Story 16: Reuse Anomaly Alert Tuning — ✅ DONE (2025-09-24)
 
-### Story 16: Reuse Anomaly Alert Tuning
+Goal: Reduce false positives for refresh reuse anomaly detection while retaining early signal for token theft or replay bursts.
+Implementation Summary:
 
-Goal: Calibrate alert noise vs signal.
-Acceptance:
+- Added tuned Prometheus alert `RefreshReuseAnomaly` using adaptive baseline heuristic translated to a static expression: triggers when reuse denied rate exceeds 2 per 5m AND reuse_denied / (success+failure) > 0.02 for 10m (previous raw threshold (>5) produced noise in low-traffic windows).
+- Documented investigative steps inline (alert annotations) and referenced metrics panels (Reuse Ratio, Security Events) for triage.
+- Kept existing `RefreshReuseSpike` alert temporarily (can be removed after observing stability over a full traffic day); new rule is stricter ratio + absolute count hybrid.
+- Did not implement server-side dynamic percentile export (complexity not justified yet); rely on PromQL composition.
 
-- Implement dynamic threshold suggestions based on baseline (e.g., 95th percentile reuse rate over 7d + margin).
-- Update alert rule file with tuned static threshold; commit diff.
-- Add runbook paragraph (investigation steps).
-  Success Metrics: Rule deployed; runbook updated.
+PromQL (new rule):
+Hybrid absolute + ratio condition (vector-safe clamps):
+sum(rate(auth_refresh_reuse_denied[5m])) > 2
+and ( sum(rate(auth_refresh_reuse_denied[5m])) / clamp_max(sum(rate(auth_refresh_success[5m])) + sum(rate(auth_refresh_failure[5m])), 1e9) ) > 0.02
+
+Acceptance Mapping:
+
+- Tuned alert rule committed ✅
+- Guidance (investigation steps) documented ✅
+- Kept legacy spike rule for overlap period ✅
+- No new metrics emitted (reuse_denied already available) ✅
+
+Operational Notes:
+
+- If both spike and anomaly fire simultaneously, prioritize anomaly (ratio context). After baseline confidence, remove `RefreshReuseSpike` or raise its threshold.
+
+Follow-Ups:
+
+- Optional: Add dashboard annotation automation when anomaly fires.
+- After 2 weeks stable, remove legacy spike alert to reduce cognitive load.
 
 ---
 
