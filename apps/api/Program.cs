@@ -189,7 +189,18 @@ builder.Services.Configure<Appostolic.Api.Application.Auth.TokenVersionCacheOpti
     if (bool.TryParse(builder.Configuration["AUTH__TOKEN_VERSION_CACHE_ENABLED"], out var enabled)) o.Enabled = enabled;
     if (int.TryParse(builder.Configuration["AUTH__TOKEN_VERSION_CACHE_TTL_SECONDS"], out var ttl)) o.TtlSeconds = ttl;
 });
-builder.Services.AddSingleton<Appostolic.Api.Application.Auth.ITokenVersionCache, Appostolic.Api.Application.Auth.InMemoryTokenVersionCache>();
+// Story 14: Allow emergency revert to disable cache optimization (fallback to no-op cache for always-miss behavior)
+var authEmergencyRevertFlag = (builder.Configuration["AUTH__JWT_EMERGENCY_REVERT"] ?? Environment.GetEnvironmentVariable("AUTH__JWT_EMERGENCY_REVERT") ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
+if (authEmergencyRevertFlag)
+{
+    Console.WriteLine("[Startup][Auth] AUTH__JWT_EMERGENCY_REVERT=true — disabling TokenVersion cache + rate limiter + CSRF enforcement for refresh.");
+    builder.Services.AddSingleton<Appostolic.Api.Application.Auth.ITokenVersionCache, Appostolic.Api.Application.Auth.NoopTokenVersionCache>();
+}
+else
+{
+    builder.Services.AddSingleton<Appostolic.Api.Application.Auth.ITokenVersionCache, Appostolic.Api.Application.Auth.InMemoryTokenVersionCache>();
+}
 // Story 3: Refresh rate limiting options (memory implementation)
 builder.Services.AddOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions>()
     .Configure(o =>
@@ -199,7 +210,10 @@ builder.Services.AddOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRa
         if (int.TryParse(cfg["AUTH__REFRESH_RATE_LIMIT_MAX"], out var m)) o.Max = m;
         if (bool.TryParse(cfg["AUTH__REFRESH_RATE_LIMIT_DRY_RUN"], out var dr)) o.DryRun = dr;
     });
-builder.Services.AddSingleton<Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter, Appostolic.Api.Infrastructure.Auth.Refresh.InMemoryRefreshRateLimiter>();
+if (authEmergencyRevertFlag)
+    builder.Services.AddSingleton<Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter, Appostolic.Api.Infrastructure.Auth.Refresh.NoopRefreshRateLimiter>();
+else
+    builder.Services.AddSingleton<Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter, Appostolic.Api.Infrastructure.Auth.Refresh.InMemoryRefreshRateLimiter>();
 
 var jwtEnabled = (builder.Configuration["AUTH__JWT__ENABLED"] ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
 

@@ -238,15 +238,32 @@ Follow-Ups:
 
 - Update `docs/auth-upgrade.md` and legacy sprint plan to excise grace flag narrative (tie into Story 24 transitional flag sweep).
 
-### Story 14: Emergency JWT Rollback Kill-Switch
+### Story 14: Emergency JWT Rollback Kill-Switch — ✅ DONE (2025-09-24)
 
-Goal: Provide rapid fallback path if undiscovered regression emerges.
-Acceptance:
+Goal: Provide rapid fallback if an undiscovered regression appears after recent auth hardening (CSRF, rate limiting, cache optimization).
+Acceptance (Implemented):
 
-- Flag `AUTH__JWT_EMERGENCY_REVERT` enabling minimal legacy fallback (documented constraints) OR disables new rate limiting/CSRF guard.
-- Clear documented blast radius & limitations.
-- Test ensures flag toggles code paths.
-  Success Metrics: Toggled behavior verified; default off.
+- Flag `AUTH__JWT_EMERGENCY_REVERT` disables CSRF validation enforcement (refresh), TokenVersion in-memory cache (replaced with no-op), and refresh rate limiting (no-op limiter).
+- Startup console banner emitted when active.
+- No interface changes (no-op classes implement existing abstractions).
+- Safe undo by unsetting flag and redeploying.
+  Success Metrics: Flag path reduces moving parts for incident triage; performance trade-offs acceptable short-term.
+
+Implementation Summary:
+
+- Added conditional service registration in `Program.cs` for `NoopTokenVersionCache` & `NoopRefreshRateLimiter`.
+- Added new classes: `Application/Auth/NoopTokenVersionCache.cs`, `App/Infrastructure/Auth/Refresh/NoopRefreshRateLimiter.cs`.
+- Refresh endpoint modified earlier to skip CSRF when flag set.
+- Metrics impact: cache hit ratio drops to 0%; limiter panels flatline (expected while enabled).
+
+Rollback / Exit:
+
+- Remove or set flag false; restart application (restores normal protections and optimizations).
+
+Follow-Ups:
+
+- Optional structured security event at startup indicating revert mode.
+- Health endpoint / metric gauge exposing revert state if extended usage becomes plausible.
 
 ### Story 15: Browser Security Validation (Playwright)
 
