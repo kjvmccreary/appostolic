@@ -55,15 +55,26 @@ public static class AuthTestClientFlow
         {
             foreach (var c in cookieHeaders)
             {
-                // Look for cookie starting with refresh=
+                // Cookie rename: refresh= (legacy) -> rt (current). Support both for transitional test stability.
+                // We intentionally do NOT break if we see legacy first; prefer the current 'rt' name.
                 var parts = c.Split(';', 2);
-                if (parts.Length > 0 && parts[0].TrimStart().StartsWith("refresh="))
+                if (parts.Length > 0)
                 {
-                    var value = parts[0].Substring("refresh=".Length);
+                    var first = parts[0].TrimStart();
+                    string? value = null;
+                    if (first.StartsWith("rt="))
+                    {
+                        value = first.Substring("rt=".Length);
+                    }
+                    else if (first.StartsWith("refresh="))
+                    {
+                        value = first.Substring("refresh=".Length);
+                    }
                     if (!string.IsNullOrWhiteSpace(value))
                     {
                         refresh = value;
-                        break;
+                        // Prefer modern cookie; if legacy encountered first keep scanning for rt
+                        if (first.StartsWith("rt=")) break;
                     }
                 }
             }

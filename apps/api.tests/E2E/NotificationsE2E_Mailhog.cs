@@ -51,7 +51,11 @@ public class NotificationsE2E_Mailhog
                         ["Smtp:Port"] = "1025",
                         // Default From helps Mailhog display nicely
                         ["Email:FromAddress"] = "no-reply@appostolic.local",
-                        ["Email:FromName"] = "Appostolic"
+                        ["Email:FromName"] = "Appostolic",
+                        // Enable refresh cookie issuance for auth flow helper (login + select-tenant) since this test uses a fresh WebApplicationFactory
+                        ["AUTH__REFRESH_COOKIE_ENABLED"] = "true",
+                        // Transitional: also expose plaintext refresh token in JSON for robustness (helper will prefer cookie but keep both during migration)
+                        ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
                     };
                     cfg.AddInMemoryCollection(dict);
                 });
