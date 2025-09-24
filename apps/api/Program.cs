@@ -163,6 +163,13 @@ builder.Services.AddOptions<AuthJwtOptions>()
     });
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+// Story 10: TokenVersion cache wiring
+builder.Services.Configure<Appostolic.Api.Application.Auth.TokenVersionCacheOptions>(o =>
+{
+    if (bool.TryParse(builder.Configuration["AUTH__TOKEN_VERSION_CACHE_ENABLED"], out var enabled)) o.Enabled = enabled;
+    if (int.TryParse(builder.Configuration["AUTH__TOKEN_VERSION_CACHE_TTL_SECONDS"], out var ttl)) o.TtlSeconds = ttl;
+});
+builder.Services.AddSingleton<Appostolic.Api.Application.Auth.ITokenVersionCache, Appostolic.Api.Application.Auth.InMemoryTokenVersionCache>();
 // Story 3: Refresh rate limiting options (memory implementation)
 builder.Services.AddOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions>()
     .Configure(o =>
@@ -204,13 +211,28 @@ if (jwtEnabled)
                 var tokenVersionClaim = ctx.Principal?.FindFirst("v")?.Value;
                 if (!int.TryParse(tokenVersionClaim, out var tokenVersion)) tokenVersion = 0;
                 var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-                var currentVersion = await db.Users.Where(u => u.Id == userId)
-                    .Select(u => (int?)EF.Property<int>(u, "TokenVersion"))
-                    .FirstOrDefaultAsync(ctx.HttpContext.RequestAborted) ?? 0;
+                var cache = ctx.HttpContext.RequestServices.GetRequiredService<Appostolic.Api.Application.Auth.ITokenVersionCache>();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                int currentVersion;
+                if (cache.TryGet(userId, out var cachedVersion))
+                {
+                    currentVersion = cachedVersion;
+                    Appostolic.Api.Application.Auth.AuthMetrics.TokenVersionCacheHit.Add(1);
+                }
+                else
+                {
+                    currentVersion = await db.Users.Where(u => u.Id == userId)
+                        .Select(u => (int?)EF.Property<int>(u, "TokenVersion"))
+                        .FirstOrDefaultAsync(ctx.HttpContext.RequestAborted) ?? 0;
+                    Appostolic.Api.Application.Auth.AuthMetrics.TokenVersionCacheMiss.Add(1);
+                    cache.Set(userId, currentVersion);
+                }
                 if (tokenVersion < currentVersion)
                 {
                     ctx.Fail("token_version_mismatch");
                 }
+                sw.Stop();
+                Appostolic.Api.Application.Auth.AuthMetrics.TokenValidationLatencyMs.Record(sw.Elapsed.TotalMilliseconds);
             }
         };
     });

@@ -161,6 +161,23 @@ public static class AuthMetrics
         description: "Count of sessions (refresh tokens) revoked via forced logout. scope=user|tenant" 
     );
 
+    // Story 10: TokenVersion cache + validation latency
+    public static readonly Counter<long> TokenVersionCacheHit = Meter.CreateCounter<long>(
+        name: "auth.token_version.cache_hit",
+        unit: "{event}",
+        description: "Count of TokenVersion validation operations served from in-memory cache."
+    );
+    public static readonly Counter<long> TokenVersionCacheMiss = Meter.CreateCounter<long>(
+        name: "auth.token_version.cache_miss",
+        unit: "{event}",
+        description: "Count of TokenVersion validation operations that required a DB lookup (cold, expired, or disabled)."
+    );
+    public static readonly Histogram<double> TokenValidationLatencyMs = Meter.CreateHistogram<double>(
+        name: "auth.token_validation.latency_ms",
+        unit: "ms",
+        description: "Latency (ms) of TokenVersion validation (includes cache access + optional DB lookup)."
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
