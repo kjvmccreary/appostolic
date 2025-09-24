@@ -1,6 +1,8 @@
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
+namespace Appostolic.Api.Migrations;
+
 /// <summary>
 /// Story 11: Add original_created_at column to refresh_tokens to support absolute max lifetime enforcement for sliding refresh expiration.
 /// </summary>

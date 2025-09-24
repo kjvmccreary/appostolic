@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Appostolic.Api.Application.Auth;
 
@@ -14,4 +15,5 @@ public sealed class NoopTokenVersionCache : ITokenVersionCache
     }
     public void Set(Guid userId, int version) { /* no-op */ }
     public void Invalidate(Guid userId) { /* no-op */ }
+    public void InvalidateMany(IEnumerable<Guid> userIds) { /* no-op */ }
 }

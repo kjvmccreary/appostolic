@@ -10,16 +10,15 @@ using Appostolic.Api.Infrastructure;
 namespace Appostolic.Api.Migrations;
 
 /// <summary>
-/// Designer backfill for Stories 17 & 18 migration (adds device_name to refresh_tokens).
-/// Intentionally minimal; refer to AppDbContextModelSnapshot for the authoritative model graph.
+/// Designer stub for Stories 17 and 18 migration (adds device_name to refresh_tokens).
 /// </summary>
 [DbContext(typeof(AppDbContext))]
 [Migration("20250924163000_s17_18_device_name")]
-partial class s17_18_device_name
+public partial class s17_18_device_name
 {
     /// <inheritdoc />
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        // Intentionally elided to reduce repository noise. Snapshot includes device_name plus earlier columns.
+        // Intentionally elided. AppDbContextModelSnapshot remains authoritative for the model graph.
     }
 }

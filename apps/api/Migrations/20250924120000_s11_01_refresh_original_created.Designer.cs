@@ -10,17 +10,15 @@ using Appostolic.Api.Infrastructure;
 namespace Appostolic.Api.Migrations;
 
 /// <summary>
-/// Designer backfill for Story 11 migration (adds original_created_at to refresh_tokens).
-/// Intentionally minimal: full model snapshot resides in AppDbContextModelSnapshot and subsequent migrations.
+/// Designer stub for Story 11 migration (adds original_created_at to refresh_tokens).
 /// </summary>
 [DbContext(typeof(AppDbContext))]
 [Migration("20250924120000_s11_01_refresh_original_created")]
-partial class s11_01_refresh_original_created
+public partial class s11_01_refresh_original_created
 {
     /// <inheritdoc />
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        // Intentionally elided to reduce repository churn. Snapshot remains the canonical model shape.
-        // Includes Story 8 session enumeration columns and this migration's original_created_at addition.
+        // Intentionally elided. AppDbContextModelSnapshot remains the source of truth for the model graph.
     }
 }
