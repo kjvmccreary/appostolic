@@ -53,7 +53,7 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 | Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                                                                   |
 | Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                                                                           |
 | Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                                                              |
-| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                                                                          |
+| Token validation observability enhancements (post-cache)     | Observability | M      | XS/S   | 27       | Story 10 delivered base latency + hit/miss; add derived ratio + optional eviction metric                        |
 | Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                                                                 |
 | Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                                                                      |
 | Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                                                                 |
@@ -158,6 +158,29 @@ Acceptance:
 - Tests: refresh fails without header when protection enabled; passes with valid token.
 - Docs: enable sequence & threat model.
   Success Metrics: Protection toggle works; minimal false positives under same-site usage.
+
+### Story 27 (Refined): Token Validation Observability Enhancements (Post-Cache)
+
+Context: Core instrumentation shipped with Story 10 (`auth.token_validation.latency_ms`, `auth.token_version.cache_hit|miss`). Remaining value is in higher-level ratios & eviction visibility rather than raw latency plumbing.
+
+Refined Scope:
+
+- Add calculated gauge (or periodic counter->gauge translation) `auth.token_version.cache_hit_ratio` (exported via background hosted service every N seconds) OR document PromQL expression in dashboards instead (choose one: prefer docs-only for simplicity).
+- Optional counter: `auth.token_version.cache_evicted` (expired entries actively removed) if we introduce active trimming logic beyond opportunistic removal.
+- Dashboard panel additions: hit ratio %, P95 token_validation latency slice.
+- Alert rule (optional): low hit ratio (<40% sustained 10m) indicating misconfiguration (cache disabled unintentionally) or extreme churn.
+
+Out of Scope / Already Done:
+
+- Base latency histogram & hit/miss counters (Story 10) ✅
+- Per-request outcome tagging (not needed; low dimensionality kept intentionally) ❌ (not planned)
+
+Acceptance:
+
+- Either documented PromQL or emitted gauge for hit ratio.
+- Dashboard updated referencing ratio.
+- (If chosen) eviction counter increments on explicit trim path & test validates increment.
+  Success Metrics: Operators can view real-time cache efficiency without ad-hoc queries.
 
 ### Story 13: Remove JSON Body Refresh Path & Dead Code
 
