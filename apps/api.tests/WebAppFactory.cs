@@ -96,6 +96,10 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 ["AUTH__TEST_HELPERS_ENABLED"] = "true",
                 // Ensure JWT itself is enabled for tests (defensive)
                 ["AUTH__JWT__ENABLED"] = "true",
+                // Story 12 (CSRF): Explicitly DISABLE CSRF globally in baseline test host to avoid
+                // accidental enablement via developer shell env vars leaking into tests. Individual
+                // CSRF unit/integration tests opt-in by calling WithSettings({"AUTH__CSRF__ENABLED"="true"}).
+                ["AUTH__CSRF__ENABLED"] = "false",
                 // Provide a stable symmetric signing key for test runs so tokens remain valid across
                 // multiple TestServer instances / HttpClients. Without this, each Program.cs startup
                 // (per factory clone) generated a new random key, invalidating previously issued tokens

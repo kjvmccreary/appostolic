@@ -3,6 +3,7 @@ using System.Text.Json;
 using Appostolic.Api.Application.Auth;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Appostolic.Api.Tests.Auth;
 
 namespace Appostolic.Api.Tests.Auth;
 

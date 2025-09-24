@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Xunit;
 
@@ -99,14 +101,15 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
     public async Task Refresh_After_Max_Lifetime_Denied()
     {
         // Configure extremely small max lifetime to force immediate denial after first expiry passes.
-        var client = _factory.WithSettings(new()
+        var factory = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
             { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" },
             { "AUTH__JWT__REFRESH_TTL_DAYS", "1" },
             { "AUTH__REFRESH_SLIDING_WINDOW_DAYS", "1" },
             { "AUTH__REFRESH_MAX_LIFETIME_DAYS", "1" }
-        }).CreateClient();
+        });
+        var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"slide_deny_{Guid.NewGuid()}@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -118,7 +121,12 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
 
         // Force artificial lifetime exceed: update DB original_created_at to 2 days in the past so cap hit immediately.
         // We access scoped db via factory helper.
-        using (var scope = _factory.Services.CreateScope())
+        // IMPORTANT: We must use the cloned factory's service provider (factory.Services), not the original
+        // fixture instance (_factory). The WithSettings call above returns a brand new WebAppFactory with its
+        // own in‑memory database; using _factory.Services would point at a different AppDbContext instance where
+        // the test user does not exist (leading to "Sequence contains no elements").
+        var scopeFactory = factory.Services.GetService(typeof(IServiceScopeFactory)) as IServiceScopeFactory;
+        using (var scope = scopeFactory!.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var rtHash = login.Headers.GetValues("Set-Cookie").First(h => h.StartsWith("rt=")).Split('=')[1].Split(';')[0];

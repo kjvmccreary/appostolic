@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Appostolic.Api.Application.Auth;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 
 namespace Appostolic.Api.AuthTests;
 
@@ -22,6 +23,10 @@ public static class AuthTestClientFlow
     /// </summary>
     public static async Task<(string access, JsonObject json)> LoginNeutralAsync(WebApplicationFactory<Program> factory, HttpClient client, string email)
     {
+        // Story 12: If CSRF is enabled for this test host we must first obtain a CSRF cookie/token
+        // (double-submit) before issuing state-changing auth POST requests (login). We detect enablement
+        // via configuration to avoid hard coupling to options binding internals.
+        EnsureCsrfIfEnabled(factory, client);
         await EnsureUserAsync(factory, email, DefaultPassword);
         var resp = await client.PostAsJsonAsync("/api/auth/login", new { email, password = DefaultPassword });
         resp.EnsureSuccessStatusCode();
@@ -39,6 +44,7 @@ public static class AuthTestClientFlow
     {
         // Re-implement the neutral login locally so we can inspect headers (cookies) before returning.
         await EnsureUserAsync(factory, email, DefaultPassword);
+    EnsureCsrfIfEnabled(factory, client); // Acquire CSRF token before login if required.
         var loginResp = await client.PostAsJsonAsync("/api/auth/login", new { email, password = DefaultPassword });
         loginResp.EnsureSuccessStatusCode();
         var loginJson = await loginResp.Content.ReadFromJsonAsync<JsonObject>() ?? throw new InvalidOperationException("login returned null json");
@@ -124,5 +130,37 @@ public static class AuthTestClientFlow
             db.Entry(existing).CurrentValues.SetValues(updated);
         }
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// If CSRF is enabled via AUTH__CSRF__ENABLED=true, performs a GET /api/auth/csrf to obtain the cookie
+    /// and attaches the returned token as the expected header for subsequent state-changing auth calls.
+    /// No-op when disabled. Swallows failures (tests will surface underlying problem if endpoint unexpected).
+    /// </summary>
+    private static void EnsureCsrfIfEnabled(WebApplicationFactory<Program> factory, HttpClient client)
+    {
+        try
+        {
+            using var scope = factory.Services.CreateScope();
+            var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            if (!bool.TryParse(cfg["AUTH__CSRF__ENABLED"], out var enabled) || !enabled) return;
+        }
+        catch { return; }
+        try
+        {
+            var resp = client.GetAsync("/api/auth/csrf").GetAwaiter().GetResult();
+            if (!resp.IsSuccessStatusCode) return;
+            var jobj = resp.Content.ReadFromJsonAsync<JsonObject>().GetAwaiter().GetResult();
+            if (jobj is null) return;
+            if (jobj.TryGetPropertyValue("token", out var tokenNode) && tokenNode is JsonValue val && val.TryGetValue<string>(out var token) && !string.IsNullOrWhiteSpace(token))
+            {
+                // Default header name X-CSRF (matches CsrfOptions default). We do not currently surface dynamic header name.
+                if (!client.DefaultRequestHeaders.Contains("X-CSRF"))
+                {
+                    client.DefaultRequestHeaders.Add("X-CSRF", token);
+                }
+            }
+        }
+        catch { /* ignore */ }
     }
 }

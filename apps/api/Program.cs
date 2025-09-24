@@ -163,6 +163,18 @@ builder.Services.AddOptions<AuthJwtOptions>()
     });
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+// Story 12: CSRF options & service
+builder.Services.AddOptions<Appostolic.Api.Application.Auth.CsrfOptions>()
+    .Configure(o =>
+    {
+        var cfg = builder.Configuration;
+        if (bool.TryParse(cfg["AUTH__CSRF__ENABLED"], out var en)) o.Enabled = en;
+        if (!string.IsNullOrWhiteSpace(cfg["AUTH__CSRF__COOKIE_NAME"])) o.CookieName = cfg["AUTH__CSRF__COOKIE_NAME"]!;
+        if (!string.IsNullOrWhiteSpace(cfg["AUTH__CSRF__HEADER_NAME"])) o.HeaderName = cfg["AUTH__CSRF__HEADER_NAME"]!;
+        if (bool.TryParse(cfg["AUTH__CSRF__AUTO_ISSUE"], out var ai)) o.AutoIssue = ai;
+        if (int.TryParse(cfg["AUTH__CSRF__COOKIE_TTL_MINUTES"], out var ttl)) o.CookieTtlMinutes = ttl;
+    });
+builder.Services.AddSingleton<Appostolic.Api.Application.Auth.ICsrfService, Appostolic.Api.Application.Auth.CsrfService>();
 // Story 11: Sliding refresh options
 builder.Services.AddOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>()
     .Configure(o =>
@@ -215,7 +227,7 @@ if (jwtEnabled)
                 // Some handlers map 'sub' to ClaimTypes.NameIdentifier; attempt both before failing
                 var sub = ctx.Principal?.FindFirst("sub")?.Value
                           ?? ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (!Guid.TryParse(sub, out var userId)) { ctx.Fail("invalid_sub"); return; }
+                if (!Guid.TryParse(sub, out var userId)) { ctx.HttpContext.Items["auth_failure_reason"] = "invalid_sub"; ctx.Fail("invalid_sub"); return; }
                 var tokenVersionClaim = ctx.Principal?.FindFirst("v")?.Value;
                 if (!int.TryParse(tokenVersionClaim, out var tokenVersion)) tokenVersion = 0;
                 var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
@@ -237,10 +249,27 @@ if (jwtEnabled)
                 }
                 if (tokenVersion < currentVersion)
                 {
+                    ctx.HttpContext.Items["auth_failure_reason"] = "token_version_mismatch";
                     ctx.Fail("token_version_mismatch");
                 }
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.TokenValidationLatencyMs.Record(sw.Elapsed.TotalMilliseconds);
+            },
+            OnChallenge = async challengeCtx =>
+            {
+                // Provide a simple JSON body with the failure reason for tests & clients.
+                if (!challengeCtx.Handled)
+                {
+                    var reason = challengeCtx.HttpContext.Items.TryGetValue("auth_failure_reason", out var r) ? r as string : null;
+                    if (!string.IsNullOrEmpty(reason))
+                    {
+                        challengeCtx.HandleResponse();
+                        challengeCtx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        challengeCtx.Response.ContentType = "application/json";
+                        var payload = System.Text.Json.JsonSerializer.Serialize(new { error = reason });
+                        await challengeCtx.Response.WriteAsync(payload);
+                    }
+                }
             }
         };
     });

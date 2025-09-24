@@ -782,7 +782,7 @@ public static class V1
         });
 
         // POST /api/auth/logout/all - revoke all active neutral refresh tokens and bump token version (invalidating current access tokens)
-    apiRoot.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
+    apiRoot.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts, Appostolic.Api.Application.Auth.ITokenVersionCache tokenVersionCache) =>
         {
             // Story 12: CSRF validation for bulk logout
             if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorLogoutAll))
@@ -808,6 +808,8 @@ public static class V1
                 var bumped = user with { TokenVersion = user.TokenVersion + 1 };
                 db.Users.Update(bumped);
                 await db.SaveChangesAsync();
+                // Update in-memory token version cache so existing access tokens immediately fail validation.
+                tokenVersionCache.Set(user.Id, bumped.TokenVersion);
             }
             if (http.Request.Cookies.ContainsKey("rt"))
             {
@@ -833,7 +835,7 @@ public static class V1
         if (forcedFlag)
         {
             // POST /api/admin/users/{id}/logout-all — force logout a single user (admin scope)
-            apiRoot.MapPost("/admin/users/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+            apiRoot.MapPost("/admin/users/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ITokenVersionCache tokenVersionCache) =>
             {
                 var callerIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (!Guid.TryParse(callerIdStr, out var callerUserId)) return Results.Unauthorized();
@@ -884,6 +886,7 @@ public static class V1
                 var bumped = user with { TokenVersion = user.TokenVersion + 1 };
                 db.Users.Update(bumped);
                 await db.SaveChangesAsync();
+                tokenVersionCache.Set(user.Id, bumped.TokenVersion);
 
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("user", "success");
                 Appostolic.Api.Application.Auth.AuthMetrics.AddAdminForcedLogoutSessionsRevoked("user", revoked);
@@ -898,7 +901,7 @@ public static class V1
             .Produces(StatusCodes.Status403Forbidden);
 
             // POST /api/admin/tenants/{id}/logout-all — force logout all users in tenant (tenant admin or platform admin)
-            apiRoot.MapPost("/admin/tenants/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+            apiRoot.MapPost("/admin/tenants/{id:guid}/logout-all", async (Guid id, ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ITokenVersionCache tokenVersionCache) =>
             {
                 var callerIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (!Guid.TryParse(callerIdStr, out var callerUserId)) return Results.Unauthorized();
@@ -971,6 +974,11 @@ public static class V1
                 }
                 db.Users.UpdateRange(users);
                 await db.SaveChangesAsync();
+                // Update cache entries for each affected user
+                foreach (var updated in users)
+                {
+                    tokenVersionCache.Set(updated.Id, updated.TokenVersion);
+                }
 
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "success");
                 Appostolic.Api.Application.Auth.AuthMetrics.AddAdminForcedLogoutSessionsRevoked("tenant", activeTokens.Count);
@@ -1271,7 +1279,7 @@ public static class V1
             return Results.Ok(response);
         }).AllowAnonymous();
         // Change password (authenticated)
-        api.MapPost("/auth/change-password", async (ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ChangePasswordDto dto) =>
+    api.MapPost("/auth/change-password", async (ClaimsPrincipal principal, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, ChangePasswordDto dto, Appostolic.Api.Application.Auth.ITokenVersionCache tokenVersionCache) =>
         {
             if (dto is null || string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
                 return Results.BadRequest(new { error = "currentPassword and newPassword are required" });
@@ -1286,6 +1294,7 @@ public static class V1
             var updated = user with { PasswordHash = newHash, PasswordSalt = newSalt, PasswordUpdatedAt = DateTime.UtcNow, TokenVersion = user.TokenVersion + 1 };
             db.Users.Update(updated);
             await db.SaveChangesAsync();
+            tokenVersionCache.Set(updated.Id, updated.TokenVersion);
             return Results.NoContent();
         });
 

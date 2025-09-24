@@ -185,6 +185,18 @@ public static class AuthMetrics
         description: "Count of refresh attempts denied because the session exceeded the configured absolute max lifetime (sliding window cap)."
     );
 
+    // Story 12: CSRF validation visibility
+    public static readonly Counter<long> CsrfFailures = Meter.CreateCounter<long>(
+        name: "auth.csrf.failures",
+        unit: "{event}",
+        description: "Count of CSRF validation failures. reason=missing_cookie|missing_header|mismatch" 
+    );
+    public static readonly Counter<long> CsrfValidations = Meter.CreateCounter<long>(
+        name: "auth.csrf.validations",
+        unit: "{event}",
+        description: "Count of CSRF validations performed (successful)." 
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -351,6 +363,24 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "phase", phase } };
         KeyRotationValidationFailure.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a CSRF validation failure with bounded reason.
+    /// </summary>
+    public static void IncrementCsrfFailure(string reason)
+    {
+        var tags = new System.Diagnostics.TagList { { "reason", reason } };
+        CsrfFailures.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Record a successful CSRF validation.
+    /// </summary>
+    public static void IncrementCsrfValidationSuccess()
+    {
+        var tags = new System.Diagnostics.TagList();
+        CsrfValidations.Add(1, tags);
     }
 
     /// <summary>
