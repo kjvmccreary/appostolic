@@ -36,8 +36,8 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 | Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23     |
 | Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23         |
 | Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user) — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23     |
-| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                                                                     |
-| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                                                                  |
+| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain — ✅ DONE 2025-09-23                                                |
+| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing — ✅ DONE 2025-09-23                                             |
 | CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                                                                         |
 | Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                                                                       |
 | Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                                                                          |
@@ -137,16 +137,18 @@ Success Metrics (Initial Baseline Targets):
 - Hit ratio improves over first few authenticated requests for active users (observable via counters).
 - No increase in false positive `token_version_mismatch` errors post‑deployment.
 
-### Story 11: Sliding Refresh Expiration + Absolute Cap
+### Story 11: Sliding Refresh Expiration + Absolute Cap — ✅ DONE (2025-09-23)
 
 Goal: Balance UX (active users stay signed in) with security.
-Acceptance:
+Acceptance (Implemented):
 
-- Config: `AUTH__REFRESH_SLIDING_WINDOW_DAYS`, `AUTH__REFRESH_MAX_LIFETIME_DAYS`.
-- On refresh: if within sliding window and not exceeding max, extend expires_at; else rotate without extending.
-- Tests: extension occurs under threshold; no extension after max; expiry enforced.
-- Docs: security rationale & rollback.
-  Success Metrics: Correct expiry math; no extension beyond max.
+- Config: `AUTH__REFRESH_SLIDING_WINDOW_DAYS`, `AUTH__REFRESH_MAX_LIFETIME_DAYS` ✅
+- Sliding extension logic applied in `/auth/refresh` and `/auth/select-tenant` rotations ✅
+- Absolute lifetime enforced via new `original_created_at` column + migration; denial returns 401 `refresh_max_lifetime_exceeded` ✅
+- Metric: `auth.refresh.max_lifetime_exceeded` emitted on denial ✅
+- Tests: sliding extension, clamped extension, and exceeded lifetime denial (`SlidingRefreshTests`) ✅
+- Rollback: set both env vars to 0 (disables sliding & cap) ✅
+  Success Metrics: Expiries extend only within window; no rotations beyond absolute max; denial metric low & expected.
 
 ### Story 12: CSRF Strategy & SameSite=None Readiness
 
