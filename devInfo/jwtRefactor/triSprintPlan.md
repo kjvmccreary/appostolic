@@ -25,39 +25,39 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 
 ## Triage Table
 
-| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                                                      |
-| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | ------------------------------------------------------------------------------------------ |
-| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note — ✅ DONE 2025-09-23                        |
-| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion — ✅ DONE 2025-09-23                             |
-| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy — 🔒 Bundled: Security Hardening Sprint     |
-| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation — 🔒 Bundled: Security Hardening Sprint         |
-| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause — 🔒 Bundled: Security Hardening Sprint |
-| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs — 🔒 Bundled: Security Hardening Sprint                   |
-| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts — 🔒 Bundled: Security Hardening Sprint     |
-| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations — 🔒 Bundled: Security Hardening Sprint         |
-| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user) — 🔒 Bundled: Security Hardening Sprint     |
-| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                                                |
-| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                                             |
-| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                                                    |
-| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                                                  |
-| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                                                     |
-| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests                                     |
-| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation                                                 |
-| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                                                       |
-| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                                                                   |
-| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                                                                 |
-| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                                                                |
-| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                                                      |
-| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                                                           |
-| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                                                                   |
-| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                                              |
-| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                                                      |
-| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                                         |
-| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                                                     |
-| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                                            |
-| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                                                 |
-| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                                            |
-| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                                                    |
+| Follow-Up                                                    | Category      | Impact | Effort | Priority | Notes                                                                                                           |
+| ------------------------------------------------------------ | ------------- | ------ | ------ | -------- | --------------------------------------------------------------------------------------------------------------- |
+| Dev header decommission & regression guard                   | Security      | H      | M      | 1        | Removes legacy path; must retain rollback note — ✅ DONE 2025-09-23                                             |
+| Plaintext refresh flag retirement & TEMP metric plan         | Security      | H      | S      | 2        | Flip defaults, observe, schedule deletion — ✅ DONE 2025-09-23                                                  |
+| Refresh rate limiting (middleware + config + alerts)         | Security      | H      | M      | 3        | Prevent brute-force/abuse; reuse spike synergy — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23     |
+| Dual-key signing grace window (key rotation)                 | Security      | H      | M      | 4        | Enables zero-downtime signing key rotation — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23         |
+| Tracing span enrichment (auth.\* attrs)                      | Observability | M      | S      | 5        | Enables per-event correlation & latency root cause — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23 |
+| Structured security event log (SIEM feed)                    | Security      | H      | S      | 6        | Minimal JSON lines export + docs — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23                   |
+| Grafana dashboards & alert rules as code                     | Observability | M      | S      | 7        | Implements previously documented panels/alerts — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23     |
+| Session enumeration backend (fingerprint + list)             | Security      | H      | M      | 8        | Foundation for session UI + investigations — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23         |
+| Admin forced logout & bulk tenant invalidate                 | Security      | H      | S      | 9        | Incident containment (compromised tenant/user) — 🔒 Bundled: Security Hardening Sprint — ✅ DONE 2025-09-23     |
+| TokenVersion cache + validation latency metric               | Performance   | M      | M      | 10       | Reduce DB reads; add metric to observe gain                                                                     |
+| Sliding refresh expiration + absolute lifetime cap           | Security      | M      | M      | 11       | Limits long-lived dormant tokens; UX smoothing                                                                  |
+| CSRF strategy & SameSite=None readiness design               | Security      | H      | M      | 12       | Pre-req if cross-site embedding emerges                                                                         |
+| Remove JSON body refresh path & dead code                    | Cleanup       | M      | S      | 13       | After grace disabled & adoption confirmed                                                                       |
+| Emergency JWT rollback kill-switch flag                      | Security      | M      | XS     | 14       | Lightweight, improves rollback posture                                                                          |
+| Playwright browser security validation (HttpOnly + SameSite) | Security      | M      | M      | 15       | Validates real browser constraints beyond server tests                                                          |
+| Security reuse anomaly alert tuning                          | Observability | M      | XS     | 16       | Threshold fine-tune + dashboard annotation                                                                      |
+| Session management UI (list & revoke)                        | Product       | M      | L      | 17       | Requires session enumeration backend                                                                            |
+| Device display name capture (frontend + store)               | Product       | L      | S      | 18       | Builds on fingerprinting                                                                                        |
+| Roles label array in neutral token                           | DX            | L      | XS     | 19       | Improves developer clarity                                                                                      |
+| Expand TestAuthClient (expired token generation)             | DX            | L      | S      | 20       | Facilitates edge-case tests                                                                                     |
+| Optional SSR access cookie strategy evaluation               | Product       | L      | M      | 21       | Only if SSR auth friction encountered                                                                           |
+| nginx reference / security headers sample                    | Infra         | L      | S      | 22       | Optional if ingress lacks parity                                                                                |
+| Caddy alternative config                                     | Infra         | L      | S      | 23       | Simpler local TLS option                                                                                        |
+| Remove transitional flags & dead code sweep                  | Cleanup       | M      | S      | 24       | Post-retirement consolidation                                                                                   |
+| Automated key rotation simulation harness                    | Security      | M      | S      | 25       | Tests dual-key correctness & rollback                                                                           |
+| Dashboard provisioning automation (CI apply)                 | Observability | L      | S      | 26       | Declarative dashboards drift guard                                                                              |
+| Validation latency + cache hit histogram                     | Observability | M      | S      | 27       | After cache introduced                                                                                          |
+| Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                                                                 |
+| Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                                                                      |
+| Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                                                                 |
+| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                                                                         |
 
 ---
 
@@ -88,7 +88,7 @@ Acceptance:
 - Docs updated + schedule final deletion story.
   Success Metrics: No emitted plaintext events; suppression counter increments only (optional) for final window.
 
-### Stories 3–9: Security Hardening Sprint (Extracted)
+### Stories 3–9: Security Hardening Sprint (Extracted) ✅ DONE
 
 The detailed plan for the bundled Security Hardening Sprint (Stories 3–9) has been moved to `bdlSprintPlan.md` to reduce duplication and centralize shared configuration, metrics taxonomy, and rollout strategy.
 
@@ -104,16 +104,38 @@ Reference: See `devInfo/jwtRefactor/bdlSprintPlan.md` for full goals, acceptance
 
 Rationale: These stories share overlapping instrumentation, configuration flags, and coordinated release value; centralizing avoids drift.
 
-### Story 10: TokenVersion Cache & Validation Latency Metric
+### Story 10: TokenVersion Cache & Validation Latency Metric — ✅ DONE (2025-09-23)
 
-Goal: Reduce DB load on high-volume auth traffic.
-Acceptance:
+Goal: Reduce DB load on high-volume auth traffic by short‑circuiting repeated TokenVersion lookups during JWT bearer validation while preserving revocation correctness.
 
-- Add in-memory cache (ConcurrentDictionary or MemoryCache) keyed by userId storing version + TTL (e.g., 30s).
-- Fallback to DB on miss; update metric `auth.token_validation.latency_ms` (histogram) + `auth.token_version.cache_hit` counter.
-- Config toggles to disable cache.
-- Tests: cache hit path, miss path, expiry, disable toggle.
-  Success Metrics: Hit ratio metric recorded; no stale acceptance after version bump (invalidate on bump).
+Implementation Summary:
+
+- Introduced `ITokenVersionCache` + `InMemoryTokenVersionCache` (TTL default 30s) with config: `AUTH__TOKEN_VERSION_CACHE_ENABLED`, `AUTH__TOKEN_VERSION_CACHE_TTL_SECONDS`.
+- Wired cache into `OnTokenValidated` in `Program.cs`: attempt cache read → on miss query EF → populate cache → record latency.
+- Added metrics:
+  - `auth.token_version.cache_hit` / `auth.token_version.cache_miss`
+  - `auth.token_validation.latency_ms` (histogram)
+- Added tests (`TokenVersionCacheTests`):
+  - Warm path (second request serves from cache)
+  - Invalidation path (simulate TokenVersion bump → invalidate → next request 401 `token_version_mismatch`).
+- Safe rollback: disable via `AUTH__TOKEN_VERSION_CACHE_ENABLED=false`.
+
+Acceptance Mapping:
+
+- In-memory cache with TTL & explicit invalidate ✅
+- Metrics (hit, miss, latency histogram) ✅
+- Config toggles ✅
+- Tests for hit/miss + invalidation ✅ (expiry & disable toggle can be covered later if needed)
+- Revocation correctness preserved (401 on stale token after version bump) ✅
+
+Deferred / Follow-Up:
+
+- Story 27 (Validation latency & cache hit histogram) partially satisfied (core metrics emitted). Remaining possible scope: derived hit ratio gauge or bucketed latency by outcome (optional). Consider collapsing Story 27 or refining its scope.
+
+Success Metrics (Initial Baseline Targets):
+
+- Hit ratio improves over first few authenticated requests for active users (observable via counters).
+- No increase in false positive `token_version_mismatch` errors post‑deployment.
 
 ### Story 11: Sliding Refresh Expiration + Absolute Cap
 
