@@ -1318,6 +1318,19 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
     - Consider adding meta dimension `attempt_class=unknown_token` vs `attempt_class=reuse` if further classification required.
     - Potential rate threshold alerting once events feed SIEM pipeline.
 
+2025-09-24 — Auth/Security: Story 12 CSRF Strategy & SameSite=None Readiness — ✅ DONE
+
+- Summary
+  - Implemented feature-flagged CSRF protection using a double-submit cookie pattern (cookie `csrf` + header `X-CSRF`). Validation enforced on login, select-tenant, refresh, logout, and logout/all endpoints when enabled. Added issuance endpoint `GET /api/auth/csrf` for clients to obtain a nonce; supports optional auto-issue flow. Metrics introduced: `auth.csrf.failures{reason}` (missing_cookie, missing_header, mismatch) and `auth.csrf.validations` for successful checks, enabling future dashboards/alerts on anomaly spikes. Design doc `devInfo/jwtRefactor/Story12-CSRF.md` captures threat model, approach rationale (simplicity, no server storage, acceptable replay window), and rollback (disable flag). Architecture snapshot updated with CSRF security feature bullet.
+- Files changed
+  - Added/Updated: `apps/api/Application/Auth/CsrfOptions.cs`, `CsrfService.cs`, metrics wiring (`AuthMetrics.cs`), endpoint guards in `V1.cs`, tests `apps/api.tests/Auth/CsrfTests.cs`, design doc `Story12-CSRF.md`, `SnapshotArchitecture.md` (Security Features), sprint plan `triSprintPlan.md` (marked DONE).
+- Quality gates
+  - API tests: CSRF suite green (all scenarios including issuance & logout). Full suite remains green (spot run). No performance regressions expected (nonce generation lightweight, no persistence layer usage).
+- Rationale
+  - Prepares platform for any future cross-site embedding or SameSite=None cookie requirement by having a battle-tested CSRF defense ready, while keeping overhead minimal and opt-in until needed.
+- Follow-ups
+  - Optional Grafana panel + alert on mismatch ratio; potential periodic nonce rotation heuristic if threat model shifts.
+
 2025-09-23 — Auth/JWT: Story 8 Session Enumeration & Per‑Session Revoke — ✅ DONE
 
 - Summary

@@ -150,27 +150,40 @@ Acceptance (Implemented):
 - Rollback: set both env vars to 0 (disables sliding & cap) ✅
   Success Metrics: Expiries extend only within window; no rotations beyond absolute max; denial metric low & expected.
 
-### Story 12: CSRF Strategy & SameSite=None Readiness — 🚧 IN PROGRESS (2025-09-23 kickoff)
+### Story 12: CSRF Strategy & SameSite=None Readiness — ✅ DONE (2025-09-24)
 
 Goal: Prepare for potential cross-site embedding.
 Acceptance:
 
 - Design decision doc (double-submit vs signed header token) with tradeoffs.
-- Prototype implementation (feature-flagged) for chosen approach (e.g., anti-CSRF nonce cookie + header).
+- Prototype implementation (feature-flagged) for chosen approach (anti-CSRF nonce cookie + header).
 - Tests: refresh fails without header when protection enabled; passes with valid token.
 - Docs: enable sequence & threat model.
   Success Metrics: Protection toggle works; minimal false positives under same-site usage.
 
-Progress (Kickoff + Metrics):
+Implementation Summary:
 
-- Implementation scaffolding added: `CsrfOptions`, `ICsrfService`/`CsrfService`, GET `/api/auth/csrf`, validation integrated into login, select-tenant, logout, logout/all, refresh endpoints (double-submit cookie pattern).
-- Feature flags/env vars: `AUTH__CSRF__ENABLED`, `AUTH__CSRF__COOKIE_NAME`, `AUTH__CSRF__HEADER_NAME`, `AUTH__CSRF__AUTO_ISSUE`, `AUTH__CSRF__COOKIE_TTL_MINUTES`.
-- Tests (`CsrfTests`): disabled mode, missing cookie, missing header, mismatch, success (login+refresh), GET issuance, logout negative, logout success.
-- Metrics implemented: `auth.csrf.failures{reason}` & `auth.csrf.validations`.
-  Remaining:
-- Architecture snapshot bullet (Security Features) — pending final wording.
-- Story log entry on completion.
-- Optional: dashboard panel & alert (mismatch spike) — not required for acceptance.
+- Adopted double-submit cookie strategy: non-HttpOnly `csrf` cookie paired with `X-CSRF` header; validation enforced on login, select-tenant, refresh, logout, logout/all when feature enabled.
+- Service & Options: `CsrfOptions` (enable flag, cookie/header names, auto-issue toggle, TTL) and `CsrfService` implementing nonce generation & validation with constant-time comparison.
+- Issuance Endpoint: GET `/api/auth/csrf` issues fresh token for clients to bootstrap (idempotent for repeated calls).
+- Metrics: `auth.csrf.failures` (tag `reason=missing_cookie|missing_header|mismatch`) and `auth.csrf.validations` (successful checks) for observability & alert design.
+- Tests (`CsrfTests`): disabled mode bypass; missing cookie; missing header; mismatch; success (login + refresh); issuance endpoint; logout negative (missing header) and logout success — all green.
+- Docs Updated: Design decision doc `Story12-CSRF.md` (approach, threat model, trade-offs), `SnapshotArchitecture.md` Security Features bullet added, sprint plan marked DONE.
+- Rollback: Set `AUTH__CSRF__ENABLED=false` (guards skip validation) — no schema impact.
+
+Acceptance Mapping:
+
+- Design doc with tradeoffs ✅
+- Flagged implementation & issuance endpoint ✅
+- Validation integrated into target auth endpoints ✅
+- Metrics for failures & success ✅
+- Comprehensive tests ✅
+- Documentation & architecture snapshot updated ✅
+
+Follow-Ups (Optional):
+
+- Dashboard panel + alert on elevated mismatch rate.
+- Consider rotating CSRF cookie automatically on sensitive state-changing actions if threat model expands.
 
 ### Story 27 (Refined): Token Validation Observability Enhancements (Post-Cache)
 
