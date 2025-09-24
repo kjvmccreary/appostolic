@@ -519,6 +519,37 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
     - Introduce guard to fail on unintended `x-dev-user` usage once auth suite fully migrated.
     - Proceed to Phase B (domain/feature test migrations) after core auth parity achieved.
 
+  ### 2025-09-24 - Story: Sliding Refresh Window & Absolute Max Lifetime (Story 11 Enhancement) — ✅ DONE
+
+  Summary
+  - Added missing sliding window + absolute max lifetime semantics to the general `/api/auth/refresh` endpoint (previously only present in the `/auth/select-tenant` path). Logic now extends refresh expiry by up to `SlidingWindowDays` from current time while never surpassing the original session anchor (`OriginalCreatedAt` or `CreatedAt`) plus `MaxLifetimeDays`. If cap reached/exceeded, endpoint returns 401 `{ code: "refresh_max_lifetime_exceeded" }` with metrics & security event instrumentation.
+  - Standardized refresh TTL sourcing for initial issuance (login, invite/magic consume, select-tenant) to prefer IConfiguration (`AUTH__JWT__REFRESH_TTL_DAYS`) with environment fallback, ensuring test `WithSettings` overrides control initial expiry (fixing earlier failing sliding extension assertions caused by hardcoded env 30-day default).
+  - Implemented configuration-first TTL + sliding logic comments referencing Story 11 for maintainability.
+  - All `SlidingRefreshTests` now pass (3/3): extension within window, clamped extension near cap, denial after exceeding absolute lifetime. Previous failures (2/3) stemmed from initial TTL mismatch.
+  - Metrics: Reused `AuthMetrics.IncrementRefreshMaxLifetimeExceeded`; failure reason `refresh_max_lifetime_exceeded` now increments generic refresh failure counter and duration histogram with enriched trace span outcome tags.
+
+  Rationale
+  - Ensures consistent session longevity semantics across all rotation paths, preventing indefinite extension via frequent refresh while maintaining user-friendly sliding behavior within allowed window.
+
+  Files Changed
+  - `apps/api/App/Endpoints/V1.cs` — Added sliding & cap logic to general refresh; updated login and related issuance blocks to configuration-first TTL.
+  - (Prior fix) `apps/api.tests/Auth/SlidingRefreshTests.cs` — Service provider corrected to cloned factory to avoid cross-factory in-memory DB mismatch.
+
+  Quality Gates
+  - Targeted run: Sliding refresh suite PASS (3/3) post-changes.
+  - No other auth suite regressions observed in spot runs (avatar/password endpoints still green). Full suite run pending CI (low risk change surface confined to TTL computation & conditional failure path).
+
+  Follow-ups / Deferred
+  - Potential helper extraction (ComputeEffectiveRefreshTtl) to DRY logic between select-tenant & refresh endpoints (deferred to avoid churn ahead of stabilization).
+  - Add explicit metric assertion test for max lifetime exceeded path (optional hardening).
+  - Evaluate need for sub-day precision if future shorter refresh TTLs adopted.
+
+  Architecture / Docs
+  - `SnapshotArchitecture.md` to be updated to note universal sliding window + cap enforcement (pending routine story closure update).
+  - `LivingChecklist.md` timestamp updated; Story 11 already marked complete (this enhancement finalizes semantics rather than adding a new checklist item).
+
+  ***
+
 2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin & Notifications Tests Migration — 🚧 IN PROGRESS
 
 - Summary

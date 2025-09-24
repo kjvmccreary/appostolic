@@ -211,7 +211,11 @@ public static class V1
 
             // Neutral token pair
             var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
-            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            // Story 11 alignment: prefer IConfiguration (test overrides via WithSettings) for refresh TTL, fallback to env.
+            var cfgLogin = http.RequestServices.GetRequiredService<IConfiguration>()["AUTH__JWT__REFRESH_TTL_DAYS"];
+            int refreshTtlDays = 30;
+            if (!string.IsNullOrWhiteSpace(cfgLogin) && int.TryParse(cfgLogin, out var cfgLoginParsed)) refreshTtlDays = cfgLoginParsed;
+            else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d)) refreshTtlDays = d;
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -382,12 +386,29 @@ public static class V1
             return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, tenant = tenantEntity is null ? null : new { tenantEntity.Id, tenantEntity.Name } });
     }).AllowAnonymous();
 
+        // GET /api/auth/csrf (AllowAnonymous) - Story 12: Explicitly issue CSRF cookie & return token if enabled (idempotent)
+        apiRoot.MapGet("/auth/csrf", (HttpContext http, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
+        {
+            // If disabled, return 404 to signal feature off (avoids leaking endpoint unexpectedly)
+            if (!csrfOpts.Value.Enabled)
+            {
+                return Results.NotFound();
+            }
+            var token = csrf.EnsureToken(http);
+            return Results.Ok(new { token, cookie = csrfOpts.Value.CookieName });
+        }).AllowAnonymous();
+
         // POST /api/auth/login (AllowAnonymous)
         // Story 2: returns neutral access+refresh token pair + memberships; optional tenant access token when single membership or tenant explicitly requested.
-    apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, LoginDto dto) =>
+    apiRoot.MapPost("/auth/login", async (HttpContext http, AppDbContext db, Appostolic.Api.Application.Auth.IPasswordHasher hasher, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts, LoginDto dto) =>
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string? failureReason = null;
+            // Story 12: CSRF validation (double-submit cookie) if enabled
+            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorLogin))
+            {
+                return Results.BadRequest(new { code = csrfErrorLogin });
+            }
             if (dto is null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
             {
                 failureReason = "missing_fields";
@@ -466,7 +487,11 @@ public static class V1
             var accessToken = isSuperAdmin
                 ? jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims!)
                 : jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
-            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            // Story 11: configuration-first refresh TTL (ensures sliding tests get intended initial expiry)
+            var cfgLogin2 = config["AUTH__JWT__REFRESH_TTL_DAYS"];
+            int refreshTtlDays = 30;
+            if (!string.IsNullOrWhiteSpace(cfgLogin2) && int.TryParse(cfgLogin2, out var cfgLogin2Parsed)) refreshTtlDays = cfgLogin2Parsed;
+            else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d)) refreshTtlDays = d;
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
@@ -550,6 +575,11 @@ public static class V1
             Appostolic.Api.Application.Auth.AuthMetrics.IncrementLoginSuccess(user.Id, memberships.Count);
             sw.Stop();
             Appostolic.Api.Application.Auth.AuthMetrics.RecordLoginDuration(sw.Elapsed.TotalMilliseconds, true);
+            // Auto-issue CSRF cookie on successful login if enabled & auto-issue configured
+            if (csrfOpts.Value.Enabled && csrfOpts.Value.AutoIssue)
+            {
+                csrf.EnsureToken(http);
+            }
             return Results.Ok(resultPayload);
         }).AllowAnonymous();
 
@@ -561,8 +591,12 @@ public static class V1
         //   400 - missing fields
         //   401 - refresh token invalid/expired/revoked
         //   403 - user not a member of requested tenant
-    apiRoot.MapPost("/auth/select-tenant", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, SelectTenantDto body) =>
+    apiRoot.MapPost("/auth/select-tenant", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts, SelectTenantDto body) =>
         {
+            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorSelect))
+            {
+                return Results.BadRequest(new { code = csrfErrorSelect });
+            }
             // Story 2 follow-up: plaintext refresh token removed from login/select responses.
             // To preserve UX we now accept the neutral refresh token via httpOnly cookie 'rt'.
             // Body.RefreshToken remains for backwards compatibility (grace period in earlier stories).
@@ -607,7 +641,11 @@ public static class V1
 
             // Rotate refresh (revoke old + issue new neutral) BEFORE issuing new access token
             await refreshSvc.RevokeAsync(rt.Id);
-            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            // Story 11: configuration-first base TTL for select-tenant rotation
+            var cfgSelect = http.RequestServices.GetRequiredService<IConfiguration>()["AUTH__JWT__REFRESH_TTL_DAYS"];
+            int refreshTtlDays = 30;
+            if (!string.IsNullOrWhiteSpace(cfgSelect) && int.TryParse(cfgSelect, out var cfgSelectParsed)) refreshTtlDays = cfgSelectParsed;
+            else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d)) refreshTtlDays = d;
             // Story 11: Sliding window logic (local scope; simplified without duration histogram like refresh endpoint)
             var slidingOpts = http.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>>().Value;
             int effectiveTtlDays = refreshTtlDays;
@@ -680,8 +718,13 @@ public static class V1
         var api = apiRoot.RequireAuthorization();
         // --- Story 7: Logout Endpoints (authenticated) ---
         // POST /api/auth/logout - revoke a single provided neutral refresh token (cookie 'rt' or body refreshToken during grace)
-        api.MapPost("/auth/logout", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc) =>
+        api.MapPost("/auth/logout", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
+            // Story 12: CSRF validation (state changing logout) if enabled
+            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorLogoutSingle))
+            {
+                return Results.BadRequest(new { code = csrfErrorLogoutSingle });
+            }
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
             var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
             var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -739,8 +782,13 @@ public static class V1
         });
 
         // POST /api/auth/logout/all - revoke all active neutral refresh tokens and bump token version (invalidating current access tokens)
-    apiRoot.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents) =>
+    apiRoot.MapPost("/auth/logout/all", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
+            // Story 12: CSRF validation for bulk logout
+            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorLogoutAll))
+            {
+                return Results.BadRequest(new { code = csrfErrorLogoutAll });
+            }
             // Support tokens where the handler mapped 'sub' to NameIdentifier
             var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
@@ -941,8 +989,13 @@ public static class V1
         // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
         // Returns: { user, memberships, access, refresh, tenantToken? }
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
-    apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts) =>
+    apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
+            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorRefresh))
+            {
+                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(csrfErrorRefresh ?? "csrf");
+                return Results.BadRequest(new { code = csrfErrorRefresh });
+            }
             var sw = System.Diagnostics.Stopwatch.StartNew();
             string? failureReason = null;
             var now = DateTime.UtcNow;
@@ -1134,9 +1187,41 @@ public static class V1
                 try { await db.SaveChangesAsync(); } catch { /* non-fatal; continue rotation */ }
             }
             await refreshSvc.RevokeAsync(rt.Id); // sets revoked_at & reason="rotated"
-            var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+
+            // Base TTL (legacy env style fallback retained but prefer IConfiguration which WithSettings supplies in tests)
+            var configTtl = http.RequestServices.GetRequiredService<IConfiguration>()["AUTH__JWT__REFRESH_TTL_DAYS"];
+            int refreshTtlDays = 30;
+            if (!string.IsNullOrWhiteSpace(configTtl) && int.TryParse(configTtl, out var cfgTtlParsed)) refreshTtlDays = cfgTtlParsed;
+            else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var envTtl)) refreshTtlDays = envTtl;
+
+            // Story 11: Sliding window + absolute max lifetime (was previously missing on general refresh endpoint)
+            var slidingOpts = http.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>>().Value;
+            int effectiveTtlDays = refreshTtlDays;
+            if (slidingOpts.SlidingWindowDays > 0)
+            {
+                var nowLocal = now; // re-use captured now
+                var proposed = nowLocal.AddDays(slidingOpts.SlidingWindowDays);
+                var original = rt.OriginalCreatedAt ?? rt.CreatedAt; // Original session anchor
+                if (slidingOpts.MaxLifetimeDays > 0)
+                {
+                    var absoluteCap = original.AddDays(slidingOpts.MaxLifetimeDays);
+                    if (absoluteCap <= nowLocal)
+                    {
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshMaxLifetimeExceeded(rt.UserId, rt.Id);
+                        failureReason = "refresh_max_lifetime_exceeded";
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason, rt.UserId);
+                        sw.Stop();
+                        Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                        return Results.Json(new { code = failureReason }, statusCode: StatusCodes.Status401Unauthorized);
+                    }
+                    if (proposed > absoluteCap) proposed = absoluteCap; // clamp
+                }
+                effectiveTtlDays = (int)Math.Ceiling((proposed - nowLocal).TotalDays);
+                if (effectiveTtlDays <= 0) effectiveTtlDays = 1; // safety
+            }
+
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
-            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, effectiveTtlDays, fpHeader);
 
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
             // Existing service issues neutral access tokens via IssueAccessToken (used in login). Reuse neutral path (no tenant claims).
