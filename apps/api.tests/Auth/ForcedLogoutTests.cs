@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Appostolic.Api.Tests.Auth;
@@ -27,9 +28,86 @@ public class ForcedLogoutTests : IClassFixture<WebAppFactory>
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Pass1234!" });
         login.EnsureSuccessStatusCode();
         var json = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
-        var access = json.RootElement.GetProperty("access").GetProperty("token").GetString();
-        var userId = json.RootElement.GetProperty("access").GetProperty("claims").GetProperty("sub").GetGuid();
+        string? access = null;
+        Guid userId = Guid.Empty;
+        try
+        {
+            // Preferred modern shape
+            if (json.RootElement.TryGetProperty("access", out var accessEl))
+            {
+                if (accessEl.TryGetProperty("token", out var tokenEl))
+                {
+                    access = tokenEl.GetString();
+                }
+                if (accessEl.TryGetProperty("claims", out var claimsEl) && claimsEl.TryGetProperty("sub", out var subEl))
+                {
+                    userId = subEl.GetGuid();
+                }
+            }
+        }
+        catch (KeyNotFoundException)
+        {
+            // ignore – fallback path below
+        }
+        if (access is null)
+        {
+            throw new InvalidOperationException("login response did not include access.token");
+        }
+        if (userId == Guid.Empty)
+        {
+            // Fallback: decode JWT (header.payload.signature) without validating signature since test already ensured success status.
+            var parts = access.Split('.');
+            if (parts.Length >= 2)
+            {
+                var payloadJson = System.Text.Json.JsonDocument.Parse(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(PadBase64(parts[1]))));
+                if (payloadJson.RootElement.TryGetProperty("sub", out var subRaw) && Guid.TryParse(subRaw.GetString(), out var guidFromJwt))
+                {
+                    userId = guidFromJwt;
+                }
+            }
+        }
+        if (userId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Unable to determine user id from login response or JWT claims");
+        }
         return (access!, userId);
+    }
+
+    // Shared parsing helper for login JSON documents (avoids brittle property chains)
+    private static (string access, Guid userId) ParseAccessAndUserId(JsonDocument json)
+    {
+        string? access = null; Guid userId = Guid.Empty;
+        if (json.RootElement.TryGetProperty("access", out var accessEl))
+        {
+            if (accessEl.TryGetProperty("token", out var tokenEl)) access = tokenEl.GetString();
+            if (accessEl.TryGetProperty("claims", out var claimsEl) && claimsEl.TryGetProperty("sub", out var subEl)) userId = subEl.GetGuid();
+        }
+        if (access is null)
+        {
+            throw new InvalidOperationException("access.token missing from login payload");
+        }
+        if (userId == Guid.Empty)
+        {
+            // Decode from JWT as fallback
+            var parts = access.Split('.');
+            if (parts.Length >= 2)
+            {
+                var payloadJson = System.Text.Json.JsonDocument.Parse(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(PadBase64(parts[1]))));
+                if (payloadJson.RootElement.TryGetProperty("sub", out var subRaw) && Guid.TryParse(subRaw.GetString(), out var guidFromJwt))
+                {
+                    userId = guidFromJwt;
+                }
+            }
+        }
+        if (userId == Guid.Empty) throw new InvalidOperationException("Could not derive user id from claims or JWT");
+        return (access!, userId);
+    }
+
+    private static string PadBase64(string input)
+    {
+        // Add padding if missing for base64url variant
+        input = input.Replace('-', '+').Replace('_', '/');
+        return input.PadRight(input.Length + ((4 - input.Length % 4) % 4), '=');
     }
 
     [Fact]
@@ -66,16 +144,16 @@ public class ForcedLogoutTests : IClassFixture<WebAppFactory>
         signupTarget.EnsureSuccessStatusCode();
         var loginTarget = await client.PostAsJsonAsync("/api/auth/login", new { email = targetEmail, password = "Pass1234!" });
         loginTarget.EnsureSuccessStatusCode();
-        var targetJson = JsonDocument.Parse(await loginTarget.Content.ReadAsStringAsync());
-        var targetUserId = targetJson.RootElement.GetProperty("access").GetProperty("claims").GetProperty("sub").GetGuid();
+    var targetJson = JsonDocument.Parse(await loginTarget.Content.ReadAsStringAsync());
+    var (_, targetUserId) = ParseAccessAndUserId(targetJson);
 
         // Create caller user (becoming platform admin via allowlist)
         var signupCaller = await client.PostAsJsonAsync("/api/auth/signup", new { email = callerEmail, password = "Pass1234!" });
         signupCaller.EnsureSuccessStatusCode();
         var loginCaller = await client.PostAsJsonAsync("/api/auth/login", new { email = callerEmail, password = "Pass1234!" });
         loginCaller.EnsureSuccessStatusCode();
-        var callerJson = JsonDocument.Parse(await loginCaller.Content.ReadAsStringAsync());
-        var callerAccess = callerJson.RootElement.GetProperty("access").GetProperty("token").GetString();
+    var callerJson = JsonDocument.Parse(await loginCaller.Content.ReadAsStringAsync());
+    var (callerAccess, _) = ParseAccessAndUserId(callerJson);
 
         // Invoke forced logout
         var req = new HttpRequestMessage(HttpMethod.Post, $"/api/admin/users/{targetUserId}/logout-all");
@@ -96,14 +174,18 @@ public class ForcedLogoutTests : IClassFixture<WebAppFactory>
         // Create a second user (not admin of tenant A) - separate signup yields its own tenant
         var (bAccess, bUserId) = await SignupAndLogin("tenantuserB@example.com");
 
-        // Attempt tenant-wide logout for tenant of userA using userB's access token (should 403)
-        // We need the tenant id for userA from /api/me (assuming such endpoint returns memberships)
-        var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/me");
-        meReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", aAccess);
-        var meResp = await client.SendAsync(meReq);
-        meResp.EnsureSuccessStatusCode();
-        var meJson = JsonDocument.Parse(await meResp.Content.ReadAsStringAsync());
-        var tenantId = meJson.RootElement.GetProperty("memberships")[0].GetProperty("tenantId").GetGuid();
+        // Determine tenantId for userA directly from the database (more stable than relying on /api/me response shape)
+        Guid tenantId;
+        var scopeFactory = _factory.Services.GetRequiredService<IServiceScopeFactory>();
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            tenantId = await db.Memberships
+                .AsNoTracking()
+                .Where(m => m.UserId == aUserId)
+                .Select(m => m.TenantId)
+                .FirstAsync();
+        }
 
         var logoutReq = new HttpRequestMessage(HttpMethod.Post, $"/api/admin/tenants/{tenantId}/logout-all");
         logoutReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bAccess); // userB not member => forbid

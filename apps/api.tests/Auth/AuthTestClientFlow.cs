@@ -37,17 +37,48 @@ public static class AuthTestClientFlow
     /// </summary>
     public static async Task<(string neutral, string tenant, JsonObject selectJson)> LoginAndSelectTenantAsync(WebApplicationFactory<Program> factory, HttpClient client, string email, string tenantSlugOrId)
     {
-        var (neutral, loginJson) = await LoginNeutralAsync(factory, client, email);
-        // Story 2: plaintext refresh token retired; helper attempts to read it (for backward compat) but
-        // falls back to relying on the httpOnly cookie when omitted.
+        // Re-implement the neutral login locally so we can inspect headers (cookies) before returning.
+        await EnsureUserAsync(factory, email, DefaultPassword);
+        var loginResp = await client.PostAsJsonAsync("/api/auth/login", new { email, password = DefaultPassword });
+        loginResp.EnsureSuccessStatusCode();
+        var loginJson = await loginResp.Content.ReadFromJsonAsync<JsonObject>() ?? throw new InvalidOperationException("login returned null json");
+        var neutral = loginJson["access"]!["token"]!.GetValue<string>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", neutral);
+
+        // Prefer plaintext refresh token in body when exposed; otherwise parse cookie header.
         string? refresh = null;
         if (loginJson?["refresh"] is JsonObject refreshObj && refreshObj.TryGetPropertyValue("token", out var tokenNode) && tokenNode is JsonValue tv && tv.TryGetValue<string>(out var tokenStr) && !string.IsNullOrWhiteSpace(tokenStr))
         {
             refresh = tokenStr;
         }
-        var sel = refresh is not null
-            ? await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId, refreshToken = refresh })
-            : await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId });
+        if (refresh is null && loginResp.Headers.TryGetValues("Set-Cookie", out var cookieHeaders))
+        {
+            foreach (var c in cookieHeaders)
+            {
+                // Look for cookie starting with refresh=
+                var parts = c.Split(';', 2);
+                if (parts.Length > 0 && parts[0].TrimStart().StartsWith("refresh="))
+                {
+                    var value = parts[0].Substring("refresh=".Length);
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        refresh = value;
+                        break;
+                    }
+                }
+            }
+        }
+
+        HttpResponseMessage sel;
+        if (!string.IsNullOrWhiteSpace(refresh))
+        {
+            sel = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId, refreshToken = refresh });
+        }
+        else
+        {
+            // Fallback: attempt select-tenant relying on cookie (works when test host configured with cookie container).
+            sel = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantSlugOrId });
+        }
         if (!sel.IsSuccessStatusCode)
         {
             throw new InvalidOperationException($"select-tenant failed: {(int)sel.StatusCode} {sel.ReasonPhrase}");

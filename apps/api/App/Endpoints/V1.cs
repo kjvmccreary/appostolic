@@ -773,12 +773,30 @@ public static class V1
                 // Authorization: require caller to have global platform admin capability.
                 // For now we treat presence of an environment-configured super admin list OR a future Roles.PlatformAdmin flag.
                 // Simplified: if caller has any TenantAdmin membership AND matches configured platform admin list (comma-separated GUIDs), allow.
-                var platformAdmins = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                // PLATFORM__SUPER_ADMINS may contain GUIDs or emails (lowercase). Emails are resolved at runtime.
+                var adminTokens = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var platformAdminGuids = adminTokens
                     .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
                     .Where(g => g != Guid.Empty)
                     .ToHashSet();
-                if (platformAdmins.Count == 0 || !platformAdmins.Contains(callerUserId))
+                var platformAdminEmails = adminTokens
+                    .Where(t => t.Contains('@'))
+                    .Select(t => t.ToLowerInvariant())
+                    .ToHashSet();
+                bool callerIsPlatformAdmin;
+                if (platformAdminEmails.Count > 0)
+                {
+                    // Need caller email; load lightweight user record.
+                    var callerUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == callerUserId);
+                    var callerEmail = callerUser?.Email?.ToLowerInvariant();
+                    callerIsPlatformAdmin = (callerEmail != null && platformAdminEmails.Contains(callerEmail)) || platformAdminGuids.Contains(callerUserId);
+                }
+                else
+                {
+                    callerIsPlatformAdmin = platformAdminGuids.Contains(callerUserId);
+                }
+                if (!callerIsPlatformAdmin)
                 {
                     Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("user", "forbidden");
                     return Results.Forbid();
@@ -825,15 +843,31 @@ public static class V1
                 }
 
                 // Authorization: caller must be a TenantAdmin of this tenant OR platform super admin.
-                var platformAdmins = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                // PLATFORM__SUPER_ADMINS may contain GUIDs or emails (lowercase). Emails are resolved at runtime.
+                var adminTokens = (configuration["PLATFORM__SUPER_ADMINS"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var platformAdminGuids = adminTokens
                     .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
                     .Where(g => g != Guid.Empty)
+                    .ToHashSet();
+                var platformAdminEmails = adminTokens
+                    .Where(t => t.Contains('@'))
+                    .Select(t => t.ToLowerInvariant())
                     .ToHashSet();
                 var membership = await db.Memberships.AsNoTracking()
                     .FirstOrDefaultAsync(m => m.TenantId == tenant.Id && m.UserId == callerUserId);
                 var callerIsTenantAdmin = membership is not null && (membership.Roles & Roles.TenantAdmin) != 0;
-                var callerIsPlatformAdmin = platformAdmins.Contains(callerUserId);
+                bool callerIsPlatformAdmin;
+                if (platformAdminEmails.Count > 0)
+                {
+                    var callerUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == callerUserId);
+                    var callerEmail = callerUser?.Email?.ToLowerInvariant();
+                    callerIsPlatformAdmin = (callerEmail != null && platformAdminEmails.Contains(callerEmail)) || platformAdminGuids.Contains(callerUserId);
+                }
+                else
+                {
+                    callerIsPlatformAdmin = platformAdminGuids.Contains(callerUserId);
+                }
                 if (!callerIsTenantAdmin && !callerIsPlatformAdmin)
                 {
                     Appostolic.Api.Application.Auth.AuthMetrics.IncrementAdminForcedLogoutRequest("tenant", "forbidden");

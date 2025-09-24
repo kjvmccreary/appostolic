@@ -33,6 +33,26 @@ Follow-ups / Deferred
 - Additional metrics assertion tests (tag correctness) and security event capture validation for tenant scope could be added (low risk enhancement).
 - Documentation of incident response runbook (revocation procedure & dashboard correlation) to be expanded in observability / ops docs (future minor docs pass).
 
+#### 2025-09-24 - Story 9 Post-Completion Hardening (Allowlist Flexibility) — ✅ DONE
+
+Summary
+
+- Extended forced logout platform superadmin allowlist to accept either GUIDs or emails (config key `PLATFORM__SUPER_ADMINS`). Original implementation required GUIDs only which caused test flakiness where emails were supplied. Endpoint logic now parses tokens, separates GUIDs vs email values, and loads caller email for resolution when necessary.
+- Updated integration tests (`ForcedLogoutTests`) to remove brittle JSON claim traversal, decode JWT fallback, and derive tenant id from the EF context instead of relying on `/api/me` response shape. All forced logout tests now pass (3/3).
+- Adjusted architecture snapshot to reflect mixed allowlist support.
+
+Rationale
+
+- Provides operational flexibility (ops can list emails before user GUIDs are known) and reduces friction when rotating seed data. Improves test resilience against response shape changes.
+
+Quality Gates
+
+- Incremental test run of forced logout suite passes. Build succeeded with no errors (warnings only). Broader suite pending next scheduled run.
+
+Follow-ups
+
+- Consider consolidating superadmin configuration keys (`Auth:SuperAdminEmails` + `PLATFORM__SUPER_ADMINS`) into a single canonical source in a future cleanup story.
+
 ---
 
 Summary

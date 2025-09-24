@@ -76,7 +76,7 @@ Removed / Deprecated:
 
 Superadmin Elevation:
 
-- Config-driven allowlist (`Auth:SuperAdminEmails`) injects claim for privileged admin actions (e.g., notifications admin endpoints). Deterministic test token issuance (`TestAuthSeeder`) now mirrors this allowlist so tests bypassing `/auth/login` still receive the claim when appropriate.
+- Config-driven allowlists: legacy `Auth:SuperAdminEmails` plus `PLATFORM__SUPER_ADMINS` (supports comma-separated GUIDs and/or emails). During forced logout authorization we resolve both GUID tokens and email tokens against user records so tests can elevate via email without pre-known GUIDs. Deterministic test token issuance (`TestAuthSeeder`) mirrors email-based allowlist so tests bypassing `/auth/login` still receive the claim when appropriate.
 - Notifications listing endpoint now returns 403 if a non-superadmin explicitly supplies a different `tenantId` query (previously silently scoped). Superadmins may filter any tenant.
 
 ---
