@@ -163,6 +163,14 @@ builder.Services.AddOptions<AuthJwtOptions>()
     });
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+// Story 11: Sliding refresh options
+builder.Services.AddOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>()
+    .Configure(o =>
+    {
+        var cfg = builder.Configuration;
+        if (int.TryParse(cfg["AUTH__REFRESH_SLIDING_WINDOW_DAYS"], out var sw)) o.SlidingWindowDays = sw;
+        if (int.TryParse(cfg["AUTH__REFRESH_MAX_LIFETIME_DAYS"], out var ml)) o.MaxLifetimeDays = ml;
+    });
 // Story 10: TokenVersion cache wiring
 builder.Services.Configure<Appostolic.Api.Application.Auth.TokenVersionCacheOptions>(o =>
 {
@@ -820,6 +828,7 @@ public partial class AppDbContext : DbContext
             b.Property(x => x.TokenHash).HasColumnName("token_hash").IsRequired();
             b.Property(x => x.Purpose).HasColumnName("purpose").IsRequired();
             b.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("timezone('utc', now())");
+            b.Property(x => x.OriginalCreatedAt).HasColumnName("original_created_at").IsRequired(false);
             b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
             b.Property(x => x.Metadata).HasColumnName("metadata").HasColumnType("jsonb").IsRequired(false);

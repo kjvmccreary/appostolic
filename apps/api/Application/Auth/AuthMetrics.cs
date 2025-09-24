@@ -178,6 +178,13 @@ public static class AuthMetrics
         description: "Latency (ms) of TokenVersion validation (includes cache access + optional DB lookup)."
     );
 
+    // Story 11: Sliding refresh max lifetime enforcement
+    public static readonly Counter<long> RefreshMaxLifetimeExceeded = Meter.CreateCounter<long>(
+        name: "auth.refresh.max_lifetime_exceeded",
+        unit: "{event}",
+        description: "Count of refresh attempts denied because the session exceeded the configured absolute max lifetime (sliding window cap)."
+    );
+
 
     /// <summary>
     /// Increment issued tokens counter (neutral or tenant). Pass tenantId for tenant-scoped tokens.
@@ -187,6 +194,17 @@ public static class AuthMetrics
         var tags = new System.Diagnostics.TagList { { "user_id", userId } };
         if (tenantId.HasValue) tags.Add("tenant_id", tenantId.Value);
         TokensIssued.Add(1, tags);
+    }
+
+    /// <summary>
+    /// Increment when a refresh attempt exceeds absolute max lifetime window.
+    /// </summary>
+    public static void IncrementRefreshMaxLifetimeExceeded(Guid? userId = null, Guid? refreshId = null)
+    {
+        var tags = new System.Diagnostics.TagList();
+        if (userId.HasValue) tags.Add("user_id", userId.Value);
+        if (refreshId.HasValue) tags.Add("refresh_id", refreshId.Value);
+        RefreshMaxLifetimeExceeded.Add(1, tags);
     }
 
     public static void IncrementRotation(Guid userId, Guid oldRefreshId, Guid newRefreshId)

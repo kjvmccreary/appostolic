@@ -608,8 +608,28 @@ public static class V1
             // Rotate refresh (revoke old + issue new neutral) BEFORE issuing new access token
             await refreshSvc.RevokeAsync(rt.Id);
             var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+            // Story 11: Sliding window logic (local scope; simplified without duration histogram like refresh endpoint)
+            var slidingOpts = http.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>>().Value;
+            int effectiveTtlDays = refreshTtlDays;
+            if (slidingOpts.SlidingWindowDays > 0)
+            {
+                var proposed = now.AddDays(slidingOpts.SlidingWindowDays);
+                var original = rt.OriginalCreatedAt ?? rt.CreatedAt;
+                if (slidingOpts.MaxLifetimeDays > 0)
+                {
+                    var absoluteCap = original.AddDays(slidingOpts.MaxLifetimeDays);
+                    if (absoluteCap <= now)
+                    {
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshMaxLifetimeExceeded(rt.UserId, rt.Id);
+                        return Results.Unauthorized();
+                    }
+                    if (proposed > absoluteCap) proposed = absoluteCap;
+                }
+                effectiveTtlDays = (int)Math.Ceiling((proposed - now).TotalDays);
+                if (effectiveTtlDays <= 0) effectiveTtlDays = 1;
+            }
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
-            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
+            var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, effectiveTtlDays, fpHeader);
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             // Superadmin allowlist claim injection (mirrors login endpoint logic)
@@ -1269,7 +1289,6 @@ public static class V1
             int takeVal = take.GetValueOrDefault(20);
             int skipVal = skip.GetValueOrDefault(0);
             var items = await db.Lessons.AsNoTracking()
-                .OrderByDescending(l => l.CreatedAt)
                 .Skip(skipVal)
                 .Take(takeVal)
                 .ToListAsync();

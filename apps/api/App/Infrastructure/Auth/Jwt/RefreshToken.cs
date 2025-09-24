@@ -12,6 +12,10 @@ public class RefreshToken
     public string TokenHash { get; set; } = default!; // SHA256 hash (base64) of the refresh token
     public string Purpose { get; set; } = "neutral"; // neutral | tenant (future)
     public DateTime CreatedAt { get; set; }
+    /// <summary>
+    /// Story 11: The original creation time of the session chain. For the initial token this equals CreatedAt. Preserved across rotations to enforce absolute max lifetime.
+    /// </summary>
+    public DateTime? OriginalCreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public string? Metadata { get; set; } // JSON (device, ip, user-agent) future use

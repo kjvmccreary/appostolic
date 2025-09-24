@@ -36,9 +36,12 @@ public class RefreshTokenService : IRefreshTokenService
 {
     private readonly AppDbContext _db;
 
-    public RefreshTokenService(AppDbContext db)
+    private readonly Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>? _slidingOpts;
+
+    public RefreshTokenService(AppDbContext db, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.SlidingRefreshOptions>? slidingOpts = null)
     {
         _db = db;
+        _slidingOpts = slidingOpts; // optional for backwards compat in tests
     }
 
     public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null)
@@ -55,6 +58,7 @@ public class RefreshTokenService : IRefreshTokenService
             TokenHash = hash,
             Purpose = "neutral",
             CreatedAt = now,
+            OriginalCreatedAt = now,
             ExpiresAt = expires,
             Fingerprint = string.IsNullOrWhiteSpace(fingerprint) ? null : fingerprint
         };
