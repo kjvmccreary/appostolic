@@ -161,16 +161,16 @@ Acceptance:
 - Docs: enable sequence & threat model.
   Success Metrics: Protection toggle works; minimal false positives under same-site usage.
 
-Progress (Kickoff):
+Progress (Kickoff + Metrics):
 
 - Implementation scaffolding added: `CsrfOptions`, `ICsrfService`/`CsrfService`, GET `/api/auth/csrf`, validation integrated into login, select-tenant, logout, logout/all, refresh endpoints (double-submit cookie pattern).
 - Feature flags/env vars: `AUTH__CSRF__ENABLED`, `AUTH__CSRF__COOKIE_NAME`, `AUTH__CSRF__HEADER_NAME`, `AUTH__CSRF__AUTO_ISSUE`, `AUTH__CSRF__COOKIE_TTL_MINUTES`.
-- Initial test suite `CsrfTests` covering disabled mode, missing cookie/header, mismatch, success path, and explicit GET issuance added.
+- Tests (`CsrfTests`): disabled mode, missing cookie, missing header, mismatch, success (login+refresh), GET issuance, logout negative, logout success.
+- Metrics implemented: `auth.csrf.failures{reason}` & `auth.csrf.validations`.
   Remaining:
-- Design decision doc elaborating threat model & alternative approaches (synchronizer token, SameSite-only reliance, signed nonce) with rationale for current stateless double-submit choice.
-- Docs: update `SnapshotArchitecture.md` (add concise bullet once finalized) & add runbook section (enable sequence, rollback, browser considerations) in new Story 12 design doc.
-- Optional: add metric counters for CSRF failures by code (consider `auth.csrf.failures{reason}`) if operational visibility deemed necessary.
-- Story completion once doc + any chosen metrics & architecture snapshot bullet merged.
+- Architecture snapshot bullet (Security Features) — pending final wording.
+- Story log entry on completion.
+- Optional: dashboard panel & alert (mismatch spike) — not required for acceptance.
 
 ### Story 27 (Refined): Token Validation Observability Enhancements (Post-Cache)
 

@@ -82,14 +82,14 @@ Pending (optional):
 - Refresh denial when header omitted (redundant with login test but adds breadth).
 - Logout path CSRF negative test.
 
-## 8. Metrics (Planned / Optional)
+## 8. Metrics
 
-Potential counters:
+Implemented counters:
 
-- auth.csrf.failures{reason}
-- auth.csrf.validations{outcome=success}
+- `auth.csrf.failures{reason=missing_cookie|missing_header|mismatch}`
+- `auth.csrf.validations` (incremented on each successful validation)
 
-Decision: Defer until operational need demonstrated (low cardinality reasons already visible via structured logs if we add them). If added, integrate in `CsrfService.Validate`.
+Rationale: Lightweight visibility for sudden spikes (e.g., mismatch flood = potential probing or client bug). Low cardinality; safe to expose.
 
 ## 9. Rollout Plan
 
