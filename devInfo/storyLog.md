@@ -55,6 +55,37 @@ Follow-ups
 
 ---
 
+### 2025-09-24 - Story: TokenVersion Cache Sync & Structured JWT Challenge Body — ✅ DONE
+
+Summary
+
+- Addressed residual failing tests related to access token invalidation after TokenVersion bumps (password change, logout-all, forced logout). Root cause: in-memory TokenVersion cache (performance optimization) not updated immediately after DB increments, causing transient acceptance of stale access tokens until cache TTL expiry. Added proactive `tokenVersionCache.Set(userId, newVersion)` calls in password change, logout-all, user forced logout, and tenant forced logout loops to ensure atomic cache synchronization.
+- Introduced custom JWT `OnChallenge` handler emitting JSON `{ "error": <machine_code> }` for 401 responses. Previously, `ctx.Fail("token_version_mismatch")` produced an empty body, breaking deterministic test assertions expecting the machine code. Now failures like `token_version_mismatch` and `invalid_sub` return structured bodies.
+- All previously failing tests (password change invalidation, logout-all invalidation, forced logout cache invalidation) now pass; full suite green (latest run: 287 passed, 1 skipped, 0 failed).
+
+Rationale
+
+- Eliminates narrow race windows where security-sensitive version revocations could be delayed, strengthening immediate incident response guarantees (forced logout, password compromise scenarios).
+- Standardizes auth error surfaces enabling clients and tests to rely on stable machine codes without coupling to framework-specific challenge formatting.
+
+Files Changed
+
+- `apps/api/App/Endpoints/V1.cs` — added cache `Set` after each TokenVersion increment path.
+- `apps/api/Program.cs` — added `OnChallenge` JSON body emission and failure reason capture in `HttpContext.Items`.
+- `SnapshotArchitecture.md` — updated Security Features with cache sync + structured challenge bullet.
+
+Quality Gates
+
+- Targeted failing tests re-run: all green post changes. Full integration test suite green (287 passed / 1 skipped). No analyzer regressions introduced.
+
+Follow-ups / Deferred
+
+- Refactor duplicated login logic (pending separate cleanup story).
+- Consider dedicated integration test asserting `invalid_sub` challenge body (currently covered indirectly by mismatch tests).
+- Evaluate metrics impact (cache hit/miss) after proactive Set (expect improved hit ratio, reduced DB lookups under churn).
+
+---
+
 Summary
 
 - Began Story 7 by adding initial Grafana dashboard JSON definitions (`infra/grafana/dashboards/auth-overview.json`, `auth-security.json`) covering core auth KPIs: login success %, failure & refresh failure breakdowns, rate limiter outcome differentiation (block vs dryrun_block), security events by type, key rotation per-key signing rates, and p95 latencies for login/refresh. Security dashboard also surfaces invalid/reuse/expired refresh event rates, failure and reuse ratios, and validation failure counts.

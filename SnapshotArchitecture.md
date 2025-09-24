@@ -69,6 +69,8 @@ Security Features:
 - Plaintext refresh token NOT emitted unless transitional flag explicitly enabled (default suppressed; relies solely on cookie).
 - Structured error codes for determinism (`refresh_invalid`, `refresh_reuse`, `refresh_expired`, `missing_refresh`, `dev_headers_removed`, etc.).
 - HTTPS enforcement outside Development/Test + HSTS.
+- Proactive in-memory TokenVersion cache synchronization: all version‑bump operations (password change, logout-all, forced logout) immediately Set the new version in the short‑lived cache (≈30s TTL) eliminating race windows where a freshly bumped version might still accept an older access token until cache expiry.
+- Unified JWT challenge JSON body: authentication failures now emit `401` with `{ "error": <machine_code> }` (e.g., `token_version_mismatch`, `invalid_sub`) via a custom `OnChallenge` hook, guaranteeing deterministic test assertions and client error handling without guessing framework default bodies.
 
 Removed / Deprecated:
 
