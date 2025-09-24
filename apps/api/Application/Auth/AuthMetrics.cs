@@ -301,7 +301,7 @@ public static class AuthMetrics
     }
 
     /// <summary>
-    /// Record a failed refresh attempt. Reason bounded: missing_refresh | refresh_body_disallowed | refresh_invalid | refresh_reuse | refresh_expired | refresh_forbidden_tenant | rate_limited.
+    /// Record a failed refresh attempt. Reason bounded: missing_refresh | refresh_invalid | refresh_reuse | refresh_expired | refresh_forbidden_tenant | refresh_rate_limited | refresh_max_lifetime_exceeded.
     /// userId optional (may be unknown for invalid/missing cases).
     /// </summary>
     public static void IncrementRefreshFailure(string reason, Guid? userId = null)

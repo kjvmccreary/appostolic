@@ -1015,24 +1015,9 @@ public static class V1
             // (spraying invalid tokens) is still limited.
             var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             Appostolic.Api.Infrastructure.Auth.Refresh.RateLimitEvaluation evaluation; // populated later (ip-only or user+ip)
-            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
-            var deprecationDate = config["AUTH__REFRESH_DEPRECATION_DATE"]; // RFC1123 date string optional
-            string? bodyToken = null;
-            // Attempt to read small JSON body if content-type indicates JSON and grace is enabled
-            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                try
-                {
-                    using var doc = await System.Text.Json.JsonDocument.ParseAsync(http.Request.Body);
-                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == System.Text.Json.JsonValueKind.String)
-                    {
-                        bodyToken = rtProp.GetString();
-                    }
-                }
-                catch { /* swallow parse errors; treat as missing */ }
-            }
+            // Story 13: JSON body refresh path removed (cookie-only). Transitional grace & deprecation headers eliminated.
             var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
-            var suppliedToken = cookieToken ?? bodyToken;
+            var suppliedToken = cookieToken; // only cookie source now
             if (string.IsNullOrWhiteSpace(suppliedToken))
             {
                 failureReason = "missing_refresh";
@@ -1040,16 +1025,6 @@ public static class V1
                 sw.Stop();
                 Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
                 return Results.BadRequest(new { code = "missing_refresh" });
-            }
-
-            // Reject body token usage if grace disabled and no cookie present
-            if (!graceEnabled && cookieToken is null)
-            {
-                failureReason = "refresh_body_disallowed";
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
-                sw.Stop();
-                Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
-                return Results.BadRequest(new { code = "refresh_body_disallowed" });
             }
 
             // Hash same way as RefreshTokenService (Base64(SHA256))
@@ -1243,12 +1218,6 @@ public static class V1
                 IssueRefreshCookie(http, newRefresh, newRefreshExpires);
             }
 
-            // Deprecation headers if body token used and grace still enabled & date provided
-            if (graceEnabled && bodyToken is not null && !string.IsNullOrWhiteSpace(deprecationDate))
-            {
-                http.Response.Headers["Deprecation"] = "true";
-                http.Response.Headers["Sunset"] = deprecationDate!;
-            }
 
             // Story 2: Plaintext retired – always omit token and mark suppression.
             var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };

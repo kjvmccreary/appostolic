@@ -211,15 +211,32 @@ Follow-Ups:
 - If active trimming added, emit `auth.token_version.cache_evicted` and extend dashboard + alert.
 - Add coded alert rule file if operational need observed after baseline period.
 
-### Story 13: Remove JSON Body Refresh Path & Dead Code
+### Story 13: Remove JSON Body Refresh Path & Dead Code — ✅ DONE (2025-09-24)
 
-Goal: Finalize deprecation after adoption stats confirm.
+Goal: Finalize deprecation after adoption (cookie-only steady state).
 Acceptance:
 
-- Delete body parsing branch; remove related error codes (`refresh_body_disallowed`).
-- Remove grace flag config & docs references.
-- Tests updated (no body tests remain; negative ensures body rejected with 400 unknown or missing_refresh logic if still triggered).
-  Success Metrics: Simplified code; tests green.
+- Deleted JSON body parsing & grace logic from `/auth/refresh` (cookie-only source of refresh token).
+- Removed `refresh_body_disallowed` branch (error code no longer emitted).
+- Eliminated deprecation header emission (`Deprecation`, `Sunset`) tied to body usage.
+- Metrics comment updated to exclude removed reason.
+- Docs to be pruned in a follow-up sweep (auth-upgrade & legacy sprint plan references) — minor deferred.
+  Success Metrics: Simpler code; tests remain green; no clients relying on body path.
+
+Implementation Summary:
+
+- Stripped body parsing block & grace flag retrieval; unified token acquisition to cookie only.
+- Removed conditional rejection path & deprecation header logic.
+- Updated failure reason documentation in `AuthMetrics.cs` (removed `refresh_body_disallowed`).
+- Left references in historical docs for now (will be removed in transitional flag sweep Story 24 / documentation cleanup PR).
+
+Rollback:
+
+- If emergency body support needed (unlikely), reintroduce minimal parsing guarded by a short-lived env flag; not implemented by default.
+
+Follow-Ups:
+
+- Update `docs/auth-upgrade.md` and legacy sprint plan to excise grace flag narrative (tie into Story 24 transitional flag sweep).
 
 ### Story 14: Emergency JWT Rollback Kill-Switch
 
