@@ -999,7 +999,9 @@ public static class V1
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
     apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
-            if (csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorRefresh))
+            var emergencyRevert = (http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__JWT_EMERGENCY_REVERT"] ?? Environment.GetEnvironmentVariable("AUTH__JWT_EMERGENCY_REVERT") ?? "false")
+                .Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (!emergencyRevert && csrfOpts.Value.Enabled && !csrf.Validate(http, out var csrfErrorRefresh))
             {
                 Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(csrfErrorRefresh ?? "csrf");
                 return Results.BadRequest(new { code = csrfErrorRefresh });
