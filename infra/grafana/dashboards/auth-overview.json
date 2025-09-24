@@ -130,6 +130,35 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "type": "stat",
+      "title": "TokenVersion Cache Hit Ratio (5m)",
+      "id": 17,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 * sum(rate(auth_token_version_cache_hit{job=~\"$job\"}[5m])) / clamp_max(sum(rate(auth_token_version_cache_hit{job=~\"$job\"}[5m])) + sum(rate(auth_token_version_cache_miss{job=~\"$job\"}[5m])), 1e9)",
+          "legendFormat": "hit%"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Token Validation p95 Latency (ms)",
+      "id": 18,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le)(rate(auth_token_validation_latency_ms_bucket{job=~\"$job\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
     }
   ]
 }

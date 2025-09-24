@@ -185,28 +185,31 @@ Follow-Ups (Optional):
 - Dashboard panel + alert on elevated mismatch rate.
 - Consider rotating CSRF cookie automatically on sensitive state-changing actions if threat model expands.
 
-### Story 27 (Refined): Token Validation Observability Enhancements (Post-Cache)
+### Story 27 (Refined): Token Validation Observability Enhancements (Post-Cache) — ✅ DONE (2025-09-24)
 
-Context: Core instrumentation shipped with Story 10 (`auth.token_validation.latency_ms`, `auth.token_version.cache_hit|miss`). Remaining value is in higher-level ratios & eviction visibility rather than raw latency plumbing.
+Context: Core instrumentation (hit/miss counters + latency histogram) landed in Story 10. This story adds actionable visibility (ratio & latency view) without expanding metric cardinality.
 
-Refined Scope:
+Implementation Summary:
 
-- Add calculated gauge (or periodic counter->gauge translation) `auth.token_version.cache_hit_ratio` (exported via background hosted service every N seconds) OR document PromQL expression in dashboards instead (choose one: prefer docs-only for simplicity).
-- Optional counter: `auth.token_version.cache_evicted` (expired entries actively removed) if we introduce active trimming logic beyond opportunistic removal.
-- Dashboard panel additions: hit ratio %, P95 token_validation latency slice.
-- Alert rule (optional): low hit ratio (<40% sustained 10m) indicating misconfiguration (cache disabled unintentionally) or extreme churn.
+- Chose docs + dashboard expression approach (no extra gauge metric) to avoid background exporter overhead.
+- Added Auth Overview dashboard panels:
+  - TokenVersion Cache Hit Ratio (5m) stat using PromQL:
+    `100 * sum(rate(auth_token_version_cache_hit{job=~"$job"}[5m])) / clamp_max(sum(rate(auth_token_version_cache_hit{job=~"$job"}[5m])) + sum(rate(auth_token_version_cache_miss{job=~"$job"}[5m])), 1e9)`
+  - Token Validation p95 Latency (ms) derived from `auth_token_validation_latency_ms_bucket` histogram.
+- Documented alert suggestion (not yet codified): trigger if ratio < 40% for 10m (possible cache disable or churn).
+- Decided NOT to implement eviction counter pending introduction of active trimming (current cache opportunistic).
 
-Out of Scope / Already Done:
+Acceptance Mapping:
 
-- Base latency histogram & hit/miss counters (Story 10) ✅
-- Per-request outcome tagging (not needed; low dimensionality kept intentionally) ❌ (not planned)
+- PromQL ratio documented & visualized ✅
+- Dashboard panels added (ratio stat + p95 latency) ✅
+- No new metrics emitted (kept surface minimal) ✅
+- Optional eviction metric deferred (no active eviction logic) ✅
 
-Acceptance:
+Follow-Ups:
 
-- Either documented PromQL or emitted gauge for hit ratio.
-- Dashboard updated referencing ratio.
-- (If chosen) eviction counter increments on explicit trim path & test validates increment.
-  Success Metrics: Operators can view real-time cache efficiency without ad-hoc queries.
+- If active trimming added, emit `auth.token_version.cache_evicted` and extend dashboard + alert.
+- Add coded alert rule file if operational need observed after baseline period.
 
 ### Story 13: Remove JSON Body Refresh Path & Dead Code
 
