@@ -59,7 +59,7 @@ Core Flows:
 2. Select Tenant (`/api/auth/select-tenant`) → exchanges neutral refresh for new rotated refresh + tenant-scoped access token.
 3. Refresh (`/api/auth/refresh`) → rotates refresh, returns new neutral access (optionally tenant token if query `tenant=` supplied`). During rotation the old refresh token row has `LastUsedAt`stamped (if null) just before its`RevokedAt` is set, preserving historical usage while excluding it from active session enumeration.
 4. Logout single (`/api/auth/logout`) → revoke specific refresh (cookie or provided); logout all (`/api/auth/logout/all`) → revoke all + increment `TokenVersion`; forced logout admin endpoints (`/api/admin/users/{id}/logout-all`, `/api/admin/tenants/{id}/logout-all`) allow privileged remote revocation + token version bump (flag: `AUTH__FORCED_LOGOUT__ENABLED`).
-5. Session enumeration (`/api/auth/sessions`) → lists up to 50 active (non‑revoked, unexpired) neutral refresh tokens for the authenticated user including: `id, createdAt, lastUsedAt, expiresAt, fingerprint, current`. `current` is determined by hashing the inbound `rt` cookie value and comparing to stored `TokenHash`.
+5. Session enumeration (`/api/auth/sessions`) → lists up to 50 active (non‑revoked, unexpired) neutral refresh tokens for the authenticated user including: `id, createdAt, lastUsedAt, expiresAt, fingerprint, deviceName, current`. `current` is determined by hashing the inbound `rt` cookie value and comparing to stored `TokenHash`. `deviceName` (optional) is supplied via header `X-Session-Device` at issuance / rotation (carried forward if not re-sent during rotation).
 6. Per‑session revoke (`/api/auth/sessions/{id}/revoke`) → idempotent revoke of a single active refresh token; emits security event `session_revoked_single` on first revoke.
 
 Security Features:
@@ -105,7 +105,7 @@ Core tables (schema `app`):
 - `tenants` (Id, Name unique, Settings JSONB)
 - `memberships` (Id, TenantId, UserId, Roles flags, Status)
 - `invitations` (granular Roles, Token, ExpiresAt)
-- `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Fingerprint?, LastUsedAt?, Metadata JSONB)
+- `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Fingerprint?, LastUsedAt?, DeviceName?, Metadata JSONB)
   - Story 8: Added nullable `Fingerprint` (client-provided device/browser hint via header `X-Session-Fp` default; not security sensitive) and `LastUsedAt` (updated on successful validation and pre-rotation to preserve usage evidence). Partial index created for efficient active listing: `CREATE INDEX ix_refresh_tokens_active_user ON app.refresh_tokens (user_id, created_at DESC) WHERE revoked_at IS NULL;`
 - `login_tokens` (magic link tokens: Email (citext), TokenHash, Purpose, Expires/Consumed)
 - `audits` (role change records)

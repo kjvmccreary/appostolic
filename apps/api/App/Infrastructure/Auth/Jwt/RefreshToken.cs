@@ -28,4 +28,9 @@ public class RefreshToken
     /// Story 8: Last time this refresh token was used to obtain a new access token (rotation or tenant selection). Null until first use post-login.
     /// </summary>
     public DateTime? LastUsedAt { get; set; }
+    /// <summary>
+    /// Story 17/18: Optional human readable device display name provided by client header X-Session-Device.
+    /// Informational only; used in session enumeration UI to help users distinguish simultaneous sessions.
+    /// </summary>
+    public string? DeviceName { get; set; }
 }

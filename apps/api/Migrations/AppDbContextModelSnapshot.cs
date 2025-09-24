@@ -418,6 +418,22 @@ namespace Appostolic.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<DateTime?>("OriginalCreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("original_created_at");
+
+                    b.Property<string>("Fingerprint")
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("DeviceName")
+                        .HasColumnType("varchar(120)")
+                        .HasColumnName("device_name");
+
                     b.Property<string>("Metadata")
                         .HasColumnType("jsonb")
                         .HasColumnName("metadata");

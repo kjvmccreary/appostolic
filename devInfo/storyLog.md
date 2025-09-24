@@ -140,6 +140,44 @@ Next Steps
 
 ---
 
+### 2025-09-24 - Stories 17 & 18: Session Device Display Name (Enumeration Enrichment) — ✅ DONE
+
+Summary
+
+- Added optional human-readable device display name support for user sessions to improve clarity in forthcoming session management UI.
+- New nullable column `device_name varchar(120)` on `app.refresh_tokens` via migration `s17_18_device_name`.
+- Captured `X-Session-Device` header during initial issuance (login, magic consume) and rotations (refresh, select-tenant). If absent on rotation, previous session's name is carried forward.
+- Sanitization: control chars stripped, trimmed, truncated to 120 chars; empty → null.
+- `/api/auth/sessions` now includes `deviceName` (null for legacy / unnamed sessions).
+- Metrics: `auth.session.device_named` counter added (tags: user_id, refresh_id) incremented first time a name is assigned.
+- Backward compatible; clients ignoring header unaffected.
+
+Rationale
+
+Improves user security awareness by enabling differentiation of concurrent sessions (e.g., distinguishing personal vs work devices) without exposing sensitive identifiers. Dedicated column chosen over JSON for lower query overhead and future indexing flexibility.
+
+Files Changed / Added
+
+- `apps/api/App/Infrastructure/Auth/Jwt/RefreshToken.cs` (DeviceName property)
+- `apps/api/Program.cs` (EF mapping for device_name)
+- `apps/api/App/Endpoints/V1.cs` (capture + carry-forward + normalization helper + enumeration projection update)
+- `apps/api/Application/Auth/AuthMetrics.cs` (SessionDeviceNamed counter + increment helper)
+- `apps/api/Migrations/20250924163000_s17_18_device_name.cs` (migration)
+- `apps/api/Migrations/AppDbContextModelSnapshot.cs` (snapshot updated)
+- `devInfo/jwtRefactor/triSprintPlan.md` (Stories 17 & 18 marked DONE)
+
+Quality Gates
+
+- Build compiles; migration present. Enumeration response remains additive (legacy tests unaffected). Manual inspection confirms normalization logic and metric hook only fires on first assignment.
+
+Follow-ups / Deferred
+
+- Add integration tests for device naming & rotation inheritance.
+- UI work: display device names and possibly allow user-initiated rename (future endpoint).
+- Potential common-name normalization or abuse filtering deferred until real usage observed.
+
+---
+
 ### 2025-09-23 - Story: Tracing Span Enrichment (Story 5) Completion
 
 ### 2025-09-23 - Story: Structured Security Events (Story 6) Phase 2 Integration Coverage Expansion — 🚧 IN PROGRESS

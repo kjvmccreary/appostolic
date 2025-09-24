@@ -149,6 +149,13 @@ public static class AuthMetrics
         description: "Count of per-session revoke requests. outcome=success|not_found|forbidden" 
     );
 
+    // Story 17/18: Device naming adoption visibility (increments first time a non-null device name stored for a session)
+    public static readonly Counter<long> SessionDeviceNamed = Meter.CreateCounter<long>(
+        name: "auth.session.device_named",
+        unit: "{session}",
+        description: "Count of sessions assigned a human-readable device name (first assignment only)."
+    );
+
     // Story 9: Admin / Tenant forced logout
     public static readonly Counter<long> AdminForcedLogoutRequests = Meter.CreateCounter<long>(
         name: "auth.admin.forced_logout.requests",
@@ -419,6 +426,15 @@ public static class AuthMetrics
         if (count <= 0) return;
         var tags = new System.Diagnostics.TagList { { "scope", scope } };
         AdminForcedLogoutSessionsRevoked.Add(count, tags);
+    }
+
+    /// <summary>
+    /// Record that a device name was set for a session for the first time.
+    /// </summary>
+    public static void IncrementSessionDeviceNamed(Guid userId, Guid refreshId)
+    {
+        var tags = new System.Diagnostics.TagList { { "user_id", userId }, { "refresh_id", refreshId } };
+        SessionDeviceNamed.Add(1, tags);
     }
 
 }

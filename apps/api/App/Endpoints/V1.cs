@@ -218,6 +218,14 @@ public static class V1
             else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d)) refreshTtlDays = d;
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
+            // Story 17/18: capture optional device display name
+            var deviceNameHeader = http.Request.Headers.TryGetValue("X-Session-Device", out var devVals) ? devVals.ToString() : null;
+            string? deviceName = NormalizeDeviceName(deviceNameHeader);
+            if (!string.IsNullOrWhiteSpace(deviceName))
+            {
+                var issued = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Id == refreshId);
+                if (issued != null && string.IsNullOrWhiteSpace(issued.DeviceName)) { issued.DeviceName = deviceName; await db.SaveChangesAsync(); Appostolic.Api.Application.Auth.AuthMetrics.IncrementSessionDeviceNamed(user.Id, issued.Id); }
+            }
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -494,6 +502,13 @@ public static class V1
             else if (int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d)) refreshTtlDays = d;
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
+            var deviceNameHeader2 = http.Request.Headers.TryGetValue("X-Session-Device", out var devVals2) ? devVals2.ToString() : null;
+            string? deviceName2 = NormalizeDeviceName(deviceNameHeader2);
+            if (!string.IsNullOrWhiteSpace(deviceName2))
+            {
+                var issued = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Id == refreshId);
+                if (issued != null && string.IsNullOrWhiteSpace(issued.DeviceName)) { issued.DeviceName = deviceName2; await db.SaveChangesAsync(); Appostolic.Api.Application.Auth.AuthMetrics.IncrementSessionDeviceNamed(user.Id, issued.Id); }
+            }
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             object? tenantToken = null;
@@ -668,6 +683,25 @@ public static class V1
             }
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, effectiveTtlDays, fpHeader);
+            // Device name capture / carry-forward
+            var deviceNameHeader3 = http.Request.Headers.TryGetValue("X-Session-Device", out var devVals3) ? devVals3.ToString() : null;
+            string? newDeviceName = NormalizeDeviceName(deviceNameHeader3);
+            if (newDeviceName == null)
+            {
+                // carry forward existing if present
+                var prev = await db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.Id == rt.Id);
+                newDeviceName = prev?.DeviceName;
+            }
+            if (!string.IsNullOrWhiteSpace(newDeviceName))
+            {
+                var issued = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Id == newRefreshId);
+                if (issued != null)
+                {
+                    if (string.IsNullOrWhiteSpace(issued.DeviceName)) Appostolic.Api.Application.Auth.AuthMetrics.IncrementSessionDeviceNamed(user.Id, issued.Id);
+                    issued.DeviceName = newDeviceName;
+                    await db.SaveChangesAsync();
+                }
+            }
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
 
             // Superadmin allowlist claim injection (mirrors login endpoint logic)
@@ -1207,6 +1241,23 @@ public static class V1
 
             var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
             var (newRefreshId, newRefresh, newRefreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, effectiveTtlDays, fpHeader);
+            var deviceNameHeader4 = http.Request.Headers.TryGetValue("X-Session-Device", out var devVals4) ? devVals4.ToString() : null;
+            string? refreshDeviceName = NormalizeDeviceName(deviceNameHeader4);
+            if (refreshDeviceName == null)
+            {
+                var prev = await db.RefreshTokens.AsNoTracking().FirstOrDefaultAsync(r => r.Id == rt.Id);
+                refreshDeviceName = prev?.DeviceName;
+            }
+            if (!string.IsNullOrWhiteSpace(refreshDeviceName))
+            {
+                var issued = await db.RefreshTokens.FirstOrDefaultAsync(r => r.Id == newRefreshId);
+                if (issued != null)
+                {
+                    if (string.IsNullOrWhiteSpace(issued.DeviceName)) Appostolic.Api.Application.Auth.AuthMetrics.IncrementSessionDeviceNamed(user.Id, issued.Id);
+                    issued.DeviceName = refreshDeviceName;
+                    await db.SaveChangesAsync();
+                }
+            }
 
             var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
             // Existing service issues neutral access tokens via IssueAccessToken (used in login). Reuse neutral path (no tenant claims).
@@ -1298,6 +1349,7 @@ public static class V1
                     lastUsedAt = r.LastUsedAt,
                     expiresAt = r.ExpiresAt,
                     fingerprint = r.Fingerprint,
+                    deviceName = r.DeviceName,
                     current = currentRefreshHash != null && r.TokenHash == currentRefreshHash
                 })
                 .ToListAsync();
@@ -2426,6 +2478,19 @@ public static class V1
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// Story 17/18: Normalizes a raw device name header value. Trims, removes control chars, enforces max length (120), returns null if empty.
+    /// </summary>
+    private static string? NormalizeDeviceName(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        // Basic sanitation: strip control characters
+        var cleaned = new string(raw.Where(ch => !char.IsControl(ch)).ToArray()).Trim();
+        if (cleaned.Length == 0) return null;
+        if (cleaned.Length > 120) cleaned = cleaned.Substring(0, 120);
+        return cleaned;
     }
 }
 

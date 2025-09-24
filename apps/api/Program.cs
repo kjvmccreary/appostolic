@@ -878,6 +878,8 @@ public partial class AppDbContext : DbContext
             // Story 8 session enumeration additions
             b.Property(x => x.Fingerprint).HasColumnName("fingerprint").HasColumnType("varchar(128)").IsRequired(false);
             b.Property(x => x.LastUsedAt).HasColumnName("last_used_at").IsRequired(false);
+            // Story 17/18: Optional device display name
+            b.Property(x => x.DeviceName).HasColumnName("device_name").HasColumnType("varchar(120)").IsRequired(false);
             b.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("ix_refresh_tokens_user_created");
             b.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("ux_refresh_tokens_token_hash");
             // Future: partial index for active tokens (revoked_at IS NULL) if needed for performance
