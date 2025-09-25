@@ -71,7 +71,7 @@ public class TestAuthClient
         var refreshObj = json["refresh"]?.AsObject() ?? throw new InvalidOperationException("Mint endpoint missing refresh payload");
         if (refreshObj["token"] is null)
         {
-            throw new InvalidOperationException("Mint endpoint did not return plaintext refresh token. Ensure AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=true for tests.");
+            throw new InvalidOperationException("Mint endpoint did not return plaintext refresh token.");
         }
         var refresh = ParseToken(refreshObj);
 

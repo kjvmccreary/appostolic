@@ -1,5 +1,8 @@
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Mvc.Testing;
 using FluentAssertions;
 using Appostolic.Api.Tests; // WebAppFactory namespace
 using Microsoft.Extensions.DependencyInjection;
@@ -13,10 +16,21 @@ public class SelectTenantTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public SelectTenantTests(WebAppFactory factory) => _factory = factory;
 
+    private HttpClient CreateManualCookieClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+
+    private static (string CookieHeader, string TokenValue) ExtractRefreshCookie(HttpResponseMessage response)
+    {
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var raw = cookies!.First(c => c.StartsWith("rt=", StringComparison.OrdinalIgnoreCase));
+        var header = raw.Split(';')[0];
+        var token = header[(header.IndexOf('=') + 1)..];
+        return (header, token);
+    }
+
     [Fact]
     public async Task SelectTenant_Succeeds_RotatesRefreshToken()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"sel-{Guid.NewGuid():N}@example.com";
         // Signup to create user + personal tenant membership
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -41,31 +55,46 @@ public class SelectTenantTests : IClassFixture<WebAppFactory>
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
         login.EnsureSuccessStatusCode();
         var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
-        var refreshToken = loginDoc!["refresh"]!["token"]!.GetValue<string>();
+        var (refreshCookie, refreshToken) = ExtractRefreshCookie(login);
 
-        // Call select-tenant endpoint
-        var select = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken });
+        // Call select-tenant endpoint (body retains refreshToken for backward compatibility)
+        var selectReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = secondTenantId.ToString(), refreshToken })
+        };
+        selectReq.Headers.Add("Cookie", refreshCookie);
+        var select = await client.SendAsync(selectReq);
         select.EnsureSuccessStatusCode();
         var doc = await select.Content.ReadFromJsonAsync<JsonObject>();
         doc.Should().NotBeNull();
         doc!["access"]!["tenantId"]!.GetValue<string>().Should().Be(secondTenantId.ToString());
-        doc!["refresh"]!["token"]!.GetValue<string>().Should().NotBe(refreshToken); // rotated
-
-        var newRefresh = doc!["refresh"]!["token"]!.GetValue<string>();
+        doc!["refresh"]!.AsObject().ContainsKey("token").Should().BeFalse();
+        var (rotatedCookie, rotatedToken) = ExtractRefreshCookie(select);
+        rotatedToken.Should().NotBe(refreshToken);
 
         // Reuse old refresh token should now 401 (revoked)
-        var reuse = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken });
+        var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = secondTenantId.ToString(), refreshToken })
+        };
+        reuseReq.Headers.Add("Cookie", refreshCookie);
+        var reuse = await client.SendAsync(reuseReq);
         reuse.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
 
         // New refresh still works (rotate again) to same tenant
-        var again = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken = newRefresh });
+        var againReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = secondTenantId.ToString(), refreshToken = rotatedToken })
+        };
+        againReq.Headers.Add("Cookie", rotatedCookie);
+        var again = await client.SendAsync(againReq);
         again.EnsureSuccessStatusCode();
     }
 
     [Fact]
     public async Task SelectTenant_InvalidRefresh_Returns401()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"invref-{Guid.NewGuid():N}@example.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
         signup.EnsureSuccessStatusCode();
@@ -85,14 +114,19 @@ public class SelectTenantTests : IClassFixture<WebAppFactory>
                 .FirstAsync();
         }
 
-        var resp = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantId.ToString(), refreshToken = bogusRefresh });
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = tenantId.ToString(), refreshToken = bogusRefresh })
+        };
+        req.Headers.Add("Cookie", $"rt={bogusRefresh}");
+        var resp = await client.SendAsync(req);
         resp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
     }
 
     [Fact]
     public async Task SelectTenant_ForbiddenTenant_Returns403()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"forbid-{Guid.NewGuid():N}@example.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
         signup.EnsureSuccessStatusCode();
@@ -111,26 +145,29 @@ public class SelectTenantTests : IClassFixture<WebAppFactory>
         // Login to get refresh token
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
         login.EnsureSuccessStatusCode();
-        var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
-        var refreshToken = loginDoc!["refresh"]!["token"]!.GetValue<string>();
+        var (refreshCookie, refreshToken) = ExtractRefreshCookie(login);
 
-        var resp = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = otherTenantId.ToString(), refreshToken });
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = otherTenantId.ToString(), refreshToken })
+        };
+        req.Headers.Add("Cookie", refreshCookie);
+        var resp = await client.SendAsync(req);
         resp.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
     }
 
     [Fact]
     public async Task SelectTenant_ExpiredRefresh_Returns401()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"exp-{Guid.NewGuid():N}@example.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
         signup.EnsureSuccessStatusCode();
 
         // Login to obtain refresh
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
-        login.EnsureSuccessStatusCode();
-        var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
-        var refreshToken = loginDoc!["refresh"]!["token"]!.GetValue<string>();
+    var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
+    login.EnsureSuccessStatusCode();
+    var (refreshCookie, refreshToken) = ExtractRefreshCookie(login);
 
         Guid tenantId;
         using (var scope = _factory.Services.CreateScope())
@@ -153,7 +190,12 @@ public class SelectTenantTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var resp = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = tenantId.ToString(), refreshToken });
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = tenantId.ToString(), refreshToken })
+        };
+        req.Headers.Add("Cookie", refreshCookie);
+        var resp = await client.SendAsync(req);
         resp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
     }
 }

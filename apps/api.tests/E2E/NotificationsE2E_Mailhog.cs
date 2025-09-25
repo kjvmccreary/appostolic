@@ -53,9 +53,8 @@ public class NotificationsE2E_Mailhog
                         ["Email:FromAddress"] = "no-reply@appostolic.local",
                         ["Email:FromName"] = "Appostolic",
                         // Enable refresh cookie issuance for auth flow helper (login + select-tenant) since this test uses a fresh WebApplicationFactory
-                        ["AUTH__REFRESH_COOKIE_ENABLED"] = "true",
-                        // Transitional: also expose plaintext refresh token in JSON for robustness (helper will prefer cookie but keep both during migration)
-                        ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true"
+                        // Cookie is now the sole channel; plaintext refresh tokens are no longer emitted in JSON responses.
+                        ["AUTH__REFRESH_COOKIE_ENABLED"] = "true"
                     };
                     cfg.AddInMemoryCollection(dict);
                 });

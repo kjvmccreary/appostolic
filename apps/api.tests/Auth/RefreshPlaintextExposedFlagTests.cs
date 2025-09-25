@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -6,24 +8,17 @@ using Xunit;
 namespace Appostolic.Api.Tests.Auth;
 
 /// <summary>
-/// Story 2: Verifies plaintext refresh token is omitted when exposure flag disabled (suppression scenarios).
+/// Cookie-only steady state: verify plaintext refresh tokens are never emitted in JSON responses.
 /// </summary>
-public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
+public class RefreshPlaintextSuppressionTests : IClassFixture<WebAppFactory>
 {
     private readonly WebAppFactory _factory;
-    public RefreshPlaintextExposedFlagTests(WebAppFactory factory) => _factory = factory;
+    public RefreshPlaintextSuppressionTests(WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Login_Omits_Plaintext_When_Disabled()
+    public async Task Login_Omits_Plaintext_By_Default()
     {
-        // Explicitly disable plaintext exposure flag for this suppression scenario. We also keep
-        // the refresh cookie enabled to mirror production cookie-first behavior; the assertion
-        // should hold independent of cookie issuance.
-        var client = _factory.WithSettings(new()
-        {
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
-        }).CreateClient();
+        var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flagloginhide_{Guid.NewGuid()}@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -37,15 +32,9 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Refresh_Omits_Plaintext_When_Disabled()
+    public async Task Refresh_Omits_Plaintext_With_Cookie()
     {
-        // Disable plaintext exposure flag while allowing grace path + cookie issuance.
-        var client = _factory.WithSettings(new()
-        {
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_GRACE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
-        }).CreateClient();
+        var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flagrefreshhide_{Guid.NewGuid()}@test.com";
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -68,12 +57,12 @@ public class RefreshPlaintextExposedFlagTests : IClassFixture<WebAppFactory>
     }
 
     [Fact]
-    public async Task Login_Omits_Plaintext_When_Disabled_NoCookieOverride()
+    public async Task Login_Omits_Plaintext_Even_Without_Cookie()
     {
-        // Even with no explicit cookie override, disabling plaintext flag should suppress token.
+        // Ensure cookie issuance disabled to prove JSON omission is unconditional.
         var client = _factory.WithSettings(new()
         {
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "false" }
         }).CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
         var email = $"flaglogindefault_{Guid.NewGuid()}@test.com";

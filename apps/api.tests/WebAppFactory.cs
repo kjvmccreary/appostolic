@@ -65,9 +65,9 @@ public class WebAppFactory : WebApplicationFactory<Program>
     public WebAppFactory WithSettings(Dictionary<string,string?> settings)
     {
         // IMPORTANT: Previous implementation mutated a shared _overrides dictionary on the fixture instance.
-        // Because xUnit reuses the IClassFixture<WebAppFactory> across all tests in the assembly, overrides
-        // from one test (e.g. setting AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT=false) leaked into later tests
-        // that expected the default (true) behavior, causing flaky / order-dependent failures.
+    // Because xUnit reuses the IClassFixture<WebAppFactory> across all tests in the assembly, overrides
+    // from one test (e.g. toggling CSRF enablement) leaked into later tests that expected the default
+    // behavior, causing flaky / order-dependent failures.
         // To isolate configuration per test, we return a NEW factory instance that copies existing overrides
         // and applies the new settings, leaving the original fixture state untouched.
         var clone = new WebAppFactory();
@@ -110,15 +110,6 @@ public class WebAppFactory : WebApplicationFactory<Program>
                 ["Auth:Jwt:SigningKeyBase64"] = "v1KcXbq0cU4o1M3v1d2W9yA4b7F8k2L6p1r8s3u5x7g=", // bound to AuthJwtOptions.SigningKeyBase64
                 // Story 4: enable refresh cookie issuance in tests
                 ["AUTH__REFRESH_COOKIE_ENABLED"] = "true",
-                // Story 8: Explicitly set plaintext exposure flag true by default so tests relying
-                // on default behavior are stable even if developer machine/environment sets it false.
-                // Individual tests override to false via WithSettings when validating suppression.
-                // Story 2 finalization: default to NOT exposing plaintext refresh token in JSON. Individual
-                // tests that need transitional exposure semantics can override to true via WithSettings.
-                // Transitional: keep plaintext refresh token exposed in JSON for existing auth flow tests
-                // until all tests and client code paths have migrated fully to cookie-only retrieval.
-                // Individual suppression tests call .WithSettings to set this to false.
-                ["AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT"] = "true",
                 // Story 9: ensure forced logout endpoints enabled in tests by default
                 ["AUTH__FORCED_LOGOUT__ENABLED"] = "true",
                 // Story 9: default platform super admin allowlist (will be augmented per-test via WithSettings)
@@ -128,7 +119,7 @@ public class WebAppFactory : WebApplicationFactory<Program>
             // login/select-tenant issued tokens for kevin@example.com to include superadmin=true claim
             // eliminating reliance on test mint superadmin helper.
             dict["Auth:SuperAdminEmails"] = "kevin@example.com";
-            // Apply overrides from tests (Story 8 flag scenarios, etc.)
+            // Apply overrides from tests (cookie/CSRF variations, etc.)
             foreach (var kvp in _overrides)
             {
                 dict[kvp.Key] = kvp.Value;

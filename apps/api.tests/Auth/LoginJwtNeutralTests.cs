@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -16,6 +18,15 @@ public class LoginJwtNeutralTests : IClassFixture<WebAppFactory>
 
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
+    private static (string CookieHeader, string TokenValue) ExtractRefreshCookie(HttpResponseMessage response)
+    {
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var raw = cookies!.First(c => c.StartsWith("rt=", StringComparison.OrdinalIgnoreCase));
+        var header = raw.Split(';')[0];
+        var token = header[(header.IndexOf('=') + 1)..];
+        return (header, token);
+    }
+
     [Fact]
     public async Task Login_ReturnsNeutralAccessAndRefreshToken()
     {
@@ -32,10 +43,14 @@ public class LoginJwtNeutralTests : IClassFixture<WebAppFactory>
         var doc = await login.Content.ReadFromJsonAsync<JsonObject>();
         doc.Should().NotBeNull();
         doc!["access"]!.Should().NotBeNull();
-        doc!["refresh"]!.Should().NotBeNull();
-        doc!["access"]!["token"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
-        doc!["refresh"]!["token"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
-        doc!["refresh"]!["expiresAt"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
+    doc!["refresh"]!.Should().NotBeNull();
+    doc!["access"]!["token"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
+    var (refreshCookie, refreshToken) = ExtractRefreshCookie(login);
+    refreshCookie.Should().StartWith("rt=");
+    refreshToken.Should().NotBeNullOrWhiteSpace();
+    var refreshObj = doc!["refresh"]!.AsObject();
+    refreshObj.ContainsKey("token").Should().BeFalse();
+    refreshObj["expiresAt"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
     // Current implementation: when user has a single membership a tenant access token is auto-issued.
     doc.ContainsKey("tenantToken").Should().BeTrue();
     var tenantToken = doc["tenantToken"]!.AsObject();

@@ -265,6 +265,23 @@ Follow-Ups:
 - Optional structured security event at startup indicating revert mode.
 - Health endpoint / metric gauge exposing revert state if extended usage becomes plausible.
 
+### Story 24: Transitional Flag Final Deletion — 🚧 IN PROGRESS (2025-09-25)
+
+Goal: Permanently remove the transitional refresh JSON exposure/grace flags now that cookie-only flows are fully adopted.
+
+Acceptance Progress:
+
+- [x] Delete application usage of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` and `AUTH__REFRESH_JSON_GRACE_ENABLED`; login/select-tenant/logout endpoints emit metadata only and accept refresh tokens exclusively via cookie.
+- [x] Update test helpers so integration tests continue to access refresh tokens without relying on flags; remove flag-dependent test setups (`RefreshPlaintextSuppressionTests`, etc.).
+- [ ] Prune configuration mentions from `WebAppFactory`, documentation, SnapshotArchitecture, LivingChecklist, and storyLog.
+- [ ] Retain observability (suppression counter) with refreshed comments describing steady-state expectations.
+- [x] Run targeted auth suites (login/select-tenant/logout/refresh) to confirm no regressions.
+
+Rollout Notes:
+
+- Non-production `/api/test/mint-tenant-token` continues returning plaintext refresh tokens for test infrastructure despite flag removal.
+- Rollback would require reintroducing the flag (or a patch reverting this story); document as part of post-story summary.
+
 ### Story 15: Browser Security Validation (Playwright) — ⏸ DEFERRED
 
 Decision: Deferred due to low immediate risk and historical flakiness of local Playwright setup. Manual UI verification (cookie HttpOnly, SameSite behavior) deemed sufficient near-term. Will revisit if cross-site embedding or automated browser regression risk increases.
@@ -312,7 +329,7 @@ Summarized; promote in later sprints as capacity allows.
 - Expanded TestAuthClient (Story 20) — ✅ DONE (2025-09-25) — Added TTL override support to mint helper + refresh expiry tests
 - SSR Access Cookie Evaluation (Story 21) — ⏸ DEFERRED (monitor SSR auth friction before investing)
 - Ingress Config Samples (Stories 22–23) — ⏸ DEFERRED (prepare only if ops requests nginx/Caddy examples)
-- Transitional Flag Final Deletion (Story 24 & 31 consolidation possible)
+- Transitional Flag Final Deletion (Story 24 & 31 consolidation possible) — 🚧 IN PROGRESS (2025-09-25)
 - Key Rotation Simulation Harness (Story 25)
 - Dashboard Provision Automation (Story 26) — ⏸ DEFERRED (nice-to-have once dashboards stabilize)
 - Validation Latency & Cache Hit Histogram (Story 27 — follows Story 10)

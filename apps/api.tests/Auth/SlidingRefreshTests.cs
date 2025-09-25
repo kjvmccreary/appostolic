@@ -26,7 +26,6 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
         var client = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" },
             { "AUTH__JWT__REFRESH_TTL_DAYS", "1" },
             { "AUTH__REFRESH_SLIDING_WINDOW_DAYS", "5" },
             { "AUTH__REFRESH_MAX_LIFETIME_DAYS", "10" }
@@ -64,7 +63,6 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
         var client = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" },
             { "AUTH__JWT__REFRESH_TTL_DAYS", "7" },
             { "AUTH__REFRESH_SLIDING_WINDOW_DAYS", "7" },
             { "AUTH__REFRESH_MAX_LIFETIME_DAYS", "10" }
@@ -104,7 +102,6 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
         var factory = _factory.WithSettings(new()
         {
             { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" },
             { "AUTH__JWT__REFRESH_TTL_DAYS", "1" },
             { "AUTH__REFRESH_SLIDING_WINDOW_DAYS", "1" },
             { "AUTH__REFRESH_MAX_LIFETIME_DAYS", "1" }

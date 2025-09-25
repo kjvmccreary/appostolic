@@ -581,23 +581,10 @@ public static class V1
             {
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
-            // Story 2 (original): Plaintext retired. Tests (and transitional legacy clients) still
-            // expect refresh.token when the explicit exposure flag is enabled. We gate inclusion of
-            // the plaintext here on AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT (default true in tests via
-            // WebAppFactory). When disabled we preserve suppression metrics and omit the token.
-            // Security: default exposure is false unless explicitly enabled via configuration.
-            var exposePlaintext = http.RequestServices.GetRequiredService<IConfiguration>()
-                .GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", false);
-            object refreshObj;
-            if (exposePlaintext)
-            {
-                refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
-            }
-            else
-            {
-                refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
-            }
+            // Story 24: Transitional flags removed. Auth responses now permanently omit plaintext refresh tokens.
+            // Suppression metric retained for steady-state observability (should mirror total issuance volume).
+            var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             var resultPayload = new
             {
@@ -750,21 +737,9 @@ public static class V1
             {
                 IssueRefreshCookie(http, newRefresh, newRefreshExpires);
             }
-            // Story 2 (original): Plaintext retired. Transitional flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT
-            // allows tests to continue asserting rotation semantics using the raw token while the
-            // application migrates UI flows to cookie-only. When disabled, we increment suppression metric.
-            var exposePlaintextSelect = http.RequestServices.GetRequiredService<IConfiguration>()
-                .GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", false);
-            object refreshObj;
-            if (exposePlaintextSelect)
-            {
-                refreshObj = new { token = newRefresh, expiresAt = newRefreshExpires, type = "neutral" };
-            }
-            else
-            {
-                refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-                Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
-            }
+            // Story 24: Transitional flags removed. Select-tenant responses permanently omit plaintext refresh tokens.
+            var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
+            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             return Results.Ok(new
             {
@@ -777,7 +752,7 @@ public static class V1
 
         var api = apiRoot.RequireAuthorization();
         // --- Story 7: Logout Endpoints (authenticated) ---
-        // POST /api/auth/logout - revoke a single provided neutral refresh token (cookie 'rt' or body refreshToken during grace)
+        // POST /api/auth/logout - revoke the current neutral refresh token (cookie 'rt')
         api.MapPost("/auth/logout", async (HttpContext http, ClaimsPrincipal principal, AppDbContext db, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
             // Story 12: CSRF validation (state changing logout) if enabled
@@ -785,34 +760,10 @@ public static class V1
             {
                 return Results.BadRequest(new { code = csrfErrorLogoutSingle });
             }
-            var config = http.RequestServices.GetRequiredService<IConfiguration>();
-            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
             var userIdStr = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Results.Unauthorized();
-            string? bodyToken = null;
-            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                try
-                {
-                    using var doc = await JsonDocument.ParseAsync(http.Request.Body);
-                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == JsonValueKind.String)
-                        bodyToken = rtProp.GetString();
-                    else
-                        bodyToken = string.Empty;
-                }
-                catch { bodyToken = string.Empty; }
-            }
             var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
-            var bodyProvided = bodyToken is not null;
-            string? supplied = null;
-            if (bodyProvided)
-            {
-                supplied = bodyToken;
-            }
-            else
-            {
-                supplied = cookieToken ?? bodyToken;
-            }
+            var supplied = cookieToken;
             if (string.IsNullOrWhiteSpace(supplied))
             {
                 return Results.BadRequest(new { code = "missing_refresh" });
@@ -1052,10 +1003,10 @@ public static class V1
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);
         }
-        // --- Story 6: General refresh endpoint (cookie-first with transitional body support) ---
-        // POST /api/auth/refresh
-        // Preferred: httpOnly cookie 'rt' supplies refresh token. Transitional: JSON body { refreshToken } while grace flag enabled.
-        // Returns: { user, memberships, access, refresh, tenantToken? }
+    // --- Story 6: General refresh endpoint (cookie-only steady state) ---
+    // POST /api/auth/refresh
+    // httpOnly cookie 'rt' supplies refresh token.
+    // Returns: { user, memberships, access, refresh, tenantToken? }
         // Errors: 400 missing, 401 invalid/expired/revoked/reuse, 403 tenant membership mismatch.
     apiRoot.MapPost("/auth/refresh", async (HttpContext http, AppDbContext db, IJwtTokenService jwt, IRefreshTokenService refreshSvc, Appostolic.Api.Application.Auth.ISecurityEventWriter securityEvents, Appostolic.Api.Infrastructure.Auth.Refresh.IRefreshRateLimiter limiter, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Infrastructure.Auth.Refresh.RefreshRateLimitOptions> rlOpts, Appostolic.Api.Application.Auth.ICsrfService csrf, Microsoft.Extensions.Options.IOptions<Appostolic.Api.Application.Auth.CsrfOptions> csrfOpts) =>
         {
@@ -1077,39 +1028,8 @@ public static class V1
             // (spraying invalid tokens) is still limited.
             var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             Appostolic.Api.Infrastructure.Auth.Refresh.RateLimitEvaluation evaluation; // populated later (ip-only or user+ip)
-            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
-            string? bodyToken = null;
-            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                try
-                {
-                    using var doc = await JsonDocument.ParseAsync(http.Request.Body);
-                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == JsonValueKind.String)
-                    {
-                        bodyToken = rtProp.GetString();
-                    }
-                    else
-                    {
-                        bodyToken = string.Empty; // body provided but missing refresh token field
-                    }
-                }
-                catch
-                {
-                    bodyToken = string.Empty;
-                }
-            }
-
             var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
-            var bodyProvided = bodyToken is not null;
-            string? suppliedToken = null;
-            if (bodyProvided && !string.IsNullOrWhiteSpace(bodyToken))
-            {
-                suppliedToken = bodyToken;
-            }
-            else if (!string.IsNullOrWhiteSpace(cookieToken))
-            {
-                suppliedToken = cookieToken;
-            }
+            var suppliedToken = !string.IsNullOrWhiteSpace(cookieToken) ? cookieToken : null;
 
             if (string.IsNullOrWhiteSpace(suppliedToken))
             {
@@ -2420,17 +2340,8 @@ public static class V1
                         rolesLabels = DescribeRoleLabels(rolesBitmask)
                     };
                 }
-                // Story 8: conditional plaintext refresh token
-                var exposePlainFlag = configuration.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
-                object refreshObj;
-                if (exposePlainFlag)
-                {
-                    refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
-                }
-                else
-                {
-                    refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-                }
+                // Story 24: Test helper always returns plaintext refresh token (non-production utility).
+                var refreshObj = new { token = refreshToken, expiresAt = refreshExpires, type = "neutral" };
                 // If only neutral token requested but superadmin flag set, re-issue neutral with claim (kept separate for clarity)
                 if (dto.SuperAdmin == true && !selectedTenant.HasValue)
                 {

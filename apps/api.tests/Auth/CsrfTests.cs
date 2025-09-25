@@ -111,8 +111,7 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         {
             { "AUTH__CSRF__ENABLED", "true" },
             { "AUTH__CSRF__AUTO_ISSUE", "true" },
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }
         }).CreateClient();
         var email = $"csrf_success_{Guid.NewGuid()}@test.com";
         var csrfResp = await client.GetAsync("/api/auth/csrf");
@@ -148,8 +147,7 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         {
             { "AUTH__CSRF__ENABLED", "true" },
             { "AUTH__CSRF__AUTO_ISSUE", "true" },
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }
         }).CreateClient();
         var email = $"csrf_logout_fail_{Guid.NewGuid()}@test.com";
         var csrfResp = await client.GetAsync("/api/auth/csrf");
@@ -195,8 +193,7 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         {
             { "AUTH__CSRF__ENABLED", "true" },
             { "AUTH__CSRF__AUTO_ISSUE", "true" },
-            { "AUTH__REFRESH_COOKIE_ENABLED", "true" },
-            { "AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", "false" }
+            { "AUTH__REFRESH_COOKIE_ENABLED", "true" }
         }).CreateClient();
         var email = $"csrf_logout_ok_{Guid.NewGuid()}@test.com";
         var csrfResp = await client.GetAsync("/api/auth/csrf");

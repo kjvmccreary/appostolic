@@ -1,9 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -22,6 +25,8 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
     private readonly WebAppFactory _factory;
     public LoginMultiTenantTests(WebAppFactory factory) => _factory = factory;
 
+    private HttpClient CreateManualCookieClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+
     /// <summary>
     /// Helper: SHA256 Base64 hashing used for refresh token storage (duplicated here for assertion).
     /// </summary>
@@ -32,10 +37,19 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
         return Convert.ToBase64String(bytes);
     }
 
+    private static (string CookieHeader, string TokenValue) ExtractRefreshCookie(HttpResponseMessage response)
+    {
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var raw = cookies!.First(c => c.StartsWith("rt=", StringComparison.OrdinalIgnoreCase));
+        var header = raw.Split(';')[0];
+        var token = header[(header.IndexOf('=') + 1)..];
+        return (header, token);
+    }
+
     [Fact]
     public async Task Login_MultiMembership_NoAutoSelection_NoTenantToken()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"mm1-{Guid.NewGuid():N}@example.com";
 
         // 1. Signup (creates user + personal tenant membership)
@@ -60,6 +74,8 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
         login.EnsureSuccessStatusCode();
         var doc = await login.Content.ReadFromJsonAsync<JsonObject>();
         doc.Should().NotBeNull();
+    var refreshObj = doc!["refresh"]!.AsObject();
+    refreshObj.ContainsKey("token").Should().BeFalse();
         var memberships = doc!["memberships"]!.AsArray();
         memberships.Count.Should().Be(2, "multi-membership users must manually select a tenant");
         foreach (var membershipNode in memberships)
@@ -84,7 +100,7 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Login_MultiMembership_SelectTenant_RotatesAndRevokesOldRefresh()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"mm2-{Guid.NewGuid():N}@example.com";
 
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -106,11 +122,16 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
         login.EnsureSuccessStatusCode();
         var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
-        var oldRefresh = loginDoc!["refresh"]!["token"]!.GetValue<string>();
+        var (refreshCookie, oldRefresh) = ExtractRefreshCookie(login);
         var oldHash = Hash(oldRefresh);
 
         // Perform tenant selection
-        var select = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken = oldRefresh });
+        var selectReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = secondTenantId.ToString(), refreshToken = oldRefresh })
+        };
+        selectReq.Headers.Add("Cookie", refreshCookie);
+        var select = await client.SendAsync(selectReq);
         select.EnsureSuccessStatusCode();
         var selectDoc = await select.Content.ReadFromJsonAsync<JsonObject>();
         selectDoc!["access"]!["type"]!.GetValue<string>().Should().Be("tenant");
@@ -124,7 +145,8 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
             selectedLabels.Add(labelNode!.GetValue<string>());
         }
         selectedLabels.Should().Equal(ExpectedRoleLabels(selectedRoles));
-        var newRefresh = selectDoc!["refresh"]!["token"]!.GetValue<string>();
+        selectDoc!["refresh"]!.AsObject().ContainsKey("token").Should().BeFalse();
+        var (newRefreshCookie, newRefresh) = ExtractRefreshCookie(select);
         newRefresh.Should().NotBe(oldRefresh, "refresh token must rotate on tenant selection");
         var newHash = Hash(newRefresh);
 
@@ -142,7 +164,7 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task Login_MultiMembership_RemovedMembership_BetweenLoginAndSelect_Forbidden()
     {
-        using var client = _factory.CreateClient();
+    using var client = CreateManualCookieClient();
         var email = $"mm3-{Guid.NewGuid():N}@example.com";
 
         var signup = await client.PostAsJsonAsync("/api/auth/signup", new { email, password = "Password123!" });
@@ -161,10 +183,10 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
-        login.EnsureSuccessStatusCode();
-        var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
-        var refresh = loginDoc!["refresh"]!["token"]!.GetValue<string>();
+    var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password123!" });
+    login.EnsureSuccessStatusCode();
+    var loginDoc = await login.Content.ReadFromJsonAsync<JsonObject>();
+    var (refreshCookie, refresh) = ExtractRefreshCookie(login);
 
         // Remove the second membership before attempting selection
         using (var scope = _factory.Services.CreateScope())
@@ -178,7 +200,12 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
             }
         }
 
-        var select = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken = refresh });
+        var selectReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-tenant")
+        {
+            Content = JsonContent.Create(new { tenant = secondTenantId.ToString(), refreshToken = refresh })
+        };
+        selectReq.Headers.Add("Cookie", refreshCookie);
+        var select = await client.SendAsync(selectReq);
         select.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
     }
 

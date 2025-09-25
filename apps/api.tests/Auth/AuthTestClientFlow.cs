@@ -51,7 +51,8 @@ public static class AuthTestClientFlow
         var neutral = loginJson["access"]!["token"]!.GetValue<string>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", neutral);
 
-        // Prefer plaintext refresh token in body when exposed; otherwise parse cookie header.
+    // Legacy fallback: if a plaintext refresh token still appears in JSON (older deployments), prefer it;
+    // otherwise rely on the secure cookie header which is the steady-state path.
         string? refresh = null;
         if (loginJson?["refresh"] is JsonObject refreshObj && refreshObj.TryGetPropertyValue("token", out var tokenNode) && tokenNode is JsonValue tv && tv.TryGetValue<string>(out var tokenStr) && !string.IsNullOrWhiteSpace(tokenStr))
         {
