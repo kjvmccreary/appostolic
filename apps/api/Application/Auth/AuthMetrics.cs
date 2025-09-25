@@ -41,12 +41,6 @@ public static class AuthMetrics
         description: "TEMPORARY: Count of times a plaintext refresh token was included in JSON responses (will be removed after flag retirement)."
     );
 
-    public static readonly Counter<long> RefreshPlaintextSuppressed = Meter.CreateCounter<long>(
-        name: "auth.refresh.plaintext_suppressed",
-        unit: "{event}",
-        description: "Count of times plaintext refresh token emission was suppressed (flag disabled)."
-    );
-
     public static readonly Counter<long> LogoutSingle = Meter.CreateCounter<long>(
         name: "auth.logout.single",
         unit: "{event}",
@@ -257,12 +251,6 @@ public static class AuthMetrics
     {
         var tags = new System.Diagnostics.TagList { { "user_id", userId } };
         RefreshPlaintextEmitted.Add(1, tags);
-    }
-
-    public static void IncrementPlaintextSuppressed(Guid userId)
-    {
-        var tags = new System.Diagnostics.TagList { { "user_id", userId } };
-        RefreshPlaintextSuppressed.Add(1, tags);
     }
 
     public static void IncrementLogoutSingle(Guid userId, bool tokenFound)

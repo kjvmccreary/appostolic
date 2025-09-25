@@ -57,7 +57,7 @@ Effort Bands (engineering days): XS < 0.5, S ≤ 1, M 2–3, L 4–6, XL > 6 (no
 | Session list pagination & indexing                           | Performance   | M      | S      | 28       | Scale follow-up                                                                                                 |
 | Derived success ratio metrics publication                    | Observability | L      | XS     | 29       | Export pre-computed gauges                                                                                      |
 | Replay / IP pattern correlation enhancements                 | Security      | M      | M      | 30       | Phase 2 after base alert stable                                                                                 |
-| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window                                                                         |
+| Plaintext counters final deletion (post quiet)               | Cleanup       | M      | XS     | 31       | Second-phase after Story 2 quiet window — ✅ DONE (2025-09-25)                                                  |
 
 ---
 
@@ -265,7 +265,7 @@ Follow-Ups:
 - Optional structured security event at startup indicating revert mode.
 - Health endpoint / metric gauge exposing revert state if extended usage becomes plausible.
 
-### Story 24: Transitional Flag Final Deletion — 🚧 IN PROGRESS (2025-09-25)
+### Story 24: Transitional Flag Final Deletion — ✅ DONE (2025-09-25)
 
 Goal: Permanently remove the transitional refresh JSON exposure/grace flags now that cookie-only flows are fully adopted.
 
@@ -273,8 +273,8 @@ Acceptance Progress:
 
 - [x] Delete application usage of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` and `AUTH__REFRESH_JSON_GRACE_ENABLED`; login/select-tenant/logout endpoints emit metadata only and accept refresh tokens exclusively via cookie.
 - [x] Update test helpers so integration tests continue to access refresh tokens without relying on flags; remove flag-dependent test setups (`RefreshPlaintextSuppressionTests`, etc.).
-- [ ] Prune configuration mentions from `WebAppFactory`, documentation, SnapshotArchitecture, LivingChecklist, and storyLog.
-- [ ] Retain observability (suppression counter) with refreshed comments describing steady-state expectations.
+- [x] Prune configuration mentions from `WebAppFactory`, documentation, SnapshotArchitecture, LivingChecklist, and storyLog.
+- [x] Retain observability (suppression counter) with refreshed comments describing steady-state expectations.
 - [x] Run targeted auth suites (login/select-tenant/logout/refresh) to confirm no regressions.
 
 Rollout Notes:

@@ -14,6 +14,31 @@ Follow-ups / Deferred
 
 ---
 
+2025-09-25 — Story 31: Plaintext counters final deletion — ✅ DONE
+
+- Summary
+  - Removed the temporary `auth.refresh.plaintext_suppressed` counter and increment helper from `AuthMetrics`, eliminated the corresponding calls in login, select-tenant, and refresh endpoints, and pruned the metric from unit coverage (`AuthMetricsTests`) and Grafana dashboard lint (`DashboardMetricsValidationTests`). Updated documentation (`docs/auth-upgrade.md`, sprint plan notes, LivingChecklist, SnapshotArchitecture, legacy snapshot) to reflect the retirement and prevent future references to the counter.
+  - Marked Story 31 as in progress within the triage table before the work and captured the steady-state note so future readers know the counter no longer emits. Ensured remaining plaintext instrumentation (`auth.refresh.plaintext_emitted`) stays intact for regression detection.
+- Rationale
+  - Completes the post-cookie-only cleanup by removing noise from telemetry and documentation; avoids dashboards or alerts referencing a counter that will never increment again.
+- Files changed
+  - apps/api/Application/Auth/AuthMetrics.cs
+  - apps/api/App/Endpoints/V1.cs
+  - apps/api.tests/Auth/AuthMetricsTests.cs
+  - apps/api.tests/Auth/DashboardMetricsValidationTests.cs
+  - docs/auth-upgrade.md
+  - devInfo/jwtRefactor/jwtSprintPlan.md
+  - devInfo/jwtRefactor/triSprintPlan.md
+  - devInfo/LivingChecklist.md
+  - SnapshotArchitecture.md
+  - SnapshotArchitecture.legacy02.md
+- Quality Gates
+  - `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj` — Passed (291 passed, 1 skipped, duration 59s).
+- Follow-ups / Deferred
+  - None — telemetry and documentation now match steady-state auth behavior.
+
+---
+
 ### 2025-09-25 - Story: Roles Label Array (Story 19) — ✅ DONE
 
 Summary

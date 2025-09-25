@@ -287,9 +287,7 @@ public static class V1
             }
             // Story 2: Plaintext refresh retirement – always omit plaintext token from JSON.
             // Clients must rely on httpOnly cookie 'rt'. Former transitional flag AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT removed.
-            // Metrics: count suppression to validate no legacy dependency attempts.
             var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             return Results.Ok(new
             {
@@ -582,9 +580,7 @@ public static class V1
                 IssueRefreshCookie(http, refreshToken, refreshExpires);
             }
             // Story 24: Transitional flags removed. Auth responses now permanently omit plaintext refresh tokens.
-            // Suppression metric retained for steady-state observability (should mirror total issuance volume).
             var refreshObj = new { expiresAt = refreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             var resultPayload = new
             {
@@ -739,7 +735,6 @@ public static class V1
             }
             // Story 24: Transitional flags removed. Select-tenant responses permanently omit plaintext refresh tokens.
             var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
 
             return Results.Ok(new
             {
@@ -1254,9 +1249,8 @@ public static class V1
             }
 
 
-            // Story 2: Plaintext retired – always omit token and mark suppression.
+            // Story 2: Plaintext retired – always omit token.
             var refreshObj = new { expiresAt = newRefreshExpires, type = "neutral" };
-            Appostolic.Api.Application.Auth.AuthMetrics.IncrementPlaintextSuppressed(user.Id);
             var response = new
             {
                 user = new { user.Id, user.Email },

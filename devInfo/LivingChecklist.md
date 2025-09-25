@@ -113,6 +113,7 @@ How to use
 - [x] OTel traces/metrics and structured logs with privacy gates
 - [x] PII hashing & redaction (UPROF-12A–12G) — logging scopes & tests (175/175) complete; OTEL span enrichment planned (12I)
 - [x] Tenant audit ledger (e.g., membership role changes) with admin UI
+- Note: Story 31 retired temporary `auth.refresh.plaintext_suppressed` counter; dashboards/docs updated to rely on emission metric only.
 - [ ] Admin dashboards for ops — ➕ Post‑1.0
 
 ### Responsive Web UX (Teacher/Admin)

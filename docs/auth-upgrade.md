@@ -112,7 +112,7 @@ Key counters:
 - `auth.refresh.rotations`
 - `auth.refresh.reuse_denied`
 - `auth.refresh.expired`
-- `auth.refresh.plaintext_emitted` (TEMP) / `auth.refresh.plaintext_suppressed`
+- `auth.refresh.plaintext_emitted` (TEMP)
 - `auth.logout.single` / `auth.logout.all`
 
 Histograms:

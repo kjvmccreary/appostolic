@@ -485,13 +485,13 @@ Acceptance (implemented subset for metrics/latency; tracing span attrs & full ra
 - `auth.refresh.reuse_denied` { user_id?, refresh_id?, reason }
 - `auth.refresh.expired` { user_id?, refresh_id }
 - `auth.refresh.plaintext_emitted` { user_id, refresh_id } (temporary; gated by flag; warn level)
-- `auth.refresh.plaintext_suppressed` { user_id } (info level sampled?)
+- `auth.refresh.plaintext_suppressed` { user_id } — Retired in Story 31 once cookie-only adoption reached steady state.
 - `auth.logout.single` { user_id, token_found }
 - `auth.logout.all` { user_id, revoked_count }
 
 2. Metrics registered (OpenTelemetry / .NET Meter `Appostolic.Auth`) using final dot notation instead of earlier underscore placeholders:
 
-- Counters: `auth.tokens.issued`, `auth.refresh.rotations`, `auth.refresh.reuse_denied`, `auth.refresh.expired`, `auth.refresh.plaintext_emitted` (TEMP), `auth.refresh.plaintext_suppressed`, `auth.logout.single`, `auth.logout.all`, plus new outcome counters: `auth.login.success`, `auth.login.failure`, `auth.refresh.success`, `auth.refresh.failure`, `auth.refresh.rate_limited`.
+- Counters: `auth.tokens.issued`, `auth.refresh.rotations`, `auth.refresh.reuse_denied`, `auth.refresh.expired`, `auth.refresh.plaintext_emitted` (TEMP), `auth.logout.single`, `auth.logout.all`, plus new outcome counters: `auth.login.success`, `auth.login.failure`, `auth.refresh.success`, `auth.refresh.failure`, `auth.refresh.rate_limited`. (`auth.refresh.plaintext_suppressed` retired in Story 31.)
 - Histograms: `auth.login.duration_ms`, `auth.refresh.duration_ms` (tag `outcome=success|failure`).
 
 3. Tracing: Add span attributes on existing request spans (Activity Enrichment) for refresh/logout endpoints: `auth.user_id`, `auth.tenant_id`, `auth.refresh.rotate=true` etc.
@@ -581,7 +581,7 @@ Acceptance:
 
 These were identified after completing Story 8 (silent refresh & plaintext suppression) and are queued for upcoming stories (primarily Story 9 and beyond):
 
-- Observability counters & structured events: `auth.refresh.rotation`, `auth.refresh.reuse_denied`, `auth.refresh.plaintext_emitted` (temporary), `auth.refresh.plaintext_suppressed`, `auth.logout.single`, `auth.logout.all`.
+- Observability counters & structured events: `auth.refresh.rotation`, `auth.refresh.reuse_denied`, `auth.refresh.plaintext_emitted` (temporary), `auth.logout.single`, `auth.logout.all`. (`auth.refresh.plaintext_suppressed` retired in Story 31.)
 - Feature flag retirement plan: schedule removal of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` after 2 releases with zero plaintext emissions in logs/metrics; document rollback note until deletion.
 - Session enumeration endpoint (`GET /api/auth/sessions`) returning active refresh token metadata (id, created_at, last_used_at?, expires_at) without plaintext for future session management UI.
   | Frontend token storage XSS | Token theft | Prefer httpOnly secure cookies (document local dev adjustments). |

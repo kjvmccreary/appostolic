@@ -21,7 +21,6 @@ public class DashboardMetricsValidationTests
         "auth_refresh_reuse_denied",
         "auth_refresh_expired",
         "auth_refresh_plaintext_emitted",
-        "auth_refresh_plaintext_suppressed",
         "auth_logout_single",
         "auth_logout_all",
         "auth_login_success",
