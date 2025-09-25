@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using FluentAssertions;
 using Xunit;
 
@@ -162,9 +164,28 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         loginReq.Headers.Add("X-CSRF", token);
         var login = await client.SendAsync(loginReq);
         login.EnsureSuccessStatusCode();
-        var logout = await client.PostAsync("/api/auth/logout", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
-        logout.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
-        (await logout.Content.ReadAsStringAsync()).Should().Contain("csrf_missing_header");
+        using var loginJson = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        var accessToken = loginJson.RootElement.GetProperty("access").GetProperty("token").GetString();
+        accessToken.Should().NotBeNullOrWhiteSpace();
+        var refreshCookieHeader = login.Headers.GetValues("Set-Cookie").FirstOrDefault(h => h.StartsWith("rt="));
+        refreshCookieHeader.Should().NotBeNull();
+        var refreshCookie = refreshCookieHeader?.Split(';')[0];
+        refreshCookie.Should().NotBeNullOrWhiteSpace();
+        // Persist bearer token for subsequent state-changing requests that require authentication.
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var logoutReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout")
+        {
+            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
+        };
+        logoutReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        if (!string.IsNullOrWhiteSpace(refreshCookie))
+        {
+            logoutReq.Headers.Add("Cookie", refreshCookie);
+        }
+        var logout = await client.SendAsync(logoutReq);
+        var body = await logout.Content.ReadAsStringAsync();
+        logout.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest, $"response body: {body}");
+        body.Should().Contain("csrf_missing_header");
     }
 
     [Fact]
@@ -190,12 +211,27 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         loginReq.Headers.Add("X-CSRF", token);
         var login = await client.SendAsync(loginReq);
         login.EnsureSuccessStatusCode();
-        // Extract refresh cookie for logout request (auth token in header already present via handler)
-        var logoutReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout")
+        using var loginJson = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        var accessToken = loginJson.RootElement.GetProperty("access").GetProperty("token").GetString();
+        accessToken.Should().NotBeNullOrWhiteSpace();
+        var refreshCookieHeader = login.Headers.GetValues("Set-Cookie").FirstOrDefault(h => h.StartsWith("rt="));
+        refreshCookieHeader.Should().NotBeNull();
+        var refreshCookie = refreshCookieHeader?.Split(';')[0];
+        refreshCookie.Should().NotBeNullOrWhiteSpace();
+        var refreshTokenValue = refreshCookie?.Split('=', 2).ElementAtOrDefault(1);
+        // Issue logout with matching CSRF header and bearer token to satisfy auth + CSRF requirements
+        var logoutReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
+        if (!string.IsNullOrWhiteSpace(refreshTokenValue))
         {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+            logoutReq.Content = JsonContent.Create(new { refreshToken = refreshTokenValue });
+        }
         logoutReq.Headers.Add("X-CSRF", token);
+        logoutReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        if (!string.IsNullOrWhiteSpace(refreshCookie))
+        {
+            logoutReq.Headers.Add("Cookie", refreshCookie);
+        }
         var logout = await client.SendAsync(logoutReq);
         logout.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
     }

@@ -1,3 +1,25 @@
+### 2025-09-25 - Story: Roles Label Array (Story 19) — ✅ DONE
+
+Summary
+
+- Extended auth membership projections so every membership now ships both the numeric `roles` bitmask and a `rolesLabels` array (TenantAdmin, Approver, Creator, Learner) across login, select-tenant, refresh, and test-helper flows, giving clients human-readable context without reimplementing bitflag decoding.
+- Added shared helper `DescribeRoleLabels` to keep label derivation centralized around the `Roles` enum, preventing drift if roles expand.
+- Updated multi-tenant login integration tests to assert `rolesLabels` for every membership and ensure tenant token payloads carry the label array alongside the bitmask.
+
+Rationale
+
+- Improves developer experience when consuming tokens or membership metadata, especially in debugging tools and upcoming UI, by surfacing readable role names without duplicating flag math per client.
+
+Quality Gates
+
+- `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj` (Passed: 289, Failed: 0, Skipped: 1).
+
+Follow-ups / Deferred
+
+- None; downstream clients can begin reading `rolesLabels` immediately. Additional stories may extend label localization when new roles are introduced.
+
+---
+
 ### 2025-09-23 - Story: Admin Forced Logout & Tenant Bulk Invalidate (Story 9) — ✅ DONE
 
 Summary
@@ -52,6 +74,28 @@ Quality Gates
 Follow-ups
 
 - Consider consolidating superadmin configuration keys (`Auth:SuperAdminEmails` + `PLATFORM__SUPER_ADMINS`) into a single canonical source in a future cleanup story.
+
+---
+
+### 2025-09-25 - Story: CSRF Logout Flow Hardening — ✅ DONE
+
+Summary
+
+- Updated `Csrf_Enabled_Logout_With_Header_Succeeds` integration test to propagate the refresh cookie and include the refresh token in the JSON body so the logout endpoint succeeds even when refresh JSON grace remains enabled.
+- Ensured logout requests carry both the bearer token and CSRF header while avoiding empty-body submissions that previously triggered the `missing_refresh` guard path.
+- Re-ran the focused CSRF logout test filter to confirm both negative and positive scenarios now pass (2/2).
+
+Rationale
+
+- Prevents regressions where CSRF-protected logout flows fail due to refresh token handling changes introduced during the JWT refactor, keeping parity with production expectations.
+
+Quality Gates
+
+- `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj --filter "FullyQualifiedName~Csrf_Enabled_Logout"` (Passed: 2, Failed: 0).
+
+Follow-ups / Deferred
+
+- Consider adding a regression test ensuring logout all endpoints also handle cookie + JSON grace interplay once related stories progress.
 
 ---
 

@@ -158,4 +158,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025‑09‑24 (Sliding refresh window + max lifetime logic unified; Story 11 enhancement logged; SnapshotArchitecture update pending.)
+- Last updated: 2025-09-25 (Story 19: neutral/tenant auth payloads now include rolesLabels for human-readable flags; SnapshotArchitecture + sprint plan refreshed.)

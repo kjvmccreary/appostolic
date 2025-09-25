@@ -308,17 +308,17 @@ Follow-Ups:
 Summarized; promote in later sprints as capacity allows.
 
 - Session Management UI & Device Display Names (stories 17–18)
-- Roles Label Array (Story 19)
+- Roles Label Array (Story 19) — ✅ DONE (2025-09-25)
 - Expanded TestAuthClient (Story 20)
-- SSR Access Cookie Evaluation (Story 21)
-- Ingress Config Samples (Stories 22–23)
+- SSR Access Cookie Evaluation (Story 21) — ⏸ DEFERRED (monitor SSR auth friction before investing)
+- Ingress Config Samples (Stories 22–23) — ⏸ DEFERRED (prepare only if ops requests nginx/Caddy examples)
 - Transitional Flag Final Deletion (Story 24 & 31 consolidation possible)
 - Key Rotation Simulation Harness (Story 25)
-- Dashboard Provision Automation (Story 26)
+- Dashboard Provision Automation (Story 26) — ⏸ DEFERRED (nice-to-have once dashboards stabilize)
 - Validation Latency & Cache Hit Histogram (Story 27 — follows Story 10)
-- Session Pagination & Indexing (Story 28)
-- Derived Success Ratio Metrics (Story 29)
-- Replay / IP Correlation Enhancements (Story 30)
+- Session Pagination & Indexing (Story 28) — ⏸ DEFERRED (revisit when session volume warrants)
+- Derived Success Ratio Metrics (Story 29) — ⏸ DEFERRED (dashboards already surface ratios)
+- Replay / IP Correlation Enhancements (Story 30) — ⏸ DEFERRED (activate when investigations demand it)
 - Plaintext Counters Final Deletion (Story 31 — depends on Story 2 quiet window)
 
 ---

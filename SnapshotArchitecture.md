@@ -55,9 +55,9 @@ Tokens:
 
 Core Flows:
 
-1. Login (`/api/auth/login`) → returns neutral access + refresh (cookie) + memberships list; auto-issues tenant token only if exactly one membership.
-2. Select Tenant (`/api/auth/select-tenant`) → exchanges neutral refresh for new rotated refresh + tenant-scoped access token.
-3. Refresh (`/api/auth/refresh`) → rotates refresh, returns new neutral access (optionally tenant token if query `tenant=` supplied`). During rotation the old refresh token row has `LastUsedAt`stamped (if null) just before its`RevokedAt` is set, preserving historical usage while excluding it from active session enumeration.
+1. Login (`/api/auth/login`) → returns neutral access + refresh (cookie) + memberships list (each entry includes `tenantId`, `tenantSlug`, `roles`, and `rolesLabels` for human-readable flag names); auto-issues tenant token only if exactly one membership.
+2. Select Tenant (`/api/auth/select-tenant`) → exchanges neutral refresh for new rotated refresh + tenant-scoped access token (payload includes both numeric `roles` bitmask and `rolesLabels` array for the selected membership).
+3. Refresh (`/api/auth/refresh`) → rotates refresh, returns new neutral access (optionally tenant token if query `tenant=` supplied`, mirroring the select-tenant payload with `roles`+`rolesLabels`). During rotation the old refresh token row has `LastUsedAt`stamped (if null) just before its`RevokedAt` is set, preserving historical usage while excluding it from active session enumeration.
 4. Logout single (`/api/auth/logout`) → revoke specific refresh (cookie or provided); logout all (`/api/auth/logout/all`) → revoke all + increment `TokenVersion`; forced logout admin endpoints (`/api/admin/users/{id}/logout-all`, `/api/admin/tenants/{id}/logout-all`) allow privileged remote revocation + token version bump (flag: `AUTH__FORCED_LOGOUT__ENABLED`).
 5. Session enumeration (`/api/auth/sessions`) → lists up to 50 active (non‑revoked, unexpired) neutral refresh tokens for the authenticated user including: `id, createdAt, lastUsedAt, expiresAt, fingerprint, deviceName, current`. `current` is determined by hashing the inbound `rt` cookie value and comparing to stored `TokenHash`. `deviceName` (optional) is supplied via header `X-Session-Device` at issuance / rotation (carried forward if not re-sent during rotation).
 6. Per‑session revoke (`/api/auth/sessions/{id}/revoke`) → idempotent revoke of a single active refresh token; emits security event `session_revoked_single` on first revoke.
@@ -273,7 +273,7 @@ Otherwise prefer updating `devInfo/storyLog.md` and sprint plan documents.
 
 Auth Endpoints: `/api/auth/login`, `/api/auth/refresh`, `/api/auth/select-tenant`, `/api/auth/logout`, `/api/auth/logout/all`, `/api/auth/sessions`, `/api/auth/sessions/{id}/revoke`, `/api/admin/users/{id}/logout-all`, `/api/admin/tenants/{id}/logout-all`
 Token Claims (neutral): `sub`, `v` (token version)
-Token Claims (tenant): `sub`, `v`, `tenant_id`, `tenant_slug`, `roles` flags (numeric or baked logic server-side)
+Token Claims (tenant): `sub`, `v`, `tenant_id`, `tenant_slug`, `roles` flags (numeric or baked logic server-side). API responses always accompany the bitmask with `rolesLabels` arrays for display without duplicating auth logic client-side.
 Error Codes (examples): `refresh_invalid`, `refresh_reuse`, `refresh_expired`, `missing_refresh`, `token_version_mismatch`, `dev_headers_removed`
 Key Tables: `users`, `memberships`, `refresh_tokens`, `invitations`, `audits`, `login_tokens`, `tenants`
 Roles Flags: Admin=1, Approver=2, Creator=4, Learner=8 (combine bitwise OR)

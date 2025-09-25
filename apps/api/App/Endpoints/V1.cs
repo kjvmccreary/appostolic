@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -192,7 +193,7 @@ public static class V1
             await db.SaveChangesAsync();
 
             // Build memberships projection
-            var memberships = await db.Memberships.AsNoTracking()
+            var membershipRecords = await db.Memberships.AsNoTracking()
                 .Where(m => m.UserId == user!.Id)
                 .Join(db.Tenants.AsNoTracking(), m => m.TenantId, tn => tn.Id, (m, tn) => new
                 {
@@ -201,6 +202,16 @@ public static class V1
                     roles = (int)m.Roles
                 })
                 .ToListAsync();
+
+            var memberships = membershipRecords
+                .Select(m => new
+                {
+                    m.tenantId,
+                    m.tenantSlug,
+                    m.roles,
+                    rolesLabels = DescribeRoleLabels(m.roles)
+                })
+                .ToList();
 
             // Legacy mode? (?includeLegacy=true)
             var includeLegacy = http.Request.Query.TryGetValue("includeLegacy", out var legacyVals) && string.Equals(legacyVals.ToString(), "true", StringComparison.OrdinalIgnoreCase);
@@ -260,7 +271,9 @@ public static class V1
                 var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
                 tenantToken = new
                 {
-                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
+                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug },
+                    roles = rolesBitmask,
+                    rolesLabels = DescribeRoleLabels(rolesBitmask)
                 };
             }
 
@@ -459,12 +472,21 @@ public static class V1
             var tenantLookup = await db.Tenants.AsNoTracking()
                 .Where(t => tenantIds.Contains(t.Id))
                 .ToDictionaryAsync(t => t.Id, t => t.Name);
-            var memberships = rawMemberships.Select(m => new
+            var membershipRecords = rawMemberships.Select(m => new
             {
                 tenantId = m.TenantId,
                 tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var name) ? name : string.Empty,
                 roles = (int)m.Roles
             }).ToList();
+            var memberships = membershipRecords
+                .Select(m => new
+                {
+                    m.tenantId,
+                    m.tenantSlug,
+                    m.roles,
+                    rolesLabels = DescribeRoleLabels(m.roles)
+                })
+                .ToList();
 
             // Legacy mode toggle ?includeLegacy=true
             var includeLegacy = http.Request.Query.TryGetValue("includeLegacy", out var legacyVals) && string.Equals(legacyVals.ToString(), "true", StringComparison.OrdinalIgnoreCase);
@@ -546,7 +568,9 @@ public static class V1
                     : jwt.IssueTenantToken(user.Id.ToString(), targetTenantId.Value, tenantSlug, rolesBitmask, user.TokenVersion, user.Email);
                 tenantToken = new
                 {
-                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug }
+                    access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = targetTenantId.Value, tenantSlug },
+                    roles = rolesBitmask,
+                    rolesLabels = DescribeRoleLabels(rolesBitmask)
                 };
             }
 
@@ -745,7 +769,9 @@ public static class V1
             return Results.Ok(new
             {
                 access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = target.TenantId, tenantSlug = target.tenantSlug },
-                refresh = refreshObj
+                refresh = refreshObj,
+                roles = target.roles,
+                rolesLabels = DescribeRoleLabels(target.roles)
             });
         }).AllowAnonymous();
 
@@ -1051,9 +1077,40 @@ public static class V1
             // (spraying invalid tokens) is still limited.
             var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             Appostolic.Api.Infrastructure.Auth.Refresh.RateLimitEvaluation evaluation; // populated later (ip-only or user+ip)
-            // Story 13: JSON body refresh path removed (cookie-only). Transitional grace & deprecation headers eliminated.
+            var graceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED", true);
+            string? bodyToken = null;
+            if (graceEnabled && http.Request.ContentLength is > 0 && http.Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                try
+                {
+                    using var doc = await JsonDocument.ParseAsync(http.Request.Body);
+                    if (doc.RootElement.TryGetProperty("refreshToken", out var rtProp) && rtProp.ValueKind == JsonValueKind.String)
+                    {
+                        bodyToken = rtProp.GetString();
+                    }
+                    else
+                    {
+                        bodyToken = string.Empty; // body provided but missing refresh token field
+                    }
+                }
+                catch
+                {
+                    bodyToken = string.Empty;
+                }
+            }
+
             var cookieToken = http.Request.Cookies.TryGetValue("rt", out var ct) ? ct : null;
-            var suppliedToken = cookieToken; // only cookie source now
+            var bodyProvided = bodyToken is not null;
+            string? suppliedToken = null;
+            if (bodyProvided && !string.IsNullOrWhiteSpace(bodyToken))
+            {
+                suppliedToken = bodyToken;
+            }
+            else if (!string.IsNullOrWhiteSpace(cookieToken))
+            {
+                suppliedToken = cookieToken;
+            }
+
             if (string.IsNullOrWhiteSpace(suppliedToken))
             {
                 failureReason = "missing_refresh";
@@ -1193,7 +1250,12 @@ public static class V1
                 }
                 var accessExpiresPreview = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var mm) ? mm : 15);
                 var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), match.tenantId, match.tenantSlug, match.roles, user.TokenVersion, user.Email);
-                tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpiresPreview, type = "tenant", tenantId = match.tenantId, tenantSlug = match.tenantSlug } };
+                tenantToken = new
+                {
+                    access = new { token = tenantAccess, expiresAt = accessExpiresPreview, type = "tenant", tenantId = match.tenantId, tenantSlug = match.tenantSlug },
+                    roles = match.roles,
+                    rolesLabels = DescribeRoleLabels(match.roles)
+                };
             }
 
             // Rotate refresh (revocation + new issuance). Intentionally avoids explicit transaction when using InMemory provider
@@ -2297,6 +2359,9 @@ public static class V1
                 var tenantIds = memberships.Select(m => m.TenantId).Distinct().ToList();
                 var tenantLookup = await db.Tenants.AsNoTracking().Where(t => tenantIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Name);
                 var proj = memberships.Select(m => new { tenantId = m.TenantId, tenantSlug = tenantLookup.TryGetValue(m.TenantId, out var n) ? n : string.Empty, roles = (int)m.Roles }).ToList();
+                var membershipsPayload = proj
+                    .Select(p => new { p.tenantId, p.tenantSlug, p.roles, rolesLabels = DescribeRoleLabels(p.roles) })
+                    .ToList();
                 var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
                 var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
                 var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
@@ -2341,7 +2406,12 @@ public static class V1
                 if (selectedTenant.HasValue)
                 {
                     var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email, extraClaims);
-                    tenantToken = new { access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel } };
+                    tenantToken = new
+                    {
+                        access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel },
+                        roles = rolesBitmask,
+                        rolesLabels = DescribeRoleLabels(rolesBitmask)
+                    };
                 }
                 // Story 8: conditional plaintext refresh token
                 var exposePlainFlag = configuration.GetValue<bool>("AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT", true);
@@ -2359,7 +2429,7 @@ public static class V1
                 {
                     neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims);
                 }
-                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = proj, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
+                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = membershipsPayload, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
             }).WithTags("TestHelpers").WithDescription("Non-production test-only token mint helper").AllowAnonymous();
         }
 
@@ -2491,6 +2561,25 @@ public static class V1
         if (cleaned.Length == 0) return null;
         if (cleaned.Length > 120) cleaned = cleaned.Substring(0, 120);
         return cleaned;
+    }
+
+    /// <summary>
+    /// Converts a roles bitmask into a stable array of flag names for client consumption.
+    /// </summary>
+    private static string[] DescribeRoleLabels(int rolesBitmask)
+    {
+        if (rolesBitmask == 0) return Array.Empty<string>();
+        var rolesEnum = (Roles)rolesBitmask;
+        var labels = new List<string>(4);
+        foreach (Roles role in Enum.GetValues(typeof(Roles)))
+        {
+            if (role == Roles.None) continue;
+            if (rolesEnum.HasFlag(role))
+            {
+                labels.Add(role.ToString());
+            }
+        }
+        return labels.ToArray();
     }
 }
 

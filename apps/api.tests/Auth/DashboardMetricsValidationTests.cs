@@ -33,10 +33,13 @@ public class DashboardMetricsValidationTests
         "auth_jwt_key_rotation_validation_failure",
         "auth_trace_enriched_spans",
         "auth_security_events_emitted",
+        "auth_token_version_cache_hit",
+        "auth_token_version_cache_miss",
         // Histograms (base names; exporter yields _sum/_count/_bucket)
         "auth_login_duration_ms",
         "auth_refresh_duration_ms",
-        "auth_refresh_limiter_evaluation_ms"
+        "auth_refresh_limiter_evaluation_ms",
+        "auth_token_validation_latency_ms"
     };
 
     private static readonly Regex MetricRegex = new("auth_[a-z0-9_]+", RegexOptions.Compiled);

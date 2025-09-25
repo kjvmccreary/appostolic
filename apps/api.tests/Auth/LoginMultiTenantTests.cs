@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -61,6 +62,19 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
         doc.Should().NotBeNull();
         var memberships = doc!["memberships"]!.AsArray();
         memberships.Count.Should().Be(2, "multi-membership users must manually select a tenant");
+        foreach (var membershipNode in memberships)
+        {
+            membershipNode.Should().NotBeNull();
+            var membership = membershipNode!.AsObject();
+            var rolesValue = membership["roles"]!.GetValue<int>();
+            var labelsJson = membership["rolesLabels"]!.AsArray();
+            var labels = new List<string>(labelsJson.Count);
+            foreach (var labelNode in labelsJson)
+            {
+                labels.Add(labelNode!.GetValue<string>());
+            }
+            labels.Should().Equal(ExpectedRoleLabels(rolesValue));
+        }
         // Ensure no tenantToken auto-issued
         doc!["tenantToken"].Should().BeNull("tenantToken must not be present for multi-membership neutral login");
         // Neutral access assertion
@@ -101,6 +115,15 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
         var selectDoc = await select.Content.ReadFromJsonAsync<JsonObject>();
         selectDoc!["access"]!["type"]!.GetValue<string>().Should().Be("tenant");
         selectDoc!["access"]!["tenantId"]!.GetValue<string>().Should().Be(secondTenantId.ToString());
+        var selectedRoles = selectDoc!["roles"]!.GetValue<int>();
+        selectedRoles.Should().Be((int)(Roles.Creator | Roles.Learner));
+        var selectedLabelsJson = selectDoc!["rolesLabels"]!.AsArray();
+        var selectedLabels = new List<string>(selectedLabelsJson.Count);
+        foreach (var labelNode in selectedLabelsJson)
+        {
+            selectedLabels.Add(labelNode!.GetValue<string>());
+        }
+        selectedLabels.Should().Equal(ExpectedRoleLabels(selectedRoles));
         var newRefresh = selectDoc!["refresh"]!["token"]!.GetValue<string>();
         newRefresh.Should().NotBe(oldRefresh, "refresh token must rotate on tenant selection");
         var newHash = Hash(newRefresh);
@@ -157,5 +180,24 @@ public class LoginMultiTenantTests : IClassFixture<WebAppFactory>
 
         var select = await client.PostAsJsonAsync("/api/auth/select-tenant", new { tenant = secondTenantId.ToString(), refreshToken = refresh });
         select.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// Converts a roles bitmask into the expected string labels using the same ordering as the API.
+    /// </summary>
+    private static string[] ExpectedRoleLabels(int rolesBitmask)
+    {
+        if (rolesBitmask == 0) return Array.Empty<string>();
+        var rolesEnum = (Roles)rolesBitmask;
+        var labels = new List<string>(4);
+        foreach (var role in Enum.GetValues<Roles>())
+        {
+            if (role == Roles.None) continue;
+            if (rolesEnum.HasFlag(role))
+            {
+                labels.Add(role.ToString());
+            }
+        }
+        return labels.ToArray();
     }
 }
