@@ -17,11 +17,11 @@ public interface IJwtTokenService
     /// <summary>
     /// Issue a neutral (no tenant) access token. Includes user token version claim (v) for revocation.
     /// </summary>
-    string IssueNeutralToken(string subject, int tokenVersion, string? email = null);
+    string IssueNeutralToken(string subject, int tokenVersion, string? email = null, TimeSpan? lifetime = null);
     /// <summary>
     /// Issue a neutral token with additional custom claims (test-only extension overload).
     /// </summary>
-    string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims);
+    string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims, TimeSpan? lifetime = null);
 
     /// <summary>
     /// Build TokenValidationParameters based on current options.
@@ -31,11 +31,11 @@ public interface IJwtTokenService
     /// <summary>
     /// Issue a tenant-scoped access token including tenant claims + roles bitmask and token version claim (v).
     /// </summary>
-    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null);
+    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null, TimeSpan? lifetime = null);
     /// <summary>
     /// Issue a tenant token with additional custom claims (test-only extension overload).
     /// </summary>
-    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims);
+    string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims, TimeSpan? lifetime = null);
 
     /// <summary>
     /// Issues a short-lived token and validates it against all configured verification keys to ensure rotation safety. Returns true if validation succeeds across all keys.
@@ -73,14 +73,21 @@ public class JwtTokenService : IJwtTokenService
         _signingCreds = new SigningCredentials(active, SecurityAlgorithms.HmacSha256);
     }
 
-    public string IssueNeutralToken(string subject, int tokenVersion, string? email = null)
+    public string IssueNeutralToken(string subject, int tokenVersion, string? email = null, TimeSpan? lifetime = null)
     {
-        return IssueNeutralToken(subject, tokenVersion, email, Array.Empty<Claim>());
+        return IssueNeutralToken(subject, tokenVersion, email, Array.Empty<Claim>(), lifetime);
     }
 
-    public string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims)
+    public string IssueNeutralToken(string subject, int tokenVersion, string? email, IEnumerable<Claim> extraClaims, TimeSpan? lifetime = null)
     {
         var now = DateTime.UtcNow;
+        var lifetimeToUse = lifetime ?? TimeSpan.FromMinutes(_opts.AccessTtlMinutes);
+        var expires = now.Add(lifetimeToUse);
+        var notBefore = now.AddSeconds(-5);
+        if (expires <= notBefore)
+        {
+            notBefore = expires.AddSeconds(-5);
+        }
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, subject),
@@ -104,7 +111,7 @@ public class JwtTokenService : IJwtTokenService
 
         var header = new JwtHeader(_signingCreds);
         header[JwtHeaderParameterNames.Kid] = _activeKeyId;
-        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
+        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, notBefore, expires);
         var token = new JwtSecurityToken(header, payload);
         // Story 4 metrics: record active key usage.
         AuthMetrics.IncrementKeyRotationTokenSigned(_activeKeyId);
@@ -132,14 +139,21 @@ public class JwtTokenService : IJwtTokenService
         }
     };
 
-    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null)
+    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email = null, TimeSpan? lifetime = null)
     {
-        return IssueTenantToken(subject, tenantId, tenantSlug, rolesBitmask, tokenVersion, email, Array.Empty<Claim>());
+        return IssueTenantToken(subject, tenantId, tenantSlug, rolesBitmask, tokenVersion, email, Array.Empty<Claim>(), lifetime);
     }
 
-    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims)
+    public string IssueTenantToken(string subject, Guid tenantId, string tenantSlug, int rolesBitmask, int tokenVersion, string? email, IEnumerable<Claim> extraClaims, TimeSpan? lifetime = null)
     {
         var now = DateTime.UtcNow;
+        var lifetimeToUse = lifetime ?? TimeSpan.FromMinutes(_opts.AccessTtlMinutes);
+        var expires = now.Add(lifetimeToUse);
+        var notBefore = now.AddSeconds(-5);
+        if (expires <= notBefore)
+        {
+            notBefore = expires.AddSeconds(-5);
+        }
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, subject),
@@ -164,7 +178,7 @@ public class JwtTokenService : IJwtTokenService
         }
         var header = new JwtHeader(_signingCreds);
         header[JwtHeaderParameterNames.Kid] = _activeKeyId;
-        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, now.AddSeconds(-5), now.AddMinutes(_opts.AccessTtlMinutes));
+        var payload = new JwtPayload(_opts.Issuer, _opts.Audience, claims, notBefore, expires);
         var token = new JwtSecurityToken(header, payload);
         // Story 4 metrics: record active key usage.
         AuthMetrics.IncrementKeyRotationTokenSigned(_activeKeyId);

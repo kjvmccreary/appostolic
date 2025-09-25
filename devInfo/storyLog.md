@@ -1,3 +1,19 @@
+### 2025-09-25 - Story: Expanded TestAuthClient (Story 20) — ✅ DONE
+
+Summary
+
+- Story 20 – Expanded TestAuthClient: Enabled TTL overrides on token minting services and helper endpoint, exposed detailed mint metadata via `TestAuthClient`, and added tests covering overridden lifetimes plus expired refresh handling.
+
+Quality Gates
+
+- `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj --filter FullyQualifiedName~TestTokenFactory` (Passed: 5, Failed: 0, Skipped: 0).
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
 ### 2025-09-25 - Story: Roles Label Array (Story 19) — ✅ DONE
 
 Summary

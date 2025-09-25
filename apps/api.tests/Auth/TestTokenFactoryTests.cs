@@ -1,5 +1,9 @@
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json.Nodes;
 using FluentAssertions;
 using Xunit;
@@ -71,5 +75,44 @@ public class TestTokenFactoryTests : IClassFixture<Appostolic.Api.Tests.WebAppFa
         using var client = disabledFactory.CreateClient();
         var res = await client.PostAsJsonAsync("/api/test/mint-tenant-token", new { Email = "unused@example.com" });
         res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task MintTenantToken_AllowsAccessLifetimeOverride()
+    {
+        using var client = _factory.CreateClient();
+        var email = $"ttl-{Guid.NewGuid():N}@example.com";
+        var result = await AuthTestClient.MintDetailedAsync(client, email, autoTenant: true, neutralAccessTtlMinutes: 1, tenantAccessTtlMinutes: -5);
+
+        result.Neutral.ExpiresAt.Should().BeCloseTo(DateTimeOffset.UtcNow.AddMinutes(1), TimeSpan.FromSeconds(10));
+        result.Tenant.Should().NotBeNull();
+        result.Tenant!.ExpiresAt.Should().BeBefore(DateTimeOffset.UtcNow);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(result.Tenant.Token);
+        jwt.ValidTo.Should().BeBefore(DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task MintTenantToken_ExpiredRefreshTokenReturns401()
+    {
+        using var client = _factory.CreateClient();
+        var email = $"refresh-expired-{Guid.NewGuid():N}@example.com";
+        var result = await AuthTestClient.MintDetailedAsync(client, email, refreshTtlMinutes: -1);
+
+        result.Refresh.Token.Should().NotBeNullOrWhiteSpace();
+        result.Refresh.ExpiresAt.Should().BeBefore(DateTimeOffset.UtcNow);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("Cookie", $"rt={result.Refresh.Token}");
+
+        var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+    var body = await response.Content.ReadFromJsonAsync<JsonObject>();
+    body!["code"]!.GetValue<string>().Should().Be("refresh_expired");
     }
 }

@@ -309,7 +309,7 @@ Summarized; promote in later sprints as capacity allows.
 
 - Session Management UI & Device Display Names (stories 17–18)
 - Roles Label Array (Story 19) — ✅ DONE (2025-09-25)
-- Expanded TestAuthClient (Story 20)
+- Expanded TestAuthClient (Story 20) — ✅ DONE (2025-09-25) — Added TTL override support to mint helper + refresh expiry tests
 - SSR Access Cookie Evaluation (Story 21) — ⏸ DEFERRED (monitor SSR auth friction before investing)
 - Ingress Config Samples (Stories 22–23) — ⏸ DEFERRED (prepare only if ops requests nginx/Caddy examples)
 - Transitional Flag Final Deletion (Story 24 & 31 consolidation possible)

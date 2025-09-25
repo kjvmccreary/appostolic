@@ -2362,11 +2362,17 @@ public static class V1
                 var membershipsPayload = proj
                     .Select(p => new { p.tenantId, p.tenantSlug, p.roles, rolesLabels = DescribeRoleLabels(p.roles) })
                     .ToList();
-                var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email);
+                var accessTtlMinutes = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15;
+                TimeSpan? neutralLifetimeOverride = dto.NeutralAccessTtlMinutes.HasValue ? TimeSpan.FromMinutes(dto.NeutralAccessTtlMinutes.Value) : null;
+                var effectiveNeutralLifetime = neutralLifetimeOverride ?? TimeSpan.FromMinutes(accessTtlMinutes);
+                var neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, lifetime: effectiveNeutralLifetime);
+                var neutralAccessExpires = DateTime.UtcNow.Add(effectiveNeutralLifetime);
                 var refreshTtlDays = int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__REFRESH_TTL_DAYS"), out var d) ? d : 30;
+                TimeSpan? refreshLifetimeOverride = dto.RefreshTtlMinutes.HasValue ? TimeSpan.FromMinutes(dto.RefreshTtlMinutes.Value) : null;
                 var fpHeader = http.Request.Headers.TryGetValue(http.RequestServices.GetRequiredService<IConfiguration>()?["AUTH__SESSIONS__FINGERPRINT_HEADER"] ?? "X-Session-Fp", out var fpVals) ? fpVals.ToString() : null;
-                var (refreshId, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader);
-                var accessExpires = DateTime.UtcNow.AddMinutes(int.TryParse(Environment.GetEnvironmentVariable("AUTH__JWT__ACCESS_TTL_MINUTES"), out var m) ? m : 15);
+                var (_, refreshToken, refreshExpires) = await refreshSvc.IssueNeutralAsync(user.Id, refreshTtlDays, fpHeader, refreshLifetimeOverride);
+                TimeSpan? tenantLifetimeOverride = dto.TenantAccessTtlMinutes.HasValue ? TimeSpan.FromMinutes(dto.TenantAccessTtlMinutes.Value) : null;
+                var effectiveTenantLifetime = tenantLifetimeOverride ?? effectiveNeutralLifetime;
                 object? tenantToken = null; Guid? selectedTenant = null; int rolesBitmask = 0; string tenantSlugSel = string.Empty;
                 if (proj.Count == 1 && (dto.AutoTenant == true || string.IsNullOrWhiteSpace(dto.Tenant)))
                 {
@@ -2405,10 +2411,11 @@ public static class V1
                 }
                 if (selectedTenant.HasValue)
                 {
-                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email, extraClaims);
+                    var tenantAccess = jwt.IssueTenantToken(user.Id.ToString(), selectedTenant.Value, tenantSlugSel, rolesBitmask, user.TokenVersion, user.Email, extraClaims, lifetime: effectiveTenantLifetime);
+                    var tenantExpires = DateTime.UtcNow.Add(effectiveTenantLifetime);
                     tenantToken = new
                     {
-                        access = new { token = tenantAccess, expiresAt = accessExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel },
+                        access = new { token = tenantAccess, expiresAt = tenantExpires, type = "tenant", tenantId = selectedTenant.Value, tenantSlug = tenantSlugSel },
                         roles = rolesBitmask,
                         rolesLabels = DescribeRoleLabels(rolesBitmask)
                     };
@@ -2427,9 +2434,9 @@ public static class V1
                 // If only neutral token requested but superadmin flag set, re-issue neutral with claim (kept separate for clarity)
                 if (dto.SuperAdmin == true && !selectedTenant.HasValue)
                 {
-                    neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims);
+                    neutralAccess = jwt.IssueNeutralToken(user.Id.ToString(), user.TokenVersion, user.Email, extraClaims, lifetime: effectiveNeutralLifetime);
                 }
-                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = membershipsPayload, access = new { token = neutralAccess, expiresAt = accessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
+                return Results.Ok(new { user = new { user.Id, user.Email }, memberships = membershipsPayload, access = new { token = neutralAccess, expiresAt = neutralAccessExpires, type = "neutral" }, refresh = refreshObj, tenantToken });
             }).WithTags("TestHelpers").WithDescription("Non-production test-only token mint helper").AllowAnonymous();
         }
 
@@ -2469,7 +2476,7 @@ public static class V1
     public record ResetPasswordDto(string Token, string NewPassword);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
     // RDH Story 2 Option B: ForceAllRoles grants full flag set for selected tenant when true (test-only)
-    internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant, bool? ForceAllRoles, bool? SuperAdmin);
+    internal sealed record MintTenantTokenRequest(string Email, string? Tenant, bool? AutoTenant, bool? ForceAllRoles, bool? SuperAdmin, int? NeutralAccessTtlMinutes, int? TenantAccessTtlMinutes, int? RefreshTtlMinutes);
     // Story 3 DTO: tenant selection using neutral refresh token
     internal record SelectTenantDto(string Tenant, string RefreshToken);
 

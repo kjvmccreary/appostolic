@@ -14,7 +14,7 @@ public interface IRefreshTokenService
     /// <summary>
     /// Issue a neutral refresh token for a user, persisting hash. Returns refresh token Id, plaintext token and expiry.
     /// </summary>
-    Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null);
+    Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null, TimeSpan? lifetime = null, DateTime? createdAt = null);
 
     /// <summary>
     /// Validate a presented neutral refresh token (plaintext). Returns entity if active and unexpired; null otherwise.
@@ -44,12 +44,12 @@ public class RefreshTokenService : IRefreshTokenService
         _slidingOpts = slidingOpts; // optional for backwards compat in tests
     }
 
-    public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null)
+    public async Task<(Guid id, string token, DateTime expiresAt)> IssueNeutralAsync(Guid userId, int ttlDays, string? fingerprint = null, TimeSpan? lifetime = null, DateTime? createdAt = null)
     {
         var token = GenerateToken();
         var hash = Hash(token);
-        var now = DateTime.UtcNow;
-        var expires = now.AddDays(ttlDays);
+        var now = createdAt ?? DateTime.UtcNow;
+        var expires = lifetime.HasValue ? now.Add(lifetime.Value) : now.AddDays(ttlDays);
 
         var entity = new RefreshToken
         {

@@ -36,4 +36,22 @@ public static class AuthTestClient
         return (neutral, tenant);
     }
 
+    /// <summary>
+    /// Exposes the detailed mint helper so tests can override lifetimes and inspect expiry metadata for advanced scenarios.
+    /// </summary>
+    public static Task<MintDetailedResult> MintDetailedAsync(
+        HttpClient client,
+        string email,
+        string? tenant = null,
+        bool autoTenant = false,
+        bool superAdmin = false,
+        bool? forceAllRoles = null,
+        int? neutralAccessTtlMinutes = null,
+        int? tenantAccessTtlMinutes = null,
+        int? refreshTtlMinutes = null)
+    {
+        var helper = new TestAuthClient(client);
+        return helper.MintDetailedAsync(email, tenant, autoTenant, superAdmin, forceAllRoles, neutralAccessTtlMinutes, tenantAccessTtlMinutes, refreshTtlMinutes);
+    }
+
 }
