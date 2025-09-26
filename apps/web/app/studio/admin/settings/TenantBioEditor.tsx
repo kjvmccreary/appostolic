@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -29,6 +29,14 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
   const dirty = value !== (baseline?.content ?? '');
   const overLimit = value.length > maxChars;
   const previewContent = useMemo(() => value, [value]);
+
+  useEffect(() => {
+    setBaseline(initial ?? null);
+    setValue(initial?.content ?? '');
+    setStatus('idle');
+    setError(null);
+    setTab(0);
+  }, [initial]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -6,6 +6,7 @@ import type { SignInResponse } from 'next-auth/react';
 
 // Mocks for next-auth/react and next/navigation
 const replaceMock = vi.fn();
+const searchParamsStore: Record<string, string | null> = {};
 
 vi.mock('next-auth/react', () => {
   const mockedUseSession = vi.fn(() => ({ data: null as Session | null }));
@@ -18,7 +19,10 @@ vi.mock('next-auth/react', () => {
 vi.mock('next/navigation', () => {
   return {
     useRouter: () => ({ replace: replaceMock }),
-    useSearchParams: () => ({ get: (k: string) => (k === 'next' ? '/studio/agents' : null) }),
+    useSearchParams: () => ({
+      get: (k: string) =>
+        Object.prototype.hasOwnProperty.call(searchParamsStore, k) ? searchParamsStore[k] : null,
+    }),
   };
 });
 
@@ -29,6 +33,8 @@ import { signIn, useSession } from 'next-auth/react';
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    searchParamsStore.next = '/studio/agents';
+    searchParamsStore.reselect = null;
     // default session: unauthenticated
     vi.mocked(useSession).mockReturnValue({ data: null } as unknown as ReturnType<
       typeof useSession
@@ -66,7 +72,24 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('/select-tenant?next=%2Fstudio%2Fagents&reselect=1');
+      expect(replaceMock).toHaveBeenCalledWith('/select-tenant?next=%2Fstudio%2Fagents');
+    });
+  });
+
+  it('propagates explicit reselect query when present', async () => {
+    searchParamsStore.reselect = 'force';
+    vi.mocked(signIn).mockResolvedValue({ error: undefined } as unknown as SignInResponse);
+
+    render(<LoginPage />);
+
+    await userEvent.type(screen.getByLabelText(/email/i), 'u@example.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'pass');
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        '/select-tenant?next=%2Fstudio%2Fagents&reselect=force',
+      );
     });
   });
 

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface GuardrailsInitial {
   denominationAlignment?: string;
@@ -52,6 +52,18 @@ export const TenantGuardrailsForm: React.FC<TenantGuardrailsFormProps> = ({ init
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setDenominationAlignment(initial.denominationAlignment || '');
+    setFavoriteAuthors([...(initial.favoriteAuthors || [])]);
+    setFavoriteBooks([...(initial.favoriteBooks || [])]);
+    setDenominations([...(initial.denominations || [])]);
+    setNotes(initial.notes || '');
+    setLessonFormat(initial.lessonFormat || '');
+    setError(null);
+    setSuccess(null);
+    setSearch('');
+  }, [initial]);
 
   function addChip(kind: ChipKind, value: string) {
     const v = value.trim();

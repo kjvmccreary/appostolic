@@ -859,143 +859,21 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
     - Optionally remove the temporary guard middleware entirely after short observation window if zero header attempts observed (future cleanup story).
     - Add CI enforcement (grep) to fail on reintroduction of removed identifiers (planned Story 5 item reuse of guard script with tightened allowlist).
 
-  - Follow-ups
-    - Extend harness to exercise real auth flows post refresh endpoint (Story 6) or potentially migrate cookie issuance helper behind conditional compilation. Consider integrating api.e2e into CI (separate job) to guard against regressions in cookie security semantics.
+---
 
-  - Add a guard test asserting no future insert results in `roles=0` (optional) and proceed with removal of legacy `role` field after staging verification.
-
-  2025-09-20 — Auth/JWT: Development Composite Auth Policy (BearerOrDev) & Regression Fix — ✅ DONE
-  - Summary
-    - Introduced a Development-only composite authentication policy scheme ("BearerOrDev") that inspects each request for `x-dev-user`; when present it authenticates via the existing Dev header handler, otherwise it defers to standard JWT Bearer. This eliminated the need to redundantly annotate endpoint groups with `AuthenticationSchemes="Dev,Bearer"` and resolved a broad set of 401 Unauthorized test failures where dev-header authenticated requests hit endpoints registered only with the default Bearer scheme. Also tightened JWT subject validation (already present) by updating the auth smoke test to issue a GUID subject instead of a non-GUID string which previously triggered `invalid_sub` failures. After applying the composite scheme and test fix, the full API test suite passed (211 passed, 1 skipped, 0 failed — down from 65 failures pre-fix). Notifications admin tests (initially failing 7/7 with 401) now pass under the unified scheme without per-endpoint overrides.
-  - Files changed
-    - apps/api/Program.cs — Added policy scheme registration (`AddPolicyScheme("BearerOrDev")`), selector logic, and Development-only default authenticate/challenge override; retained existing Dev & Bearer scheme registrations.
-    - apps/api.tests/Api/AuthJwtSmokeTests.cs — Updated to issue GUID subject and assert dynamic subject presence.
-    - SnapshotArchitecture.md — Added section documenting composite scheme rationale & validation layer.
-    - devInfo/jwtRefactor/jwtSprintPlan.md — Story 5 marked DONE; deferred admin logout & caching tasks moved to future stories.
-  - Quality gates
-    - Focused runs: Auth smoke (green), legacy role deprecation tests (green), then full suite (green). No production (non-Development) behavior changed — production still uses Bearer only.
-  - Rationale
-    - Centralizes dev ergonomics for header-based auth used heavily in integration tests and local tooling while avoiding repetitive scheme lists (reducing risk of future omissions). Ensures JWT validation logic can enforce GUID subjects consistently without breaking dev-header scenarios.
-  - Follow-ups
-    - Optional: Remove now-redundant explicit `AuthenticationSchemes` annotations from notifications/dev endpoint groups.
-    - Consider adding a small diagnostic log when selector routes to Dev vs Bearer for future troubleshooting (behind a verbose flag).
-
-2025-09-19 — Auth/Web: Comma-separated roles string parsing to prevent admin 403 — ✅ DONE
-
-2025-09-19 — Auth/Data: Runtime roles convergence at login — ✅ DONE
-
-- Added runtime convergence logic inside `/api/auth/login` that recalculates the granular roles bitmask from the legacy `Role` enum when a mismatch is detected (including `roles=0`). This corrects historical stale data (e.g., `Owner` with `roles=6`) on demand, ensuring admin privileges reflect canonical flags without waiting for a full data migration. Converged flags are persisted immediately so subsequent requests (API or web) see the corrected state.
-- apps/api/App/Endpoints/V1.cs — inject convergence loop before projecting memberships.
-- apps/api.tests/Auth/LoginRolesConvergenceTests.cs — new test tampers with membership to simulate stale flags and asserts login returns corrected bitmask (=15 for Owner) post-convergence.
-- Partial `AppDbContext` cleanup: expose IAM DbSets in a single partial (removed duplicate definitions to avoid ambiguity).
-- Rationale: Prevents privilege downgrade / inconsistent UI gating during the transitional period before a one-time DB convergence + legacy column removal. Provides immediate safety net for existing accounts encountering mismatched bitmasks.
-
-- Summary
-  - Addressed a 403 access denial on `/studio/admin/invites` for an admin whose session carried a legacy comma-separated roles string (e.g., `"TenantAdmin, Approver, Creator, Learner"`) instead of an array or numeric bitmask. `getFlagRoles` previously treated any non-array, non-numeric string (even comma-delimited) as missing roles, triggering legacy fallback only when enabled or producing empty roles (no `TenantAdmin`) leading to `isAdmin=false`. Added parsing for comma-separated values prior to legacy fallback so canonical flags are correctly recognized regardless of serialization variant during the migration.
-- Files changed
-  - apps/web/src/lib/roles.ts — detect comma in string, split, normalize tokens (including legacy names) to canonical flag roles, dedupe, return early.
-  - apps/web/src/lib/roles.numericFlags.test.ts — added regression test `parses comma-separated roles string into canonical flags` asserting admin booleans resolve properly.
-- Rationale
-  - Ensures resilient decoding across transient serialization formats during migration (string enum list → numeric bitmask). Prevents inadvertent admin privilege loss and 403 responses in admin pages.
-- Follow-ups
-  - After full transition to numeric bitmask or array, consider removing the comma-string compatibility path and failing fast to reduce complexity.
-
-2025-09-18 — Org Settings: Tenant logo upload error handling hardened. Prevent raw HTML from rendering on upload/delete failures by detecting HTML responses and surfacing friendly messages; added a unit test simulating an HTML error; full web test suite PASS. Updated `TenantLogoUpload` accordingly.
-2025-09-19 — Auth/Data: Backfill zero roles memberships to full flags — ✅ DONE
-
-- Summary
-  - Added migration `s5_02_membership_roles_backfill_zero_to_all` executing `UPDATE app.memberships SET roles = 15 WHERE roles = 0;` to remediate a small set of memberships created during the legacy→flags transition with an unset (`0`) roles bitmask. Assigning `15` grants all four canonical flags (TenantAdmin|Approver|Creator|Learner) to avoid accidental under‑privilege prior to legacy role column removal.
-- Files changed
-  - apps/api/Migrations/20250919030923_s5_02_membership_roles_backfill_zero_to_all.cs — data migration with idempotent update (no Down reversal).
-- Quality gates
-  - Migration applied locally via `make migrate` (build succeeded; database update completed without errors). No code paths depend on zero roles state; existing auth serialization tests remain green.
-- Rationale
-  - Ensures all active memberships possess a non-zero, machine-decodable flags bitmask before disabling the temporary legacy fallback in the web client, reducing risk of privilege mismatches.
-- Follow-ups
-  2025-09-19 — Auth/Data: Role change preserves flags + test + seeding verification — ✅ DONE
-
-- Summary
-  - Fixed a latent defect where changing a legacy `MembershipRole` (Owner/Admin/Editor/Viewer) via `PUT /api/tenants/{tenantId}/members/{userId}` replaced the record without copying the `Roles` bitmask, risking a `roles=0` membership if flags were relied upon elsewhere. Added explicit `Roles = DeriveFlagsFromLegacy(newRole)` to all replacement membership constructions in that endpoint (in-memory path, ambient transaction path, and explicit transaction path). Strengthened test seeding by ensuring `WebAppFactory` assigns a full flags bitmask for the default owner membership (previously omitted, defaulting to zero). Added an integration test asserting a role change from Owner -> Editor updates the flags to `Creator|Learner` (non-zero) and matches the legacy mapping. Also confirmed the standalone seed tool already sets full flags for owner and baseline memberships.
-- Files changed
-  - apps/api/Migrations/20250920154954_s6_10_user_token_version.\* — new migration adding `TokenVersion` int NOT NULL default 0 to `app.users`.
-  - apps/api/App/Endpoints/V1.cs — password change endpoint increments `TokenVersion`; added email claim fallback comment; ensures update uses record replacement semantics.
-  - apps/api/Program.cs — JWT bearer `OnTokenValidated` now falls back to `ClaimTypes.NameIdentifier` when `sub` is absent (inbound claim mapping), loads user TokenVersion, and fails auth if mismatch.
-  - apps/api.tests/Auth/AccessTokenVersionTests.cs — new integration test verifying: login, successful authenticated `/api/me`, password change increments version, old token receives 401 with failure reason `token_version_mismatch`.
-- Quality gates
-  - Targeted test `AccessTokenVersionTests` PASS; full affected auth tests remain green. Migration builds & applies (local). No performance concerns: single user lookup per token validation (already required for version check) cached by normal connection pooling; future optimization (per-user version cache with short TTL) deferred.
-- Rationale
-  - Provides deterministic, O(1) revocation of all outstanding access tokens for a user on credential compromise events (password change) without tracking individual token identifiers. Simpler operational model vs maintaining distributed blacklist; aligns with planned refresh rotation flow (Story 6) for continuous session continuity with forced re-auth of stale access tokens.
-- Follow-ups
-  - Story 6 general refresh endpoint should issue new access tokens referencing updated `TokenVersion` automatically after password change.
-  - Consider admin-driven global user revocation endpoint (increment TokenVersion without password change) and audit log entry.
-  - Potential minor perf enhancement: L2 cache or memory cache of (UserId -> TokenVersion) with short expiration (e.g., 30s) to reduce DB hits under high concurrency; defer until profiling indicates need.
-
-2025-09-22 — Auth/JWT: RDH Story 2 Phase A UserProfileEndpointsTests Migration — ✅ PARTIAL
-
-2025-09-23 — Auth/JWT: Story 8 Session Enumeration & Selective Revoke (Endpoints Phase) — 🚧 IN PROGRESS
-
-- Summary
-  - Implemented initial Story 8 endpoint layer: added `GET /api/auth/sessions` (feature-flagged via `AUTH__SESSIONS__ENUMERATION_ENABLED`, default on) to list up to 50 active (non‑revoked, unexpired) neutral refresh sessions for the authenticated user, marking the current session by hashing the inbound `rt` cookie and comparing against `TokenHash`. Added `POST /api/auth/sessions/{id}/revoke` for idempotent per‑session revocation of a single refresh token (neutral purpose), emitting structured security event `session_revoked_single` on first revoke. Wired new metrics counters `auth.session.enumeration.requests{outcome=success|disabled}` and `auth.session.revoke.requests{outcome=success|not_found}`. Both endpoints require authorization and avoid exposing raw token material (hash only internally). Returns 404 for disabled flag or unknown session; 204 for successful or already‑revoked revocations.
-- Files changed
-  - `apps/api/App/Endpoints/V1.cs` — Added session listing & revoke handlers with flag check, hashing of current cookie, metrics increments, and security event emission. Utilizes existing `RefreshTokenHashing` helper. Uses EF query constrained to `Purpose = "neutral"` and non‑revoked, unexpired tokens.
-- Pending
-  - Integrate `Fingerprint` (client-provided or generated) capture during issuance & refresh flows plus `LastUsedAt` updates on refresh rotate / access with existing token.
-  - Add tests: enumeration success, disabled flag (404), revoke success, revoke not_found, idempotent revoke, metrics emission, security event assertion.
-  - Extend dashboard metrics lint list for new counters; update `SnapshotArchitecture.md` (refresh_tokens schema expanded with fingerprint/last_used_at) and LivingChecklist line for Story 8 partial.
-  - Document new feature flag & security event in auth upgrade / architecture docs; add follow-up for pagination or expanded metadata (UA, IP) if required later.
-- Rationale
-  - Establishes user-visible session management foundation enabling selective logout without requiring bulk revocation or TokenVersion bump, preparing for richer device context once fingerprint & last_used telemetry is populated. Metrics support adoption tracking and operational alerting for anomalous revoke rates.
-- Quality Gates
-  - Build compiles post-endpoint addition; no tests yet (will add in next phase). Existing auth tests unaffected (endpoints additive & gated by auth + flag). Metrics names conform to established `auth.*` namespace.
-  - Security: endpoint restricts to current user's sessions only; hash comparison remains server-side; no PII exposed beyond optional future fingerprint field.
-
-- Summary
-  - Migrated `AuditTrailTests` from legacy mint helper usage (`ClientAsync` wrapper over `AuthTestClient.UseTenantAsync`) to real authentication flows leveraging password seeding plus `AuthTestClientFlow.LoginAndSelectTenantAsync`. Introduced `DefaultPw` constant and `SeedPasswordAsync` to hash and persist the known password for `kevin@example.com` before invoking `/api/auth/login` then `/api/auth/select-tenant`. Updated both tests to use the new flow, retaining existing `EnsureAdminMembershipAsync` defensive call and `LogMembershipAsync` diagnostics. Ensures audit trail creation and noop second-call semantics are exercised under production JWT issuance and role enforcement.
-- Files changed
-  - apps/api.tests/Api/AuditTrailTests.cs — removed `ClientAsync` mint helper; added `DefaultPw`, `SeedPasswordAsync`; replaced helper calls with flow login/select pattern.
-  - devInfo/jwtRefactor/rdhSprintPlan.md — progress log appended with AuditTrailTests migration entry.
-- Quality gates
-  - Targeted test run PASS (2/2). No regressions detected; MembersList, Assignments, MembersManagement suites remain green from prior spot checks.
-- Rationale
-  - Broadens Phase A coverage to auditing, reducing remaining surface area dependent on legacy mint shortcuts and validating audit event accuracy with production auth claims.
-- Follow-ups
-  - Migrate `AuditsListingEndpointTests` and `UserProfileLoggingTests` next; continue with invites suites; introduce guard once majority of `UseTenantAsync` usages removed; consider consolidating duplicated password seeding helpers after additional migrations.
-
-2025-09-22 — Auth/JWT: RDH Story 2 Phase A AuditsListingEndpointTests Migration — ✅ PARTIAL
-
-- Summary
-  - Migrated `AuditsListingEndpointTests` off legacy mint helper (`CreateAuthedClientAsync` using `AuthTestClient.UseTenantAsync`) to real authentication flows via password seeding (`SeedPasswordAsync`) and `AuthTestClientFlow.LoginAndSelectTenantAsync`. Added `DefaultPw` constant aligned with existing flow helpers. Replaced helper usage in all three tests (paging/total count, optional filters, invalid GUID filters) so each now exercises `/api/auth/login` + `/api/auth/select-tenant` endpoints before performing audited listing requests. Ensures paging logic, filter query binding (userId, changedByUserId, date range), and 400 error handling for malformed GUID and inverted date range occur under production JWT validation path (password hashing + refresh issuance + tenant token selection). Targeted run: 3 tests PASS (0 failed). No behavioral changes in assertions; only auth setup path replaced.
-- Rationale
-  - Extends Phase A coverage across audit listing scenarios, removing another cluster of mint helper dependencies and strengthening end-to-end verification that audit enumeration respects production auth and multi-tenancy middleware without relying on dev header shortcuts.
-- Follow-ups
-  - Next: migrate `UserProfileLoggingTests` (privacy audit). After invites & remaining privacy/audit suites migrated, introduce guard (CI grep or test assertion) preventing reintroduction of `UseTenantAsync` before proceeding to deprecation middleware and handler removal stories.
-
-### 2025-09-24 - Maintenance: Backfill Missing EF Migration Designer Files (Stories 11, 17 & 18) — ✅ DONE
+### 2025-09-26 - Story: Tenant settings tenant switch reset — 🚧 IN PROGRESS
 
 Summary
 
-- Added minimal EF Core migration designer files for two recent migrations that were missing `.Designer.cs` companions:
-  - `20250924120000_s11_01_refresh_original_created` (Story 11) — adds `original_created_at` column.
-  - `20250924163000_s17_18_device_name` (Stories 17 & 18) — adds `device_name` column.
-- Each designer intentionally elides full `BuildTargetModel` graph (consistent with previously minimal Story 8 designer style) to reduce repository churn; authoritative state remains in `AppDbContextModelSnapshot` which already contains `original_created_at`, session enumeration columns (`fingerprint`, `last_used_at`), and `device_name`.
-- Ensures migration history consistency and prevents future tooling or diff confusion expecting a paired designer artifact per migration convention.
-
-Rationale
-
-Maintains parity with earlier migrations and supports deterministic schema diffing in future EF operations. Avoids accidental re‑scaffolding that could introduce noisy designer diffs bundling unrelated model snapshot adjustments.
-
-Files Added
-
-- `apps/api/Migrations/20250924120000_s11_01_refresh_original_created.Designer.cs`
-- `apps/api/Migrations/20250924163000_s17_18_device_name.Designer.cs`
+- Reset tenant settings client forms when initial props change after a tenant switch so the Organization Settings, Guardrails, Bio, and Logo UI immediately reflect the newly selected tenant and clear stale submission/loading state.
+- Normalized social/contact defaults in TenantSettingsForm (shared SOCIAL_KEYS) to avoid undefined fields and ensure merge patches stay minimal.
 
 Quality Gates
 
-- No runtime code changes; build succeeds (designer files compile). Snapshot already reflected columns; no model drift introduced. Next migration generation will include these columns without attempting to reapply.
+- `pnpm --filter @appostolic/web test` — Passed (217 tests).
 
 Follow-ups / Deferred
 
-- Optional: Introduce CI lint ensuring every `*.cs` migration has a sibling `*.Designer.cs` (excluding intentionally consolidated raw SQL migrations if any future exceptions arise).
-- Add integration tests for device naming feature (pending from Stories 17 & 18 follow-ups).
+- Investigate 401 responses when saving immediately after a tenant switch to confirm proxy token refresh timing.
 
 ---

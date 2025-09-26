@@ -215,6 +215,23 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (prevObjUrlRef.current) {
+      try {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(prevObjUrlRef.current);
+      } catch {
+        // noop
+      }
+      prevObjUrlRef.current = null;
+    }
+    setFile(null);
+    setPreview(initialUrl || null);
+    setError(null);
+    setStatusMsg(null);
+    setSubmitting(false);
+    setDeleting(false);
+  }, [initialUrl]);
+
   return (
     <>
       <Stack direction="row" spacing={2} alignItems="center" aria-label="Tenant logo upload">

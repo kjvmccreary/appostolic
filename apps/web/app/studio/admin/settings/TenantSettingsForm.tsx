@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 type SocialKeys = 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'linkedin';
 
@@ -28,11 +28,35 @@ function normalizeUrl(input: string | undefined): string | undefined {
   return trimmed;
 }
 
+const SOCIAL_KEYS = ['twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const;
+
 export default function TenantSettingsForm({ initial }: Props) {
-  const [fields, setFields] = useState<TenantSettings>(initial);
+  const normalizedInitial = useMemo<TenantSettings>(() => {
+    const contact = {
+      email: initial.contact?.email ?? '',
+      website: initial.contact?.website ?? '',
+    };
+    const social = SOCIAL_KEYS.reduce<Partial<Record<SocialKeys, string>>>(
+      (acc, key) => ({ ...acc, [key]: initial.social?.[key] ?? '' }),
+      {},
+    );
+    return {
+      displayName: initial.displayName ?? '',
+      contact,
+      social,
+    };
+  }, [initial]);
+
+  const [fields, setFields] = useState<TenantSettings>(normalizedInitial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFields(normalizedInitial);
+    setError(null);
+    setSuccess(null);
+  }, [normalizedInitial]);
 
   function update<K extends keyof TenantSettings>(key: K, val: TenantSettings[K]) {
     setFields((f) => ({ ...f, [key]: val }));
@@ -59,7 +83,7 @@ export default function TenantSettingsForm({ initial }: Props) {
       }
       if (fields.social || initial.social) {
         const s: Partial<Record<SocialKeys, string | null>> = {};
-        for (const k of ['twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const) {
+        for (const k of SOCIAL_KEYS) {
           const raw = fields.social?.[k];
           const normalized = normalizeUrl(raw);
           const had = initial.social?.[k];
@@ -138,7 +162,7 @@ export default function TenantSettingsForm({ initial }: Props) {
       <div>
         <h3 className="text-sm font-semibold mb-2">Social Links</h3>
         <fieldset className={fieldsetCls} disabled={saving}>
-          {(['twitter', 'facebook', 'instagram', 'youtube', 'linkedin'] as const).map((k) => (
+          {SOCIAL_KEYS.map((k) => (
             <div key={k}>
               <label htmlFor={`org-${k}`} className="block text-xs font-medium mb-1 capitalize">
                 {k}

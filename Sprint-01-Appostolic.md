@@ -138,3 +138,5 @@
 - Remaining Phase A targets: role & membership tests, any lingering mint helper references (inventory shows ~17 non‑migrated usages)
 - Outcome: All migrated suites green; dev headers usage confined to explicit negative test only.
 - Avatar proxy cleanup + search param guards — ✅ DONE
+- 🚧 IN PROGRESS Tenant settings: reset client state after tenant switch (2025-09-26)
+  - ✅ Phase A — UI forms reset when new tenant initial props arrive (TenantSettingsForm, TenantGuardrailsForm, TenantBioEditor, TenantLogoUpload)

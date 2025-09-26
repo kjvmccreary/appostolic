@@ -8,8 +8,12 @@ export default function LoginClient() {
   const getParam = React.useCallback((key: string) => params?.get(key) ?? null, [params]);
   const router = useRouter();
   const next = getParam('next') ?? '/studio/agents';
-  // After sign-in, route through select-tenant and force tenant reselection for multi-tenant users.
-  const postAuth = `/select-tenant?${new URLSearchParams({ next, reselect: '1' }).toString()}`;
+  const reselect = getParam('reselect');
+  const postAuth = React.useMemo(() => {
+    const params = new URLSearchParams({ next });
+    if (reselect) params.set('reselect', reselect);
+    return `/select-tenant?${params.toString()}`;
+  }, [next, reselect]);
   const loggedOut = getParam('loggedOut') === '1';
   const errorParam = getParam('error');
   const { data: session } = useSession();
