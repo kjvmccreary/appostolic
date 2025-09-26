@@ -67,8 +67,21 @@ export function ProfileMenu() {
     let cancelled = false;
     async function hydrateFromProfile() {
       try {
-        const res = await fetch('/api-proxy/users/me', { cache: 'no-store' });
-        if (!res.ok) return;
+        const res = await fetch('/api-proxy/users/me', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          if (res.status === 401) {
+            try {
+              const payload = (await res.json()) as { code?: string };
+              console.warn('[ProfileMenu] hydrateFromProfile unauthorized', payload);
+            } catch {
+              console.warn('[ProfileMenu] hydrateFromProfile unauthorized (no payload)');
+            }
+          }
+          return;
+        }
         const json = (await res.json()) as { profile?: { avatar?: { url?: string } } };
         const url = json?.profile?.avatar?.url ?? null;
         if (!cancelled && url) setAvatarUrl(url);

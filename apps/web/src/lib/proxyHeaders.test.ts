@@ -83,6 +83,9 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    Reflect.set(globalThis, '__appProxyTokenCache', undefined);
+    Reflect.set(globalThis, '__appProxyInflight', undefined);
+    Reflect.set(globalThis, '__appProxyRotationBridge', undefined);
     cookieStoreFactory.current = createStore('legacy-token');
     process.env.WEB_AUTH_ENABLED = 'true';
     process.env.NEXT_PUBLIC_API_BASE = 'http://localhost:5198';
@@ -133,5 +136,49 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const bridged = second?.cookies.find((c) => c.name === 'rt');
     expect(bridged?.value).toBe(newToken);
+  });
+
+  it('reuses cached tenant access when neutral scope lacks fresh token', async () => {
+    const oldToken = 'legacy-token';
+    const newToken = 'tenant-rotated-token';
+    const now = Date.now();
+    cookieStoreFactory.current = createStore(oldToken);
+
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const urlString = typeof input === 'string' ? input : (input as Request).url;
+      const url = new URL(urlString);
+      const tenant = url.searchParams.get('tenant');
+      const responseBody = JSON.stringify({
+        access: { token: tenant ? 'neutral-access' : 'neutral-access', expiresAt: now + 600_000 },
+        tenantToken: tenant
+          ? {
+              access: { token: 'tenant-access', expiresAt: now + 600_000 },
+            }
+          : undefined,
+      });
+      return Promise.resolve(
+        new Response(responseBody, {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            'set-cookie': `rt=${newToken}; Path=/; HttpOnly; SameSite=Lax`,
+          },
+        }),
+      );
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { buildProxyHeaders } = await import('./proxyHeaders');
+    const tenantCtx = await buildProxyHeaders();
+    expect(tenantCtx).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(tenantCtx?.headers.Authorization).toBe('Bearer tenant-access');
+
+    const neutralCtx = await buildProxyHeaders({ requireTenant: false });
+    expect(neutralCtx).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(neutralCtx?.headers.Authorization).toBe('Bearer neutral-access');
+    const rotationCookie = neutralCtx?.cookies.find((c) => c.name === 'rt');
+    expect(rotationCookie).toBeUndefined();
   });
 });

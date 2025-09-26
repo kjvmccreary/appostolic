@@ -41,8 +41,54 @@ type RefreshPromiseResult = {
   sessionKey: string | null;
 };
 
-const tokenCache = new Map<string, CachedAccess>();
-const inflight = new Map<string, Promise<RefreshPromiseResult>>();
+export type ProxyHeaders = Record<string, string>;
+
+export type ProxyCookie = {
+  name: string;
+  value: string;
+  options: CookieSetterOptions;
+};
+
+export type ProxyFailureReason =
+  | 'missing_session'
+  | 'missing_tenant'
+  | 'missing_refresh'
+  | 'access_unavailable';
+
+export type ProxyDiagnostics = {
+  reason?: ProxyFailureReason;
+};
+
+type RefreshResult = {
+  outcome: RefreshOutcome | null;
+  cookies: ProxyCookie[];
+};
+
+export type ProxyHeadersContext = {
+  headers: ProxyHeaders;
+  cookies: ProxyCookie[];
+};
+
+type RotationBridgeEntry = {
+  cookie: ProxyCookie;
+  expiresAt: number;
+};
+
+const globalState = globalThis as typeof globalThis & {
+  __appProxyTokenCache?: Map<string, CachedAccess>;
+  __appProxyInflight?: Map<string, Promise<RefreshPromiseResult>>;
+  __appProxyRotationBridge?: Map<string, RotationBridgeEntry>;
+};
+
+const tokenCache =
+  globalState.__appProxyTokenCache ??
+  (globalState.__appProxyTokenCache = new Map<string, CachedAccess>());
+const inflight =
+  globalState.__appProxyInflight ??
+  (globalState.__appProxyInflight = new Map<string, Promise<RefreshPromiseResult>>());
+const rotationBridge =
+  globalState.__appProxyRotationBridge ??
+  (globalState.__appProxyRotationBridge = new Map<string, RotationBridgeEntry>());
 
 function maskToken(value?: string | null): string | null {
   if (!value) return value ?? null;
@@ -85,31 +131,7 @@ function parseExpires(value: string | number | undefined): number | null {
   return null;
 }
 
-export type ProxyHeaders = Record<string, string>;
-
-export type ProxyCookie = {
-  name: string;
-  value: string;
-  options: CookieSetterOptions;
-};
-
-type RefreshResult = {
-  outcome: RefreshOutcome | null;
-  cookies: ProxyCookie[];
-};
-
-export type ProxyHeadersContext = {
-  headers: ProxyHeaders;
-  cookies: ProxyCookie[];
-};
-
-type RotationBridgeEntry = {
-  cookie: ProxyCookie;
-  expiresAt: number;
-};
-
 const ROTATION_BRIDGE_TTL_MS = 10_000;
-const rotationBridge = new Map<string, RotationBridgeEntry>();
 
 function pruneRotationBridge(now = Date.now()) {
   for (const [key, entry] of rotationBridge) {
@@ -285,12 +307,10 @@ async function refreshToken(
   const primary: CachedAccess = { token: primaryToken, expiresAt: primaryExpires };
 
   const fallbackExpires = parseExpires(fallback?.expiresAt);
-  const neutral: CachedAccess | null =
+  const neutral: CachedAccess =
     fallback?.token && fallbackExpires
       ? { token: fallback.token, expiresAt: fallbackExpires }
-      : tenantParam
-        ? null
-        : primary;
+      : primary;
 
   let tenantAccess: CachedAccess | null = null;
   if (tenantParam && payload.tenantToken?.access?.token) {
@@ -398,10 +418,17 @@ async function getOrRefreshAccess(
  *   pass { requireTenant: false } to proceed without tenant-specific tokens.
  * - Neutral or tenant-scoped access tokens are cached per session to limit refresh rotations.
  */
-export async function buildProxyHeaders(options?: {
-  requireTenant?: boolean;
-}): Promise<ProxyHeadersContext | null> {
+export async function buildProxyHeaders(
+  options?: {
+    requireTenant?: boolean;
+  },
+  diagnostics?: ProxyDiagnostics,
+): Promise<ProxyHeadersContext | null> {
   const requireTenant = options?.requireTenant ?? true;
+
+  const recordFailure = (reason: ProxyFailureReason) => {
+    if (diagnostics) diagnostics.reason = reason;
+  };
 
   // Always prefer an authenticated web session if present, regardless of WEB_AUTH_ENABLED flag.
   // This makes magic-link flows work in dev without toggling envs.
@@ -410,6 +437,7 @@ export async function buildProxyHeaders(options?: {
   if (!emailFromSession) {
     debugProxy('missing session email');
     // Auth required but no session → unauthorized (when enforcement enabled) or null fallback.
+    recordFailure('missing_session');
     return WEB_AUTH_ENABLED ? null : null;
   }
 
@@ -420,6 +448,7 @@ export async function buildProxyHeaders(options?: {
   const tenant = sessionTenant || cookieTenant || null;
   if (requireTenant && !tenant) {
     debugProxy('tenant required but missing', { sessionTenant, cookieTenant });
+    recordFailure('missing_tenant');
     return null;
   }
 
@@ -427,27 +456,70 @@ export async function buildProxyHeaders(options?: {
   const refreshCookie = adoptRotatedCookie(refreshCookieRaw, jar, responseCookies);
   if (!refreshCookie) {
     debugProxy('missing refresh cookie');
+    recordFailure('missing_refresh');
     return null;
   }
 
   const sessionKey = getSessionCookieValue(jar);
-  const cacheKey = sessionKey
-    ? `${sessionKey}|${tenant ?? 'neutral'}`
-    : `anon|${tenant ?? 'neutral'}`;
+  const cacheScope = requireTenant ? (tenant ?? 'neutral') : 'neutral';
+  const cacheKey = sessionKey ? `${sessionKey}|${cacheScope}` : `anon|${cacheScope}`;
   const tenantParam = tenant && requireTenant ? tenant : null;
-  const access = await getOrRefreshAccess(
-    cacheKey,
-    tenantParam,
-    jar,
-    sessionKey ?? null,
-    refreshCookie ?? null,
-    responseCookies,
-  );
+
+  const cachedAccess = tokenCache.get(cacheKey);
+  let access: CachedAccess | null = isValid(cachedAccess) ? cachedAccess : null;
+  if (!access && cachedAccess) tokenCache.delete(cacheKey);
+
+  const tenantCacheKey =
+    !requireTenant && tenant ? (sessionKey ? `${sessionKey}|${tenant}` : `anon|${tenant}`) : null;
+  if (!access && tenantCacheKey) {
+    const tenantCached = tokenCache.get(tenantCacheKey);
+    if (isValid(tenantCached)) {
+      access = tenantCached;
+      tokenCache.set(cacheKey, tenantCached);
+      debugProxy('reused tenant access token for neutral scope', {
+        tenant,
+        cacheScope,
+      });
+    } else if (tenantCached) {
+      tokenCache.delete(tenantCacheKey);
+    }
+  }
+
+  if (!access) {
+    access = await getOrRefreshAccess(
+      cacheKey,
+      tenantParam,
+      jar,
+      sessionKey ?? null,
+      refreshCookie ?? null,
+      responseCookies,
+    );
+  }
+  // When neutral access is temporarily unavailable (e.g., refresh propagation lag), reuse
+  // the tenant-scoped token as a fallback so client diagnostics and profile fetches stay alive.
+  if (!access && !requireTenant && tenant) {
+    const tenantCacheKey = sessionKey ? `${sessionKey}|${tenant}` : `anon|${tenant}`;
+    const tenantAccess = await getOrRefreshAccess(
+      tenantCacheKey,
+      tenant,
+      jar,
+      sessionKey ?? null,
+      refreshCookie ?? null,
+      responseCookies,
+    );
+    if (tenantAccess) {
+      debugProxy('using tenant access as neutral fallback', { tenant, cacheScope });
+      tokenCache.set(cacheKey, tenantAccess);
+      access = tenantAccess;
+    }
+  }
   if (!access) {
     debugProxy('failed to obtain access token', { tenant: tenantParam ?? 'neutral' });
+    recordFailure('access_unavailable');
     return null;
   }
 
+  if (diagnostics) diagnostics.reason = undefined;
   return {
     headers: {
       Authorization: `Bearer ${access.token}`,
