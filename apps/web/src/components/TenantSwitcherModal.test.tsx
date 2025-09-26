@@ -1,25 +1,20 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  makeMembership,
+  makeTenantSession,
+  type SessionWithClaims,
+} from '../../test/fixtures/authSession';
+import { authMockState } from '../../test/fixtures/mswAuthHandlers';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-type Membership = { tenantSlug: string; role: string };
-type MockSession = {
-  data: { tenant: string; memberships: Membership[] };
-  update: (u: { tenant: string }) => Promise<void>;
+let mockSession: {
+  data: SessionWithClaims;
+  update: (payload: { tenant: string }) => Promise<void>;
 };
 
-let mockSession: MockSession = {
-  data: {
-    tenant: 't1',
-    memberships: [
-      { tenantSlug: 't1', role: 'Admin' },
-      { tenantSlug: 't2', role: 'Creator' },
-    ],
-  },
-  update: async () => {},
-};
 vi.mock('next-auth/react', () => ({ useSession: () => mockSession }));
 
 import { TenantSwitcherModal } from './TenantSwitcherModal';
@@ -27,16 +22,15 @@ import { TenantSwitcherModal } from './TenantSwitcherModal';
 describe('TenantSwitcherModal', () => {
   beforeEach(() => {
     mockSession = {
-      data: {
+      data: makeTenantSession({
         tenant: 't1',
         memberships: [
-          { tenantSlug: 't1', role: 'Admin' },
-          { tenantSlug: 't2', role: 'Creator' },
+          makeMembership({ tenantSlug: 't1', roles: ['TenantAdmin'] }),
+          makeMembership({ tenantSlug: 't2', roles: ['Creator'] }),
         ],
-      },
+      }),
       update: async () => {},
     };
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) } as Response);
   });
 
   it('closes on backdrop click', () => {
@@ -55,10 +49,10 @@ describe('TenantSwitcherModal', () => {
     render(<TenantSwitcherModal open onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /t2/i }));
     await waitFor(() => expect(update).toHaveBeenCalledWith({ tenant: 't2' }));
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/tenant/select',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    await waitFor(() => expect(authMockState.tenantSelect.calls).toHaveLength(1));
+    const request = authMockState.tenantSelect.calls[0];
+    expect(request.url).toContain('/api/tenant/select');
+    expect(request.body).toMatchObject({ tenant: 't2' });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
@@ -83,6 +77,7 @@ describe('TenantSwitcherModal', () => {
     const btn = screen.getByRole('button', { name: /t2/i });
     btn.click();
     await waitFor(() => expect(update).toHaveBeenCalled());
+    await waitFor(() => expect(authMockState.tenantSelect.calls).toHaveLength(1));
     expect(window.localStorage.getItem('last_selected_tenant')).toBe('t2');
   });
 

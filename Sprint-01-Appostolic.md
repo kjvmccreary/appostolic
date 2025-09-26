@@ -140,3 +140,4 @@
 - Avatar proxy cleanup + search param guards — ✅ DONE
 - 🚧 IN PROGRESS Tenant settings: reset client state after tenant switch (2025-09-26)
   - ✅ Phase A — UI forms reset when new tenant initial props arrive (TenantSettingsForm, TenantGuardrailsForm, TenantBioEditor, TenantLogoUpload)
+  - ✅ Phase B — Proxy header + admin page prefer `selected_tenant` cookie and log mismatches to ensure newly selected tenants render immediately

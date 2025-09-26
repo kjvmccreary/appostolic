@@ -569,6 +569,26 @@ Acceptance:
 - Tag `jwt-auth-rollout-complete` annotated with summary.
 - Confirm optional nginx story either merged or explicitly deferred with rationale in StoryLog.
 
+### Story 12: Frontend Auth Fixture Alignment — 🚧 IN PROGRESS (2025-09-25)
+
+Goal:
+
+Ensure the web test suite mirrors the production JWT + refresh rotation flow, preventing regressions where mocked sessions diverge from cookie-backed reality (e.g., tenant selection blank states).
+
+Acceptance (incremental):
+
+- [x] Inventory current frontend auth fixtures, mocks, and gaps (documented in `devInfo/jwtRefactor/audit.md`).
+- [x] Introduce shared session fixture module (`test/fixtures/authSession.ts`) and migrate session-dependent component tests to use it.
+- [x] Add MSW handlers for `/api/tenant/select` and `/api/auth/refresh`, refactoring tenant-switcher tests to rely on handlers instead of manual fetch spies.
+- [ ] Author integration tests for `buildProxyHeaders` covering cookie precedence, refresh rotation, and neutral vs tenant token caching.
+- [ ] Replace ad-hoc fetch mocks in tenant settings forms with MSW-backed flows asserting 401/403 handling.
+- [ ] Document the new fixture approach in a frontend auth testing guide and link it from this sprint plan.
+
+Notes:
+
+- Progress and open items tracked in `devInfo/jwtRefactor/audit.md`.
+- Aligns with Story 8 deliverables by ensuring the frontend refresh loop has realistic coverage before enabling cookie-only refresh in production.
+
 ## Risk & Mitigation
 
 | Risk                      | Impact                | Mitigation                                                |

@@ -26,7 +26,13 @@ export default async function TenantSettingsPage() {
     ).memberships || [];
 
   // Determine the effective tenant slug: prefer JWT claim; fall back to cookie; if either is a tenantId, resolve to slug.
-  const rawSel = tenantClaim || cookieTenant || '';
+  const rawSel = cookieTenant || tenantClaim || '';
+  if (tenantClaim && cookieTenant && tenantClaim !== cookieTenant) {
+    console.warn('[TenantSettingsPage] tenant mismatch between session and cookie', {
+      tenantClaim,
+      cookieTenant,
+    });
+  }
   const match = memberships.find((m) => m.tenantSlug === rawSel || m.tenantId === rawSel) || null;
   if (!match) redirect('/select-tenant');
   const effectiveSlug = match.tenantSlug;

@@ -16,15 +16,20 @@ vi.mock('./NavDrawer', () => ({
   ),
 }));
 vi.mock('./ProfileMenu', () => ({ ProfileMenu: () => <div data-testid="profile-menu" /> }));
-let mockSession: { data: unknown } = { data: null };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-vi.mock('next-auth/react', () => ({ useSession: () => mockSession }) as any);
-
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import * as nav from 'next/navigation';
 import { TopBar } from './TopBar';
+import {
+  makeMembership,
+  makeTenantSession,
+  type SessionWithClaims,
+} from '../../test/fixtures/authSession';
+
+let mockSession: { data: SessionWithClaims | null } = { data: null };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+vi.mock('next-auth/react', () => ({ useSession: () => mockSession }) as any);
 
 describe('TopBar', () => {
   beforeEach(() => {
@@ -32,7 +37,13 @@ describe('TopBar', () => {
   });
 
   it('marks the active nav with aria-current', () => {
-    mockSession = { data: { user: { email: 'u@example.com' }, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/shepherd/step1');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /shepherd/i })).toHaveAttribute('aria-current', 'page');
@@ -40,7 +51,13 @@ describe('TopBar', () => {
   });
 
   it('includes Agents in primary nav and marks it active on /studio/agents', () => {
-    mockSession = { data: { user: { email: 'u@example.com' }, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/studio/agents');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /agents/i })).toBeInTheDocument();
@@ -52,7 +69,13 @@ describe('TopBar', () => {
   });
 
   it('does not render TenantSwitcher in TopBar anymore (moved to Account menu)', () => {
-    mockSession = { data: { user: { email: 'u@example.com' }, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/studio/agents');
     render(<TopBar />);
     expect(screen.queryByTestId('tenant')).not.toBeInTheDocument();
@@ -65,7 +88,13 @@ describe('TopBar', () => {
   });
 
   it('renders Create Lesson when canCreate', () => {
-    mockSession = { data: { user: { email: 'u@example.com' }, canCreate: true, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     expect(screen.getByRole('link', { name: /create lesson/i })).toBeInTheDocument();
@@ -78,7 +107,13 @@ describe('TopBar', () => {
     expect(screen.queryByTestId('new-agent')).not.toBeInTheDocument();
 
     // Visible when canCreate
-    mockSession = { data: { user: { email: 'u@example.com' }, canCreate: true, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     expect(screen.getByTestId('new-agent')).toBeInTheDocument();
@@ -113,7 +148,13 @@ describe('TopBar', () => {
   });
 
   it('exposes accessible labels for nav and hamburger', () => {
-    mockSession = { data: { user: { email: 'u@example.com' }, tenant: 'acme' } };
+    mockSession = {
+      data: makeTenantSession({
+        email: 'u@example.com',
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     vi.spyOn(nav, 'usePathname').mockReturnValue('/');
     render(<TopBar />);
     // Hamburger button has clear aria-label

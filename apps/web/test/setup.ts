@@ -2,12 +2,15 @@ import '@testing-library/jest-dom/vitest';
 
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { setupServer } from 'msw/node';
+import { authHandlers, resetAuthMocks } from './fixtures/mswAuthHandlers';
 
-// You can add default handlers here or import from a central handlers file later
-export const server = setupServer();
+export const server = setupServer(...authHandlers);
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  resetAuthMocks();
+});
 afterAll(() => server.close());
 
 // Expose for tests without importing from outside src

@@ -1,11 +1,16 @@
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
-let mockSession: { data: unknown } = { data: null };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-vi.mock('next-auth/react', () => ({ useSession: () => mockSession }) as any);
-
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { AgentsTable, type AgentListItem } from './AgentsTable';
+import {
+  makeMembership,
+  makeTenantSession,
+  type SessionWithClaims,
+} from '../../../../test/fixtures/authSession';
+
+let mockSession: { data: SessionWithClaims | null } = { data: null };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+vi.mock('next-auth/react', () => ({ useSession: () => mockSession }) as any);
 
 describe('AgentsTable gating', () => {
   beforeEach(() => {
@@ -17,7 +22,12 @@ describe('AgentsTable gating', () => {
   });
 
   it('empty state shows New Agent when canCreate', () => {
-    mockSession = { data: { canCreate: true } };
+    mockSession = {
+      data: makeTenantSession({
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     render(<AgentsTable items={[]} />);
     expect(screen.getByRole('link', { name: /new agent/i })).toBeInTheDocument();
   });
@@ -41,7 +51,12 @@ describe('AgentsTable gating', () => {
   });
 
   it('row actions: edit visible and delete enabled when canCreate', () => {
-    mockSession = { data: { canCreate: true } };
+    mockSession = {
+      data: makeTenantSession({
+        tenant: 'acme',
+        memberships: [makeMembership({ tenantSlug: 'acme', roles: ['TenantAdmin'] })],
+      }),
+    };
     const items: AgentListItem[] = [
       {
         id: 'a1',

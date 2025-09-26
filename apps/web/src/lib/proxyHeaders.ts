@@ -445,7 +445,10 @@ export async function buildProxyHeaders(
   const responseCookies: ProxyCookie[] = [];
   const sessionTenant = getSessionTenant(session as Session);
   const cookieTenant = jar.get(TENANT_COOKIE)?.value;
-  const tenant = sessionTenant || cookieTenant || null;
+  const tenant = cookieTenant || sessionTenant || null;
+  if (sessionTenant && cookieTenant && sessionTenant !== cookieTenant) {
+    debugProxy('session/cookie tenant mismatch', { sessionTenant, cookieTenant });
+  }
   if (requireTenant && !tenant) {
     debugProxy('tenant required but missing', { sessionTenant, cookieTenant });
     recordFailure('missing_tenant');

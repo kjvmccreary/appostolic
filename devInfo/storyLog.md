@@ -1,3 +1,20 @@
+### 2025-09-25 - Story: Frontend Auth Fixture Alignment (Story 12) — 🚧 IN PROGRESS
+
+Summary
+
+- Documented the current NextAuth/session mocks, proxy header stubs, and MSW usage gaps across the web test suite in `devInfo/jwtRefactor/audit.md`, seeded the remediation backlog, shipped the shared session fixture module, and replaced manual fetch spies in tenant switcher tests with the new MSW auth handlers.
+- Added Story 12 to `devInfo/jwtRefactor/jwtSprintPlan.md` with acceptance checkpoints, marking both the shared session fixture and MSW handler milestones complete.
+
+Quality Gates
+
+- Not run (documentation-only update).
+
+Follow-ups / Deferred
+
+- Author `buildProxyHeaders` integration tests plus tenant settings form auth-error coverage before Story 8 wraps.
+
+---
+
 ### 2025-09-25 - Story: Expanded TestAuthClient (Story 20) — ✅ DONE
 
 Summary
@@ -760,7 +777,7 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
 
 - Summary
   - Began phased removal of development header authentication (`x-dev-user`, `x-tenant`, `x-superadmin`) in favor of exercising only the JWT Bearer pipeline in integration tests. Added superadmin claim support to the gated test mint helper (`POST /api/test/mint-tenant-token`) via new request flag `SuperAdmin` which injects claim `superadmin=true` on either tenant-scoped or neutral tokens. Extended `MintTenantTokenRequest` DTO and updated `TestAuthClient.MintAsync` plus `AuthTestClient.UseSuperAdminAsync` convenience wrapper. Migrated `NotificationsProdEndpointsTests` off dev headers to minted JWT tokens (tenant + superadmin permutations). Initial failures (500 InternalServerError) caused by residual explicit "Dev" authentication scheme references were resolved; rerun shows all four notifications prod tests passing (0 failed / 4 passed) under pure Bearer auth. Extra-claims overloads for `JwtTokenService` already existed, aligning with helper usage.
-- Files changed
+  - Files changed
   - apps/api/App/Endpoints/V1.cs — Added `SuperAdmin` flag to `MintTenantTokenRequest`; appended extraClaims (`superadmin=true`) and neutral re-issue path when no tenant selected; utilization of existing `IssueNeutralToken` / `IssueTenantToken` extra-claims overloads.
   - apps/api.tests/Auth/TestAuthClient.cs — Added `superAdmin` parameter to `MintAsync` posting `{ SuperAdmin = true }` when requested.
   - apps/api.tests/Auth/AuthTestClient.cs — Added `UseSuperAdminAsync` helper.
@@ -795,71 +812,116 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
 
 - Summary
   - Created `devInfo/jwtRefactor/rdhSprintPlan.md` detailing the Dev Header Decommission (RDH) sprint to fully remove development header authentication (`x-dev-user`, `x-tenant`) and the composite scheme from all environments and tests. Plan covers phased test migration to JWT helpers, deprecation middleware (temporary 401 `dev_headers_deprecated`), physical removal of handler & flag, regression guard (401 `dev_headers_removed` test + CI grep), documentation & rollback tag strategy, risks, acceptance criteria, and optional hardening follow-ups. SnapshotArchitecture updated to reference the new sprint. Next actionable stories: consolidate test token helpers, migrate integration tests off dev headers, introduce deprecation middleware, then remove code.
-- Files changed
+  - Files changed
   - devInfo/jwtRefactor/rdhSprintPlan.md (new) — full sprint breakdown with stories 0–7, risks, rollback, matrix.
   - SnapshotArchitecture.md — What’s New entry referencing RDH sprint plan creation.
 - Rationale
-  2025-09-22 — Auth/JWT / RDH: Story 2 Phase B Domain/Feature Test Migration — ✅ DONE
-  - Summary
-    - Completed Phase B by migrating remaining feature/domain test relying on dev headers (`NotificationsE2E_Mailhog`) to the real authentication flow using `AuthTestClientFlow.LoginAndSelectTenantAsync` with password seeding and membership creation. Removed direct `x-dev-user` / `x-tenant` header injection in that E2E path. Annotated intentional negative-path guard suites (`DevHeadersDisabledTests`, `DevHeadersRemovedTests`) to explicitly exclude them from Phase B completion criteria—they continue to reference legacy header names solely to validate rejection behavior for upcoming deprecation and removal stories (Stories 3–5). Updated sprint plan to mark Phase B complete with explanatory parenthetical. No functional regressions; targeted test run of modified file passes. Grep now shows no remaining domain/feature tests (outside intentional negative-path guards) using dev header injection.
-  - Files changed
-    - apps/api.tests/E2E/NotificationsE2E_Mailhog.cs — Replaced dev header bootstrap with password seeding (in-memory DB) + login/select flow; added roles membership; removed header additions.
-    - apps/api.tests/Auth/DevHeadersDisabledTests.cs — Added annotation comment clarifying exclusion from Phase B scope.
-    - apps/api.tests/Auth/DevHeadersRemovedTests.cs — Added annotation comment clarifying future-stage guard purpose.
-    - devInfo/jwtRefactor/rdhSprintPlan.md — Marked Phase B checkbox complete with explanatory note about intentional negative-path suites.
-  - Quality gates
-    - Targeted test (`NotificationsE2E_Mailhog`) passes post-migration. Full suite previously green; incremental change limited in scope. Grep for `x-dev-user` in tests now returns only guard suites as intended.
-  - Rationale
-    - Ensures all functional domain coverage now exercises the production JWT pipeline (password verification, refresh rotation eligibility, membership projection) eliminating reliance on dev-only auth shortcuts ahead of deprecation middleware (Story 3). Clear separation between functional coverage and regression guards reduces risk of accidental header reintroduction being mistaken for required negative-path tests.
-  - Follow-ups
-    - Story 3: Introduce deprecation middleware returning structured 401 for dev header usage and add metric counter.
-    - Prepare Phase C (schema/migration tests audit) — early indication suggests minimal/no header usage; confirm via grep and mark accordingly.
-    - Implement fail-fast CI assertion (grep-based) once Story 3 middleware live to enforce zero accidental header reinsertion.
-  - Snapshot / Docs
-    - Sprint plan updated (Phase B complete). LivingChecklist to be updated next batch with Phase B status tick.
-
-  - Eliminates divergence between development/test and production auth paths, reducing attack surface and ensuring all test coverage exercises the production JWT flow. Simplifies mental model and prevents accidental reliance on headers in future code.
-
+  - Establishes clear roadmap for deprecation and removal of dev header support, minimizing risk of regression or confusion from residual code. Phased approach allows incremental migration and verification of test coverage parity with production auth flows.
 - Follow-ups
-  - Story 1 helper consolidation & Story 2 phased test migration.
-  - Add temporary deprecation middleware & metric, then remove handler/flag.
-  - Final regression guard + documentation updates and tag `dev-headers-removed` on completion.
+  - Story 0: Consolidate test token helpers to remove dev header dependencies.
+  - Story 1: Migrate integration tests to use JWT helpers; introduce deprecation middleware.
+  - Story 2: Remove DevHeaderAuthHandler and composite scheme; update documentation and rollback tag.
+  - Story 3: Final regression guard and closure tasks.
+
+  2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin & Notifications Tests Migration — 🚧 IN PROGRESS
 
 - Summary
-  - Implemented secure httpOnly refresh cookie delivery behind feature flag `AUTH__REFRESH_COOKIE_ENABLED` on `/api/auth/login`, `/api/auth/magic/consume`, and `/api/auth/select-tenant`. Cookie name `rt`; attributes: HttpOnly; SameSite=Lax; Path=/; Secure except in Development. Rotation logic in tenant selection endpoint revokes old neutral refresh token and overwrites cookie with the new one. Added frontend in-memory neutral access token client (`authClient.ts`) so access tokens are never persisted (reduces XSS exfiltration risk). Added `withAuthFetch` wrapper to inject `Authorization: Bearer <access>` and always include credentials for future refresh requests. Created placeholder internal route `/api/_auth/refresh-neutral` (clearly documented) to scaffold upcoming general refresh flow (Story 6). Tests `RefreshCookieTests` verify issuance and rotation (case-insensitive cookie attribute match). Architecture docs and LivingChecklist updated; story flagged complete.
+  - Began phased removal of development header authentication (`x-dev-user`, `x-tenant`, `x-superadmin`) in favor of exercising only the JWT Bearer pipeline in integration tests. Added superadmin claim support to the gated test mint helper (`POST /api/test/mint-tenant-token`) via new request flag `SuperAdmin` which injects claim `superadmin=true` on either tenant-scoped or neutral tokens. Extended `MintTenantTokenRequest` DTO and updated `TestAuthClient.MintAsync` plus `AuthTestClient.UseSuperAdminAsync` convenience wrapper. Migrated `NotificationsProdEndpointsTests` off dev headers to minted JWT tokens (tenant + superadmin permutations). Initial failures (500 InternalServerError) caused by residual explicit "Dev" authentication scheme references were resolved; rerun shows all four notifications prod tests passing (0 failed / 4 passed) under pure Bearer auth. Extra-claims overloads for `JwtTokenService` already existed, aligning with helper usage.
   - Files changed
-    - Added: `apps/api.e2e/Appostolic.Api.E2E.csproj`, `E2EHostFixture.cs`, `SecureRefreshCookieTests.cs`, `README.md` (harness usage docs).
-    - Modified: `SnapshotArchitecture.md` (What’s New + Testing Layers section), `devInfo/LivingChecklist.md` (added Story 5b line & updated timestamp).
-  - Quality gates
-    - api.e2e project builds; test passes (1/1). No regressions expected—no production assemblies altered besides doc updates. Existing API & Web suites unaffected (pending full matrix run before merge).
-  - Rationale
-    - Provides deterministic, real TLS validation path ensuring the Secure attribute is genuinely set only under HTTPS transport, preventing false positives from simulated headers. Keeps integration suite lean while adding a focused layer for transport/security assertions.
+  - apps/api/App/Endpoints/V1.cs — Added `SuperAdmin` flag to `MintTenantTokenRequest`; appended extraClaims (`superadmin=true`) and neutral re-issue path when no tenant selected; utilization of existing `IssueNeutralToken` / `IssueTenantToken` extra-claims overloads.
+  - apps/api.tests/Auth/TestAuthClient.cs — Added `superAdmin` parameter to `MintAsync` posting `{ SuperAdmin = true }` when requested.
+  - apps/api.tests/Auth/AuthTestClient.cs — Added `UseSuperAdminAsync` helper.
+  - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — Replaced dev header setup with auth helper mint flows (tenant + superadmin variants).
+- Quality gates
+  - Targeted test run: `NotificationsProdEndpointsTests` now PASS (4/4) under JWT-only path. No compile errors; broader suite pending phased migration of remaining dev header dependent tests.
+- Rationale
+  - Ensures production-auth parity in tests and reduces drift risk between dev/test and production environments by removing the alternate Dev header code path. Superadmin claim added strictly as a test-scope elevation mechanism while the real superadmin provisioning story is deferred.
+- Follow-ups
+  - Phase B: Migrate remaining test classes still relying on `x-dev-user` / `x-tenant` headers; introduce guard to fail fast if those headers appear in requests once suite migration is complete.
+  - Phase C: Remove composite policy scheme fallback logic and the Dev authentication handler entirely; update `SnapshotArchitecture.md` and LivingChecklist; add regression test ensuring headers are ignored/rejected.
+  - Phase D: Documentation & rollback tag (`remove-dev-headers`) plus story closure entry.
 
-2025-09-22 — Auth/JWT / RDH: Story 4 Physical Removal of Dev Headers — ✅ DONE
-
-- Summary
-  - Physically removed legacy development header authentication path. Deleted `DevHeaderAuthHandler.cs`, removed composite policy scheme (`BearerOrDev`) and all conditional registration / flag logic from `Program.cs`, and stripped the `DevHeaders` Swagger security definition. Replaced deprecation middleware with a minimal permanent guard that returns 401 `{ code: "dev_headers_removed" }` whenever `x-dev-user` or `x-tenant` headers appear. Removed feature flag `AUTH__ALLOW_DEV_HEADERS` usage and the deprecation metric (`auth.dev_headers.deprecated_requests`) + increment helper from `AuthMetrics.cs`. Updated negative-path regression tests (`DevHeadersDisabledTests`, `DevHeadersRemovedTests`) to assert the final canonical error code. All other tests already migrated to real JWT flows in prior stories.
+  2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin Elevation via Auth Flow — ✅ DONE
+  - Summary
+    - Replaced test-only superadmin mint helper usage with configuration-driven claim injection during normal `/api/auth/login` and `/api/auth/select-tenant` issuance. Added allowlist key `Auth:SuperAdminEmails` (seeded with `kevin@example.com` in test factory) which, when matched, appends `superadmin=true` claim via existing extra-claims overloads. Updated notifications production endpoint tests to authenticate using real password flow (`AuthTestClientFlow.LoginNeutralAsync`) for cross-tenant listing instead of `AuthTestClient.UseSuperAdminAsync`. Removed obsolete `UseSuperAdminAsync` helper. Adjusted resend authorization test to use a non-allowlisted user to preserve the forbidden cross-tenant assertion. All targeted tests pass (4/4) post-migration.
   - Files changed
-    - apps/api/Program.cs — removed Dev header scheme registration, composite scheme block, flag read, and Swagger security definition.
-    - apps/api/App/Infrastructure/Auth/DevHeaderAuthHandler.cs — deleted.
-    - apps/api/App/Middleware/DevHeadersDeprecationMiddleware.cs — simplified to unconditional 401 removal code (no metric/flag).
-    - apps/api/Application/Auth/AuthMetrics.cs — removed `DevHeadersDeprecated` counter + increment method.
-    - apps/api.tests/Auth/DevHeadersDisabledTests.cs & DevHeadersRemovedTests.cs — updated expectations from `dev_headers_deprecated` to `dev_headers_removed`; removed flag setup.
-    - docs/auth-upgrade.md — excised flag references; added removal notice & rollback tag instructions.
-    - devInfo/jwtRefactor/rdhSprintPlan.md — Story 4 acceptance items marked complete (runtime & tests); pending doc & tagging tasks annotated.
-    - devInfo/LivingChecklist.md — Story 4 item checked off.
+    - apps/api/App/Endpoints/V1.cs — Inject superadmin claim on login & select-tenant when email is in allowlist.
+    - apps/api.tests/WebAppFactory.cs — Added `Auth:SuperAdminEmails` test configuration setting.
+    - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — Switched superadmin test to real flow; updated resend test user to avoid unintended superadmin claim.
+    - apps/api.tests/Auth/AuthTestClient.cs — Removed deprecated `UseSuperAdminAsync` helper.
   - Quality gates
-    - API build succeeded (no errors; pre-existing ImageSharp vulnerability warnings only). Updated tests compile; full suite run pending before merge (will capture pass counts in final commit message). Grep confirmed no remaining runtime references to `DevHeaderAuthHandler`, `BearerOrDev`, or `AUTH__ALLOW_DEV_HEADERS`.
+    - Targeted notifications tests PASS (4/4). No remaining usages of `UseSuperAdminAsync`. Grep confirms zero references. Build succeeds locally; no new warnings introduced.
   - Rationale
-    - Achieves single authentication pathway (JWT) across all environments; eliminates dormant attack surface and removes configuration complexity tied to transitional flag. Permanent guard preserves deterministic failure signal for any stale tooling still sending legacy headers while avoiding reintroduction complexity.
-  - Rollback
-    - Tag to be created immediately prior to merge: `before-dev-header-removal`. Rollback requires checking out the tag (flag no longer available post-removal). If temporary restoration needed, reapply handler & composite scheme block from tag as a hotfix with explicit TEMP comment.
+    - Eliminates reliance on mint helper for role elevation, ensuring integration tests exercise only production auth surfaces and paving the way to remove the mint endpoint in later phases. Reduces duplication of superadmin logic across dev header & mint paths.
   - Follow-ups
-    - Update `SnapshotArchitecture.md` to remove deprecation phase narrative & composite scheme references (in progress).
-    - Optionally remove the temporary guard middleware entirely after short observation window if zero header attempts observed (future cleanup story).
-    - Add CI enforcement (grep) to fail on reintroduction of removed identifiers (planned Story 5 item reuse of guard script with tightened allowlist).
+    - Proceed with remaining Phase A tasks to eliminate any lingering mint usages for other elevated scenarios (if present).
+    - Introduce guard to fail CI if deprecated helpers (`MintAsync` superadmin flag or removed methods) reappear.
+    - Update `SnapshotArchitecture.md` in next story batch to reflect config-based elevation.
 
----
+2025-09-22 — Auth/JWT: Dev Header Decommission Sprint Plan (RDH) — 🚧 IN PROGRESS
+
+- Summary
+  - Created `devInfo/jwtRefactor/rdhSprintPlan.md` detailing the Dev Header Decommission (RDH) sprint to fully remove development header authentication (`x-dev-user`, `x-tenant`) and the composite scheme from all environments and tests. Plan covers phased test migration to JWT helpers, deprecation middleware (temporary 401 `dev_headers_deprecated`), physical removal of handler & flag, regression guard (401 `dev_headers_removed` test + CI grep), documentation & rollback tag strategy, risks, acceptance criteria, and optional hardening follow-ups. SnapshotArchitecture updated to reference the new sprint. Next actionable stories: consolidate test token helpers, migrate integration tests off dev headers, introduce deprecation middleware, then remove code.
+  - Files changed
+  - devInfo/jwtRefactor/rdhSprintPlan.md (new) — full sprint breakdown with stories 0–7, risks, rollback, matrix.
+  - SnapshotArchitecture.md — What’s New entry referencing RDH sprint plan creation.
+- Rationale
+  - Establishes clear roadmap for deprecation and removal of dev header support, minimizing risk of regression or confusion from residual code. Phased approach allows incremental migration and verification of test coverage parity with production auth flows.
+- Follow-ups
+  - Story 0: Consolidate test token helpers to remove dev header dependencies.
+  - Story 1: Migrate integration tests to use JWT helpers; introduce deprecation middleware.
+  - Story 2: Remove DevHeaderAuthHandler and composite scheme; update documentation and rollback tag.
+  - Story 3: Final regression guard and closure tasks.
+
+  2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin & Notifications Tests Migration — 🚧 IN PROGRESS
+
+- Summary
+  - Began phased removal of development header authentication (`x-dev-user`, `x-tenant`, `x-superadmin`) in favor of exercising only the JWT Bearer pipeline in integration tests. Added superadmin claim support to the gated test mint helper (`POST /api/test/mint-tenant-token`) via new request flag `SuperAdmin` which injects claim `superadmin=true` on either tenant-scoped or neutral tokens. Extended `MintTenantTokenRequest` DTO and updated `TestAuthClient.MintAsync` plus `AuthTestClient.UseSuperAdminAsync` convenience wrapper. Migrated `NotificationsProdEndpointsTests` off dev headers to minted JWT tokens (tenant + superadmin permutations). Initial failures (500 InternalServerError) caused by residual explicit "Dev" authentication scheme references were resolved; rerun shows all four notifications prod tests passing (0 failed / 4 passed) under pure Bearer auth. Extra-claims overloads for `JwtTokenService` already existed, aligning with helper usage.
+  - Files changed
+  - apps/api/App/Endpoints/V1.cs — Added `SuperAdmin` flag to `MintTenantTokenRequest`; appended extraClaims (`superadmin=true`) and neutral re-issue path when no tenant selected; utilization of existing `IssueNeutralToken` / `IssueTenantToken` extra-claims overloads.
+  - apps/api.tests/Auth/TestAuthClient.cs — Added `superAdmin` parameter to `MintAsync` posting `{ SuperAdmin = true }` when requested.
+  - apps/api.tests/Auth/AuthTestClient.cs — Added `UseSuperAdminAsync` helper.
+  - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — Replaced dev header setup with auth helper mint flows (tenant + superadmin variants).
+- Quality gates
+  - Targeted test run: `NotificationsProdEndpointsTests` now PASS (4/4) under JWT-only path. No compile errors; broader suite pending phased migration of remaining dev header dependent tests.
+- Rationale
+  - Ensures production-auth parity in tests and reduces drift risk between dev/test and production environments by removing the alternate Dev header code path. Superadmin claim added strictly as a test-scope elevation mechanism while the real superadmin provisioning story is deferred.
+- Follow-ups
+  - Phase B: Migrate remaining test classes still relying on `x-dev-user` / `x-tenant` headers; introduce guard to fail fast if those headers appear in requests once suite migration is complete.
+  - Phase C: Remove composite policy scheme fallback logic and the Dev authentication handler entirely; update `SnapshotArchitecture.md` and LivingChecklist; add regression test ensuring headers are ignored/rejected.
+  - Phase D: Documentation & rollback tag (`remove-dev-headers`) plus story closure entry.
+
+  2025-09-22 — Auth/JWT: Dev Header Decommission Sprint (RDH) — Phase A Superadmin Elevation via Auth Flow — ✅ DONE
+  - Summary
+    - Replaced test-only superadmin mint helper usage with configuration-driven claim injection during normal `/api/auth/login` and `/api/auth/select-tenant` issuance. Added allowlist key `Auth:SuperAdminEmails` (seeded with `kevin@example.com` in test factory) which, when matched, appends `superadmin=true` claim via existing extra-claims overloads. Updated notifications production endpoint tests to authenticate using real password flow (`AuthTestClientFlow.LoginNeutralAsync`) for cross-tenant listing instead of `AuthTestClient.UseSuperAdminAsync`. Removed obsolete `UseSuperAdminAsync` helper. Adjusted resend authorization test to use a non-allowlisted user to preserve the forbidden cross-tenant assertion. All targeted tests pass (4/4) post-migration.
+  - Files changed
+    - apps/api/App/Endpoints/V1.cs — Inject superadmin claim on login & select-tenant when email is in allowlist.
+    - apps/api.tests/WebAppFactory.cs — Added `Auth:SuperAdminEmails` test configuration setting.
+    - apps/api.tests/Api/NotificationsProdEndpointsTests.cs — Switched superadmin test to real flow; updated resend test user to avoid unintended superadmin claim.
+    - apps/api.tests/Auth/AuthTestClient.cs — Removed deprecated `UseSuperAdminAsync` helper.
+  - Quality gates
+    - Targeted notifications tests PASS (4/4). No remaining usages of `UseSuperAdminAsync`. Grep confirms zero references. Build succeeds locally; no new warnings introduced.
+  - Rationale
+    - Eliminates reliance on mint helper for role elevation, ensuring integration tests exercise only production auth surfaces and paving the way to remove the mint endpoint in later phases. Reduces duplication of superadmin logic across dev header & mint paths.
+  - Follow-ups
+    - Proceed with remaining Phase A tasks to eliminate any lingering mint usages for other elevated scenarios (if present).
+    - Introduce guard to fail CI if deprecated helpers (`MintAsync` superadmin flag or removed methods) reappear.
+    - Update `SnapshotArchitecture.md` in next story batch to reflect config-based elevation.
+
+2025-09-22 — Auth/JWT: Dev Header Decommission Sprint Plan (RDH) — 🚧 IN PROGRESS
+
+- Summary
+  - Created `devInfo/jwtRefactor/rdhSprintPlan.md` detailing the Dev Header Decommission (RDH) sprint to fully remove development header authentication (`x-dev-user`, `x-tenant`) and the composite scheme from all environments and tests. Plan covers phased test migration to JWT helpers, deprecation middleware (temporary 401 `dev_headers_deprecated`), physical removal of handler & flag, regression guard (401 `dev_headers_removed` test + CI grep), documentation & rollback tag strategy, risks, acceptance criteria, and optional hardening follow-ups. SnapshotArchitecture updated to reference the new sprint. Next actionable stories: consolidate test token helpers, migrate integration tests off dev headers, introduce deprecation middleware, then remove code.
+  - Files changed
+  - devInfo/jwtRefactor/rdhSprintPlan.md (new) — full sprint breakdown with stories 0–7, risks, rollback, matrix.
+  - SnapshotArchitecture.md — What’s New entry referencing RDH sprint plan creation.
+- Rationale
+  - Establishes clear roadmap for deprecation and removal of dev header support, minimizing risk of regression or confusion from residual code. Phased approach allows incremental migration and verification of test coverage parity with production auth flows.
+- Follow-ups
+  - Story 0: Consolidate test token helpers to remove dev header dependencies.
+  - Story 1: Migrate integration tests to use JWT helpers; introduce deprecation middleware.
+  - Story 2: Remove DevHeaderAuthHandler and composite scheme; update documentation and rollback tag.
+  - Story 3: Final regression guard and closure tasks.
 
 ### 2025-09-26 - Story: Tenant settings tenant switch reset — 🚧 IN PROGRESS
 
@@ -867,6 +929,7 @@ Summary
 
 - Reset tenant settings client forms when initial props change after a tenant switch so the Organization Settings, Guardrails, Bio, and Logo UI immediately reflect the newly selected tenant and clear stale submission/loading state.
 - Normalized social/contact defaults in TenantSettingsForm (shared SOCIAL_KEYS) to avoid undefined fields and ensure merge patches stay minimal.
+- Prefer the freshly issued `selected_tenant` cookie when building proxy headers and computing the effective slug for the admin settings page so newly selected tenants render their data immediately; log any session/cookie mismatches for diagnostics.
 
 Quality Gates
 

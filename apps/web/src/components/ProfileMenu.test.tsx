@@ -2,13 +2,19 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeTenantSession } from '../../test/fixtures/authSession';
 
 vi.mock('next-auth/react', async () => {
   const actual = (await vi.importActual('next-auth/react')) as Record<string, unknown>;
   return {
     ...actual,
     signOut: vi.fn(),
-    useSession: () => ({ data: { isSuperAdmin: true } }),
+    useSession: () => ({
+      data: makeTenantSession({
+        extras: { isSuperAdmin: true },
+        memberships: [],
+      }),
+    }),
   };
 });
 
