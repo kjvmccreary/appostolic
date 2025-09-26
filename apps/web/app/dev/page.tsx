@@ -2,35 +2,59 @@
 
 import React from 'react';
 import { createClient, MeResponse, TenantSummary } from '@appostolic/sdk';
+import {
+  forceRefresh,
+  startAutoRefresh,
+  stopAutoRefresh,
+  withAuthFetch,
+} from '../../src/lib/authClient';
 
 export default function DevPage() {
   const [me, setMe] = React.useState<MeResponse | null>(null);
   const [tenants, setTenants] = React.useState<TenantSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
-    const devUser = process.env.NEXT_PUBLIC_DEV_USER || '';
-    const devTenant = process.env.NEXT_PUBLIC_DEV_TENANT || '';
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE ?? '';
+  const client = React.useMemo(() => createClient(baseUrl, withAuthFetch), [baseUrl]);
 
-    const client = createClient(baseUrl);
-    const headers = {
-      'x-dev-user': devUser,
-      'x-tenant': devTenant,
-    } as Record<string, string>;
+  React.useEffect(() => {
+    let active = true;
+
+    if (!baseUrl) {
+      setError('Missing NEXT_PUBLIC_API_BASE. Configure the API base URL to enable dev tools.');
+      setMe(null);
+      setTenants(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    setError(null);
+    setMe(null);
+    setTenants(null);
+    startAutoRefresh();
 
     (async () => {
       try {
-        const meRes = await client.me({ headers });
+        await forceRefresh().catch(() => null);
+        const meRes = await client.me();
+        if (!active) return;
         setMe(meRes);
-        const tenantsRes = await client.tenants({ headers });
+        const tenantsRes = await client.tenants();
+        if (!active) return;
         setTenants(tenantsRes);
       } catch (e) {
+        if (!active) return;
         const msg = e instanceof Error ? e.message : 'Failed to fetch';
         setError(msg);
       }
     })();
-  }, []);
+
+    return () => {
+      active = false;
+      stopAutoRefresh();
+    };
+  }, [baseUrl, client]);
 
   return (
     <main className="p-24">

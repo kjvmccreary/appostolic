@@ -35,8 +35,7 @@ describe('/api-proxy/agents', () => {
 
   it('returns 200 when headers present (mocks fetch)', async () => {
     const headers = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 'kevin-personal',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } as const;
     const ph = await importProxyHeaders();
@@ -63,8 +62,7 @@ describe('/api-proxy/agents', () => {
   it('POST returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);

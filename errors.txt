@@ -1,11 +1,115 @@
-main-app.js?v=1758249078484:1836 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
-hot-reloader-client.tsx:297 [Fast Refresh] rebuilding
-hot-reloader-client.tsx:74 [Fast Refresh] done in 217ms
-roles.ts:32 [roles][trace] input-membership {tenantId: 'fbf9578f-f1f7-4a7b-9ff1-f316dff8a4ff', tenantSlug: 'kevin-personal-3', role: 'Viewer', rolesType: 'undefined', rolesValue: undefined}
-roles.ts:32 [roles][trace] legacy-fallback-viewer
-roles.ts:32 [roles][trace] input-membership {tenantId: 'fbf9578f-f1f7-4a7b-9ff1-f316dff8a4ff', tenantSlug: 'kevin-personal-3', role: 'Viewer', rolesType: 'undefined', rolesValue: undefined}
-roles.ts:32 [roles][trace] legacy-fallback-viewer
-roles.ts:32 [roles][trace] input-membership {tenantId: 'fbf9578f-f1f7-4a7b-9ff1-f316dff8a4ff', tenantSlug: 'kevin-personal-3', role: 'Viewer', rolesType: 'undefined', rolesValue: undefined}
-roles.ts:32 [roles][trace] legacy-fallback-viewer
-roles.ts:32 [roles][trace] input-membership {tenantId: 'fbf9578f-f1f7-4a7b-9ff1-f316dff8a4ff', tenantSlug: 'kevin-personal-3', role: 'Viewer', rolesType: 'undefined', rolesValue: undefined}
-roles.ts:32 [roles][trace] legacy-fallback-viewer
+GET
+http://localhost:3000/favicon.ico
+[HTTP/1.1 404 Not Found 0ms]
+
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools react-dom.development.js:38560:17
+XHRGET
+http://localhost:3000/api-proxy/users/me
+[HTTP/1.1 401 Unauthorized 17ms]
+
+XHRGET
+http://localhost:3000/api-proxy/users/me
+[HTTP/1.1 401 Unauthorized 18ms]
+
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+HandleRedirect@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:26:45
+RedirectErrorBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:74:9
+RedirectBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:82:24
+NotFoundBoundary@webpack-internal://…
+app-index.js:33:22
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+HandleRedirect@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:26:45
+RedirectErrorBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:74:9
+RedirectBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:82:24
+NotFoundBoundary@webpack-internal://…
+app-index.js:33:22
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+HandleRedirect@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:26:45
+RedirectErrorBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:74:9
+RedirectBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/redirect-boundary.js:82:24
+NotFoundBoundary@webpack-internal://…
+app-index.js:33:22
+Too many calls to Location or History APIs within a short timeframe. main-app.js:439:24
+Warning: useInsertionEffect must not schedule updates.
+HistoryUpdater@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:87:36
+Router@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:207:123
+ErrorBoundaryHandler@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/error-boundary.js:113:9
+ErrorBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/error-boundary.js:160:67
+AppRouter@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:585:47
+ServerRoot@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/app-index.js:112:27
+Root@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/app-index.js:117:24 app-index.js:33:22
+Uncaught DOMException: The operation is insecure.
+    replaceState webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:439
+    HistoryUpdater webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:105
+    commitHookEffectListMount React
+app-router.js:439:24
+The above error occurred in the <HistoryUpdater> component:
+
+HistoryUpdater@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:87:36
+Router@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:207:123
+ErrorBoundaryHandler@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/error-boundary.js:113:9
+ErrorBoundary@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/error-boundary.js:160:67
+AppRouter@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/components/app-router.js:585:47
+ServerRoot@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/app-index.js:112:27
+Root@webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@14.2.32_@babel+core@7.28.4_@playwright+test@1.55.0_react-dom@18.2.0_react@18.2.0__react@18.2.0/node_modules/next/dist/client/app-index.js:117:24
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundaryHandler. app-index.js:33:22
+    error app-index.tsx:25
+    error hydration-error-info.ts:72
+    logCapturedError react-dom.development.js:15295
+    callback react-dom.development.js:15344
+    callCallback react-dom.development.js:8696
+    commitCallbacks react-dom.development.js:8743
+    commitClassCallbacks react-dom.development.js:21323
+    commitLayoutEffectOnFiber react-dom.development.js:21425
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21407
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21407
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21407
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21407
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21577
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21577
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21577
+    recursivelyTraverseLayoutEffects react-dom.development.js:22926
+    commitLayoutEffectOnFiber react-dom.development.js:21437
+    commitLayoutEffects react-dom.development.js:22912
+    commitRootImpl react-dom.development.js:26226
+    commitRoot react-dom.development.js:26077
+    performSyncWorkOnRoot react-dom.development.js:24925
+    flushSyncWorkAcrossRoots_impl react-dom.development.js:7758
+    flushSyncWorkOnAllRoots react-dom.development.js:7718
+    commitRootImpl react-dom.development.js:26369
+    commitRoot react-dom.development.js:26077
+    commitRootWhenReady react-dom.development.js:24749
+    finishConcurrentRender react-dom.development.js:24714
+    performConcurrentWorkOnRoot react-dom.development.js:24559
+    workLoop scheduler.development.js:256
+    flushWork scheduler.development.js:225
+    performWorkUntilDeadline scheduler.development.js:534
+    (Async: EventHandlerNonNull)
+    <anonymous> scheduler.development.js:569
+    <anonymous> scheduler.development.js:630
+    NextJS 4
+    <anonymous> index.js:6
+    NextJS 4
+    <anonymous> react-dom.development.js:27
+    <anonymous> react-dom.development.js:38595
+    NextJS 4
+    <anonymous> index.js:37
+    NextJS 4
+    <anonymous> client.js:3
+    NextJS 4
+    <anonymous> app-index.js:15
+    NextJS 4
+    <anonymous> app-next-dev.ts:7
+    appBootstrap app-bootstrap.ts:61
+    loadScriptsInSequence app-bootstrap.ts:20
+    appBootstrap app-bootstrap.ts:60
+    <anonymous> app-next-dev.ts:6
+    NextJS 7

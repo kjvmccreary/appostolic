@@ -12,28 +12,9 @@ export const API_BASE = (() => {
     'Missing NEXT_PUBLIC_API_BASE in production. Set it in the environment or .env.local.',
   );
 })();
-export const DEV_USER = process.env.DEV_USER as string | undefined;
-export const DEV_TENANT = process.env.DEV_TENANT as string | undefined;
 export const DEFAULT_TENANT =
   (process.env.DEFAULT_TENANT as string | undefined) ?? 'kevin-personal';
 
-const WEB_AUTH_ENABLED = (process.env.WEB_AUTH_ENABLED ?? 'false').toLowerCase() === 'true';
-const IS_SERVER = typeof window === 'undefined';
-
-function requireEnv(name: string, value: string | undefined) {
-  if (!value || value.trim() === '') {
-    throw new Error(
-      `Missing required env var ${name}. Add it to .env.local (see .env.local.example).`,
-    );
-  }
-}
-
 // We no longer hard-require API base when running locally; production path throws above.
 
-// Only require DEV headers when WEB_AUTH_ENABLED is false AND on the server.
-// Client bundles (e.g., /signup) shouldn't force DEV_* to be present.
-// Only require DEV_* headers in production when WEB auth is disabled. In dev/local, allow running without these.
-if (isProduction && !WEB_AUTH_ENABLED && IS_SERVER && !IS_LOCAL) {
-  requireEnv('DEV_USER', DEV_USER);
-  requireEnv('DEV_TENANT', DEV_TENANT);
-}
+// No additional runtime assertions required; development headers have been removed.

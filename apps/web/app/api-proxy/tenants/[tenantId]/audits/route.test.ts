@@ -39,8 +39,7 @@ describe('proxy: audits list', () => {
   it('forwards to API with headers and preserves totals', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'dev@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer fake-token',
       'Content-Type': 'application/json',
     } as ProxyHeaders);
     fetchMock.mockResolvedValue(

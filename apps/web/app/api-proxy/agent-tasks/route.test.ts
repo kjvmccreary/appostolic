@@ -34,8 +34,7 @@ describe('/api-proxy/agent-tasks', () => {
 
   it('returns 200 when headers present (mocks fetch)', async () => {
     const headers = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 'kevin-personal',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } as const;
     const ph = await importProxyHeaders();
@@ -61,8 +60,7 @@ describe('/api-proxy/agent-tasks', () => {
 
   it('POST forwards body and returns Location header', async () => {
     const headers = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 'kevin-personal',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } as const;
     const ph = await importProxyHeaders();

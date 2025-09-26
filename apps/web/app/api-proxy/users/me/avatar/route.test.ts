@@ -27,33 +27,32 @@ describe('/api-proxy/users/me/avatar', () => {
   it('forwards multipart body and returns upstream status', async () => {
     const ph = await importProxyHeaders();
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue({
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     });
 
     // Mock upstream fetch
     const resp = { avatar: { url: '/media/users/u/avatar.png', mime: 'image/png' } };
-    global.fetch = vi.fn(async () => {
+    const fetchSpy = vi.fn(async () => {
       return new Response(JSON.stringify(resp), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     });
+    global.fetch = fetchSpy as unknown as typeof fetch;
 
     // Build a fake multipart/form-data request
     const fd = new FormData();
     fd.set('file', new Blob(['fake'], { type: 'image/png' }), 'a.png');
-    // Provide a minimal stub for Request implementing formData()
-    const fakeReq = { formData: async () => fd } as unknown as Request;
+    const req = {
+      formData: async () => fd,
+    } as unknown as Request;
     const POST = await importRoute();
-    const res = await POST(fakeReq);
+    const res = await POST(req);
     expect(res.status).toBe(200);
-    expect(global.fetch).toHaveBeenCalledOnce();
-    type MockCall = [unknown, RequestInit?];
-    const fetchMock = global.fetch as unknown as { mock: { calls: MockCall[] } };
-    const forwardedInit = fetchMock.mock.calls[0][1];
-    const hdrs = forwardedInit?.headers;
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const [, forwardedInit] = fetchSpy.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit];
+    const hdrs = forwardedInit.headers;
     let foundCt: string | undefined;
     if (hdrs instanceof Headers) {
       foundCt = hdrs.get('content-type') ?? undefined;

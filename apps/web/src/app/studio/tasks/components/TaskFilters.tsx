@@ -24,20 +24,22 @@ export function TaskFilters({ agents }: { agents: AgentOption[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const paramsString = params?.toString() ?? '';
+  const safeParams = useMemo(() => new URLSearchParams(paramsString), [paramsString]);
 
-  const [q, setQ] = useState(params.get('q') ?? '');
-  const selectedAgent = params.get('agentId') ?? '';
-  const from = params.get('from') ?? '';
-  const to = params.get('to') ?? '';
+  const [q, setQ] = useState(safeParams.get('q') ?? '');
+  const selectedAgent = safeParams.get('agentId') ?? '';
+  const from = safeParams.get('from') ?? '';
+  const to = safeParams.get('to') ?? '';
   // pagination handled by DataGrid; no local take/skip controls here
   const selectedStatuses = useMemo(() => {
-    const s = params.getAll('status');
+    const s = safeParams.getAll('status');
     return s.length ? s : ([] as string[]);
-  }, [params]);
+  }, [safeParams]);
 
   const apply = useCallback(
     (updates: Record<string, string | string[] | undefined>) => {
-      const u = new URLSearchParams(params.toString());
+      const u = new URLSearchParams(paramsString);
       // Clear paging on filter changes unless explicitly set
       if (!('skip' in updates)) u.set('skip', '0');
       Object.entries(updates).forEach(([k, v]) => {
@@ -52,7 +54,7 @@ export function TaskFilters({ agents }: { agents: AgentOption[] }) {
       });
       router.push(`${pathname}?${u.toString()}`);
     },
-    [params, pathname, router],
+    [paramsString, pathname, router],
   );
 
   const toggleStatus = (s: string) => {

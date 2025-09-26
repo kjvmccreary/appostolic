@@ -82,11 +82,10 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
 
   if (!open) return null;
 
-  const labelFor = (m: { roles?: FlagRole[] }): string => {
+  const labelFor = (m: { tenantSlug: string; roles?: FlagRole[] }): string => {
     const flags = getFlagRoles({
-      tenantId: '' as string,
-      tenantSlug: '' as string,
-      role: 'Viewer',
+      tenantId: '',
+      tenantSlug: m.tenantSlug,
       roles: m.roles,
     });
     if (flags.includes('TenantAdmin')) return 'Admin';

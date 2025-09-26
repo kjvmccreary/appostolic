@@ -29,12 +29,12 @@ vi.mock('../../../../src/lib/roleGuard', () => ({
 
 import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
 import type { ProxyHeaders } from '../../../../src/lib/proxyHeaders';
-// no need to import next-auth here; guard is mocked via requireTenantAdmin
 import { requireTenantAdmin } from '../../../../src/lib/roleGuard';
 
 function makeReq(url = 'http://localhost:3000/api-proxy/notifications/dlq'): NextRequest {
   return { nextUrl: new URL(url) } as unknown as NextRequest;
 }
+
 function makePostReq(
   url = 'http://localhost:3000/api-proxy/notifications/dlq',
   body = '{}',
@@ -71,8 +71,7 @@ describe('api-proxy/notifications/dlq', () => {
   it('GET proxies to API with headers and forwards X-Total-Count', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'u',
-      'x-tenant': 't',
+      Authorization: 'Bearer test-token',
     } as ProxyHeaders);
     fetchMock.mockResolvedValue(
       new Response('[{"id":"1"}]', {
@@ -98,7 +97,7 @@ describe('api-proxy/notifications/dlq', () => {
     expect(res.status).toBe(401);
   });
 
-  it('POST returns 403 when role is not Owner/Admin', async () => {
+  it('POST returns 403 when tenant guard blocks access', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(new Response('Forbidden', { status: 403 }));
     const res = await postDlqReplay(makePostReq());
     expect(res.status).toBe(403);
@@ -107,8 +106,7 @@ describe('api-proxy/notifications/dlq', () => {
   it('POST proxies body to API replay endpoint', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'u',
-      'x-tenant': 't',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } as ProxyHeaders);
     fetchMock.mockResolvedValue(

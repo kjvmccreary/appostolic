@@ -22,6 +22,11 @@ export default async function SelectTenantPage(props: {
   const memberships = (session as Session & { memberships?: Membership[] }).memberships ?? [];
   const c = cookies();
   const cookieTenant = c.get(TENANT_COOKIE)?.value;
+  const sessionTenant = (session as Session & { tenant?: string })?.tenant ?? null;
+  const cookieMembership = cookieTenant
+    ? memberships.find((m) => m.tenantSlug === cookieTenant || m.tenantId === cookieTenant)
+    : undefined;
+  const canonicalCookieTenant = cookieMembership?.tenantSlug ?? null;
 
   // Determine the intended destination after tenant selection.
   const rawNext =
@@ -34,6 +39,21 @@ export default async function SelectTenantPage(props: {
     if (!n.startsWith('/') || n.startsWith('//')) return DEFAULT_NEXT;
     return n;
   })();
+
+  const rawReselect =
+    (Array.isArray(searchParams?.reselect) ? searchParams.reselect[0] : searchParams?.reselect) ??
+    undefined;
+  const wantsReselect =
+    rawReselect !== undefined &&
+    ['1', 'true', 'yes', 'y', 'force'].includes(String(rawReselect).toLowerCase());
+
+  if (!wantsReselect && canonicalCookieTenant && sessionTenant === canonicalCookieTenant) {
+    // When a valid selection already exists (cookie aligns with current memberships), skip the
+    // selector entirely and continue to the desired destination. This prevents lingering on the
+    // selection screen after a successful choice while still allowing explicit reselection via
+    // the ?reselect=1 query string.
+    redirect(next);
+  }
 
   if (memberships && memberships.length === 1) {
     const tenant = memberships[0].tenantSlug;
@@ -48,7 +68,8 @@ export default async function SelectTenantPage(props: {
 
   async function chooseTenant(formData: FormData) {
     'use server';
-    const slug = String(formData.get('tenant'));
+    const slugEntry = formData.get('tenant');
+    const slug = typeof slugEntry === 'string' ? slugEntry.trim() : '';
     const nextFromForm = formData.get('next');
     const nextSafe = (() => {
       const v = typeof nextFromForm === 'string' ? nextFromForm : undefined;
@@ -57,6 +78,9 @@ export default async function SelectTenantPage(props: {
       if (!n.startsWith('/') || n.startsWith('//')) return next;
       return n;
     })();
+    if (!slug) {
+      redirect('/select-tenant');
+    }
     const session = await getServerSession(authOptions);
     const membership = (session as Session & { memberships?: Membership[] })?.memberships?.find(
       (m) => m.tenantSlug === slug || m.tenantId === slug,
@@ -64,15 +88,11 @@ export default async function SelectTenantPage(props: {
     if (!membership) {
       redirect('/select-tenant'); // invalid selection attempt; start over
     }
-    const isSecure = process.env.NODE_ENV === 'production';
-    cookies().set(TENANT_COOKIE, membership.tenantSlug, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      secure: isSecure,
-    });
-    redirect(nextSafe);
+    const url = new URL(
+      `/api/tenant/select?tenant=${encodeURIComponent(membership.tenantSlug)}&next=${encodeURIComponent(nextSafe)}`,
+      'http://localhost',
+    );
+    redirect(url.pathname + url.search);
   }
 
   return (
@@ -88,7 +108,7 @@ export default async function SelectTenantPage(props: {
         <select
           id="tenant-select"
           name="tenant"
-          defaultValue={cookieTenant ?? ''}
+          defaultValue={canonicalCookieTenant ?? ''}
           required
           className="mb-3 w-full rounded border border-line bg-[var(--color-surface)] p-2 text-sm focus-ring"
         >

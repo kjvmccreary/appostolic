@@ -38,8 +38,7 @@ describe('proxy: memberships list', () => {
   it('forwards to API with headers', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'dev@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer fake-token',
       'Content-Type': 'application/json',
     } as ProxyHeaders);
     fetchMock.mockResolvedValue(

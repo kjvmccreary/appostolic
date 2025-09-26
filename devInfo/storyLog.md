@@ -14,6 +14,21 @@ Follow-ups / Deferred
 
 ---
 
+### 2025-09-25 - Story: Avatar proxy cleanup + search param guards — ✅ DONE
+
+Summary
+
+- Avatar proxy now accepts a plain Request with stubbed form data, tests stub the multipart body safely, search-param consumers guard against null return values, and membership labels rely solely on roles. pnpm vitest for @appostolic/web and pnpm -w build both succeed.
+
+Quality Gates
+
+- `pnpm -w --filter @appostolic/web test -- --reporter=verbose` — Passed.
+- `pnpm -w build` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
 2025-09-25 — Story 31: Plaintext counters final deletion — ✅ DONE
 
 - Summary

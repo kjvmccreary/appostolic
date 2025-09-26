@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { getFlagRoles, type FlagRole } from '../lib/roles';
 
-type Membership = { tenantId: string; tenantSlug: string; role: string; roles?: FlagRole[] };
+type Membership = { tenantId: string; tenantSlug: string; roles?: FlagRole[] };
 
 export function TenantSwitcher() {
   const { data: session, update } = useSession();
@@ -51,11 +51,10 @@ export function TenantSwitcher() {
   if (!memberships?.length) return null;
 
   // Compute a canonical role label from roles[] flags only.
-  const labelFor = (m: { roles?: FlagRole[] }): string => {
+  const labelFor = (m: Membership): string => {
     const flags = getFlagRoles({
-      tenantId: '' as string,
-      tenantSlug: '' as string,
-      role: 'Viewer',
+      tenantId: m.tenantId ?? '',
+      tenantSlug: m.tenantSlug ?? '',
       roles: m.roles,
     });
     if (flags.includes('TenantAdmin')) return 'Admin';

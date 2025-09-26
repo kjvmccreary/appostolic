@@ -52,8 +52,7 @@ describe('proxy: memberships roles POST', () => {
   it('forwards to API when authorized', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'dev@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer fake-token',
       'Content-Type': 'application/json',
     } as ProxyHeaders);
     fetchMock.mockResolvedValue(

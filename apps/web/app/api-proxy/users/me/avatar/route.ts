@@ -4,8 +4,8 @@ import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request | { formData: () => Promise<FormData> }) {
-  // Forward multipart/form-data as-is to the API with auth/dev headers.
+export async function POST(req: Request) {
+  // Forward multipart/form-data as-is to the API with authenticated headers.
   const headers = await buildProxyHeaders();
   if (!headers) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

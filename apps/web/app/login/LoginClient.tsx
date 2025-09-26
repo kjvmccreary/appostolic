@@ -5,12 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function LoginClient() {
   const params = useSearchParams();
+  const getParam = React.useCallback((key: string) => params?.get(key) ?? null, [params]);
   const router = useRouter();
-  const next = params.get('next') || '/studio/agents';
+  const next = getParam('next') ?? '/studio/agents';
   // After sign-in, route through select-tenant to enforce selection when user has multiple memberships
   const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
-  const loggedOut = params.get('loggedOut') === '1';
-  const errorParam = params.get('error');
+  const loggedOut = getParam('loggedOut') === '1';
+  const errorParam = getParam('error');
   const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

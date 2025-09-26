@@ -7,10 +7,10 @@ import styles from './styles.module.css';
 export default function SignupClient() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get('next') || '/select-tenant';
+  const getParam = (key: string) => params?.get(key) ?? null;
+  const next = getParam('next') ?? '/select-tenant';
   // Accept multiple param aliases for compatibility: invite (emails), inviteToken, token
-  const inviteToken =
-    params.get('invite') || params.get('inviteToken') || params.get('token') || '';
+  const inviteToken = getParam('invite') || getParam('inviteToken') || getParam('token') || '';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

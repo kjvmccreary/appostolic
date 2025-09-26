@@ -24,8 +24,7 @@ describe('/api-proxy/agents/[id]', () => {
   it('PUT returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
@@ -43,8 +42,7 @@ describe('/api-proxy/agents/[id]', () => {
   it('DELETE returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      'x-dev-user': 'test@example.com',
-      'x-tenant': 't1',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);

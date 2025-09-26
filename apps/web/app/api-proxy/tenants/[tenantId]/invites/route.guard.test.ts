@@ -57,8 +57,7 @@ describe('tenants invites proxy guards', () => {
   it('proxies when guard passes and headers exist', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'u',
-      'x-tenant': 't',
+      Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
     });
     fetchMock = vi

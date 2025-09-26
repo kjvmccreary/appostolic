@@ -47,7 +47,7 @@ describe('api-proxy/invites/accept POST', () => {
   it('allows user-only auth (no tenant) and proxies', async () => {
     // tenant omitted; route passes requireTenant:false
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      'x-dev-user': 'user@example.com',
+      Authorization: 'Bearer token-user',
       'Content-Type': 'application/json',
     } as ProxyHeaders);
 
@@ -57,7 +57,7 @@ describe('api-proxy/invites/accept POST', () => {
       'http://api.test/api/invites/accept',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ 'x-dev-user': 'user@example.com' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer token-user' }),
       }),
     );
     // ensure x-tenant was not required/sent

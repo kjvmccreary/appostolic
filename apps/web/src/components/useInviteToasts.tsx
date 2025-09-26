@@ -13,6 +13,7 @@ export function useInviteToasts() {
   const router = useRouter();
   const { showToast } = useToast();
   React.useEffect(() => {
+    if (!params) return;
     const ok = params.get('ok');
     const err = params.get('err');
     if (!ok && !err) return;

@@ -39,6 +39,7 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const paramsString = params?.toString() ?? '';
 
   const columns = useMemo<GridColDef<TaskSummary>[]>(
     () => [
@@ -159,12 +160,12 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
 
   const onPaginationModelChange = useCallback(
     (model: GridPaginationModel) => {
-      const u = new URLSearchParams(params.toString());
+      const u = new URLSearchParams(paramsString);
       u.set('take', String(model.pageSize));
       u.set('skip', String(model.page * model.pageSize));
       router.push(`${pathname}?${u.toString()}`);
     },
-    [params, pathname, router],
+    [paramsString, pathname, router],
   );
 
   if (!rows.length) {

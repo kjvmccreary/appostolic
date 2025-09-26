@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
 
 vi.mock('next-auth', () => ({ getServerSession: vi.fn() }));
 vi.mock('../../src/lib/auth', () => ({ authOptions: {} }));
@@ -6,9 +7,10 @@ vi.mock('../../src/lib/auth', () => ({ authOptions: {} }));
 // Mock cookies and redirect utilities
 type RedirectError = Error & { destination?: string };
 const setCookieMock = vi.fn();
+const getCookieMock = vi.fn();
 
 vi.mock('next/headers', () => ({
-  cookies: () => ({ get: vi.fn(), set: setCookieMock }),
+  cookies: () => ({ get: getCookieMock, set: setCookieMock }),
 }));
 
 vi.mock('next/navigation', async (orig) => {
@@ -33,6 +35,7 @@ describe('/select-tenant page', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setCookieMock.mockReset();
+    getCookieMock.mockReset();
   });
 
   it('redirects unauthenticated users to /login', async () => {
@@ -133,5 +136,95 @@ describe('/select-tenant page', () => {
     expect(serialized).not.toContain('Viewer');
     expect(serialized).not.toContain('Editor');
     expect(serialized).not.toContain('Owner');
+  });
+
+  it('server action redirects through API route to set cookie and continue', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [
+        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer', roles: [] },
+        { tenantId: 't2', tenantSlug: 'beta', role: 'Viewer', roles: [] },
+      ],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+
+    const tree = (await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+      searchParams: {},
+    })) as React.ReactElement;
+    const children = React.Children.toArray(tree.props?.children ?? []);
+    const form = children.find((child) => React.isValidElement(child) && child.type === 'form') as
+      | React.ReactElement
+      | undefined;
+    expect(form).toBeDefined();
+    const action = form?.props?.action as ((fd: FormData) => Promise<unknown>) | undefined;
+    expect(typeof action).toBe('function');
+
+    const fd = new FormData();
+    fd.set('tenant', 'beta');
+    fd.set('next', '/studio/tasks');
+
+    let dest = '';
+    try {
+      await action?.(fd);
+    } catch (e) {
+      const err = e as RedirectError;
+      if (err.message === 'REDIRECT') dest = err.destination ?? '';
+      else throw e;
+    }
+
+    expect(dest).toBe(
+      `/api/tenant/select?tenant=${encodeURIComponent('beta')}&next=${encodeURIComponent('/studio/tasks')}`,
+    );
+    expect(setCookieMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects away when cookie already matches a membership and session tenant aligns', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      tenant: 'beta',
+      memberships: [
+        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer', roles: [] },
+        { tenantId: 't2', tenantSlug: 'beta', role: 'Viewer', roles: [] },
+      ],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+    getCookieMock.mockImplementation((key: string) =>
+      key === 'selected_tenant'
+        ? ({ value: 'beta' } as unknown as ReturnType<typeof getCookieMock>)
+        : undefined,
+    );
+
+    let dest = '';
+    try {
+      await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+        searchParams: { next: '/studio/tasks' },
+      });
+    } catch (e) {
+      const err = e as RedirectError;
+      if (err.message === 'REDIRECT') dest = err.destination ?? '';
+      else throw e;
+    }
+    expect(dest).toBe('/studio/tasks');
+    expect(setCookieMock).not.toHaveBeenCalled();
+  });
+
+  it('allows reselection when ?reselect=1 even if cookie is present', async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { email: 'u@example.com' },
+      memberships: [
+        { tenantId: 't1', tenantSlug: 'acme', role: 'Viewer', roles: [] },
+        { tenantId: 't2', tenantSlug: 'beta', role: 'Viewer', roles: [] },
+      ],
+    } as unknown as Parameters<typeof getServerSession>[0]);
+    getCookieMock.mockImplementation((key: string) =>
+      key === 'selected_tenant'
+        ? ({ value: 'beta' } as unknown as ReturnType<typeof getCookieMock>)
+        : undefined,
+    );
+
+    const node = (await (SelectTenantPage as unknown as (p: unknown) => Promise<unknown>)({
+      searchParams: { reselect: '1' },
+    })) as React.ReactElement;
+    expect(node).toBeTruthy();
+    const serialized = JSON.stringify(node);
+    expect(serialized).toContain('Select a tenant');
   });
 });

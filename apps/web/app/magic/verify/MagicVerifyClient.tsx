@@ -5,9 +5,10 @@ import { signIn } from 'next-auth/react';
 
 export default function MagicVerifyClient() {
   const params = useSearchParams();
+  const getParam = (key: string) => params?.get(key) ?? null;
   const router = useRouter();
-  const token = params.get('token') || '';
-  const next = params.get('next') || '/studio/agents';
+  const token = getParam('token') ?? '';
+  const next = getParam('next') ?? '/studio/agents';
   const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
 
   const [status, setStatus] = useState<'idle' | 'verifying' | 'done' | 'error'>('idle');

@@ -137,3 +137,4 @@
 - Dev Time Saved (S1-12.2): Manual 1.6h vs Actual 0.55h → Saved 1.05h ($75.60) — Migrated password-related tests (`AuthPasswordFlowsTests`, `UserPasswordEndpointsTests`) from mint helper to real `/api/auth/login` (+ neutral or tenant token as appropriate); resolved 401 issues by standardizing seeded password to `Password123!`; removed redundant call pattern
 - Remaining Phase A targets: role & membership tests, any lingering mint helper references (inventory shows ~17 non‑migrated usages)
 - Outcome: All migrated suites green; dev headers usage confined to explicit negative test only.
+- Avatar proxy cleanup + search param guards — ✅ DONE
