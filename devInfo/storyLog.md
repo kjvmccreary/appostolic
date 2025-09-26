@@ -1,4 +1,4 @@
-### 2025-09-26 - Story: Frontend Auth Fixture Alignment (Story 12) — 🚧 IN PROGRESS
+### 2025-09-26 - Story: Frontend Auth Fixture Alignment (Story 12) — ✅ DONE
 
 Summary
 
@@ -10,7 +10,7 @@ Quality Gates
 
 Follow-ups / Deferred
 
-- Finalise Story 12 by validating remaining UI flows against the shared fixtures as the refresh-only rollout approaches.
+- none
 
 ---
 

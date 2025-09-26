@@ -569,7 +569,7 @@ Acceptance:
 - Tag `jwt-auth-rollout-complete` annotated with summary.
 - Confirm optional nginx story either merged or explicitly deferred with rationale in StoryLog.
 
-### Story 12: Frontend Auth Fixture Alignment — 🚧 IN PROGRESS (2025-09-26)
+### Story 12: Frontend Auth Fixture Alignment — ✅ DONE (2025-09-26)
 
 Goal:
 
@@ -586,7 +586,7 @@ Acceptance (incremental):
 
 Notes:
 
-- Progress and open items tracked in `devInfo/jwtRefactor/audit.md`.
+- Progress captured in `devInfo/jwtRefactor/audit.md` and `docs/frontend-auth-testing.md` (new).
 - Aligns with Story 8 deliverables by ensuring the frontend refresh loop has realistic coverage before enabling cookie-only refresh in production.
 
 ## Risk & Mitigation
