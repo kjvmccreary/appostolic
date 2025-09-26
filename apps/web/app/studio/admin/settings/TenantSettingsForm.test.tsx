@@ -1,47 +1,67 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import TenantSettingsForm from './TenantSettingsForm';
 
-const originalFetch = global.fetch;
+const server = (
+  globalThis as {
+    __mswServer?: import('msw/node').SetupServer;
+  }
+).__mswServer!;
 
 describe('TenantSettingsForm', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
 
   it('submits displayName patch and shows success', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    global.fetch = fetchSpy as unknown as typeof fetch;
+    let intercepted: { body: unknown; headers: Headers } | null = null;
+    server.use(
+      http.put('http://localhost/api-proxy/tenants/settings', async ({ request }) => {
+        intercepted = {
+          body: await request.json(),
+          headers: request.headers,
+        };
+        return HttpResponse.json({ ok: true });
+      }),
+    );
     render(<TenantSettingsForm initial={{ displayName: 'Old Org' }} />);
     fireEvent.change(screen.getByLabelText(/Organization Display Name/i), {
       target: { value: 'New Org' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
     await waitFor(() => expect(screen.getByText(/Settings updated/i)).toBeInTheDocument());
-    expect(fetchSpy).toHaveBeenCalledWith('/api-proxy/tenants/settings', expect.any(Object));
-    const init = fetchSpy.mock.calls[0][1] as { body: string };
-    const body = JSON.parse(init.body) as { displayName?: string };
+    expect(intercepted).not.toBeNull();
+    const captured = intercepted!;
+    const body = captured.body as { displayName?: string };
     expect(body.displayName).toBe('New Org');
+    expect(captured.headers.get('content-type')).toMatch(/application\/json/i);
   });
 
   it('normalizes website without protocol before submit', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    global.fetch = fetchSpy as unknown as typeof fetch;
+    let intercepted: { body: unknown } | null = null;
+    server.use(
+      http.put('http://localhost/api-proxy/tenants/settings', async ({ request }) => {
+        intercepted = { body: await request.json() };
+        return HttpResponse.json({ ok: true });
+      }),
+    );
     render(<TenantSettingsForm initial={{ contact: { website: '' } }} />);
     fireEvent.change(screen.getByLabelText(/Website/i), { target: { value: 'example.com' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
     await waitFor(() => expect(screen.getByText(/Settings updated/i)).toBeInTheDocument());
-    const init = fetchSpy.mock.calls[0][1] as { body: string };
-    const body = JSON.parse(init.body) as { contact?: { website?: string } };
-    expect(body.contact?.website).toBe('https://example.com');
+    const captured = intercepted!;
+    const body = captured.body as { contact?: { website?: string } };
+    expect(body?.contact?.website).toBe('https://example.com');
   });
 
   it('shows error on failed update', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+    server.use(
+      http.put('http://localhost/api-proxy/tenants/settings', () =>
+        HttpResponse.json({ error: 'fail' }, { status: 500 }),
+      ),
+    );
     render(<TenantSettingsForm initial={{}} />);
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());

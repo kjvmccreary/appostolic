@@ -78,5 +78,7 @@
 
 1. ✅ Shared session fixture module landed (`test/fixtures/authSession.ts`) and wired into `TenantSwitcher*`, `ProfileMenu`, `AgentsTable`, and `TopBar` tests.
 2. ✅ Default MSW auth handlers shipped (`test/fixtures/mswAuthHandlers.ts`), registered in `test/setup.ts`, and tenant switcher tests now use them instead of manual fetch spies.
-3. Author initial `buildProxyHeaders` integration tests covering cookie precedence and refresh rotation.
-4. Circle back to tenant settings forms once the auth fixtures land, replacing fetch mocks with MSW flows and adding assertions for 401/403 surfacing.
+3. ✅ Author initial `buildProxyHeaders` integration tests covering cookie precedence, concurrent refresh coalescing, and refresh reuse handling.
+4. ✅ Circle back to tenant settings forms once the auth fixtures land, replacing fetch mocks with MSW flows and adding assertions for MSW-backed success & failure surfacing.
+
+Reference documentation: see `docs/frontend-auth-testing.md` for the consolidated testing playbook.

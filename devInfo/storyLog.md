@@ -1,3 +1,19 @@
+### 2025-09-26 - Story: Frontend Auth Fixture Alignment (Story 12) — 🚧 IN PROGRESS
+
+Summary
+
+- Expanded `buildProxyHeaders` integration coverage to assert refresh reuse eviction and concurrency coalescing, migrated tenant settings form tests to the shared MSW auth handlers, and published `docs/frontend-auth-testing.md` capturing the new fixture playbook.
+
+Quality Gates
+
+- `pnpm --filter @appostolic/web test` — Passed.
+
+Follow-ups / Deferred
+
+- Finalise Story 12 by validating remaining UI flows against the shared fixtures as the refresh-only rollout approaches.
+
+---
+
 ### 2025-09-25 - Story: Frontend Auth Fixture Alignment (Story 12) — 🚧 IN PROGRESS
 
 Summary

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { CookieSetterOptions } from './cookieUtils';
 import { getServerSession } from 'next-auth';
+import type { ProxyDiagnostics } from './proxyHeaders';
 
 type Entry = { name: string; value: string; options: CookieSetterOptions };
 
@@ -180,5 +181,67 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     expect(neutralCtx?.headers.Authorization).toBe('Bearer neutral-access');
     const rotationCookie = neutralCtx?.cookies.find((c) => c.name === 'rt');
     expect(rotationCookie).toBeUndefined();
+  });
+
+  it('clears refresh and session cookies when refresh endpoint reports reuse', async () => {
+    cookieStoreFactory.current = createStore('stale-token');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'refresh_reuse' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { buildProxyHeaders } = await import('./proxyHeaders');
+    const diagnostics: ProxyDiagnostics = {};
+    const result = await buildProxyHeaders(undefined, diagnostics);
+
+    expect(result).toBeNull();
+    expect(diagnostics.reason).toBe('access_unavailable');
+    expect(cookieStoreFactory.current.get('rt')).toBeUndefined();
+    expect(cookieStoreFactory.current.get('next-auth.session-token')).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces concurrent refreshes so only one network request is issued', async () => {
+    cookieStoreFactory.current = createStore('legacy-token');
+    const now = Date.now();
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return new Response(
+        JSON.stringify({
+          access: { token: 'neutral-access', expiresAt: now + 600_000 },
+          tenantToken: {
+            access: { token: 'tenant-access', expiresAt: now + 600_000 },
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            'set-cookie': 'rt=rotated-token; Path=/; HttpOnly; SameSite=Lax',
+          },
+        },
+      );
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { buildProxyHeaders } = await import('./proxyHeaders');
+    const [tenantCtx, neutralCtx] = await Promise.all([
+      buildProxyHeaders(),
+      buildProxyHeaders({ requireTenant: false }),
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(tenantCtx?.headers.Authorization).toBe('Bearer tenant-access');
+    expect(neutralCtx?.headers.Authorization).toBe('Bearer neutral-access');
+    const rotationCookies = [...(tenantCtx?.cookies ?? []), ...(neutralCtx?.cookies ?? [])].filter(
+      (c) => c.name === 'rt',
+    );
+    expect(rotationCookies.length).toBeGreaterThan(0);
+    for (const rotation of rotationCookies) {
+      expect(rotation.value).toBe('rotated-token');
+    }
   });
 });
