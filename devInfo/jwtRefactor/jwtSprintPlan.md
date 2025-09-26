@@ -1,4 +1,4 @@
-- [x] Document the new fixture approach in a frontend auth testing guide and link it from this sprint plan (see [Frontend Auth Testing Guide](../../docs/frontend-auth-testing.md)).
+
 # JWT Auth Refactor Sprint Plan
 
 ## Vision / Goal
