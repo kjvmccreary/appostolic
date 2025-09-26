@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +33,6 @@ public class RefreshRateLimitIntegrationTests : IClassFixture<WebAppFactory>
     private static HttpRequestMessage RefreshRequest(string rtCookie)
         => new(HttpMethod.Post, "/api/auth/refresh")
         {
-            Content = new StringContent("{}", Encoding.UTF8, "application/json"),
             Headers = { { "Cookie", rtCookie } }
         };
 
@@ -50,7 +48,7 @@ public class RefreshRateLimitIntegrationTests : IClassFixture<WebAppFactory>
     {
         // Single evaluation semantics: each successful refresh increments attempts by 1 (after token lookup with userId).
         // We set Max=2 so third refresh exceeds (attempts: 1 OK, 2 OK, 3 > 2 => 429).
-    var factory = _factory.WithSettings(new Dictionary<string, string?>
+        var factory = _factory.WithSettings(new Dictionary<string, string?>
         {
             ["AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS"] = "60",
             ["AUTH__REFRESH_RATE_LIMIT_MAX"] = "2",
@@ -66,7 +64,7 @@ public class RefreshRateLimitIntegrationTests : IClassFixture<WebAppFactory>
         var r2 = await client.SendAsync(RefreshRequest(rtCookie));
         r2.IsSuccessStatusCode.Should().BeTrue();
         rtCookie = TryExtractRtCookie(r2) ?? rtCookie;
-    // Third should block (429)
+        // Third should block (429)
         var blocked = await client.SendAsync(RefreshRequest(rtCookie));
         blocked.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         var json = JsonDocument.Parse(await blocked.Content.ReadAsStreamAsync());
@@ -76,7 +74,7 @@ public class RefreshRateLimitIntegrationTests : IClassFixture<WebAppFactory>
     [Fact]
     public async Task DryRun_Does_Not_Block()
     {
-    var factory = _factory.WithSettings(new Dictionary<string, string?>
+        var factory = _factory.WithSettings(new Dictionary<string, string?>
         {
             ["AUTH__REFRESH_RATE_LIMIT_WINDOW_SECONDS"] = "60",
             ["AUTH__REFRESH_RATE_LIMIT_MAX"] = "2",
@@ -115,7 +113,7 @@ public class RefreshRateLimitIntegrationTests : IClassFixture<WebAppFactory>
         var bFirst = await clientB.SendAsync(RefreshRequest(rtCookieB));
         bFirst.IsSuccessStatusCode.Should().BeTrue();
         rtCookieB = TryExtractRtCookie(bFirst) ?? rtCookieB;
-    // Second refresh (each should now exceed per-user window)
+        // Second refresh (each should now exceed per-user window)
         var aSecond = await clientA.SendAsync(RefreshRequest(rtCookieA));
         aSecond.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         var bSecond = await clientB.SendAsync(RefreshRequest(rtCookieB));

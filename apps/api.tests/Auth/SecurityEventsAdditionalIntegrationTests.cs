@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -83,7 +84,7 @@ public class SecurityEventsAdditionalIntegrationTests : IClassFixture<WebAppFact
             db.SaveChanges();
         }
         // Attempt refresh -> expect 401 refresh_expired and corresponding security event
-        var refresh = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var refresh = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         refresh.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var body = JsonDocument.Parse(await refresh.Content.ReadAsStringAsync());
         body.RootElement.GetProperty("code").GetString().Should().Be("refresh_expired");
@@ -108,10 +109,10 @@ public class SecurityEventsAdditionalIntegrationTests : IClassFixture<WebAppFact
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
         login.EnsureSuccessStatusCode();
         // First refresh ok
-        var first = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var first = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         first.IsSuccessStatusCode.Should().BeTrue();
         // Second should 429
-        var second = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var second = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         second.StatusCode.Should().Be((HttpStatusCode)429);
     var evt = provider.Lines.Select(ExtractJson).First(e => e != null && e.RootElement.TryGetProperty("type", out var t) && t.GetString()=="refresh_rate_limited");
     evt.Should().NotBeNull();
@@ -148,7 +149,7 @@ public class SecurityEventsAdditionalIntegrationTests : IClassFixture<WebAppFact
         // Use a random token value unlikely to exist (no signup/login performed so DB empty of hashes)
         var forged = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + "extra"; // ensure not valid base64 of a real issued token
         client.DefaultRequestHeaders.Add("Cookie", $"rt={forged}; Path=/; HttpOnly");
-        var resp = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var resp = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
         json.RootElement.GetProperty("code").GetString().Should().Be("refresh_invalid");
@@ -175,10 +176,10 @@ public class SecurityEventsAdditionalIntegrationTests : IClassFixture<WebAppFact
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
         login.EnsureSuccessStatusCode();
         // First refresh (allowed)
-        var first = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var first = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         first.IsSuccessStatusCode.Should().BeTrue();
         // Second refresh would exceed max if not dry-run; should still be 200 but emit event with dry_run meta
-        var second = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var second = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         second.IsSuccessStatusCode.Should().BeTrue();
         var evt = provider.Lines.Select(ExtractJson).Last(e => e != null && e.RootElement.TryGetProperty("type", out var t) && t.GetString()=="refresh_rate_limited");
         evt.Should().NotBeNull();

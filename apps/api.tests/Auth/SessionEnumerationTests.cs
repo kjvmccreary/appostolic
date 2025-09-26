@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -95,7 +96,8 @@ public class SessionEnumerationTests : IClassFixture<WebAppFactory>
         var original = list1!.sessions.First(s => s.current);
         Assert.Null(original.lastUsedAt);
         // Trigger refresh rotation (old token revoked, new issued)
-        var refreshResp = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+    var refreshResp = await client.SendAsync(refreshReq);
         refreshResp.EnsureSuccessStatusCode();
         // The original session should now be revoked and excluded from enumeration.
         var list2 = await client.GetFromJsonAsync<SessionsEnvelope>("/api/auth/sessions");

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Security.Claims;
+using System.IO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
@@ -1016,6 +1017,33 @@ public static class V1
             string? failureReason = null;
             var now = DateTime.UtcNow;
             var config = http.RequestServices.GetRequiredService<IConfiguration>();
+            var jsonGraceEnabled = config.GetValue<bool>("AUTH__REFRESH_JSON_GRACE_ENABLED");
+            if (!jsonGraceEnabled && !emergencyRevert)
+            {
+                var hasBody = http.Request.ContentLength.HasValue && http.Request.ContentLength.Value > 0;
+                if (!hasBody && http.Request.Body.CanSeek)
+                {
+                    hasBody = http.Request.Body.Length > 0;
+                }
+                if (hasBody)
+                {
+                    http.Request.EnableBuffering();
+                    string bodyContent;
+                    using (var reader = new StreamReader(http.Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true))
+                    {
+                        bodyContent = await reader.ReadToEndAsync();
+                    }
+                    http.Request.Body.Position = 0;
+                    if (!string.IsNullOrWhiteSpace(bodyContent))
+                    {
+                        failureReason = "refresh_body_disallowed";
+                        Appostolic.Api.Application.Auth.AuthMetrics.IncrementRefreshFailure(failureReason);
+                        sw.Stop();
+                        Appostolic.Api.Application.Auth.AuthMetrics.RecordRefreshDuration(sw.Elapsed.TotalMilliseconds, false);
+                        return Results.Json(new { code = failureReason }, statusCode: StatusCodes.Status400BadRequest);
+                    }
+                }
+            }
             // Story 3 (refined): Perform rate limit evaluation only AFTER we know the userId (when possible)
             // to avoid double counting (previous implementation evaluated twice per request which complicated
             // threshold reasoning in tests & ops). We defer evaluation until after refresh token lookup.

@@ -130,10 +130,7 @@ public class CsrfTests : IClassFixture<WebAppFactory>
         // Extract refresh cookie for refresh call
         var rtCookie = login.Headers.GetValues("Set-Cookie").FirstOrDefault(h => h.StartsWith("rt="));
         rtCookie.Should().NotBeNull();
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = JsonContent.Create(new { })
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("X-CSRF", token);
         if (rtCookie is not null) refreshReq.Headers.Add("Cookie", rtCookie.Split(';')[0]);
         var refresh = await client.SendAsync(refreshReq);

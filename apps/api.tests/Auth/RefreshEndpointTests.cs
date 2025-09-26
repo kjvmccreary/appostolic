@@ -54,10 +54,7 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
         var login = await SignupAndLoginAsync(client, email, "Password123!");
     var (rtCookie, _) = ExtractRtCookie(login);
         // Call refresh using cookie (manually attach)
-        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", Encoding.UTF8, "application/json")
-        };
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         req.Headers.Add("Cookie", rtCookie);
         var refresh = await client.SendAsync(req);
         refresh.IsSuccessStatusCode.Should().BeTrue();
@@ -73,14 +70,14 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
         var email = $"refreshreuse_{Guid.NewGuid()}@test.com";
         var login = await SignupAndLoginAsync(client, email, "Password123!");
     var (originalRt, _) = ExtractRtCookie(login);
-        var firstReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    var firstReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         firstReq.Headers.Add("Cookie", originalRt);
     var refresh1 = await client.SendAsync(firstReq);
         refresh1.IsSuccessStatusCode.Should().BeTrue();
         // Reuse original cookie against a fresh client (simulate theft)
     var rogue = CreateManualCookieClient();
         rogue.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
-    var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
     reuseReq.Headers.Add("Cookie", originalRt);
         var reuse = await rogue.SendAsync(reuseReq);
         reuse.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
@@ -90,7 +87,7 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
     public async Task Refresh_Fails_When_Missing_Token()
     {
     var client = CreateManualCookieClient();
-        var resp = await client.PostAsync("/api/auth/refresh", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+    var resp = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh"));
         resp.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
     }
 
@@ -109,7 +106,7 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
     token.Should().NotBeNull();
     token!.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
         await db.SaveChangesAsync();
-        var expiredReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+        var expiredReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
     expiredReq.Headers.Add("Cookie", ExtractRtCookie(login).CookieHeader);
         var resp = await client.SendAsync(expiredReq);
         resp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
@@ -124,14 +121,14 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
         var login = await SignupAndLoginAsync(client, email, "Password123!");
     var (originalRt, _) = ExtractRtCookie(login);
         // First rotation
-        var firstReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    var firstReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         firstReq.Headers.Add("Cookie", originalRt);
         var first = await client.SendAsync(firstReq);
         first.IsSuccessStatusCode.Should().BeTrue();
         // Reuse old cookie on rogue client
     var rogueClient = CreateManualCookieClient();
         rogueClient.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
-        var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         reuseReq.Headers.Add("Cookie", originalRt);
         var reuse = await rogueClient.SendAsync(reuseReq);
         reuse.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
@@ -147,7 +144,7 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
         using var loginDoc = ReadJson(login);
         var slug = loginDoc.RootElement.GetProperty("memberships")[0].GetProperty("tenantSlug").GetString();
         slug.Should().NotBeNull();
-    var req = new HttpRequestMessage(HttpMethod.Post, $"/api/auth/refresh?tenant={slug}") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    var req = new HttpRequestMessage(HttpMethod.Post, $"/api/auth/refresh?tenant={slug}");
     req.Headers.Add("Cookie", ExtractRtCookie(login).CookieHeader);
         var refresh = await client.SendAsync(req);
         refresh.IsSuccessStatusCode.Should().BeTrue();
@@ -170,6 +167,26 @@ public class RefreshEndpointTests : IClassFixture<WebAppFactory>
         var refresh = await client.PostAsync("/api/auth/refresh", new StringContent(body, Encoding.UTF8, "application/json"));
         refresh.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
         using var doc = ReadJson(refresh);
-        doc.RootElement.GetProperty("code").GetString().Should().Be("missing_refresh");
+        doc.RootElement.GetProperty("code").GetString().Should().Be("refresh_body_disallowed");
+    }
+
+    [Fact]
+    public async Task Refresh_Fails_When_Body_Sent_With_Cookie()
+    {
+    var client = CreateManualCookieClient();
+        client.DefaultRequestHeaders.Add("X-Test-HTTPS", "1");
+        var email = $"refreshcookiebody_{Guid.NewGuid()}@test.com";
+        var login = await SignupAndLoginAsync(client, email, "Password123!");
+        var (rtCookie, tokenValue) = ExtractRtCookie(login);
+        var payload = JsonSerializer.Serialize(new { refreshToken = tokenValue });
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        req.Headers.Add("Cookie", rtCookie);
+        var refresh = await client.SendAsync(req);
+        refresh.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+        using var doc = ReadJson(refresh);
+        doc.RootElement.GetProperty("code").GetString().Should().Be("refresh_body_disallowed");
     }
 }

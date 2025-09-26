@@ -81,6 +81,18 @@ vi.mock('next-auth', () => {
 describe('buildProxyHeaders refresh rotation bridge', () => {
   const getServerSessionMock = getServerSession as unknown as Mock;
 
+  function expectRefreshCall(mock: Mock, index = 0, token = 'legacy-token') {
+    const [, init] = mock.mock.calls[index] ?? [];
+    const refreshInit = (init ?? {}) as RequestInit;
+    expect(refreshInit.body).toBeUndefined();
+    expect(refreshInit.method).toBe('POST');
+    expect(refreshInit.cache).toBe('no-store');
+    const headers = refreshInit.headers as Record<string, string> | undefined;
+    expect(headers).toBeDefined();
+    expect(headers && 'content-type' in headers).toBe(false);
+    expect(headers?.cookie).toContain(`rt=${token}`);
+  }
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -128,6 +140,7 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     const first = await buildProxyHeaders();
     expect(first).not.toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRefreshCall(fetchMock, 0, 'legacy-token');
     expect(first?.cookies.find((c) => c.name === 'rt')?.value).toBe(newToken);
 
     cookieStoreFactory.current = createStore(oldToken);
@@ -173,6 +186,7 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     const tenantCtx = await buildProxyHeaders();
     expect(tenantCtx).not.toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRefreshCall(fetchMock, 0, 'legacy-token');
     expect(tenantCtx?.headers.Authorization).toBe('Bearer tenant-access');
 
     const neutralCtx = await buildProxyHeaders({ requireTenant: false });
@@ -202,6 +216,7 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     expect(cookieStoreFactory.current.get('rt')).toBeUndefined();
     expect(cookieStoreFactory.current.get('next-auth.session-token')).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRefreshCall(fetchMock, 0, 'stale-token');
   });
 
   it('coalesces concurrent refreshes so only one network request is issued', async () => {
@@ -234,6 +249,7 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     ]);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRefreshCall(fetchMock, 0, 'legacy-token');
     expect(tenantCtx?.headers.Authorization).toBe('Bearer tenant-access');
     expect(neutralCtx?.headers.Authorization).toBe('Bearer neutral-access');
     const rotationCookies = [...(tenantCtx?.cookies ?? []), ...(neutralCtx?.cookies ?? [])].filter(

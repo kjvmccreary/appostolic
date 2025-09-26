@@ -429,7 +429,7 @@ Follow-ups / Deferred:
 - Admin forced logout endpoint (pending admin surface design) if not delivered here.
 - Observability counters (Story 9) to increment tokens_revoked on logout actions.
 
-### Story 8: Silent Refresh, Plaintext Removal & Body Path Deprecation — 🚧 IN PROGRESS (2025-09-21)
+### Story 8: Silent Refresh, Plaintext Removal & Body Path Deprecation — ✅ DONE (2025-09-26)
 
 Goals:
 
@@ -470,6 +470,13 @@ Follow-ups:
 
 - Flip default of `AUTH__REFRESH_JSON_EXPOSE_PLAINTEXT` to false in all envs post adoption.
 - Disable grace (`AUTH__REFRESH_JSON_GRACE_ENABLED=false`) and remove body parsing code in a cleanup story.
+
+Completion Summary (2025-09-26):
+
+- Enforced cookie-only access to `/api/auth/refresh` when JSON grace is disabled, returning `refresh_body_disallowed` for any payloads while preserving existing CSRF and rate limit behavior.
+- Updated all refresh-oriented integration suites to post empty bodies via a shared helper so rate limiting, session enumeration, logout, and sliding refresh flows align with the stricter contract.
+- Verified frontend silent refresh already issues credentialed, bodyless requests; no code changes required beyond prior Story 8 updates.
+- Full `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj --no-build` run passes (292 ✔️ / 1 skipped), confirming backend coverage under the new guard.
 
 ### Story 9: Observability & Security Hardening — ✅ DONE (2025-09-22)
 

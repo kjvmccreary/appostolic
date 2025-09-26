@@ -6,7 +6,7 @@ import {
   stopAutoRefresh,
   forceRefresh,
 } from './authClient';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 
 // Basic unit tests for in-memory token logic (no real network).
 
@@ -70,7 +70,13 @@ describe('authClient', () => {
     });
     const r = await withAuthFetch('/api/needs-auth');
     expect(r.status).toBe(200);
-    const mockFetch = global.fetch as unknown as { mock: { calls: unknown[] } };
+    const mockFetch = global.fetch as unknown as Mock;
+    const refreshCall = mockFetch.mock.calls.find(([input]) => input === '/api/auth/refresh');
+    expect(refreshCall).toBeDefined();
+    const refreshInit = (refreshCall?.[1] ?? {}) as RequestInit;
+    expect(refreshInit.body).toBeUndefined();
+    expect(refreshInit.headers).toBeUndefined();
+    expect(refreshInit.credentials).toBe('include');
     expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(3);
     global.fetch = orig;
   });

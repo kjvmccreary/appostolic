@@ -939,6 +939,25 @@ Refactored `AgentTasksAuthContractTests` off `AuthTestClientFlow` to determinist
   - Story 2: Remove DevHeaderAuthHandler and composite scheme; update documentation and rollback tag.
   - Story 3: Final regression guard and closure tasks.
 
+2025-09-26 — Auth/JWT: Story 8 Cookie-only Refresh Enforcement — ✅ DONE
+
+- Summary
+  - Hardened `/api/auth/refresh` to reject JSON bodies whenever `AUTH__REFRESH_JSON_GRACE_ENABLED` is disabled, returning `refresh_body_disallowed` prior to rate limit checks, and refactored refresh integration suites to drive cookie-only requests via a shared helper.
+  - Removed the legacy empty JSON payload from the web refresh clients (`authClient` and proxy headers) and expanded their unit tests to assert bodyless POSTs with cookie credentials only.
+  - Updated `devInfo/jwtRefactor/jwtSprintPlan.md` to mark Story 8 complete with the cookie-only enforcement summary.
+  - Regression checked with `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj --no-build` and `CI=1 pnpm --filter @appostolic/web test`.
+- Files changed
+  - `apps/api/App/Endpoints/V1.cs` — Guarded refresh endpoint against JSON payloads when grace disabled; maintained metrics/limiter flow.
+  - `apps/api.tests/Auth/*.cs` — Updated refresh, rate limit, logout, session tests to post cookie-only requests and assert new guard codes.
+  - `apps/web/src/lib/authClient.ts` & `.test.ts` — Removed placeholder JSON body and validated bodyless fetch; ensured retry path still green.
+  - `apps/web/src/lib/proxyHeaders.ts` & `.test.ts` — Stopped sending `Content-Type`/body, added helpers verifying cookie-only refresh behaviour.
+  - `devInfo/jwtRefactor/jwtSprintPlan.md` — Marked Story 8 ✅ with completion summary.
+- Quality gates
+  - `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj --no-build`
+  - `CI=1 pnpm --filter @appostolic/web test`
+- Follow-ups
+  - Monitor rollout before flipping `AUTH__REFRESH_JSON_GRACE_ENABLED` default and pruning residual body parsing code.
+
 ### 2025-09-26 - Story: Tenant settings tenant switch reset — 🚧 IN PROGRESS
 
 Summary

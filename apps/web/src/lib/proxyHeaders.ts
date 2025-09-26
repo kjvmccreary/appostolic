@@ -178,7 +178,6 @@ async function refreshToken(
   const incoming = nextHeaders();
   const forwardHeaders: Record<string, string> = {
     cookie: cookieHeader,
-    'content-type': 'application/json',
   };
   const forwardedProto = incoming.get('x-forwarded-proto');
   if (forwardedProto) forwardHeaders['x-forwarded-proto'] = forwardedProto;
@@ -199,7 +198,6 @@ async function refreshToken(
   const response = await fetch(url.toString(), {
     method: 'POST',
     headers: forwardHeaders,
-    body: '{}',
     cache: 'no-store',
   }).catch((error: unknown) => {
     debugProxy('refresh request failed', {

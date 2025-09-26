@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -95,14 +96,12 @@ public class SecurityEventsIntegrationTests : IClassFixture<WebAppFactory>
         // First refresh succeeds and rotates token, making old token revoked -> reuse attempt using old cookie should produce refresh_reuse event.
     var firstReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
     firstReq.Headers.Add("Cookie", cookieHeader);
-    firstReq.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
     var first = await client.SendAsync(firstReq);
     first.IsSuccessStatusCode.Should().BeTrue();
     // New client without cookie container state to avoid sending rotated cookie
     var reuseClient = factory.CreateClient();
     var reuseReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
     reuseReq.Headers.Add("Cookie", cookieHeader); // intentionally reuse old cookie
-    reuseReq.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
     var reuse = await reuseClient.SendAsync(reuseReq);
         reuse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         provider.Lines.Any(l => l.Contains("refresh_reuse")).Should().BeTrue();

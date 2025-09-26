@@ -40,8 +40,6 @@ async function refresh(): Promise<void> {
     const p = fetch('/api/auth/refresh', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: '{}', // empty body to avoid legacy refreshToken usage
     })
       .then(async (r) => {
         if (!r.ok) throw new Error('refresh failed');

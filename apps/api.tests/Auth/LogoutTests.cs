@@ -73,10 +73,7 @@ public class LogoutTests : IClassFixture<WebAppFactory>
         Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
 
         // 3. Attempt refresh using same refresh token should yield reuse/invalid (reuse per design)
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", refreshCookie);
         var refreshResp = await client.SendAsync(refreshReq);
         var problem = JsonDocument.Parse(await refreshResp.Content.ReadAsStringAsync());
@@ -114,10 +111,7 @@ public class LogoutTests : IClassFixture<WebAppFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, meResp.StatusCode);
 
         // Refresh attempt with old refresh token should also now be unauthorized (either invalid or reuse)
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", refreshCookie);
         var refreshResp = await client.SendAsync(refreshReq);
         Assert.Equal(HttpStatusCode.Unauthorized, refreshResp.StatusCode);

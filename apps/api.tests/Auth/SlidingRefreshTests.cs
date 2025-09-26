@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,10 +43,7 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
         var initialExpiry = loginJson.RootElement.GetProperty("refresh").GetProperty("expiresAt").GetDateTime();
 
         // Perform a refresh rotation (immediately) - expiry should move forward by roughly SlidingWindowDays (5 days) from now, not stay at +1 day.
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", cookiePair);
         var refresh = await client.SendAsync(refreshReq);
         refresh.EnsureSuccessStatusCode();
@@ -80,10 +78,7 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
 
         // Simulate near max lifetime by manually updating created_at/original_created_at backwards via admin endpoint isn't available;
         // Instead we directly perform a refresh after short delay; expectation: extension limited to <= original+10 days.
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", cookiePair);
         var refresh = await client.SendAsync(refreshReq);
         refresh.EnsureSuccessStatusCode();
@@ -137,10 +132,7 @@ public class SlidingRefreshTests : IClassFixture<WebAppFactory>
             await db.SaveChangesAsync();
         }
 
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", cookiePair);
         var refresh = await client.SendAsync(refreshReq);
         refresh.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);

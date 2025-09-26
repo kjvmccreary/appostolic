@@ -3,7 +3,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json.Nodes;
 using FluentAssertions;
 using Xunit;
@@ -103,10 +102,7 @@ public class TestTokenFactoryTests : IClassFixture<Appostolic.Api.Tests.WebAppFa
         result.Refresh.Token.Should().NotBeNullOrWhiteSpace();
         result.Refresh.ExpiresAt.Should().BeBefore(DateTimeOffset.UtcNow);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", Encoding.UTF8, "application/json")
-        };
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         request.Headers.Add("Cookie", $"rt={result.Refresh.Token}");
 
         var response = await client.SendAsync(request);

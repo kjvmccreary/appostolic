@@ -44,10 +44,7 @@ public class RefreshPlaintextSuppressionTests : IClassFixture<WebAppFactory>
         // Extract cookie only; ignore body token (shouldn't exist) and call refresh
         var setCookie = login.Headers.GetValues("Set-Cookie").First(h => h.StartsWith("rt="));
         var cookieHeader = setCookie.Split(';')[0];
-        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
-        {
-            Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
-        };
+        var refreshReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         refreshReq.Headers.Add("Cookie", cookieHeader);
         var refresh = await client.SendAsync(refreshReq);
         refresh.EnsureSuccessStatusCode();
