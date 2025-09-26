@@ -1,4 +1,3 @@
-
 # JWT Auth Refactor Sprint Plan
 
 ## Vision / Goal
