@@ -27,8 +27,11 @@ describe('/api-proxy/users/me/avatar', () => {
   it('forwards multipart body and returns upstream status', async () => {
     const ph = await importProxyHeaders();
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue({
-      Authorization: 'Bearer test-token',
-      'Content-Type': 'application/json',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
     });
 
     // Mock upstream fetch

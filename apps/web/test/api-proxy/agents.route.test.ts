@@ -3,12 +3,18 @@ import type { Mock } from 'vitest';
 import { GET as getAgents } from '../../app/api-proxy/agents/route';
 import type { NextRequest } from 'next/server';
 import { buildProxyHeaders } from '../../src/lib/proxyHeaders';
-import type { ProxyHeaders } from '../../src/lib/proxyHeaders';
+import type { ProxyHeadersContext } from '../../src/lib/proxyHeaders';
 
 // Mock buildProxyHeaders to control auth behavior
-vi.mock('../../src/lib/proxyHeaders', () => ({
-  buildProxyHeaders: vi.fn(),
-}));
+vi.mock('../../src/lib/proxyHeaders', async () => {
+  const actual = await vi.importActual<typeof import('../../src/lib/proxyHeaders')>(
+    '../../src/lib/proxyHeaders',
+  );
+  return {
+    ...actual,
+    buildProxyHeaders: vi.fn(),
+  };
+});
 
 // Mock serverEnv
 vi.mock('../../src/lib/serverEnv', () => ({
@@ -38,16 +44,19 @@ describe('api-proxy/agents GET', () => {
   });
 
   it('returns 401 when no session/headers', async () => {
-    vi.mocked(buildProxyHeaders).mockResolvedValue(null as unknown as ProxyHeaders);
+    vi.mocked(buildProxyHeaders).mockResolvedValue(null as unknown as ProxyHeadersContext);
     const res = await getAgents(makeReq());
     expect(res.status).toBe(401);
   });
 
   it('proxies to API when authorized', async () => {
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer tenant-token',
-      'Content-Type': 'application/json',
-    } as const);
+      headers: {
+        Authorization: 'Bearer tenant-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
     fetchMock.mockResolvedValue(
       new Response('ok', { status: 200, headers: { 'content-type': 'application/json' } }),
     );

@@ -1,5 +1,6 @@
 import type { NextAuthOptions, Session, User as NextAuthUser } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import { cookies } from 'next/headers';
 import { API_BASE } from './serverEnv';
 import type { JWT } from 'next-auth/jwt';
 import {
@@ -8,6 +9,7 @@ import {
   type Membership as RolesMembership,
 } from './roles';
 import { primeNeutralAccess } from './authClient';
+import { extractSetCookieValues, parseSetCookie } from './cookieUtils';
 
 type MembershipDto = { tenantId: string; tenantSlug: string; role: string; roles?: FlagRole[] };
 type AppToken = JWT & {
@@ -49,6 +51,26 @@ if (!RESOLVED_SECRET) {
   console.warn(
     'Warning: NextAuth secret is not set. Set AUTH_SECRET or NEXTAUTH_SECRET in .env.local.',
   );
+}
+
+/**
+ * Propagate the API-issued refresh cookie (rt) onto the web response.
+ * Ensures subsequent proxy calls have the httpOnly refresh token available.
+ */
+function syncRefreshCookie(response: Response) {
+  let jar: ReturnType<typeof cookies>;
+  try {
+    jar = cookies();
+  } catch {
+    return;
+  }
+  const candidates = extractSetCookieValues(response.headers);
+  for (const entry of candidates) {
+    const parsed = parseSetCookie(entry);
+    if (parsed && parsed.name === 'rt') {
+      jar.set(parsed.name, parsed.value, parsed.options);
+    }
+  }
 }
 
 export const authOptions: NextAuthOptions & {
@@ -173,6 +195,7 @@ export const authOptions: NextAuthOptions & {
           body: JSON.stringify({ token: magicToken }),
         });
         if (!res.ok) return null;
+        syncRefreshCookie(res);
         const data = (await res.json()) as {
           user?: { id: string; email: string };
           memberships?: MembershipDto[];
@@ -210,6 +233,7 @@ export const authOptions: NextAuthOptions & {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) return null;
+      syncRefreshCookie(res);
       const data = (await res.json()) as {
         id: string;
         email: string;

@@ -41,7 +41,9 @@ describe('/api-proxy/agents', () => {
     const ph = await importProxyHeaders();
     const spy = vi
       .spyOn(ph, 'buildProxyHeaders')
-      .mockResolvedValue(headers as unknown as Awaited<ReturnType<typeof ph.buildProxyHeaders>>);
+      .mockResolvedValue({ headers, cookies: [] } as Awaited<
+        ReturnType<typeof ph.buildProxyHeaders>
+      >);
 
     const body = JSON.stringify([{ id: 'a', name: 'Agent A' }]);
     global.fetch = vi.fn(
@@ -62,8 +64,11 @@ describe('/api-proxy/agents', () => {
   it('POST returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      Authorization: 'Bearer test-token',
-      'Content-Type': 'application/json',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
     // Guard denies

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE } from '../../../../../src/lib/serverEnv';
-import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
+import { applyProxyCookies, buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
 
 export const runtime = 'nodejs';
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const target = `${API_BASE}/api/agent-tasks/${encodeURIComponent(params.id)}/cancel`;
-  const headers = await buildProxyHeaders();
-  if (!headers) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const res = await fetch(target, { method: 'POST', headers });
+  const proxyContext = await buildProxyHeaders();
+  if (!proxyContext) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const res = await fetch(target, { method: 'POST', headers: proxyContext.headers });
   const responseHeaders = new Headers({
     'content-type': res.headers.get('content-type') ?? 'application/json',
   });
-  return new NextResponse(res.body, { status: res.status, headers: responseHeaders });
+  const nextResponse = new NextResponse(res.body, { status: res.status, headers: responseHeaders });
+  return applyProxyCookies(nextResponse, proxyContext);
 }

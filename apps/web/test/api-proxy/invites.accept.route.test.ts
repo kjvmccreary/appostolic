@@ -3,12 +3,18 @@ import type { Mock } from 'vitest';
 import { POST as postAccept } from '../../app/api-proxy/invites/accept/route';
 import type { NextRequest } from 'next/server';
 import { buildProxyHeaders } from '../../src/lib/proxyHeaders';
-import type { ProxyHeaders } from '../../src/lib/proxyHeaders';
+import type { ProxyHeadersContext } from '../../src/lib/proxyHeaders';
 
 // Mock buildProxyHeaders to control auth behavior
-vi.mock('../../src/lib/proxyHeaders', () => ({
-  buildProxyHeaders: vi.fn(),
-}));
+vi.mock('../../src/lib/proxyHeaders', async () => {
+  const actual = await vi.importActual<typeof import('../../src/lib/proxyHeaders')>(
+    '../../src/lib/proxyHeaders',
+  );
+  return {
+    ...actual,
+    buildProxyHeaders: vi.fn(),
+  };
+});
 
 // Mock serverEnv
 vi.mock('../../src/lib/serverEnv', () => ({
@@ -47,9 +53,12 @@ describe('api-proxy/invites/accept POST', () => {
   it('allows user-only auth (no tenant) and proxies', async () => {
     // tenant omitted; route passes requireTenant:false
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer token-user',
-      'Content-Type': 'application/json',
-    } as ProxyHeaders);
+      headers: {
+        Authorization: 'Bearer token-user',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
 
     const res = await postAccept(makeReq());
     expect(res.status).toBe(200);
@@ -67,7 +76,7 @@ describe('api-proxy/invites/accept POST', () => {
   });
 
   it('returns 401 when no session (even permissive)', async () => {
-    vi.mocked(buildProxyHeaders).mockResolvedValue(null as unknown as ProxyHeaders);
+    vi.mocked(buildProxyHeaders).mockResolvedValue(null as unknown as ProxyHeadersContext);
 
     const res = await postAccept(makeReq());
     expect(res.status).toBe(401);

@@ -66,41 +66,12 @@ export default async function SelectTenantPage(props: {
     redirect(url.pathname + url.search);
   }
 
-  async function chooseTenant(formData: FormData) {
-    'use server';
-    const slugEntry = formData.get('tenant');
-    const slug = typeof slugEntry === 'string' ? slugEntry.trim() : '';
-    const nextFromForm = formData.get('next');
-    const nextSafe = (() => {
-      const v = typeof nextFromForm === 'string' ? nextFromForm : undefined;
-      if (!v) return next;
-      const n = v.trim();
-      if (!n.startsWith('/') || n.startsWith('//')) return next;
-      return n;
-    })();
-    if (!slug) {
-      redirect('/select-tenant');
-    }
-    const session = await getServerSession(authOptions);
-    const membership = (session as Session & { memberships?: Membership[] })?.memberships?.find(
-      (m) => m.tenantSlug === slug || m.tenantId === slug,
-    );
-    if (!membership) {
-      redirect('/select-tenant'); // invalid selection attempt; start over
-    }
-    const url = new URL(
-      `/api/tenant/select?tenant=${encodeURIComponent(membership.tenantSlug)}&next=${encodeURIComponent(nextSafe)}`,
-      'http://localhost',
-    );
-    redirect(url.pathname + url.search);
-  }
-
   return (
     <div aria-labelledby="select-tenant-heading" className="mx-auto mt-8 max-w-md p-4">
       <h1 id="select-tenant-heading" className="mb-4 text-xl font-semibold">
         Select a tenant
       </h1>
-      <form action={chooseTenant}>
+      <form method="get" action="/api/tenant/select">
         <input type="hidden" name="next" value={next} />
         <label htmlFor="tenant-select" className="block text-sm mb-1">
           Tenant

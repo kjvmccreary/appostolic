@@ -4,9 +4,15 @@ import type { NextRequest } from 'next/server';
 import { GET as getDlq, POST as postDlqReplay } from './route';
 
 // Mocks
-vi.mock('../../../../src/lib/proxyHeaders', () => ({
-  buildProxyHeaders: vi.fn(),
-}));
+vi.mock('../../../../src/lib/proxyHeaders', async () => {
+  const actual = await vi.importActual<typeof import('../../../../src/lib/proxyHeaders')>(
+    '../../../../src/lib/proxyHeaders',
+  );
+  return {
+    ...actual,
+    buildProxyHeaders: vi.fn(),
+  };
+});
 vi.mock('../../../../src/lib/serverEnv', () => ({
   API_BASE: 'http://api.test',
 }));
@@ -28,7 +34,7 @@ vi.mock('../../../../src/lib/roleGuard', () => ({
 }));
 
 import { buildProxyHeaders } from '../../../../src/lib/proxyHeaders';
-import type { ProxyHeaders } from '../../../../src/lib/proxyHeaders';
+import type { ProxyHeadersContext } from '../../../../src/lib/proxyHeaders';
 import { requireTenantAdmin } from '../../../../src/lib/roleGuard';
 
 function makeReq(url = 'http://localhost:3000/api-proxy/notifications/dlq'): NextRequest {
@@ -71,8 +77,11 @@ describe('api-proxy/notifications/dlq', () => {
   it('GET proxies to API with headers and forwards X-Total-Count', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer test-token',
-    } as ProxyHeaders);
+      headers: {
+        Authorization: 'Bearer test-token',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
     fetchMock.mockResolvedValue(
       new Response('[{"id":"1"}]', {
         status: 200,
@@ -106,9 +115,12 @@ describe('api-proxy/notifications/dlq', () => {
   it('POST proxies body to API replay endpoint', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer test-token',
-      'Content-Type': 'application/json',
-    } as ProxyHeaders);
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
     fetchMock.mockResolvedValue(
       new Response('{"requeued":1}', {
         status: 200,

@@ -1,6 +1,6 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE } from '../../../../../../src/lib/serverEnv';
-import { buildProxyHeaders } from '../../../../../../src/lib/proxyHeaders';
+import { applyProxyCookies, buildProxyHeaders } from '../../../../../../src/lib/proxyHeaders';
 import { requireTenantAdmin } from '../../../../../../src/lib/roleGuard';
 
 export const runtime = 'nodejs';
@@ -12,21 +12,25 @@ export async function PUT(
 ) {
   const guard = await requireTenantAdmin({ id: params.tenantId });
   if (guard) return guard;
-  const headers = await buildProxyHeaders();
-  if (!headers) return new Response('Unauthorized', { status: 401 });
+  const proxyContext = await buildProxyHeaders();
+  if (!proxyContext) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.text();
   const res = await fetch(`${API_BASE}/api/tenants/${params.tenantId}/members/${params.userId}`, {
     method: 'PUT',
-    headers,
+    headers: proxyContext.headers,
     body,
   });
   // No content on success
-  if (res.status === 204) return new Response(null, { status: 204 });
+  if (res.status === 204) {
+    const empty = new NextResponse(null, { status: 204 });
+    return applyProxyCookies(empty, proxyContext);
+  }
   const text = await res.text();
-  return new Response(text, {
+  const nextResponse = new NextResponse(text, {
     status: res.status,
     headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json' },
   });
+  return applyProxyCookies(nextResponse, proxyContext);
 }
 
 // Remove member
@@ -36,11 +40,12 @@ export async function DELETE(
 ) {
   const guard = await requireTenantAdmin({ id: params.tenantId });
   if (guard) return guard;
-  const headers = await buildProxyHeaders();
-  if (!headers) return new Response('Unauthorized', { status: 401 });
+  const proxyContext = await buildProxyHeaders();
+  if (!proxyContext) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const res = await fetch(`${API_BASE}/api/tenants/${params.tenantId}/members/${params.userId}`, {
     method: 'DELETE',
-    headers,
+    headers: proxyContext.headers,
   });
-  return new Response(null, { status: res.status });
+  const nextResponse = new NextResponse(null, { status: res.status });
+  return applyProxyCookies(nextResponse, proxyContext);
 }

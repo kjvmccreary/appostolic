@@ -398,6 +398,43 @@ Runbook (Condensed)
 1. Add new key (A -> A,B). Deploy.
 2. Observe both kids counters increment; probe_result true; zero validation_failure.
 3. After access TTL + buffer, remove old key (A,B -> B). Deploy.
+
+---
+
+### 2025-09-26 - Story: Admin Org Settings Proxy Fix — ✅ DONE
+
+Summary
+
+- Added tenant admin-protected proxy route `/api-proxy/tenants/settings` (GET/PUT) to forward settings reads and updates with cookie bridging, closing the loop that previously booted admins back to login during Org Settings navigation.
+- Introduced `/api-proxy/metadata/denominations` handler to expose metadata without a tenant requirement, ensuring the settings form can hydrate denomination options.
+- Documented new handlers inline and covered them with Vitest suites asserting guard behavior, tenantless proxy context, and successful upstream forwarding.
+
+Quality Gates
+
+- `pnpm -C apps/web test` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
+### 2025-09-25 - Story: Tenant redirect loop debugging — 🚧 IN PROGRESS
+
+Summary
+
+- Propagate the API-issued `rt` refresh cookie to browser clients during both credential and magic-link sign-ins by syncing `Set-Cookie` headers inside the NextAuth authorize flow, ensuring proxy requests can immediately refresh neutral and tenant tokens.
+- Centralized cookie header parsing in `cookieUtils` and reused it from the proxy header builder, hardening fallback handling when multiple cookies arrive via a single header string and adding unit coverage for the parser.
+- Confirmed `/api-proxy` routes can now establish access tokens post-login without 401 loops, eliminating the runaway profile hydration retries that triggered “Maximum update depth exceeded.”
+
+Quality Gates
+
+- `pnpm -w test -w --filter @appostolic/web` — Passed (66 files, 209 tests).
+
+Follow-ups / Deferred
+
+- Monitor the live login flow to verify the tenant selector no longer re-enters the loop and add an end-to-end test once the regression harness is available.
+
 4. Verify only kid=B increments; probe_result true; 401 rate stable.
 5. If anomaly (401 spike or validation_failure>0) revert to previous list and investigate.
 6. After two clean rotations, securely destroy retired key material.

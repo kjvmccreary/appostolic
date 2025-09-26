@@ -1,6 +1,6 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE } from '../../../../../../src/lib/serverEnv';
-import { buildProxyHeaders } from '../../../../../../src/lib/proxyHeaders';
+import { applyProxyCookies, buildProxyHeaders } from '../../../../../../src/lib/proxyHeaders';
 import { requireTenantAdmin } from '../../../../../../src/lib/roleGuard';
 
 export const runtime = 'nodejs';
@@ -12,20 +12,21 @@ export async function POST(
 ) {
   const guard = await requireTenantAdmin({ id: params.tenantId });
   if (guard) return guard;
-  const headers = await buildProxyHeaders();
-  if (!headers) return new Response('Unauthorized', { status: 401 });
+  const proxyContext = await buildProxyHeaders();
+  if (!proxyContext) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const res = await fetch(
     `${API_BASE}/api/tenants/${params.tenantId}/invites/${encodeURIComponent(params.email)}/resend`,
     {
       method: 'POST',
-      headers,
+      headers: proxyContext.headers,
     },
   );
   const body = await res.text();
-  return new Response(body, {
+  const nextResponse = new NextResponse(body, {
     status: res.status,
     headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json' },
   });
+  return applyProxyCookies(nextResponse, proxyContext);
 }
 
 // Revoke
@@ -35,14 +36,15 @@ export async function DELETE(
 ) {
   const guard = await requireTenantAdmin({ id: params.tenantId });
   if (guard) return guard;
-  const headers = await buildProxyHeaders();
-  if (!headers) return new Response('Unauthorized', { status: 401 });
+  const proxyContext = await buildProxyHeaders();
+  if (!proxyContext) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const res = await fetch(
     `${API_BASE}/api/tenants/${params.tenantId}/invites/${encodeURIComponent(params.email)}`,
     {
       method: 'DELETE',
-      headers,
+      headers: proxyContext.headers,
     },
   );
-  return new Response(null, { status: res.status });
+  const nextResponse = new NextResponse(null, { status: res.status });
+  return applyProxyCookies(nextResponse, proxyContext);
 }

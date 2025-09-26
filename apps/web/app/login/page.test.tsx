@@ -3,11 +3,6 @@ import { render, screen, waitFor } from '../../test/utils';
 import userEvent from '@testing-library/user-event';
 import type { Session } from 'next-auth';
 import type { SignInResponse } from 'next-auth/react';
-import { http, HttpResponse } from 'msw';
-
-// MSW server from global (exposed in setup.ts)
-const server: import('msw/node').SetupServer = (globalThis as unknown as { __mswServer: unknown })
-  .__mswServer as import('msw/node').SetupServer;
 
 // Mocks for next-auth/react and next/navigation
 const replaceMock = vi.fn();
@@ -38,25 +33,10 @@ describe('LoginPage', () => {
     vi.mocked(useSession).mockReturnValue({ data: null } as unknown as ReturnType<
       typeof useSession
     >);
-    // default CSRF endpoint
-    server.use(
-      http.get('http://localhost/api/auth/csrf', () =>
-        HttpResponse.json({ csrfToken: 'test-token' }),
-      ),
-    );
   });
 
   afterEach(() => {
     replaceMock.mockReset();
-  });
-
-  it('renders a hidden CSRF token input', async () => {
-    render(<LoginPage />);
-    await waitFor(() => {
-      const input = document.querySelector('input[name="csrfToken"]') as HTMLInputElement | null;
-      expect(input).toBeTruthy();
-      expect(input!.value).toBe('test-token');
-    });
   });
 
   it('shows inline error on invalid credentials and does not redirect', async () => {
@@ -86,7 +66,7 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('/select-tenant?next=%2Fstudio%2Fagents');
+      expect(replaceMock).toHaveBeenCalledWith('/select-tenant?next=%2Fstudio%2Fagents&reselect=1');
     });
   });
 

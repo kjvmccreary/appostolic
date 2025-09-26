@@ -4,12 +4,20 @@ import type { NextRequest } from 'next/server';
 import { POST } from './route';
 
 vi.mock('../../../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
-vi.mock('../../../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
+vi.mock('../../../../../../../src/lib/proxyHeaders', async () => {
+  const actual = await vi.importActual<typeof import('../../../../../../../src/lib/proxyHeaders')>(
+    '../../../../../../../src/lib/proxyHeaders',
+  );
+  return {
+    ...actual,
+    buildProxyHeaders: vi.fn(),
+  };
+});
 vi.mock('../../../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api' }));
 
 import { requireTenantAdmin } from '../../../../../../../src/lib/roleGuard';
 import { buildProxyHeaders } from '../../../../../../../src/lib/proxyHeaders';
-import type { ProxyHeaders } from '../../../../../../../src/lib/proxyHeaders';
+import type { ProxyHeadersContext } from '../../../../../../../src/lib/proxyHeaders';
 
 function makeReq(body: string): NextRequest {
   const req = {
@@ -52,9 +60,12 @@ describe('proxy: memberships roles POST', () => {
   it('forwards to API when authorized', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer fake-token',
-      'Content-Type': 'application/json',
-    } as ProxyHeaders);
+      headers: {
+        Authorization: 'Bearer fake-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
     fetchMock.mockResolvedValue(
       new Response('ok', { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );

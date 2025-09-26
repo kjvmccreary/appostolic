@@ -138,7 +138,7 @@ describe('/select-tenant page', () => {
     expect(serialized).not.toContain('Owner');
   });
 
-  it('server action redirects through API route to set cookie and continue', async () => {
+  it('renders a GET form targeting the API route so the browser follows redirects', async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: { email: 'u@example.com' },
       memberships: [
@@ -155,26 +155,13 @@ describe('/select-tenant page', () => {
       | React.ReactElement
       | undefined;
     expect(form).toBeDefined();
-    const action = form?.props?.action as ((fd: FormData) => Promise<unknown>) | undefined;
-    expect(typeof action).toBe('function');
-
-    const fd = new FormData();
-    fd.set('tenant', 'beta');
-    fd.set('next', '/studio/tasks');
-
-    let dest = '';
-    try {
-      await action?.(fd);
-    } catch (e) {
-      const err = e as RedirectError;
-      if (err.message === 'REDIRECT') dest = err.destination ?? '';
-      else throw e;
-    }
-
-    expect(dest).toBe(
-      `/api/tenant/select?tenant=${encodeURIComponent('beta')}&next=${encodeURIComponent('/studio/tasks')}`,
-    );
-    expect(setCookieMock).not.toHaveBeenCalled();
+    expect(form?.props?.action).toBe('/api/tenant/select');
+    expect(form?.props?.method).toBe('get');
+    const hiddenNext = React.Children.toArray(form?.props?.children ?? []).find(
+      (child) =>
+        React.isValidElement(child) && child.type === 'input' && child.props?.name === 'next',
+    ) as React.ReactElement | undefined;
+    expect(hiddenNext?.props?.value).toBe('/studio/agents');
   });
 
   it('redirects away when cookie already matches a membership and session tenant aligns', async () => {

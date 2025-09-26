@@ -24,8 +24,11 @@ describe('/api-proxy/agents/[id]', () => {
   it('PUT returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      Authorization: 'Bearer test-token',
-      'Content-Type': 'application/json',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
     const rg = await import('../../../../src/lib/roleGuard');
@@ -42,8 +45,11 @@ describe('/api-proxy/agents/[id]', () => {
   it('DELETE returns 403 when session lacks canCreate', async () => {
     const ph = await importProxyHeaders();
     const hdrs = {
-      Authorization: 'Bearer test-token',
-      'Content-Type': 'application/json',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
     } satisfies Awaited<ReturnType<typeof ph.buildProxyHeaders>>;
     vi.spyOn(ph, 'buildProxyHeaders').mockResolvedValue(hdrs);
     const rg = await import('../../../../src/lib/roleGuard');

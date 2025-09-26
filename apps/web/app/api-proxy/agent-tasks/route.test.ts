@@ -40,7 +40,9 @@ describe('/api-proxy/agent-tasks', () => {
     const ph = await importProxyHeaders();
     const spy = vi
       .spyOn(ph, 'buildProxyHeaders')
-      .mockResolvedValue(headers as unknown as Awaited<ReturnType<typeof ph.buildProxyHeaders>>);
+      .mockResolvedValue({ headers, cookies: [] } as Awaited<
+        ReturnType<typeof ph.buildProxyHeaders>
+      >);
 
     const body = JSON.stringify({ items: [{ id: 'task1', status: 'Pending' }] });
     global.fetch = vi.fn(
@@ -66,7 +68,9 @@ describe('/api-proxy/agent-tasks', () => {
     const ph = await importProxyHeaders();
     const spy = vi
       .spyOn(ph, 'buildProxyHeaders')
-      .mockResolvedValue(headers as unknown as Awaited<ReturnType<typeof ph.buildProxyHeaders>>);
+      .mockResolvedValue({ headers, cookies: [] } as Awaited<
+        ReturnType<typeof ph.buildProxyHeaders>
+      >);
 
     const created = { id: '123', status: 'Pending' };
     global.fetch = vi.fn(

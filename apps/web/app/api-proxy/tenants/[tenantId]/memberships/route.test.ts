@@ -4,12 +4,20 @@ import type { NextRequest } from 'next/server';
 import { GET } from './route';
 
 vi.mock('../../../../../src/lib/roleGuard', () => ({ requireTenantAdmin: vi.fn() }));
-vi.mock('../../../../../src/lib/proxyHeaders', () => ({ buildProxyHeaders: vi.fn() }));
+vi.mock('../../../../../src/lib/proxyHeaders', async () => {
+  const actual = await vi.importActual<typeof import('../../../../../src/lib/proxyHeaders')>(
+    '../../../../../src/lib/proxyHeaders',
+  );
+  return {
+    ...actual,
+    buildProxyHeaders: vi.fn(),
+  };
+});
 vi.mock('../../../../../src/lib/serverEnv', () => ({ API_BASE: 'http://api' }));
 
 import { requireTenantAdmin } from '../../../../../src/lib/roleGuard';
 import { buildProxyHeaders } from '../../../../../src/lib/proxyHeaders';
-import type { ProxyHeaders } from '../../../../../src/lib/proxyHeaders';
+import type { ProxyHeadersContext } from '../../../../../src/lib/proxyHeaders';
 
 function makeReq(url = 'http://localhost/app/api-proxy/tenants/t1/memberships'): NextRequest {
   // Minimal NextRequest-like shape used by our handler (only params are read, not req itself)
@@ -38,9 +46,12 @@ describe('proxy: memberships list', () => {
   it('forwards to API with headers', async () => {
     vi.mocked(requireTenantAdmin).mockResolvedValue(null);
     vi.mocked(buildProxyHeaders).mockResolvedValue({
-      Authorization: 'Bearer fake-token',
-      'Content-Type': 'application/json',
-    } as ProxyHeaders);
+      headers: {
+        Authorization: 'Bearer fake-token',
+        'Content-Type': 'application/json',
+      },
+      cookies: [],
+    } as ProxyHeadersContext);
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify([{ userId: 'u1' }]), {
         status: 200,

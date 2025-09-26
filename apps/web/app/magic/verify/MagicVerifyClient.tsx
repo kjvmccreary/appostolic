@@ -9,7 +9,7 @@ export default function MagicVerifyClient() {
   const router = useRouter();
   const token = getParam('token') ?? '';
   const next = getParam('next') ?? '/studio/agents';
-  const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
+  const postAuth = `/select-tenant?${new URLSearchParams({ next, reselect: '1' }).toString()}`;
 
   const [status, setStatus] = useState<'idle' | 'verifying' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState<string>('');
@@ -40,7 +40,7 @@ export default function MagicVerifyClient() {
       }
     }
     run();
-  }, [token, next, router]);
+  }, [token, next, postAuth, router]);
 
   return (
     <main className="mx-auto max-w-md p-6">

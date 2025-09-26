@@ -1,5 +1,5 @@
 'use client';
-import React, { FormEvent, useRef, useState } from 'react';
+import React, { FormEvent, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -8,36 +8,15 @@ export default function LoginClient() {
   const getParam = React.useCallback((key: string) => params?.get(key) ?? null, [params]);
   const router = useRouter();
   const next = getParam('next') ?? '/studio/agents';
-  // After sign-in, route through select-tenant to enforce selection when user has multiple memberships
-  const postAuth = `/select-tenant?next=${encodeURIComponent(next)}`;
+  // After sign-in, route through select-tenant and force tenant reselection for multi-tenant users.
+  const postAuth = `/select-tenant?${new URLSearchParams({ next, reselect: '1' }).toString()}`;
   const loggedOut = getParam('loggedOut') === '1';
   const errorParam = getParam('error');
   const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Load CSRF token (Auth.js anti-CSRF) once per mount
-  const csrfRequestedRef = useRef(false);
-  React.useEffect(() => {
-    if (csrfRequestedRef.current || typeof window === 'undefined') return;
-    csrfRequestedRef.current = true;
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch('/api/auth/csrf');
-        const d = await r.json();
-        if (alive) setCsrfToken(d.csrfToken ?? '');
-      } catch {
-        // ignore
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // Redirect to next when already authenticated (but not immediately after logout)
   React.useEffect(() => {
@@ -91,7 +70,6 @@ export default function LoginClient() {
       <h1 className="mb-2 text-2xl font-semibold">Sign in</h1>
       <p className="mb-6 text-sm text-muted">Enter your credentials to continue.</p>
       <form onSubmit={onSubmit} className="space-y-4" aria-describedby="login-help">
-        <input type="hidden" name="csrfToken" value={csrfToken} />
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
             Email
