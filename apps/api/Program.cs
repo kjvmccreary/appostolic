@@ -32,6 +32,7 @@ using Amazon;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using Appostolic.Api.Application.Auth;
+using Appostolic.Api.Application.Guardrails;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -348,6 +349,13 @@ builder.Services.AddSingleton<Appostolic.Api.Application.Privacy.IPIIHasher, App
 
 // Story 6: Structured security events writer
 builder.Services.AddSingleton<ISecurityEventWriter, SecurityEventWriter>();
+
+// Guardrail evaluator + security instrumentation
+builder.Services.AddOptions<GuardrailEvaluatorOptions>()
+    .Bind(builder.Configuration.GetSection("Guardrails"));
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IGuardrailSecurityEventWriter, GuardrailSecurityEventWriter>();
+builder.Services.AddScoped<IGuardrailEvaluator, GuardrailEvaluator>();
 
 // Story 9: Forced logout feature flag (admin / tenant). This will gate new endpoints.
 var forcedLogoutEnabled = (builder.Configuration["AUTH__FORCED_LOGOUT__ENABLED"] ?? "false")
@@ -680,6 +688,7 @@ app.MapAgentTasksExportEndpoints();
 app.MapAgentsEndpoints();
 app.MapUserProfileEndpoints();
 app.MapTenantSettingsEndpoints();
+app.MapGuardrailEndpoints();
 
 // Lessons endpoints temporarily disabled pending tenant-claim wiring (legacy header removed in Story 3 refactor).
 
@@ -897,15 +906,52 @@ public partial class AppDbContext : DbContext
         if (Database.ProviderName != null && Database.ProviderName.Contains("InMemory", StringComparison.OrdinalIgnoreCase))
         {
             // Use string storage for JsonDocument properties under InMemory via helper methods
-            System.Linq.Expressions.Expression<Func<JsonDocument?, string?>> toString = v => SerializeNullable(v);
-            System.Linq.Expressions.Expression<Func<string?, JsonDocument?>> toJson = s => ParseNullable(s);
-            var converter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<JsonDocument?, string?>(toString, toJson);
+            modelBuilder.Entity<Tenant>()
+                .Property(x => x.Settings)
+                .HasConversion<string?>(
+                    v => SerializeNullable(v),
+                    v => ParseNullable(v));
 
-            modelBuilder.Entity<Tenant>().Property(x => x.Settings).HasConversion(converter);
-            modelBuilder.Entity<User>().Property(x => x.Profile).HasConversion(converter);
+            modelBuilder.Entity<User>()
+                .Property(x => x.Profile)
+                .HasConversion<string?>(
+                    v => SerializeNullable(v),
+                    v => ParseNullable(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailSystemPolicy>()
+                .Property(x => x.Definition)
+                .HasConversion(
+                    v => SerializeNonNull(v),
+                    v => ParseNonNull(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailDenominationPolicy>()
+                .Property(x => x.Definition)
+                .HasConversion(
+                    v => SerializeNonNull(v),
+                    v => ParseNonNull(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailTenantPolicy>()
+                .Property(x => x.Definition)
+                .HasConversion(
+                    v => SerializeNonNull(v),
+                    v => ParseNonNull(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailTenantPolicy>()
+                .Property(x => x.Metadata)
+                .HasConversion<string?>(
+                    v => SerializeNullable(v),
+                    v => ParseNullable(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailUserPreference>()
+                .Property(x => x.Preferences)
+                .HasConversion(
+                    v => SerializeNonNull(v),
+                    v => ParseNonNull(v));
         }
     }
 
+    private static string SerializeNonNull(JsonDocument doc) => doc.RootElement.GetRawText();
+    private static JsonDocument ParseNonNull(string s) => JsonDocument.Parse(s);
     private static string? SerializeNullable(JsonDocument? doc) => doc == null ? null : doc.RootElement.GetRawText();
     private static JsonDocument? ParseNullable(string? s) => s == null ? null : JsonDocument.Parse(s);
 

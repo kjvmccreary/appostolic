@@ -1,3 +1,22 @@
+- 2025-09-27 — Guardrails sprint Phase 2 preflight evaluator — 🚧 IN PROGRESS
+
+Summary
+
+- Extended the EF InMemory JSON converter setup to include guardrail system, denomination, tenant, and user policy documents so the new evaluator can run under the test host without provider errors.
+- Updated the guardrail preflight endpoint to fall back to `ClaimTypes.NameIdentifier` when extracting the caller id, preventing 401s for tokens that remap the `sub` claim.
+- Taught the guardrail preflight integration tests to deserialize enum values with a shared `JsonStringEnumConverter`, keeping request/response coverage green alongside the new endpoint.
+- Wired guardrail evaluation into agent task creation: optional guardrail context now triggers the evaluator, stores decision/metadata on `agent_tasks`, emits security events, and prevents queueing when the verdict is deny/escalate; the worker double-checks stored decisions before execution.
+- Authored `AgentTasksGuardrailTests` covering deny/escalate persistence, response metadata projection, and worker skip behavior so regressions surface quickly.
+
+Quality Gates
+
+- `make migrate`
+- `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj` — Passed (297 passed, 1 skipped).
+
+Follow-ups / Deferred
+
+- Surface guardrail outcomes in UI flows (agent task detail/inbox) and expand evaluator scenarios once additional guardrail metadata wiring lands.
+
 - 2025-09-26 — Guardrails sprint Phase 1 completed: delivered multi-layer schema, seeded presets, enforced RLS, and updated architecture docs for guardrail persistence.
 
 ### 2025-09-26 - Story: Guardrails data model & RLS — ✅ DONE

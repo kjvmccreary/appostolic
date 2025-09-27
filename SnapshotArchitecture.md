@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
-Generated: 2025-09-23 (updated: guardrail persistence schema + seeded presets; key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
+Generated: 2025-09-23 (updated: guardrail persistence schema + seeded presets; key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard; guardrail evaluations enforced during agent task creation)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---
@@ -107,6 +107,8 @@ Core tables (schema `app`):
 - `invitations` (granular Roles, Token, ExpiresAt)
 - `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Fingerprint?, LastUsedAt?, DeviceName?, Metadata JSONB)
   - Story 8: Added nullable `Fingerprint` (client-provided device/browser hint via header `X-Session-Fp` default; not security sensitive) and `LastUsedAt` (updated on successful validation and pre-rotation to preserve usage evidence). Partial index created for efficient active listing: `CREATE INDEX ix_refresh_tokens_active_user ON app.refresh_tokens (user_id, created_at DESC) WHERE revoked_at IS NULL;`
+- `agent_tasks` (Id, AgentId, InputJson TEXT, Status enum, RequestTenant, RequestUser, GuardrailDecision?, GuardrailMetadataJson JSONB, ResultJson TEXT, token rollups, timestamps)
+  - Guardrail evaluation results are persisted when provided during task creation; deny/escalate decisions finalize the task immediately (status `Failed`, error populated) and prevent queueing. Metadata JSON includes evaluation context snapshot.
 - `guardrail_system_policies` (Id, Slug, Name, Description?, Definition JSONB, Version) — canonical baseline applied before denomination/tenant layers. Seeded with slug `system-core` capturing Nicene safeguards and merge order metadata.
 - `guardrail_denomination_policies` (Id slug, Name, Notes, Definition JSONB, Version) — curated presets aligned to theology/product input (Mere Christianity, Baptist, Presbyterian, etc.).
 - `guardrail_tenant_policies` (Id, TenantId, Layer enum, PolicyKey, Definition JSONB, DerivedFromPresetId?, Metadata JSONB, Version, Created/Updated/Published timestamps, CreatedBy/UpdatedBy) — tenant-level guardrails supporting layered overrides (`TenantBase`, `Override`, `Draft`). RLS enabled; tenant isolation enforced via `tenant_isolation_select/mod` policies referencing `app.set_tenant()`.
@@ -202,6 +204,7 @@ Agent runtime (prototype) features:
 - Tool registry (WebSearchTool, DbQueryTool, FsWriteTool) registered as singletons.
 - Orchestrator + InMemory task queue + hosted worker `AgentTaskWorker`.
 - Trace writer emits spans for agent/tool execution.
+- Guardrail evaluator can run at task submission time when clients include guardrail context. Decisions persist on `agent_tasks` and deny/escalate outcomes skip enqueue; the worker re-checks the stored decision to avoid accidental execution.
 
 Planned: External queue integration, model adapter expansions, persistence of task transcripts.
 

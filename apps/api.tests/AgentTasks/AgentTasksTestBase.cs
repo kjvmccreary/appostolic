@@ -73,14 +73,15 @@ public abstract class AgentTasksTestBase : IClassFixture<AgentTasksFactory>
         // now intermittently returns 400 in tests after membership/refresh refactors). We intentionally
         // keep seeding logic inside the factory (tenant/user/membership) then rely on TestAuthSeeder to
         // issue a scoped token using the production IJwtTokenService so claims & signing keys match.
-    var issued = TestAuthSeeder.IssueTenantTokenAsync(Factory, "dev@example.com", "acme", owner: true);
+        var issued = TestAuthSeeder.IssueTenantTokenAsync(Factory, "dev@example.com", "acme", owner: true);
         var token = issued.GetAwaiter().GetResult().token;
         Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
-    protected async Task<Guid> CreateTaskAsync(Guid agentId, object input, int? enqueueDelayMs = null, bool suppressEnqueue = false)
+    protected async Task<Guid> CreateTaskAsync(Guid agentId, object input, object? guardrails = null, int? enqueueDelayMs = null, bool suppressEnqueue = false)
     {
-        var json = JsonSerializer.Serialize(new { agentId, input });
+        object payload = guardrails is null ? new { agentId, input } : new { agentId, input, guardrails };
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         using var req = new HttpRequestMessage(HttpMethod.Post, "/api/agent-tasks");
         req.Content = new StringContent(json, Encoding.UTF8, "application/json");
         if (enqueueDelayMs.HasValue && enqueueDelayMs.Value > 0)

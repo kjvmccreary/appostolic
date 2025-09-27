@@ -1,10 +1,25 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using Appostolic.Api.Application.Guardrails;
 
 namespace Appostolic.Api.Application.Agents.Api;
 
 // Requests
-public record CreateAgentTaskRequest(Guid AgentId, JsonDocument Input);
+/// <summary>
+/// Optional guardrail context supplied when creating an agent task. Allows callers to provide
+/// precomputed signals, summaries, and policy hints before the task is enqueued.
+/// </summary>
+public sealed record AgentTaskGuardrailContext(
+    IReadOnlyList<string>? Signals,
+    string? PromptSummary,
+    string? Channel,
+    string? PolicyKey,
+    Guid? UserId,
+    IReadOnlyList<string>? PresetIds
+);
+
+public record CreateAgentTaskRequest(Guid AgentId, JsonDocument Input, AgentTaskGuardrailContext? Guardrails);
 
 // Summaries and details for listings and fetch-by-id
 public record AgentTaskSummary(
@@ -29,7 +44,9 @@ public record AgentTaskDetails(
     int TotalTokens,
     decimal? EstimatedCostUsd,
     JsonDocument? Result,
-    string? ErrorMessage
+    string? ErrorMessage,
+    GuardrailDecision? GuardrailDecision,
+    JsonDocument? GuardrailMetadata
 );
 
 public record AgentTraceDto(

@@ -51,11 +51,11 @@ Success will be measured by:
 
 ### Phase 2 — Evaluator & API Surface (Day 3–6)
 
-- [ ] Implement policy merge + evaluation engine with test matrix (allow, deny, fallback, explanation).
-- [ ] Expose `/api/guardrails/preflight` endpoint (auth required) returning structured verdicts.
-- [ ] Integrate evaluator into existing auth/session flow to block disallowed prompts.
-- [ ] Add metrics (OTel counters + histograms) and structured security events.
-- [ ] Author integration/unit tests (happy path, deny, override precedence, cache warming).
+- [x] Implement policy merge + evaluation engine with test matrix (allow, deny, fallback, explanation).
+- [x] Expose `/api/guardrails/preflight` endpoint (auth required) returning structured verdicts.
+- [x] Integrate evaluator into existing auth/session flow to block disallowed prompts.
+- [x] Add metrics (OTel counters + histograms) and structured security events.
+- [x] Author integration/unit tests (happy path, deny, override precedence, cache warming).
 
 ### Phase 3 — Admin UI & Tooling (Day 6–9)
 
@@ -151,3 +151,12 @@ _Remember to update this plan as work progresses. Mark checkboxes, log deltas, a
 - **Seeds & presets**: Seeded baseline `system-core` policy plus 10 denomination presets sourced from `App/Data/denominations.json` with stub allow-list cues. Tenants inherit via `derived_from_preset_id` prior to custom overrides.
 - **RLS enforcement**: Enabled PostgreSQL row-level security on tenant policies and user preferences (`tenant_isolation_select/mod`). Policies leverage `app.set_tenant()` to scope CRUD operations and block cross-tenant reads.
 - **Context wiring**: Added guardrail DbSets + entity configurations; ensured `make migrate` applied new migration `20250927045643_s9_01_guardrail_schema` and updated `SnapshotArchitecture.md` to document the new persistence layer.
+
+### Phase 2 Notes (2025-09-27)
+
+- **Evaluator pipeline**: Implemented `GuardrailEvaluator` with layered policy merge, preset hydration, and cache-backed preset loading. Normalizes signals, produces allow/deny/escalate decisions with trace entries, and emits metrics + security events for deny/escalate outcomes.
+- **Preflight endpoint**: Added `/api/guardrails/preflight` minimal API with tenant/user authorization, policy key selection, and structured response DTOs. Endpoint now tolerates tokens using either `sub` or `ClaimTypes.NameIdentifier` identifiers.
+- **Testing**: Authored integration tests covering allow, deny override, and denomination escalate flows; updated test JSON serialization to honor enum strings. Added InMemory `JsonDocument` converters for guardrail entities so the evaluator runs under the test harness.
+- **Agent runtime integration**: Agent task creation can accept guardrail context; evaluations persist decision/metadata on `agent_tasks`, emit security events, and skip queueing when the verdict is deny/escalate. Worker re-checks stored decisions before execution for defense-in-depth.
+- **Agent task regression coverage**: Added `AgentTasksGuardrailTests` to verify deny and escalate decisions persist metadata, return structured responses, and block worker execution; fixtures reuse the evaluator context helpers so scenarios stay deterministic.
+- **Next step**: Surface guardrail outcomes in agent task UI flows and expand coverage for guardrail metadata serialization.

@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using Appostolic.Api.Application.Agents.Runtime;
 using Appostolic.Api.Application.Agents;
 using Appostolic.Api.Domain.Agents;
+using Appostolic.Api.Application.Guardrails;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -78,6 +79,21 @@ public sealed class AgentTaskWorker : BackgroundService
                     if (task is null)
                     {
                         log.LogWarning("AgentTask {TaskId} not found after retries. Skipping.", taskId);
+                        _inFlightTaskId = null;
+                        continue;
+                    }
+
+                    if (task.GuardrailDecision is GuardrailDecision.Deny or GuardrailDecision.Escalate)
+                    {
+                        if (task.Status == AgentStatus.Pending)
+                        {
+                            task.Status = AgentStatus.Failed;
+                            task.ErrorMessage ??= $"Guardrail {task.GuardrailDecision.Value.ToString().ToLowerInvariant()}";
+                            task.FinishedAt ??= DateTime.UtcNow;
+                            await db.SaveChangesAsync(stoppingToken);
+                        }
+
+                        log.LogInformation("AgentTask {TaskId} skipped due to guardrail decision {Decision}.", taskId, task.GuardrailDecision);
                         _inFlightTaskId = null;
                         continue;
                     }

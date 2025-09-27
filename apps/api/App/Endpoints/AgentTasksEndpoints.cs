@@ -1,8 +1,12 @@
+using System;
+using System.Linq;
+using System.Security.Claims;
 using System.Text.Json;
 using Appostolic.Api.Application.Agents;
 using Appostolic.Api.Application.Agents.Api;
 using Appostolic.Api.Application.Agents.Queue;
 using Appostolic.Api.Domain.Agents;
+using Appostolic.Api.Application.Guardrails;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +29,8 @@ public static class AgentTasksEndpoints
             CreateAgentTaskRequest req,
             AppDbContext db,
             IAgentTaskQueue queue,
+            IGuardrailEvaluator guardrailEvaluator,
+            IGuardrailSecurityEventWriter securityEvents,
             CancellationToken ct) =>
         {
             // Validate agent
@@ -46,6 +52,112 @@ public static class AgentTasksEndpoints
                 return Results.BadRequest(new { error = "input cannot be empty" });
             }
 
+            GuardrailEvaluationResult? evaluationResult = null;
+            GuardrailDecision? guardrailDecision = null;
+            string? guardrailMetadataJson = null;
+
+            if (req.Guardrails is not null)
+            {
+                if (!Guid.TryParse(ctx.User.FindFirst("tenant_id")?.Value, out var tenantId))
+                {
+                    return Results.BadRequest(new { error = "missing_tenant_scope" });
+                }
+
+                var userIdClaim = ctx.User.FindFirst("sub")?.Value
+                                 ?? ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!Guid.TryParse(userIdClaim, out var authenticatedUserId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                var requestedUserId = req.Guardrails.UserId;
+                var targetUserId = requestedUserId ?? authenticatedUserId;
+                if (requestedUserId.HasValue && requestedUserId.Value != authenticatedUserId)
+                {
+                    return Results.Forbid();
+                }
+
+                var policyKey = string.IsNullOrWhiteSpace(req.Guardrails.PolicyKey)
+                    ? "default"
+                    : req.Guardrails.PolicyKey.Trim().ToLowerInvariant();
+
+                var signals = (req.Guardrails.Signals ?? Array.Empty<string>())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
+                    .ToList();
+
+                var evaluationContext = new GuardrailEvaluationContext
+                {
+                    TenantId = tenantId,
+                    UserId = targetUserId,
+                    PolicyKey = policyKey,
+                    Signals = signals,
+                    Channel = req.Guardrails.Channel,
+                    PromptSummary = req.Guardrails.PromptSummary,
+                    PresetIds = req.Guardrails.PresetIds
+                };
+
+                evaluationResult = await guardrailEvaluator.EvaluateAsync(evaluationContext, ct);
+                guardrailDecision = evaluationResult.Decision;
+
+                if (guardrailDecision is GuardrailDecision.Deny or GuardrailDecision.Escalate)
+                {
+                    GuardrailResponseFactory.EmitSecurityEvent(
+                        securityEvents,
+                        tenantId,
+                        targetUserId,
+                        req.Guardrails.Channel,
+                        req.Guardrails.PromptSummary,
+                        evaluationResult);
+                }
+
+                var metadataOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+                guardrailMetadataJson = JsonSerializer.Serialize(new
+                {
+                    evaluatedAt = DateTime.UtcNow,
+                    context = new
+                    {
+                        tenantId,
+                        policyKey,
+                        channel = req.Guardrails.Channel,
+                        promptSummary = req.Guardrails.PromptSummary,
+                        signals,
+                        presetIds = req.Guardrails.PresetIds,
+                        requestedUserId,
+                        evaluatedUserId = targetUserId
+                    },
+                    result = new
+                    {
+                        decision = evaluationResult.Decision.ToString(),
+                        reasonCode = evaluationResult.ReasonCode,
+                        matchedSignals = evaluationResult.MatchedSignals,
+                        snapshot = new
+                        {
+                            evaluationResult.Snapshot.Allow,
+                            evaluationResult.Snapshot.Deny,
+                            evaluationResult.Snapshot.Escalate
+                        },
+                        matches = evaluationResult.Matches.Select(match => new
+                        {
+                            match.Rule,
+                            match.RuleType,
+                            Source = match.Source.ToString(),
+                            match.SourceId,
+                            Layer = match.Layer?.ToString()
+                        }),
+                        trace = evaluationResult.Trace.Select(entry => new
+                        {
+                            Source = entry.Source.ToString(),
+                            entry.SourceId,
+                            Layer = entry.Layer?.ToString(),
+                            entry.AddedAllow,
+                            entry.AddedDeny,
+                            entry.AddedEscalate
+                        })
+                    }
+                }, metadataOptions);
+            }
+
             // Create task
             // Capture request context from authenticated principal claims (post dev header removal).
             // Claims provided by JWT issuance: tenant_slug (when tenant selected) and email.
@@ -57,11 +169,43 @@ public static class AgentTasksEndpoints
                 Status = AgentStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
                 RequestTenant = string.IsNullOrWhiteSpace(requestTenant) ? null : requestTenant.Trim(),
-                RequestUser = string.IsNullOrWhiteSpace(requestUser) ? null : requestUser.Trim()
+                RequestUser = string.IsNullOrWhiteSpace(requestUser) ? null : requestUser.Trim(),
+                GuardrailDecision = guardrailDecision,
+                GuardrailMetadataJson = guardrailMetadataJson
             };
+
+            if (guardrailDecision is GuardrailDecision.Deny)
+            {
+                task.Status = AgentStatus.Failed;
+                task.ErrorMessage = $"Guardrail denied: {evaluationResult?.ReasonCode ?? "blocked"}";
+                task.FinishedAt = DateTime.UtcNow;
+            }
+            else if (guardrailDecision is GuardrailDecision.Escalate)
+            {
+                task.Status = AgentStatus.Failed;
+                task.ErrorMessage = $"Guardrail escalation required: {evaluationResult?.ReasonCode ?? "blocked"}";
+                task.FinishedAt = DateTime.UtcNow;
+            }
 
             db.Add(task);
             await db.SaveChangesAsync(ct);
+
+            var shouldEnqueue = guardrailDecision is null or GuardrailDecision.Allow;
+
+            if (!shouldEnqueue)
+            {
+                var blockedSummary = new AgentTaskSummary(
+                    task.Id,
+                    task.AgentId,
+                    task.Status.ToString(),
+                    task.CreatedAt,
+                    task.StartedAt,
+                    task.FinishedAt,
+                    task.TotalTokens
+                );
+
+                return Results.Created($"/api/agent-tasks/{task.Id}", blockedSummary);
+            }
 
             // Optional test hooks (Development only):
             // 1) allow a tiny delay before enqueue via header
@@ -138,6 +282,12 @@ public static class AgentTasksEndpoints
                 try { resultDoc = JsonDocument.Parse(task.ResultJson!); } catch { /* ignore parse errors */ }
             }
 
+            JsonDocument? guardrailMetadataDoc = null;
+            if (!string.IsNullOrWhiteSpace(task.GuardrailMetadataJson))
+            {
+                try { guardrailMetadataDoc = JsonDocument.Parse(task.GuardrailMetadataJson!); } catch { /* ignore */ }
+            }
+
             var details = new AgentTaskDetails(
                 task.Id,
                 task.AgentId,
@@ -150,7 +300,9 @@ public static class AgentTasksEndpoints
                 task.TotalTokens,
                 task.EstimatedCostUsd,
                 resultDoc,
-                task.ErrorMessage
+                task.ErrorMessage,
+                task.GuardrailDecision,
+                guardrailMetadataDoc
             );
 
             if (includeTraces == true)

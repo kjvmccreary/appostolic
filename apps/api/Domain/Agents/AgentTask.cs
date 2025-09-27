@@ -1,3 +1,5 @@
+using Appostolic.Api.Application.Guardrails;
+
 namespace Appostolic.Api.Domain.Agents;
 
 public record class AgentTask
@@ -24,6 +26,9 @@ public record class AgentTask
 
     public string? ResultJson { get; set; }
     public string? ErrorMessage { get; set; }
+
+    public GuardrailDecision? GuardrailDecision { get; set; }
+    public string? GuardrailMetadataJson { get; set; }
 
     // Request context (tenant/user) to run the task under the same principal as the request
     public string? RequestTenant { get; init; }

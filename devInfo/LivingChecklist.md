@@ -76,7 +76,9 @@ How to use
 
 - [x] Policy schema + RLS (system/tenant/denomination levels)
 - Note: Migration `20250927045643_s9_01_guardrail_schema` seeded `system-core` baseline and denomination presets; RLS policies guard tenant/user tables via `app.set_tenant()`.
-- [ ] Evaluator + preflight API (allow/deny with “why”)
+- [x] Evaluator + preflight API (allow/deny with “why”)
+  - Guardrail evaluator now runs during agent task creation; deny/escalate decisions persist on `agent_tasks` and prevent queueing while emitting security events.
+  - Guardrail integration tests (`AgentTasksGuardrailTests`) assert deny/escalate metadata persistence and worker skip behavior for ongoing regression coverage.
 - [ ] Admin UI to view/edit policies and apply presets
 - [ ] Versioned policy snapshots (object storage)
 - Note: Guardrails sprint Phase 0 complete (requirements reconciled across NorthStar/MvpCutMatrix/LivingChecklist; inventory captured in `devInfo/DesignDocs/GRailSprintPlan/grdSprintPlan.md`).
