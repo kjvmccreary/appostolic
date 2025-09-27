@@ -127,6 +127,7 @@ How to use
 - [x] Admin: Members, Invites, Audits, Notifications (DLQ)
   - Note: 2025-09-26 refresh fallback keeps admin dashboards online after reuse detection.
 - [x] Studio: Agents (CRUD), Tasks inbox/detail (cancel/retry/export)
+  - Note: Guardrail decisions/metadata now surface in inbox/detail with escalation alerts and copyable context (2025-09-27).
 - [ ] Admin: Guardrails page (policy config)
 - [ ] Admin: Billing/Usage pages
 

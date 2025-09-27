@@ -10,17 +10,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import TaskDetail from './TaskDetail';
-
-type Trace = {
-  stepNumber: number;
-  kind: string;
-  name: string;
-  durationMs: number;
-  promptTokens: number | null;
-  completionTokens: number | null;
-  input?: unknown;
-  output?: unknown;
-};
+import type { Task, Trace } from '../types';
 
 const traces: Trace[] = [
   {
@@ -143,5 +133,41 @@ describe('TaskDetail actions', () => {
     const copyBtn = await screen.findByRole('button', { name: /copy task id/i });
     await userEvent.click(copyBtn);
     expect(writeText).toHaveBeenCalledWith('xyz123');
+  });
+
+  it('shows guardrail metadata summary when present', async () => {
+    const guardrailTask: Task = {
+      id: 'g1',
+      agentId: 'a',
+      status: 'Failed',
+      createdAt: new Date().toISOString(),
+      guardrailDecision: 'Escalate',
+      guardrailMetadata: {
+        evaluatedAt: new Date().toISOString(),
+        context: {
+          channel: 'agent.runtime',
+          promptSummary: 'needs review',
+          signals: ['escalate:human-review'],
+        },
+        result: {
+          decision: 'Escalate',
+          reasonCode: 'escalate:policy-match',
+          matchedSignals: ['escalate:human-review'],
+          matches: [
+            {
+              rule: 'escalate:human-review',
+              source: 'tenant',
+              layer: 'tenantbase',
+            },
+          ],
+        },
+      },
+    };
+    render(<TaskDetail task={guardrailTask} traces={traces} />);
+
+    expect(await screen.findByLabelText(/guardrail decision escalate/i)).toBeInTheDocument();
+    expect(screen.getByText(/Guardrail escalated this task for review/i)).toBeInTheDocument();
+    expect(screen.getByText(/Signals: escalate:human-review/i)).toBeInTheDocument();
+    expect(screen.getByText(/Match: escalate:human-review/i)).toBeInTheDocument();
   });
 });

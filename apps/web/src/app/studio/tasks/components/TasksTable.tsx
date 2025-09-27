@@ -6,17 +6,7 @@ import { DataGridPremium, GridColDef, GridPaginationModel } from '@mui/x-data-gr
 import { Chip, Box, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-
-export type TaskSummary = {
-  id: string;
-  agentId: string;
-  status: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Canceled' | string;
-  createdAt: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  totalTokens?: number | null;
-  estimatedCostUsd?: number | null;
-};
+import type { GuardrailDecision, TaskSummary } from '../types';
 
 function fmtDate(iso?: string | null) {
   if (!iso) return '—';
@@ -41,8 +31,14 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
   const params = useSearchParams();
   const paramsString = params?.toString() ?? '';
 
-  const columns = useMemo<GridColDef<TaskSummary>[]>(
-    () => [
+  const columns = useMemo<GridColDef<TaskSummary>[]>(() => {
+    const guardrailChipColor: Record<GuardrailDecision, 'success' | 'warning' | 'error'> = {
+      Allow: 'success',
+      Escalate: 'warning',
+      Deny: 'error',
+    };
+
+    return [
       {
         field: 'id',
         headerName: 'ID',
@@ -104,6 +100,27 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
         ),
       },
       {
+        field: 'guardrailDecision',
+        headerName: 'Guardrail',
+        minWidth: 140,
+        renderCell: (p) => {
+          const decision = p.value as GuardrailDecision | null | undefined;
+          if (!decision) {
+            return <span aria-label="guardrail decision unknown">—</span>;
+          }
+          return (
+            <Link href={`/studio/tasks/${(p.row as TaskSummary).id}`}>
+              <Chip
+                size="small"
+                label={`Guardrail: ${decision}`}
+                color={guardrailChipColor[decision]}
+                variant={decision === 'Escalate' ? 'outlined' : 'filled'}
+              />
+            </Link>
+          );
+        },
+      },
+      {
         field: 'agentId',
         headerName: 'Agent',
         flex: 1,
@@ -149,9 +166,8 @@ export function TasksTable({ items, agentNameById, total, take, skip }: TasksTab
         headerAlign: 'right',
         valueGetter: (p) => (p.value != null ? `$${(p.value as number).toFixed(2)}` : '—'),
       },
-    ],
-    [agentNameById],
-  );
+    ];
+  }, [agentNameById]);
 
   const paginationModel: GridPaginationModel = {
     pageSize: Math.max(1, Number(take ?? 20)),

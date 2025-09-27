@@ -1,7 +1,8 @@
 import { TaskFilters } from './components/TaskFilters';
-import { TasksTable, type TaskSummary } from './components/TasksTable';
+import { TasksTable } from './components/TasksTable';
 import { fetchFromProxy } from '../../../../app/lib/serverFetch';
 import { redirect } from 'next/navigation';
+import type { TaskSummary } from './types';
 
 export const dynamic = 'force-dynamic';
 

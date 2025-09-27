@@ -1,35 +1,9 @@
 import TaskDetail from '../components/TaskDetail';
 import { fetchFromProxy } from '../../../../../app/lib/serverFetch';
 import { redirect } from 'next/navigation';
+import type { Task, Trace } from '../types';
 
 export const dynamic = 'force-dynamic';
-
-type Trace = {
-  stepNumber: number;
-  kind: string;
-  name: string;
-  durationMs: number;
-  promptTokens: number | null;
-  completionTokens: number | null;
-  error?: string | null;
-  input?: unknown;
-  output?: unknown;
-};
-
-type Task = {
-  id: string;
-  agentId: string;
-  status: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Canceled';
-  createdAt: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  totalTokens?: number | null;
-  totalPromptTokens?: number | null;
-  totalCompletionTokens?: number | null;
-  estimatedCostUsd?: number | null;
-  result?: unknown;
-  error?: string | null;
-};
 
 async function fetchTaskWithTraces(id: string): Promise<{ task: Task; traces: Trace[] }> {
   const res = await fetchFromProxy(`/api-proxy/agent-tasks/${id}?includeTraces=true`);

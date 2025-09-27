@@ -15,7 +15,25 @@ Quality Gates
 
 Follow-ups / Deferred
 
-- Surface guardrail outcomes in UI flows (agent task detail/inbox) and expand evaluator scenarios once additional guardrail metadata wiring lands.
+- Kick off Guardrails Sprint Phase 3 (admin policy editor surfaces and MSW fixtures) after tightening evaluator coverage for additional guardrail scenarios.
+
+- 2025-09-27 — Guardrails sprint Phase 2 UI surfacing — 🚧 IN PROGRESS
+
+Summary
+
+- Introduced shared Studio task types carrying guardrail decisions and metadata so the web inbox/detail can depend on a single DTO shape.
+- Updated the Studio tasks table to show a dedicated guardrail column with color-coded chips for allow/escalate/deny decisions.
+- Enriched the task detail view with guardrail alerts, metadata panel (signals, matched rule, channel, evaluated-at), and a copy-to-clipboard helper for the serialized context.
+- Added Vitest coverage verifying the new guardrail presentation and kept existing retry/cancel/export flows green.
+- Refreshed the guardrail sprint plan and Living Checklist to reflect the UI surfacing milestone.
+
+Quality Gates
+
+- `pnpm -w -s test -w --filter @appostolic/web` — Passed.
+
+Follow-ups / Deferred
+
+- Extend inbox filtering to optionally highlight denied/escalated guardrails and continue Phase 3 admin UI work.
 
 - 2025-09-26 — Guardrails sprint Phase 1 completed: delivered multi-layer schema, seeded presets, enforced RLS, and updated architecture docs for guardrail persistence.
 

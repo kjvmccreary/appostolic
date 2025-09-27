@@ -201,7 +201,8 @@ public static class AgentTasksEndpoints
                     task.CreatedAt,
                     task.StartedAt,
                     task.FinishedAt,
-                    task.TotalTokens
+                    task.TotalTokens,
+                    task.GuardrailDecision
                 );
 
                 return Results.Created($"/api/agent-tasks/{task.Id}", blockedSummary);
@@ -228,7 +229,8 @@ public static class AgentTasksEndpoints
                             task.CreatedAt,
                             task.StartedAt,
                             task.FinishedAt,
-                            task.TotalTokens
+                            task.TotalTokens,
+                            task.GuardrailDecision
                         );
                         return Results.Created($"/api/agent-tasks/{task.Id}", summarySuppressed);
                     }
@@ -255,7 +257,8 @@ public static class AgentTasksEndpoints
                 task.CreatedAt,
                 task.StartedAt,
                 task.FinishedAt,
-                task.TotalTokens
+                task.TotalTokens,
+                task.GuardrailDecision
             );
 
             return Results.Created($"/api/agent-tasks/{task.Id}", summary);
@@ -383,7 +386,8 @@ public static class AgentTasksEndpoints
                 newTask.CreatedAt,
                 newTask.StartedAt,
                 newTask.FinishedAt,
-                newTask.TotalTokens
+                newTask.TotalTokens,
+                newTask.GuardrailDecision
             );
 
             return Results.Created($"/api/agent-tasks/{newTask.Id}", summary);
@@ -526,7 +530,8 @@ public static class AgentTasksEndpoints
                         t.CreatedAt,
                         t.StartedAt,
                         t.FinishedAt,
-                        t.TotalTokens
+                        t.TotalTokens,
+                        t.GuardrailDecision
                     ))
                     .ToListAsync(ct);
 

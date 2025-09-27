@@ -29,7 +29,8 @@ public record AgentTaskSummary(
     DateTime CreatedAt,
     DateTime? StartedAt,
     DateTime? FinishedAt,
-    int TotalTokens
+    int TotalTokens,
+    GuardrailDecision? GuardrailDecision
 );
 
 public record AgentTaskDetails(

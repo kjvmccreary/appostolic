@@ -25,33 +25,26 @@ import DownloadIcon from '@mui/icons-material/Download';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import type { GuardrailDecision, GuardrailMetadata, Task, Trace } from '../types';
 
-type Trace = {
-  stepNumber: number;
-  kind: string;
-  name: string;
-  durationMs: number;
-  promptTokens: number | null;
-  completionTokens: number | null;
-  error?: string | null;
-  input?: unknown;
-  output?: unknown;
-};
+// Maps guardrail decisions to chip colors so deny/escalate stand out in the UI.
+function guardrailChipColor(
+  decision: GuardrailDecision | null | undefined,
+): 'default' | 'success' | 'warning' | 'error' {
+  if (decision === 'Deny') return 'error';
+  if (decision === 'Escalate') return 'warning';
+  if (decision === 'Allow') return 'success';
+  return 'default';
+}
 
-type Task = {
-  id: string;
-  agentId: string;
-  status: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Canceled';
-  createdAt: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  totalTokens?: number | null;
-  totalPromptTokens?: number | null;
-  totalCompletionTokens?: number | null;
-  estimatedCostUsd?: number | null;
-  result?: unknown;
-  error?: string | null;
-};
+// Builds the alert message that explains why a guardrail intervened.
+function guardrailAlertMessage(decision: GuardrailDecision, reason?: string | null): string {
+  const base =
+    decision === 'Deny'
+      ? 'Guardrail denied this task before execution.'
+      : 'Guardrail escalated this task for review.';
+  return reason ? `${base} (${reason})` : base;
+}
 
 export default function TaskDetail({
   task: initialTask,
@@ -67,6 +60,32 @@ export default function TaskDetail({
   const [error, setError] = useState<string | null>(null);
   const [snackOpen, setSnackOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const guardrailDecision = task.guardrailDecision ?? null;
+  const guardrailMetadata: GuardrailMetadata | null = task.guardrailMetadata ?? null;
+  const primaryGuardrailMatch = guardrailMetadata?.result?.matches?.[0];
+
+  // Collates matched and input signals into a deduplicated list for display.
+  const guardrailSignals = useMemo(() => {
+    if (!guardrailMetadata) return [] as string[];
+    const dedup = new Set<string>();
+    guardrailMetadata.result?.matchedSignals?.forEach((signal) => {
+      if (signal) dedup.add(signal);
+    });
+    guardrailMetadata.context?.signals?.forEach((signal) => {
+      if (signal) dedup.add(signal);
+    });
+    return Array.from(dedup);
+  }, [guardrailMetadata]);
+
+  const guardrailJson = useMemo(
+    () => (guardrailMetadata ? JSON.stringify(guardrailMetadata, null, 2) : null),
+    [guardrailMetadata],
+  );
+
+  const guardrailReason = guardrailMetadata?.result?.reasonCode ?? null;
+  const guardrailPrompt = guardrailMetadata?.context?.promptSummary ?? null;
+  const guardrailChannel = guardrailMetadata?.context?.channel ?? null;
 
   const isTerminal =
     task.status === 'Succeeded' || task.status === 'Failed' || task.status === 'Canceled';
@@ -268,7 +287,21 @@ export default function TaskDetail({
                 color={statusColor[task.status]}
                 aria-label={`status ${task.status}`}
               />
+              {guardrailDecision && (
+                <Chip
+                  size="small"
+                  label={`Guardrail: ${guardrailDecision}`}
+                  color={guardrailChipColor(guardrailDecision)}
+                  variant={guardrailDecision === 'Escalate' ? 'outlined' : 'filled'}
+                  aria-label={`guardrail decision ${guardrailDecision.toLowerCase()}`}
+                />
+              )}
             </Stack>
+            {guardrailDecision && guardrailDecision !== 'Allow' && (
+              <Alert severity={guardrailDecision === 'Deny' ? 'error' : 'warning'} sx={{ mt: 2 }}>
+                {guardrailAlertMessage(guardrailDecision, guardrailReason)}
+              </Alert>
+            )}
             <Stack direction="row" spacing={1}>
               <Button
                 variant="outlined"
@@ -307,6 +340,93 @@ export default function TaskDetail({
           </Stack>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }}>
+            {guardrailDecision && (
+              <Card variant="outlined" sx={{ flex: 1 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Guardrail
+                  </Typography>
+                  <Stack spacing={1} sx={{ mt: 1 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        size="small"
+                        label={guardrailDecision}
+                        color={guardrailChipColor(guardrailDecision)}
+                        variant={guardrailDecision === 'Escalate' ? 'outlined' : 'filled'}
+                      />
+                      {guardrailReason && (
+                        <Typography variant="body2" color="text.secondary">
+                          {guardrailReason}
+                        </Typography>
+                      )}
+                    </Stack>
+                    {guardrailPrompt && (
+                      <Typography variant="body2">Prompt: “{guardrailPrompt}”</Typography>
+                    )}
+                    {guardrailSignals.length > 0 && (
+                      <Typography variant="body2">
+                        Signals: {guardrailSignals.join(', ')}
+                      </Typography>
+                    )}
+                    {primaryGuardrailMatch?.rule && (
+                      <Typography variant="body2">
+                        Match: {primaryGuardrailMatch.rule}
+                        {primaryGuardrailMatch.source ? ` (${primaryGuardrailMatch.source})` : ''}
+                      </Typography>
+                    )}
+                    {primaryGuardrailMatch?.layer && (
+                      <Typography variant="body2" color="text.secondary">
+                        Layer: {primaryGuardrailMatch.layer}
+                      </Typography>
+                    )}
+                    {guardrailChannel && (
+                      <Typography variant="body2">Channel: {guardrailChannel}</Typography>
+                    )}
+                    {guardrailMetadata?.evaluatedAt && (
+                      <Typography variant="body2">
+                        Evaluated {friendly(guardrailMetadata.evaluatedAt)}
+                      </Typography>
+                    )}
+                  </Stack>
+                  {guardrailJson && (
+                    <Box sx={{ mt: 2 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="subtitle2">Metadata</Typography>
+                        <IconButton
+                          size="small"
+                          aria-label="copy guardrail metadata"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(guardrailJson);
+                            } catch (e: unknown) {
+                              const msg = e instanceof Error ? e.message : 'Copy failed';
+                              setError(msg);
+                              setSnackOpen(true);
+                            }
+                          }}
+                        >
+                          <ContentCopyIcon fontSize="inherit" />
+                        </IconButton>
+                      </Stack>
+                      <Box
+                        component="pre"
+                        sx={{
+                          m: 1,
+                          p: 1,
+                          bgcolor: 'background.paper',
+                          borderRadius: 1,
+                          maxHeight: 200,
+                          overflow: 'auto',
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        <code>{guardrailJson}</code>
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             <Card variant="outlined" sx={{ flex: 1 }}>
               <CardContent>
                 <Typography variant="subtitle2" color="text.secondary">
