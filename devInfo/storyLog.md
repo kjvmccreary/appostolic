@@ -1,3 +1,5 @@
+- 2025-09-26 — Guardrails sprint Phase 0 completed: reconciled requirements, inventoried existing guardrail stubs, locked acceptance criteria, and updated sprint docs to reflect readiness for implementation.
+
 ### 2025-09-26 - Story: Bio markdown polish & refresh bridge TTL — ✅ DONE
 
 Summary

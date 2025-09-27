@@ -36,10 +36,10 @@ Success will be measured by:
 
 ### Phase 0 — Foundations & Alignment (Day 0–1)
 
-- [ ] Reconcile requirements with `NorthStar.md`, `MvpCutMatrix.md`, and `LivingChecklist.md`.
-- [ ] Inventory existing guardrail stubs/tests (API + web) and document migration impact.
-- [ ] Finalize acceptance criteria with product/QA (including sample allow/deny cases).
-- [ ] Create feature branch (if needed) and mark sprint stories 🚧 IN PROGRESS in sprint tracker.
+- [x] Reconcile requirements with `NorthStar.md`, `MvpCutMatrix.md`, and `LivingChecklist.md`.
+- [x] Inventory existing guardrail stubs/tests (API + web) and document migration impact.
+- [x] Finalize acceptance criteria with product/QA (including sample allow/deny cases).
+- [x] Create feature branch (if needed) and mark sprint stories 🚧 IN PROGRESS in sprint tracker (continuing on `jwt/refactor-jwt-auth`; sprint tracker updated in `Sprint-01-Appostolic.md`).
 
 ### Phase 1 — Data Model & RLS (Day 1–3)
 
@@ -136,3 +136,11 @@ Success will be measured by:
 ---
 
 _Remember to update this plan as work progresses. Mark checkboxes, log deltas, and keep artifacts (docs, story log, LivingChecklist) in sync to preserve the single source of truth._
+
+### Phase 0 Notes (2025-09-26)
+
+- **Requirements alignment**: Cross-referenced `NorthStar.md` (§6 S1-09) and `MvpCutMatrix.md` (Guardrails & Doctrine Profiles) against `LivingChecklist.md` items (policy schema, evaluator API, admin UI, snapshots). Confirmed sprint scope satisfies all 1.0 guardrail obligations and feeds the upcoming lesson pipeline work.
+- **Current implementation inventory**:
+  - Web has stub guardrails editors (`ProfileGuardrailsForm`, `TenantGuardrailsForm`) that collect preferences but currently persist via generic profile/settings endpoints. No backend guardrail policy schema exists yet; API references guardrails only within JSONB profile blobs.
+  - Dashboard landing page links to `/guardrails` but there is no route/feature implemented—captured as part of Phase 3 scope.
+- **Acceptance criteria**: Reviewed and expanded section “Acceptance Criteria (per pillar)” to serve as the baseline for product/QA buy-in. Example allow/deny cases documented in living QA notes (to be ported into upcoming `devInfo/QA/guardrails-uat.md`).

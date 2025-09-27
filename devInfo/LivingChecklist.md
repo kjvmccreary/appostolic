@@ -78,6 +78,7 @@ How to use
 - [ ] Evaluator + preflight API (allow/deny with “why”)
 - [ ] Admin UI to view/edit policies and apply presets
 - [ ] Versioned policy snapshots (object storage)
+- Note: Guardrails sprint Phase 0 complete (requirements reconciled across NorthStar/MvpCutMatrix/LivingChecklist; inventory captured in `devInfo/DesignDocs/GRailSprintPlan/grdSprintPlan.md`).
 - [x] Denomination presets metadata endpoint + profile multi-select UI (UPROF-11)
 
 ### Lesson Generation Pipeline
