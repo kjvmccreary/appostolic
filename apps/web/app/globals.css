@@ -115,3 +115,28 @@ body {
   color: var(--color-ink);
   z-index: 1000;
 }
+
+/* Markdown preview defaults (ensure lists render with bullets/numbers) */
+.markdown-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+  list-style-position: outside;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body li {
+  margin: 0.25rem 0;
+}

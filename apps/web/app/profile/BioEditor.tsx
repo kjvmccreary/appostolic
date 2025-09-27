@@ -237,6 +237,15 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
                     px: 0.5,
                     borderRadius: 0.5,
                   },
+                  '& ul, & ol': {
+                    mt: 1,
+                    mb: 1,
+                    pl: 3,
+                    listStylePosition: 'outside',
+                  },
+                  '& ul': { listStyleType: 'disc' },
+                  '& ol': { listStyleType: 'decimal' },
+                  '& li': { mt: 0.5, mb: 0.5 },
                 }}
               >
                 <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{previewContent}</Markdown>
@@ -256,10 +265,26 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
           size="small"
           startIcon={<SaveIcon />}
           disabled={buttonDisabled}
-          aria-disabled={!canSubmit ? 'true' : 'false'}
+          aria-disabled={!canSubmit}
+          disableElevation
           sx={{
-            opacity: buttonDisabled ? 0.6 : !canSubmit ? 0.9 : 1,
-            cursor: buttonDisabled ? 'not-allowed' : canSubmit ? 'pointer' : 'default',
+            backgroundColor: 'var(--color-accent-600)',
+            color: '#fff',
+            opacity: buttonDisabled || !canSubmit ? 0.6 : 1,
+            cursor: buttonDisabled || !canSubmit ? 'not-allowed' : 'pointer',
+            '&:hover': {
+              backgroundColor: 'var(--color-accent-600)',
+              opacity: buttonDisabled || !canSubmit ? 0.6 : 0.9,
+            },
+            '&.Mui-disabled': {
+              backgroundColor: 'var(--color-accent-600)',
+              color: '#fff',
+              opacity: 0.6,
+            },
+            '&:focus-visible': {
+              outline: 'none',
+              boxShadow: '0 0 0 2px var(--color-surface)',
+            },
           }}
         >
           {saving ? 'Saving…' : 'Save Bio'}

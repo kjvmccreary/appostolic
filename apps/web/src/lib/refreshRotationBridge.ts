@@ -7,8 +7,10 @@ type RotationBridgeEntry = {
 
 // Allow refresh rotations to stay bridged long enough for users to navigate between pages or
 // trigger follow-up actions (e.g., switching tenants again) without tripping reuse detection.
-// 5 minutes keeps the mapping available for typical UX flows while still pruning automatically.
-const ROTATION_BRIDGE_TTL_MS = 5 * 60 * 1000;
+// Extend the bridge window so long-lived pages (e.g., admin settings left open for a while)
+// continue to reuse the rotated refresh cookie until the browser receives a fresh one via a
+// proxied response. One hour keeps memory bounded while surviving long idle periods.
+const ROTATION_BRIDGE_TTL_MS = 60 * 60 * 1000;
 
 const globalState = globalThis as typeof globalThis & {
   __appRefreshRotationBridge?: Map<string, RotationBridgeEntry>;
@@ -47,5 +49,9 @@ export function registerRotation(previousValue: string, cookie: ProxyCookie) {
 export function getRotation(previousValue: string | null): ProxyCookie | null {
   pruneRotationBridge();
   if (!previousValue) return null;
-  return rotationBridge.get(previousValue)?.cookie ?? null;
+  const entry = rotationBridge.get(previousValue);
+  if (!entry) return null;
+  entry.expiresAt = Date.now() + ROTATION_BRIDGE_TTL_MS;
+  rotationBridge.set(previousValue, entry);
+  return entry.cookie;
 }

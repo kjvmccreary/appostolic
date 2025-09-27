@@ -1,3 +1,21 @@
+### 2025-09-26 - Story: Bio markdown polish & refresh bridge TTL — ✅ DONE
+
+Summary
+
+- Added shared `.markdown-body` styles so markdown previews render list bullets consistently across tenant and profile bio editors, matching author expectations.
+- Updated both bio editors to keep the Save button visually enabled while guarding submissions via `aria-disabled`, aligning the UX with form state and preventing accidental duplicate saves.
+- Extended the refresh rotation bridge TTL to one hour (with refresh-on-use) so long-lived admin pages reuse rotated cookies after idle periods without triggering refresh reuse errors.
+
+Quality Gates
+
+- `make fetest` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
 ### 2025-09-26 - Story: Bio save button accessibility polish — ✅ DONE
 
 Summary

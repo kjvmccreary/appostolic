@@ -126,7 +126,7 @@ Auth Client:
 
 - Access token stored only in memory; refresh cycle via `/api/auth/refresh` (cookie); silent refresh scheduled ~60s pre-expiry (single-flight).
 - Retry-once 401 logic: if an API call 401s, trigger an immediate refresh and retry request once before surfacing error.
-- Refresh rotation bridge (`refreshRotationBridge`) retains old→new refresh cookie mappings for five minutes so concurrent server components and proxy routes reuse rotated values without tripping reuse detection (tenant switching no longer flickers/logs out).
+- Refresh rotation bridge (`refreshRotationBridge`) retains old→new refresh cookie mappings for up to one hour (renewed on reuse) so concurrent server components and proxy routes reuse rotated values without tripping reuse detection (tenant switching no longer flickers/logs out, even after longer idle periods).
 
 Role Gating:
 

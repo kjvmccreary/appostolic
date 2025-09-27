@@ -29,7 +29,6 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
   const dirty = value !== (baseline?.content ?? '');
   const overLimit = value.length > maxChars;
   const canSubmit = dirty && !overLimit && !saving;
-  const buttonDisabled = saving || overLimit;
   const previewContent = useMemo(() => value, [value]);
 
   useEffect(() => {
@@ -151,7 +150,7 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
         {tab === 1 && (
           <div id="tenant-bio-panel-preview" role="tabpanel" className="p-3">
             {previewContent.trim() ? (
-              <div className="prose prose-sm max-w-none">
+              <div className="markdown-body prose prose-sm max-w-none">
                 <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{previewContent}</Markdown>
               </div>
             ) : (
@@ -163,9 +162,8 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className={`inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white transition-opacity duration-150 cursor-pointer ${buttonDisabled ? 'opacity-60 cursor-not-allowed' : ''} ${!buttonDisabled && !canSubmit ? 'opacity-85 cursor-default' : ''}`}
-          disabled={buttonDisabled}
-          aria-disabled={!canSubmit ? 'true' : 'false'}
+          className={`inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white transition-opacity duration-150 ${!canSubmit ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-600)]'}`}
+          disabled={!canSubmit}
         >
           {saving ? 'Saving…' : 'Save Bio'}
         </button>

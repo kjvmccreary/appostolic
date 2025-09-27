@@ -141,3 +141,4 @@
 - ✅ DONE Tenant settings: reset client state after tenant switch (2025-09-26)
   - ✅ Phase A — UI forms reset when new tenant initial props arrive (TenantSettingsForm, TenantGuardrailsForm, TenantBioEditor, TenantLogoUpload)
   - ✅ Phase B — Proxy header + admin page prefer `selected_tenant` cookie and log mismatches to ensure newly selected tenants render immediately
+- ✅ DONE Bio markdown polish & refresh bridge TTL (2025-09-26) — markdown previews keep bullets, Save Bio state mirrors server guards, and refresh rotations persist for one hour.
