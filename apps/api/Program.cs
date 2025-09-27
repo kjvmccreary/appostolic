@@ -689,6 +689,7 @@ app.MapAgentsEndpoints();
 app.MapUserProfileEndpoints();
 app.MapTenantSettingsEndpoints();
 app.MapGuardrailEndpoints();
+app.MapGuardrailAdminEndpoints();
 
 // Lessons endpoints temporarily disabled pending tenant-claim wiring (legacy header removed in Story 3 refactor).
 

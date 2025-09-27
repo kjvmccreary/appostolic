@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { SessionProvider } from 'next-auth/react';
 import { TopBar } from './TopBar';
 // Mock next/navigation to avoid App Router invariant errors during unit tests
@@ -96,6 +97,17 @@ describe('TopBar tenant-scoped admin gating', () => {
     // The NavDrawer is a mocked component; we can’t inspect its props directly here without a custom mock.
     // Instead, ensure the desktop Admin button renders; the presence of Settings is covered by settings page tests.
     expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  it('surfaces Guardrails entry in the Admin dropdown', async () => {
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      memberships: [{ tenantSlug: 'acme', role: 'Viewer', roles: ['TenantAdmin'] }],
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /admin/i }));
+    expect(screen.getByRole('menuitem', { name: /guardrails/i })).toBeInTheDocument();
   });
 
   it('hides Admin if selected tenant does not match any membership', () => {

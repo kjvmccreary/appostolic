@@ -191,6 +191,7 @@ export function TopBar() {
             { label: 'Org Settings', href: '/studio/admin/settings' },
             { label: 'Members', href: '/studio/admin/members' },
             { label: 'Invites', href: '/studio/admin/invites' },
+            { label: 'Guardrails', href: '/studio/guardrails' },
             { label: 'Audits', href: '/studio/admin/audits' },
             { label: 'Notifications', href: '/studio/admin/notifications' },
           ]}
@@ -251,6 +252,13 @@ function AdminDropdown() {
             onClick={() => router.push('/studio/admin/invites')}
           >
             Invites
+          </button>
+          <button
+            role="menuitem"
+            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+            onClick={() => router.push('/studio/guardrails')}
+          >
+            Guardrails
           </button>
           <button
             role="menuitem"

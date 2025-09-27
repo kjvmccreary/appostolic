@@ -1,3 +1,19 @@
+- 2025-09-27 — Guardrails sprint Phase 3 navigation wiring — 🚧 IN PROGRESS
+
+Summary
+
+- Added the Guardrails admin surface to the Studio navigation: TopBar Admin dropdown and mobile NavDrawer now expose `/studio/guardrails` for TenantAdmin users alongside existing org settings pages.
+- Expanded TopBar admin gating tests to confirm the Guardrails entry appears when the tenant membership includes `TenantAdmin`, and hardened the guardrail page MSW suite to cover draft save/publish/reset flows with resilient selectors.
+- Refined guardrail admin tests to use controlled textarea updates and menu triggers, keeping the new UI interactions stable under Vitest coverage thresholds.
+
+Quality Gates
+
+- `pnpm --filter @appostolic/web test` — Passed.
+
+Follow-ups / Deferred
+
+- Surface the forthcoming superadmin presets console and document keyboard/a11y defaults for the guardrail editor before closing Phase 3.
+
 - 2025-09-27 — Guardrails sprint Phase 2 preflight evaluator — 🚧 IN PROGRESS
 
 Summary

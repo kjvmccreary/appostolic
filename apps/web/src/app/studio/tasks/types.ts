@@ -10,6 +10,21 @@ export type GuardrailMatch = {
   layer?: string | null;
 };
 
+export type GuardrailTraceEntry = {
+  source: string;
+  sourceId: string;
+  layer?: string | null;
+  addedAllow: string[];
+  addedDeny: string[];
+  addedEscalate: string[];
+};
+
+export type GuardrailPolicySnapshot = {
+  allow: string[];
+  deny: string[];
+  escalate: string[];
+};
+
 export type GuardrailResult = {
   decision?: string;
   reasonCode?: string;

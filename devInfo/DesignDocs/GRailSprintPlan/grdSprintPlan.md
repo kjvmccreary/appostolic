@@ -59,11 +59,11 @@ Success will be measured by:
 
 ### Phase 3 — Admin UI & Tooling (Day 6–9)
 
-- [ ] Build tenant admin guardrails page (view, edit, reset to preset, diff preview).
+- [x] Build tenant admin guardrails page (view, edit, reset to preset, diff preview).
 - [ ] Build platform superadmin view (system presets, denomination catalog, audit feed).
-- [ ] Add optimistic update + error handling + MSW fixtures for Vitest.
+- [x] Add optimistic update + error handling + MSW fixtures for Vitest.
 - [ ] Document UX defaults & accessibility (keyboard nav, screen reader labels).
-- [ ] Extend Vitest suites for UI interactions (edit, revert, publish, deny preview).
+- [x] Extend Vitest suites for UI interactions (edit, revert, publish, deny preview).
 
 ### Phase 4 — Snapshotting, Audit, and Version History (Day 9–10)
 
