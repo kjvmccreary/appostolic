@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Appostolic.Api.Application.Guardrails;
+using Appostolic.Api.Application.Storage;
 using Appostolic.Api.Domain.Guardrails;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -38,6 +39,14 @@ public static class GuardrailAdminEndpoints
             .WithSummary("Reset the active tenant guardrail policy to a denomination preset")
             .WithDescription("Replaces the tenant policy definition with the specified preset and clears existing drafts.");
 
+        tenantGroup.MapGet("tenant/audits", HandleGetTenantAudits)
+            .WithSummary("List recent guardrail audits for the current tenant")
+            .WithDescription("Returns recent guardrail policy audit entries, including snapshot metadata, for the tenant and optional policy key.");
+
+        tenantGroup.MapGet("tenant/audits/{auditId:guid}/snapshot", HandleDownloadTenantSnapshot)
+            .WithSummary("Download a guardrail snapshot for the current tenant")
+            .WithDescription("Streams the stored guardrail snapshot associated with the provided audit identifier if the tenant owns it.");
+
         var superGroup = app.MapGroup("/api/guardrails/admin/super")
             .RequireAuthorization()
             .WithTags("GuardrailsAdmin");
@@ -53,6 +62,14 @@ public static class GuardrailAdminEndpoints
         superGroup.MapPut("presets/{presetId}", HandleUpsertPreset)
             .WithSummary("Create or update a denomination guardrail preset")
             .WithDescription("Upserts a denomination preset definition accessible to tenants. Increments version when updating existing presets.");
+
+        superGroup.MapGet("audits", HandleGetSuperAudits)
+            .WithSummary("List guardrail policy audits across the platform")
+            .WithDescription("Returns recent guardrail policy audits with optional filtering by scope or tenant.");
+
+        superGroup.MapGet("audits/{auditId:guid}/snapshot", HandleDownloadSuperSnapshot)
+            .WithSummary("Download any guardrail snapshot")
+            .WithDescription("Streams the stored guardrail snapshot for the requested audit identifier. Superadmin access only.");
 
         return app;
     }
@@ -90,11 +107,27 @@ public static class GuardrailAdminEndpoints
             Signals = Array.Empty<string>()
         }, ct);
 
+        var audits = await (
+                from audit in db.GuardrailPolicyAudits.AsNoTracking()
+                join user in db.Users.AsNoTracking() on audit.ActorUserId equals user.Id into userJoin
+                from user in userJoin.DefaultIfEmpty()
+                where audit.TenantId == tenantId && audit.PolicyKey == key
+                orderby audit.OccurredAt descending
+                select new { audit, ActorEmail = user != null ? user.Email : null }
+            )
+            .Take(25)
+            .ToListAsync(ct);
+
+        var auditDtos = audits
+            .Select(row => MapAudit(row.audit, null, row.ActorEmail))
+            .ToList();
+
         var response = new TenantGuardrailSummaryDto(
             key,
             policies.Select(MapPolicy).ToList(),
             GuardrailResponseFactory.CreateResponse(evaluation),
-            presets);
+            presets,
+            auditDtos);
 
         return Results.Ok(response);
     }
@@ -165,6 +198,7 @@ public static class GuardrailAdminEndpoints
     private static async Task<IResult> HandlePublishDraft(
         ClaimsPrincipal principal,
         AppDbContext db,
+        IGuardrailAuditService audits,
         string policyKey,
         CancellationToken ct)
     {
@@ -187,6 +221,17 @@ public static class GuardrailAdminEndpoints
 
         var basePolicy = await db.GuardrailTenantPolicies
             .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Key == key && p.Layer == GuardrailPolicyLayer.TenantBase && p.IsActive, ct);
+
+        JsonDocument? previousDefinition = null;
+        string? previousPresetId = null;
+        int? previousVersion = null;
+
+        if (basePolicy is not null)
+        {
+            previousDefinition = CloneJson(basePolicy.Definition);
+            previousPresetId = basePolicy.DerivedFromPresetId;
+            previousVersion = basePolicy.Version;
+        }
 
         var now = DateTime.UtcNow;
         var clonedDefinition = CloneJson(draft.Definition);
@@ -224,12 +269,14 @@ public static class GuardrailAdminEndpoints
         }
 
         await db.SaveChangesAsync(ct);
+        await audits.RecordTenantPolicyChangeAsync(basePolicy!, GuardrailPolicyAuditActions.TenantPublish, userId, previousDefinition, previousPresetId, previousVersion, ct);
         return Results.Ok(MapPolicy(basePolicy));
     }
 
     private static async Task<IResult> HandleResetToPreset(
         ClaimsPrincipal principal,
         AppDbContext db,
+        IGuardrailAuditService audits,
         string policyKey,
         ResetTenantGuardrailRequest dto,
         CancellationToken ct)
@@ -259,6 +306,16 @@ public static class GuardrailAdminEndpoints
 
         var basePolicy = await db.GuardrailTenantPolicies
             .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Key == key && p.Layer == GuardrailPolicyLayer.TenantBase && p.IsActive, ct);
+
+        JsonDocument? previousDefinition = null;
+        string? previousPresetId = null;
+        int? previousVersion = null;
+        if (basePolicy is not null)
+        {
+            previousDefinition = CloneJson(basePolicy.Definition);
+            previousPresetId = basePolicy.DerivedFromPresetId;
+            previousVersion = basePolicy.Version;
+        }
 
         var definition = CloneJson(preset.Definition);
 
@@ -303,7 +360,75 @@ public static class GuardrailAdminEndpoints
         }
 
         await db.SaveChangesAsync(ct);
+        await audits.RecordTenantPolicyChangeAsync(basePolicy!, GuardrailPolicyAuditActions.TenantReset, userId, previousDefinition, previousPresetId, previousVersion, ct);
         return Results.Ok(MapPolicy(basePolicy));
+    }
+
+    /// <summary>
+    /// Lists guardrail policy audits for the current tenant, optionally filtered by policy key.
+    /// </summary>
+    private static async Task<IResult> HandleGetTenantAudits(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string? policyKey,
+        CancellationToken ct)
+    {
+        if (!TryResolveTenant(principal, out var tenantId))
+        {
+            return Results.BadRequest(new { error = "missing_tenant_scope" });
+        }
+
+        string? normalizedKey = null;
+        if (!string.IsNullOrWhiteSpace(policyKey))
+        {
+            normalizedKey = NormalizeKey(policyKey);
+        }
+
+        var query = from audit in db.GuardrailPolicyAudits.AsNoTracking()
+                    join user in db.Users.AsNoTracking() on audit.ActorUserId equals user.Id into userJoin
+                    from user in userJoin.DefaultIfEmpty()
+                    where audit.TenantId == tenantId && (normalizedKey == null || audit.PolicyKey == normalizedKey)
+                    orderby audit.OccurredAt descending
+                    select new { audit, ActorEmail = user != null ? user.Email : null };
+
+        var audits = await query.Take(50).ToListAsync(ct);
+        var dtos = audits.Select(row => MapAudit(row.audit, null, row.ActorEmail)).ToList();
+        return Results.Ok(dtos);
+    }
+
+    /// <summary>
+    /// Streams the object storage snapshot associated with a tenant guardrail audit.
+    /// </summary>
+    private static async Task<IResult> HandleDownloadTenantSnapshot(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        IObjectStorageService storage,
+        Guid auditId,
+        CancellationToken ct)
+    {
+        if (!TryResolveTenant(principal, out var tenantId))
+        {
+            return Results.BadRequest(new { error = "missing_tenant_scope" });
+        }
+
+        var audit = await db.GuardrailPolicyAudits.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == auditId && a.TenantId == tenantId, ct);
+
+        if (audit is null)
+        {
+            return Results.NotFound();
+        }
+
+        var stream = await storage.OpenReadAsync(audit.SnapshotKey, ct);
+        if (stream is null)
+        {
+            return Results.NotFound();
+        }
+
+        var fileNameKey = string.IsNullOrWhiteSpace(audit.PolicyKey) ? "guardrail" : audit.PolicyKey;
+        var fileName = $"{fileNameKey}-v{audit.Version ?? 0}-{audit.OccurredAt:yyyyMMddHHmmss}.json";
+        var contentType = string.IsNullOrWhiteSpace(audit.SnapshotContentType) ? "application/json" : audit.SnapshotContentType;
+        return Results.File(stream, contentType, fileName);
     }
 
     /// <summary>
@@ -329,47 +454,20 @@ public static class GuardrailAdminEndpoints
             .Select(p => MapPreset(p))
             .ToListAsync(ct);
 
-        var activityRows = await (
-                from policy in db.GuardrailTenantPolicies.AsNoTracking()
-                join tenant in db.Tenants.AsNoTracking() on policy.TenantId equals tenant.Id into tenantJoin
+        var auditRows = await (
+                from audit in db.GuardrailPolicyAudits.AsNoTracking()
+                join tenant in db.Tenants.AsNoTracking() on audit.TenantId equals tenant.Id into tenantJoin
                 from tenant in tenantJoin.DefaultIfEmpty()
-                join updatedUser in db.Users.AsNoTracking() on policy.UpdatedByUserId equals updatedUser.Id into userJoin
-                from updatedUser in userJoin.DefaultIfEmpty()
-                let occurredAt = policy.UpdatedAt ?? policy.PublishedAt ?? policy.CreatedAt
-                orderby occurredAt descending
-                select new
-                {
-                    policy.Id,
-                    policy.TenantId,
-                    TenantName = tenant != null ? tenant.Name : null,
-                    policy.Key,
-                    policy.Layer,
-                    policy.Version,
-                    UpdatedByEmail = updatedUser != null ? updatedUser.Email : null,
-                    OccurredAt = occurredAt,
-                    policy.DerivedFromPresetId,
-                    policy.IsActive,
-                    policy.PublishedAt,
-                    policy.UpdatedAt
-                }
+                join user in db.Users.AsNoTracking() on audit.ActorUserId equals user.Id into userJoin
+                from user in userJoin.DefaultIfEmpty()
+                orderby audit.OccurredAt descending
+                select new { audit, TenantName = tenant != null ? tenant.Name : null, ActorEmail = user != null ? user.Email : null }
             )
-            .Take(50)
+            .Take(100)
             .ToListAsync(ct);
 
-        var activity = activityRows
-            .Select(row => new GuardrailActivityEntryDto(
-                row.Id,
-                row.TenantId,
-                row.TenantName,
-                row.Key,
-                row.Layer.ToString().ToLowerInvariant(),
-                row.Version,
-                row.UpdatedByEmail,
-                DetermineActivityKind(row.Layer, row.PublishedAt, row.UpdatedAt, row.DerivedFromPresetId),
-                row.OccurredAt,
-                row.DerivedFromPresetId,
-                row.IsActive,
-                row.PublishedAt))
+        var activity = auditRows
+            .Select(row => MapAudit(row.audit, row.TenantName, row.ActorEmail))
             .ToList();
 
         var response = new GuardrailSuperadminSummaryDto(systemPolicies, presets, activity);
@@ -382,6 +480,7 @@ public static class GuardrailAdminEndpoints
     private static async Task<IResult> HandleUpsertSystemPolicy(
         ClaimsPrincipal principal,
         AppDbContext db,
+        IGuardrailAuditService audits,
         string slug,
         UpsertSystemGuardrailRequest dto,
         CancellationToken ct)
@@ -402,6 +501,14 @@ public static class GuardrailAdminEndpoints
             .FirstOrDefaultAsync(p => p.Slug == normalizedSlug, ct);
 
         var definition = CloneJson(dto.Definition);
+
+        JsonDocument? previousDefinition = null;
+        int? previousVersion = null;
+        if (policy is not null)
+        {
+            previousDefinition = CloneJson(policy.Definition);
+            previousVersion = policy.Version;
+        }
 
         if (policy is null)
         {
@@ -428,6 +535,7 @@ public static class GuardrailAdminEndpoints
         }
 
         await db.SaveChangesAsync(ct);
+        await audits.RecordSystemPolicyChangeAsync(policy, GuardrailPolicyAuditActions.SystemUpsert, null, previousDefinition, ct);
         return Results.Ok(MapSystemPolicy(policy));
     }
 
@@ -437,6 +545,7 @@ public static class GuardrailAdminEndpoints
     private static async Task<IResult> HandleUpsertPreset(
         ClaimsPrincipal principal,
         AppDbContext db,
+        IGuardrailAuditService audits,
         string presetId,
         UpsertDenominationGuardrailRequest dto,
         CancellationToken ct)
@@ -462,6 +571,14 @@ public static class GuardrailAdminEndpoints
 
         var definition = CloneJson(dto.Definition);
 
+        JsonDocument? previousDefinition = null;
+        int? previousVersion = null;
+        if (preset is not null)
+        {
+            previousDefinition = CloneJson(preset.Definition);
+            previousVersion = preset.Version;
+        }
+
         if (preset is null)
         {
             preset = new GuardrailDenominationPolicy
@@ -486,7 +603,78 @@ public static class GuardrailAdminEndpoints
         }
 
         await db.SaveChangesAsync(ct);
+        await audits.RecordPresetPolicyChangeAsync(preset, GuardrailPolicyAuditActions.PresetUpsert, null, previousDefinition, ct);
         return Results.Ok(MapPreset(preset));
+    }
+
+    /// <summary>
+    /// Lists guardrail audits for superadmins with optional filtering.
+    /// </summary>
+    private static async Task<IResult> HandleGetSuperAudits(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string? scope,
+        Guid? tenantId,
+        string? policyKey,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(principal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        string? normalizedScope = string.IsNullOrWhiteSpace(scope) ? null : scope.Trim().ToLowerInvariant();
+        string? normalizedPolicyKey = string.IsNullOrWhiteSpace(policyKey) ? null : NormalizeKey(policyKey);
+
+        var query = from audit in db.GuardrailPolicyAudits.AsNoTracking()
+                    join tenant in db.Tenants.AsNoTracking() on audit.TenantId equals tenant.Id into tenantJoin
+                    from tenant in tenantJoin.DefaultIfEmpty()
+                    join user in db.Users.AsNoTracking() on audit.ActorUserId equals user.Id into userJoin
+                    from user in userJoin.DefaultIfEmpty()
+                    where (normalizedScope == null || audit.Scope == normalizedScope)
+                        && (!tenantId.HasValue || audit.TenantId == tenantId)
+                        && (normalizedPolicyKey == null || audit.PolicyKey == normalizedPolicyKey)
+                    orderby audit.OccurredAt descending
+                    select new { audit, TenantName = tenant != null ? tenant.Name : null, ActorEmail = user != null ? user.Email : null };
+
+        var audits = await query.Take(200).ToListAsync(ct);
+        var dtos = audits.Select(row => MapAudit(row.audit, row.TenantName, row.ActorEmail)).ToList();
+        return Results.Ok(dtos);
+    }
+
+    /// <summary>
+    /// Streams a guardrail snapshot for superadmins regardless of scope.
+    /// </summary>
+    private static async Task<IResult> HandleDownloadSuperSnapshot(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        IObjectStorageService storage,
+        Guid auditId,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(principal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var audit = await db.GuardrailPolicyAudits.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == auditId, ct);
+
+        if (audit is null)
+        {
+            return Results.NotFound();
+        }
+
+        var stream = await storage.OpenReadAsync(audit.SnapshotKey, ct);
+        if (stream is null)
+        {
+            return Results.NotFound();
+        }
+
+        var descriptor = string.IsNullOrWhiteSpace(audit.PolicyKey) ? audit.Scope : audit.PolicyKey;
+        var fileName = $"{descriptor}-v{audit.Version ?? 0}-{audit.OccurredAt:yyyyMMddHHmmss}.json";
+        var contentType = string.IsNullOrWhiteSpace(audit.SnapshotContentType) ? "application/json" : audit.SnapshotContentType;
+        return Results.File(stream, contentType, fileName);
     }
 
     private static bool TryResolveTenant(ClaimsPrincipal principal, out Guid tenantId)
@@ -541,6 +729,34 @@ public static class GuardrailAdminEndpoints
             definition);
     }
 
+    private static GuardrailPolicyAuditDto MapAudit(GuardrailPolicyAudit audit, string? tenantName, string? actorEmail)
+    {
+        JsonNode? diff = null;
+        if (audit.DiffSummary is not null)
+        {
+            diff = JsonNode.Parse(audit.DiffSummary.RootElement.GetRawText());
+        }
+
+        var layer = audit.Layer?.ToString().ToLowerInvariant();
+
+        return new GuardrailPolicyAuditDto(
+            audit.Id,
+            audit.Scope,
+            audit.TenantId,
+            tenantName,
+            audit.PolicyKey,
+            layer,
+            audit.Version,
+            audit.Action,
+            audit.ActorUserId,
+            actorEmail,
+            audit.PresetId,
+            audit.SnapshotUrl,
+            audit.SnapshotKey,
+            audit.OccurredAt,
+            diff);
+    }
+
     private static GuardrailDenominationPolicyDto MapPreset(GuardrailDenominationPolicy preset)
     {
         var definition = JsonNode.Parse(preset.Definition.RootElement.GetRawText())!;
@@ -552,26 +768,6 @@ public static class GuardrailAdminEndpoints
             preset.CreatedAt,
             preset.UpdatedAt,
             definition);
-    }
-
-    private static string DetermineActivityKind(GuardrailPolicyLayer layer, DateTime? publishedAt, DateTime? updatedAt, string? derivedFromPresetId)
-    {
-        if (layer == GuardrailPolicyLayer.Draft)
-        {
-            return "draft_saved";
-        }
-
-        if (publishedAt.HasValue && (!updatedAt.HasValue || publishedAt.Value == updatedAt.Value))
-        {
-            return derivedFromPresetId is not null ? "preset_applied" : "published";
-        }
-
-        if (publishedAt.HasValue)
-        {
-            return "published";
-        }
-
-        return "updated";
     }
 
     private static TenantGuardrailPolicyDto MapPolicy(GuardrailTenantPolicy policy)
@@ -646,7 +842,8 @@ public sealed record TenantGuardrailSummaryDto(
     string Key,
     IReadOnlyList<TenantGuardrailPolicyDto> Policies,
     GuardrailPreflightResponseDto Snapshot,
-    IReadOnlyList<GuardrailPresetSummaryDto> Presets);
+    IReadOnlyList<GuardrailPresetSummaryDto> Presets,
+    IReadOnlyList<GuardrailPolicyAuditDto> Audits);
 
 /// <summary>
 /// Summary of available denomination presets.
@@ -679,21 +876,24 @@ public sealed record GuardrailDenominationPolicyDto(
     JsonNode Definition);
 
 /// <summary>
-/// Audit-oriented snapshot of recent tenant guardrail activity.
+/// DTO describing a guardrail policy audit entry with snapshot metadata.
 /// </summary>
-public sealed record GuardrailActivityEntryDto(
-    Guid PolicyId,
-    Guid TenantId,
+public sealed record GuardrailPolicyAuditDto(
+    Guid Id,
+    string Scope,
+    Guid? TenantId,
     string? TenantName,
-    string Key,
-    string Layer,
-    int Version,
-    string? UpdatedByEmail,
+    string? PolicyKey,
+    string? Layer,
+    int? Version,
     string Action,
+    Guid? ActorUserId,
+    string? ActorEmail,
+    string? PresetId,
+    string SnapshotUrl,
+    string SnapshotKey,
     DateTime OccurredAt,
-    string? DerivedFromPresetId,
-    bool IsActive,
-    DateTime? PublishedAt);
+    JsonNode? DiffSummary);
 
 /// <summary>
 /// Aggregated response used by the platform superadmin console.
@@ -701,4 +901,4 @@ public sealed record GuardrailActivityEntryDto(
 public sealed record GuardrailSuperadminSummaryDto(
     IReadOnlyList<GuardrailSystemPolicyDto> SystemPolicies,
     IReadOnlyList<GuardrailDenominationPolicyDto> Presets,
-    IReadOnlyList<GuardrailActivityEntryDto> Activity);
+    IReadOnlyList<GuardrailPolicyAuditDto> Activity);

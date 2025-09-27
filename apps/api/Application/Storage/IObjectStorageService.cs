@@ -23,4 +23,13 @@ public interface IObjectStorageService
     /// <param name="key">Path-like key previously used for upload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task DeleteAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Opens a readable stream for an object at the given key. Returns null when the object does not exist.
+    /// Caller is responsible for disposing the returned stream.
+    /// </summary>
+    /// <param name="key">Path-like key previously used for upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Readable stream or null if the object cannot be found.</returns>
+    Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default);
 }

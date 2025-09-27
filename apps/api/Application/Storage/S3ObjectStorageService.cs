@@ -74,6 +74,31 @@ public sealed class S3ObjectStorageService : IObjectStorageService, IDisposable
         }
     }
 
+    /// <inheritdoc />
+    public async Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        key = key.Replace('\\', '/');
+
+        try
+        {
+            using var response = await _s3.GetObjectAsync(new GetObjectRequest
+            {
+                BucketName = _options.Bucket,
+                Key = key
+            }, cancellationToken);
+
+            var memory = new MemoryStream();
+            await response.ResponseStream.CopyToAsync(memory, cancellationToken);
+            memory.Position = 0;
+            return memory;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     private string BuildPublicUrl(string key)
     {
         if (!string.IsNullOrWhiteSpace(_options.PublicBaseUrl))

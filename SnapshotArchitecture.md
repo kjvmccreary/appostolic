@@ -1,6 +1,7 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
 Generated: 2025-09-23 (updated: guardrail persistence schema + seeded presets; key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard; guardrail evaluations enforced during agent task creation)
+Updated: 2025-09-27 (guardrail policy audits + snapshot storage seam; guardrail metadata casing alignment)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---
@@ -113,6 +114,7 @@ Core tables (schema `app`):
 - `guardrail_denomination_policies` (Id slug, Name, Notes, Definition JSONB, Version) — curated presets aligned to theology/product input (Mere Christianity, Baptist, Presbyterian, etc.).
 - `guardrail_tenant_policies` (Id, TenantId, Layer enum, PolicyKey, Definition JSONB, DerivedFromPresetId?, Metadata JSONB, Version, Created/Updated/Published timestamps, CreatedBy/UpdatedBy) — tenant-level guardrails supporting layered overrides (`TenantBase`, `Override`, `Draft`). RLS enabled; tenant isolation enforced via `tenant_isolation_select/mod` policies referencing `app.set_tenant()`.
 - `guardrail_user_preferences` (Id, TenantId, UserId, Preferences JSONB, timestamps) — per-user tailoring merged last in evaluation. RLS mirrors tenant policy isolation to prevent cross-tenant leakage.
+- `guardrail_policy_audits` (Id, Scope enum system|preset|tenant, PolicyKey, TenantId?, PresetId?, TenantPolicyId?, Version, Action, ActorUserId?, SnapshotKey, SnapshotUrl, SnapshotHash, SnapshotContentType, DiffSummary JSONB, OccurredAt). Every policy change captures a SHA-256 hash of the persisted definition and uploads the JSON snapshot to object storage (`IObjectStorageService`) under deterministic keys (e.g., `guardrails/tenants/{tenantId}/{key}/vNN-<timestamp>.json`). Diff summaries highlight allow/deny/escalate changes and preset inheritance deltas for reconciliation.
 - `login_tokens` (magic link tokens: Email (citext), TokenHash, Purpose, Expires/Consumed)
 - `audits` (role change records)
 - `lessons` (sample domain / future content)
@@ -193,7 +195,7 @@ Notification Dispatch (early): Deduplication table `notification_dedupes` (TTL e
 
 ### 10. Storage & Media
 
-Abstraction `IObjectStorageService` with Local FS or S3/MinIO implementations. Media served under `/media/*` via static files pointing to build-out directory (`web.out/media`). Avatar/logo processing uses ImageSharp (transforms: auto-orient, optional crop/downscale) preserving original format.
+Abstraction `IObjectStorageService` with Local FS or S3/MinIO implementations. Uploads now return both the public URL and the canonical key so downstream services (e.g., guardrail audits) can reference immutable snapshot paths. Guardrail policy diffs and snapshots use the same seam to persist JSON payloads under `guardrails/<scope>/...` folders. Media served under `/media/*` via static files pointing to build-out directory (`web.out/media`). Avatar/logo processing uses ImageSharp (transforms: auto-orient, optional crop/downscale) preserving original format.
 
 ---
 
@@ -204,7 +206,8 @@ Agent runtime (prototype) features:
 - Tool registry (WebSearchTool, DbQueryTool, FsWriteTool) registered as singletons.
 - Orchestrator + InMemory task queue + hosted worker `AgentTaskWorker`.
 - Trace writer emits spans for agent/tool execution.
-- Guardrail evaluator can run at task submission time when clients include guardrail context. Decisions persist on `agent_tasks` and deny/escalate outcomes skip enqueue; the worker re-checks the stored decision to avoid accidental execution.
+- Guardrail evaluator can run at task submission time when clients include guardrail context. Decisions persist on `agent_tasks`, metadata is serialized with camelCase decision strings for API parity, and deny/escalate outcomes skip enqueue; the worker re-checks the stored decision to avoid accidental execution.
+- Guardrail admin surface orchestrates updates through `GuardrailAuditService`, which captures before/after diffs, publishes JSON snapshots to object storage via `IObjectStorageService`, and appends entries to `guardrail_policy_audits` for tenant/system/preset layers.
 
 Planned: External queue integration, model adapter expansions, persistence of task transcripts.
 

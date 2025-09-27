@@ -145,3 +145,5 @@
 - 🚧 IN PROGRESS Guardrails sprint (S1-09) — see `devInfo/DesignDocs/GRailSprintPlan/grdSprintPlan.md` for milestones and daily tracking.
   - ✅ Phase 0 foundations (requirements alignment, guardrail inventory, acceptance criteria lock, tracker updated).
   - ✅ Phase 1 data model & RLS (schema/entities, seeded presets, tenant/user policies, SnapshotArchitecture updated).
+  - ✅ Phase 2 evaluations + task enforcement (guardrail decisions persisted, metadata camelCase parity, security events wired) — 2025-09-27.
+  - ✅ Phase 3 audit snapshots (GuardrailAuditService uploads JSON snapshots, GuardrailPolicyAudit table + storage seam) — 2025-09-27.

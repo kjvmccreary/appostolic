@@ -70,11 +70,12 @@ public class AgentTasksGuardrailTests : AgentTasksTestBase
             element = taskElem;
         }
 
-        element.GetProperty("status").GetString().Should().Be("Failed");
-        element.GetProperty("guardrailDecision").GetString().Should().Be("Escalate");
+    element.GetProperty("status").GetString().Should().Be("Failed");
+    var expectedDecision = JsonNamingPolicy.CamelCase.ConvertName(nameof(GuardrailDecision.Escalate));
+    element.GetProperty("guardrailDecision").GetString().Should().Be(expectedDecision);
         var metadata = element.GetProperty("guardrailMetadata");
         metadata.ValueKind.Should().Be(JsonValueKind.Object);
-        metadata.GetProperty("result").GetProperty("decision").GetString().Should().Be("Escalate");
+    metadata.GetProperty("result").GetProperty("decision").GetString().Should().Be(expectedDecision);
         metadata.GetProperty("context").GetProperty("signals").EnumerateArray().Select(s => s.GetString()).Should().Contain("escalate:human-review");
     }
 

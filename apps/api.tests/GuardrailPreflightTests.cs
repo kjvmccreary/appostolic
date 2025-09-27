@@ -109,6 +109,7 @@ public class GuardrailPreflightTests : IClassFixture<WebAppFactory>
         db.GuardrailDenominationPolicies.RemoveRange(db.GuardrailDenominationPolicies);
         db.GuardrailTenantPolicies.RemoveRange(db.GuardrailTenantPolicies);
         db.GuardrailUserPreferences.RemoveRange(db.GuardrailUserPreferences);
+        db.GuardrailPolicyAudits.RemoveRange(db.GuardrailPolicyAudits);
         await db.SaveChangesAsync();
     }
 

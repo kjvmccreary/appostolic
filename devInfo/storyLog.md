@@ -1,3 +1,20 @@
+- 2025-09-27 — Guardrails sprint Phase 3 audit snapshots — ✅ DONE
+
+Summary
+
+- Introduced `GuardrailAuditService` with tenant/system/preset helpers that hash policy JSON, upload snapshots via `IObjectStorageService`, and persist audit rows in the new `guardrail_policy_audits` table so policy changes carry immutable diffs.
+- Extended object storage seam to return `(Url, Key)` tuples, enabling both S3 and local implementations to hand back deterministic keys for guardrail snapshots while keeping avatar/logo flows untouched.
+- Updated guardrail admin endpoints to call the audit service, seeded the EF Core migration (`s9_02_guardrail_audits`) plus configuration, and aligned agent task metadata serialization to camelCase for decision values to match API responses and green the guardrail test suite.
+
+Quality Gates
+
+- `make migrate`
+- `dotnet test apps/api.tests/Appostolic.Api.Tests.csproj` — Passed (308 tests, 1 skipped)
+
+Follow-ups / Deferred
+
+- Document guardrail snapshot retention/rotation expectations in ops runbook once audit UI ships.
+
 - 2025-09-27 — Guardrails sprint Phase 3 navigation wiring — 🚧 IN PROGRESS
 
 Summary

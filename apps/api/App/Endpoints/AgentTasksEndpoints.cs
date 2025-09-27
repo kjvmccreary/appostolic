@@ -112,6 +112,7 @@ public static class AgentTasksEndpoints
                 }
 
                 var metadataOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+                var decisionString = JsonNamingPolicy.CamelCase.ConvertName(evaluationResult.Decision.ToString());
                 guardrailMetadataJson = JsonSerializer.Serialize(new
                 {
                     evaluatedAt = DateTime.UtcNow,
@@ -128,7 +129,7 @@ public static class AgentTasksEndpoints
                     },
                     result = new
                     {
-                        decision = evaluationResult.Decision.ToString(),
+                        decision = decisionString,
                         reasonCode = evaluationResult.ReasonCode,
                         matchedSignals = evaluationResult.MatchedSignals,
                         snapshot = new

@@ -53,6 +53,20 @@ public sealed class LocalFileStorageService : IObjectStorageService
         }
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        key = key.Replace('\\', '/');
+        var fullPath = Path.Combine(_options.BasePath, key);
+        if (!File.Exists(fullPath))
+        {
+            return Task.FromResult<Stream?>(null);
+        }
+
+        Stream stream = File.OpenRead(fullPath);
+        return Task.FromResult<Stream?>(stream);
+    }
 }
 
 public sealed class LocalFileStorageOptions

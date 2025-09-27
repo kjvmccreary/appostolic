@@ -80,7 +80,7 @@ How to use
   - Guardrail evaluator now runs during agent task creation; deny/escalate decisions persist on `agent_tasks` and prevent queueing while emitting security events.
   - Guardrail integration tests (`AgentTasksGuardrailTests`) assert deny/escalate metadata persistence and worker skip behavior for ongoing regression coverage.
 - [ ] Admin UI to view/edit policies and apply presets
-- [ ] Versioned policy snapshots (object storage)
+- [x] Versioned policy snapshots (object storage) — Guardrail audit service captures hashes + uploads JSON snapshots via shared storage seam (2025-09-27).
 - Note: Guardrails sprint Phase 0 complete (requirements reconciled across NorthStar/MvpCutMatrix/LivingChecklist; inventory captured in `devInfo/DesignDocs/GRailSprintPlan/grdSprintPlan.md`).
 - [x] Denomination presets metadata endpoint + profile multi-select UI (UPROF-11)
 
@@ -167,4 +167,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025-09-26 (Tenant logo preview normalization; admin dashboards refresh fallback.)
+- Last updated: 2025-09-27 (Guardrail policy audits + metadata casing alignment.)

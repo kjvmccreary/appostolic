@@ -327,7 +327,15 @@ builder.Services.Configure<Appostolic.Api.Application.Privacy.PrivacyOptions>(bu
 // JSON: prefer string values for enums for both input binding and output serialization
 builder.Services.ConfigureHttpJsonOptions(opts =>
 {
-    opts.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    for (var i = opts.SerializerOptions.Converters.Count - 1; i >= 0; i--)
+    {
+        if (opts.SerializerOptions.Converters[i] is JsonStringEnumConverter)
+        {
+            opts.SerializerOptions.Converters.RemoveAt(i);
+        }
+    }
+
+    opts.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 // Provide Development-friendly defaults for SMTP if not configured (Mailhog)
 if (builder.Environment.IsDevelopment())
@@ -356,6 +364,7 @@ builder.Services.AddOptions<GuardrailEvaluatorOptions>()
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IGuardrailSecurityEventWriter, GuardrailSecurityEventWriter>();
 builder.Services.AddScoped<IGuardrailEvaluator, GuardrailEvaluator>();
+builder.Services.AddScoped<IGuardrailAuditService, GuardrailAuditService>();
 
 // Story 9: Forced logout feature flag (admin / tenant). This will gate new endpoints.
 var forcedLogoutEnabled = (builder.Configuration["AUTH__FORCED_LOGOUT__ENABLED"] ?? "false")
@@ -948,6 +957,12 @@ public partial class AppDbContext : DbContext
                 .HasConversion(
                     v => SerializeNonNull(v),
                     v => ParseNonNull(v));
+
+            modelBuilder.Entity<Appostolic.Api.Domain.Guardrails.GuardrailPolicyAudit>()
+                .Property(x => x.DiffSummary)
+                .HasConversion<string?>(
+                    v => SerializeNullable(v),
+                    v => ParseNullable(v));
         }
     }
 

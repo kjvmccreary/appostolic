@@ -25,5 +25,6 @@ public partial class AppDbContext : DbContext
     public DbSet<GuardrailDenominationPolicy> GuardrailDenominationPolicies => Set<GuardrailDenominationPolicy>();
     public DbSet<GuardrailTenantPolicy> GuardrailTenantPolicies => Set<GuardrailTenantPolicy>();
     public DbSet<GuardrailUserPreference> GuardrailUserPreferences => Set<GuardrailUserPreference>();
+    public DbSet<GuardrailPolicyAudit> GuardrailPolicyAudits => Set<GuardrailPolicyAudit>();
 
 }
