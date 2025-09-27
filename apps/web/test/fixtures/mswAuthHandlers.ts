@@ -49,7 +49,7 @@ function headersToRecord(headers: Headers): Record<string, string> {
 
 // MSW handlers that fake the select-tenant and refresh auth endpoints used by the web app.
 export const authHandlers = [
-  http.post('http://localhost/api/tenant/select', async ({ request }) => {
+  http.post('http://*/api/tenant/select', async ({ request }) => {
     const headers = headersToRecord(request.headers);
     const body = await request.json().catch(() => ({}));
     const tenant = ((body as Record<string, unknown>).tenant ||
@@ -68,7 +68,7 @@ export const authHandlers = [
       },
     );
   }),
-  http.post('http://localhost/api/auth/refresh', async ({ request }) => {
+  http.post('http://*/api/auth/refresh', async ({ request }) => {
     const headers = headersToRecord(request.headers);
     const bodyText = await request.text();
     authMockState.refresh.calls.push({ url: request.url, body: bodyText, headers });

@@ -71,11 +71,27 @@ export function TenantSwitcherModal({ open, onClose }: { open: boolean; onClose:
       // ignore
     }
     await update({ tenant: slug });
-    await fetch('/api/tenant/select', {
+    const response = await fetch('/api/tenant/select', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ tenant: slug }),
     });
+    if (!response.ok) {
+      let info: unknown = null;
+      try {
+        info = await response.json();
+      } catch {
+        info = null;
+      }
+      console.warn('[TenantSwitcher] tenant select failed', {
+        status: response.status,
+        info,
+      });
+      router.refresh();
+      onClose();
+      return;
+    }
     router.refresh();
     onClose();
   };

@@ -1,3 +1,21 @@
+### 2025-09-26 - Story: Tenant switch refresh bridge — ✅ DONE
+
+Summary
+
+- Added a shared `refreshRotationBridge` so rotated refresh cookies are reused across server fetches and proxy requests, eliminating the flicker/logout while switching tenants.
+- Updated `/api/tenant/select` to adopt bridged cookies, expanded tests to cover rotation handoff, and keyed tenant admin forms by slug to reset client state per tenant.
+- Introduced `/api-proxy/tenants/logo` with tenant-admin guard and FormData relay so logo uploads succeed without 404s while propagating refreshed cookies.
+
+Quality Gates
+
+- `pnpm -w -s test -w --filter @appostolic/web` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
 ### 2025-09-26 - Story: Frontend Auth Fixture Alignment (Story 12) — ✅ DONE
 
 Summary

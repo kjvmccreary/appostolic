@@ -63,6 +63,7 @@ How to use
 - [ ] OAuth SSO (Google, Microsoft) — ➕ Post‑1.0
 - [ ] Tenant settings page (basic org info, feature toggles) — In 1.0 scope
   - [x] Basic Org Settings UI (info, logo, social) implemented; Guardrails & Bio added. Feature toggles pending.
+  - [x] Tenant switch blank-state regression resolved; refresh rotation bridge shares rotated cookies so new tenant data hydrates immediately (2025-09-26).
 
 ### Tenant & Org Management
 

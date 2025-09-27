@@ -98,7 +98,7 @@ describe('buildProxyHeaders refresh rotation bridge', () => {
     vi.clearAllMocks();
     Reflect.set(globalThis, '__appProxyTokenCache', undefined);
     Reflect.set(globalThis, '__appProxyInflight', undefined);
-    Reflect.set(globalThis, '__appProxyRotationBridge', undefined);
+    Reflect.set(globalThis, '__appRefreshRotationBridge', undefined);
     cookieStoreFactory.current = createStore('legacy-token');
     process.env.WEB_AUTH_ENABLED = 'true';
     process.env.NEXT_PUBLIC_API_BASE = 'http://localhost:5198';

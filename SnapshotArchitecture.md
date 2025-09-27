@@ -126,6 +126,7 @@ Auth Client:
 
 - Access token stored only in memory; refresh cycle via `/api/auth/refresh` (cookie); silent refresh scheduled ~60s pre-expiry (single-flight).
 - Retry-once 401 logic: if an API call 401s, trigger an immediate refresh and retry request once before surfacing error.
+- Refresh rotation bridge (`refreshRotationBridge`) retains old→new refresh cookie mappings for five minutes so concurrent server components and proxy routes reuse rotated values without tripping reuse detection (tenant switching no longer flickers/logs out).
 
 Role Gating:
 
@@ -134,6 +135,10 @@ Role Gating:
 State & UI:
 
 - MUI theming; server components for data fetch (RSC). File upload components for avatars/logos integrate with object storage (MinIO/S3) through proxy endpoints.
+
+API Proxy Surface:
+
+- `/api-proxy/tenants/logo` uploads/deletes tenant branding assets via streaming FormData relay, applying tenant-admin guard and propagating bridged refresh cookies so browser state stays current after uploads.
 
 Testing:
 

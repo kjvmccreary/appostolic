@@ -150,7 +150,7 @@ export default async function TenantSettingsPage() {
           Manage organization display name, contact, social, and branding logo.
         </p>
         <div>
-          <TenantLogoUpload initialUrl={logoUrl} />
+          <TenantLogoUpload key={`logo-${effectiveSlug}`} initialUrl={logoUrl} />
         </div>
       </header>
 
@@ -161,7 +161,7 @@ export default async function TenantSettingsPage() {
         <h2 id="tenant-settings-form-heading" className="text-lg font-medium">
           Organization Information
         </h2>
-        <TenantSettingsForm initial={initial} />
+        <TenantSettingsForm key={`settings-form-${effectiveSlug}`} initial={initial} />
       </section>
 
       <section
@@ -171,7 +171,11 @@ export default async function TenantSettingsPage() {
         <h2 id="tenant-guardrails-heading" className="text-lg font-medium">
           Guardrails & Preferences
         </h2>
-        <TenantGuardrailsForm initial={guardrailsInitial} presets={denominationPresets} />
+        <TenantGuardrailsForm
+          key={`guardrails-${effectiveSlug}`}
+          initial={guardrailsInitial}
+          presets={denominationPresets}
+        />
       </section>
 
       <section
@@ -181,7 +185,7 @@ export default async function TenantSettingsPage() {
         <h2 id="tenant-bio-heading" className="text-lg font-medium">
           Organization Bio
         </h2>
-        <TenantBioEditor initial={bioInitial} />
+        <TenantBioEditor key={`bio-${effectiveSlug}`} initial={bioInitial} />
       </section>
     </main>
   );

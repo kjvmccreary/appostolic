@@ -4,6 +4,12 @@
 // - Leaves caching options to callers (defaults to no-store for safety)
 
 import { headers, cookies } from 'next/headers';
+import { parseSetCookie } from '../../src/lib/cookieUtils';
+import {
+  getRotation,
+  registerRotation,
+  type ProxyCookie,
+} from '../../src/lib/refreshRotationBridge';
 
 export type ServerFetchInit = RequestInit & {
   // Keep Next.js route options when needed
@@ -22,12 +28,44 @@ function safeGetHost(): { host: string | null; proto: string | null } {
   }
 }
 
-function safeCookieString(): string {
+function safeCookieStore(): ReturnType<typeof cookies> | null {
   try {
+    return cookies();
+  } catch {
+    return null;
+  }
+}
+
+function safeCookieString(store?: ReturnType<typeof cookies> | null): string {
+  try {
+    if (store) return store.toString();
     return cookies().toString();
   } catch {
     return '';
   }
+}
+
+function mergeCookieValue(header: string, name: string, value: string): string {
+  const segments = header
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const map = new Map<string, string>();
+  for (const segment of segments) {
+    const separator = segment.indexOf('=');
+    if (separator <= 0) continue;
+    const key = segment.slice(0, separator).trim();
+    const val = segment.slice(separator + 1);
+    if (!map.has(key)) {
+      map.set(key, val);
+    } else {
+      map.set(key, val);
+    }
+  }
+  map.set(name, value);
+  return Array.from(map.entries())
+    .map(([key, val]) => `${key}=${val}`)
+    .join('; ');
 }
 
 function currentRequestBase(): string {
@@ -63,7 +101,23 @@ export function withAbsoluteUrl(input: string | URL): string {
 
 export async function fetchFromProxy(input: string | URL, init: ServerFetchInit = {}) {
   const url = withAbsoluteUrl(input);
-  const cookieHeader = safeCookieString();
+  const jar = safeCookieStore();
+  const currentRefresh = jar?.get('rt')?.value ?? null;
+  const bridgedCookie = currentRefresh ? getRotation(currentRefresh) : null;
+  const effectiveRefresh = bridgedCookie?.value ?? currentRefresh;
+
+  if (jar && bridgedCookie) {
+    try {
+      jar.set(bridgedCookie.name, bridgedCookie.value, bridgedCookie.options ?? {});
+    } catch {
+      // Ignore attempts to mutate cookies in contexts (like RSC) where it's disallowed.
+    }
+  }
+
+  let cookieHeader = safeCookieString(jar);
+  if (bridgedCookie) {
+    cookieHeader = mergeCookieValue(cookieHeader, bridgedCookie.name, bridgedCookie.value);
+  }
   const mergedHeaders: HeadersInit | undefined = cookieHeader
     ? { ...(init.headers || {}), cookie: cookieHeader }
     : init.headers;
@@ -87,5 +141,40 @@ export async function fetchFromProxy(input: string | URL, init: ServerFetchInit 
     ...(nextOptions ? { next: nextOptions } : {}),
     headers: mergedHeaders,
   } as ServerFetchInit);
+
+  const setCookieHeaders: undefined | string[] =
+    typeof (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === 'function'
+      ? (res.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
+      : res.headers.get('set-cookie')
+        ? res.headers
+            .get('set-cookie')!
+            .split(/,(?=[^;]+=)/)
+            .map((entry) => entry.trim())
+        : undefined;
+
+  if (setCookieHeaders && setCookieHeaders.length > 0) {
+    try {
+      const responseJar = jar ?? safeCookieStore();
+      if (responseJar) {
+        for (const entry of setCookieHeaders) {
+          const parsed = parseSetCookie(entry);
+          if (parsed) {
+            responseJar.set(parsed.name, parsed.value, parsed.options);
+            if (parsed.name === 'rt' && effectiveRefresh) {
+              const bridgeCookie: ProxyCookie = {
+                name: parsed.name,
+                value: parsed.value,
+                options: parsed.options ?? {},
+              };
+              registerRotation(effectiveRefresh, bridgeCookie);
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore cookie propagation issues — server-render fallback will still operate with in-request jar.
+    }
+  }
+
   return res;
 }

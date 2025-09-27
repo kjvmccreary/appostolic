@@ -4,7 +4,8 @@ import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { authOptions } from './auth';
 import { API_BASE } from './serverEnv';
-import { parseSetCookie, extractSetCookieValues, type CookieSetterOptions } from './cookieUtils';
+import { parseSetCookie, extractSetCookieValues } from './cookieUtils';
+import { type ProxyCookie, registerRotation, getRotation } from './refreshRotationBridge';
 
 const DEBUG_PROXY_HEADERS = process.env.NODE_ENV !== 'production';
 
@@ -43,12 +44,6 @@ type RefreshPromiseResult = {
 
 export type ProxyHeaders = Record<string, string>;
 
-export type ProxyCookie = {
-  name: string;
-  value: string;
-  options: CookieSetterOptions;
-};
-
 export type ProxyFailureReason =
   | 'missing_session'
   | 'missing_tenant'
@@ -69,15 +64,9 @@ export type ProxyHeadersContext = {
   cookies: ProxyCookie[];
 };
 
-type RotationBridgeEntry = {
-  cookie: ProxyCookie;
-  expiresAt: number;
-};
-
 const globalState = globalThis as typeof globalThis & {
   __appProxyTokenCache?: Map<string, CachedAccess>;
   __appProxyInflight?: Map<string, Promise<RefreshPromiseResult>>;
-  __appProxyRotationBridge?: Map<string, RotationBridgeEntry>;
 };
 
 const tokenCache =
@@ -86,9 +75,6 @@ const tokenCache =
 const inflight =
   globalState.__appProxyInflight ??
   (globalState.__appProxyInflight = new Map<string, Promise<RefreshPromiseResult>>());
-const rotationBridge =
-  globalState.__appProxyRotationBridge ??
-  (globalState.__appProxyRotationBridge = new Map<string, RotationBridgeEntry>());
 
 function maskToken(value?: string | null): string | null {
   if (!value) return value ?? null;
@@ -131,40 +117,33 @@ function parseExpires(value: string | number | undefined): number | null {
   return null;
 }
 
-const ROTATION_BRIDGE_TTL_MS = 10_000;
-
-function pruneRotationBridge(now = Date.now()) {
-  for (const [key, entry] of rotationBridge) {
-    if (entry.expiresAt <= now) rotationBridge.delete(key);
-  }
-}
-
-function rememberRotation(oldValue: string, cookie: ProxyCookie) {
-  pruneRotationBridge();
-  rotationBridge.set(oldValue, { cookie, expiresAt: Date.now() + ROTATION_BRIDGE_TTL_MS });
-}
-
+// Applies a rotated refresh cookie, if present in the bridge, to the cookie jar so the current
+// request reuses the new value without triggering refresh reuse protection upstream.
 function adoptRotatedCookie(
   currentValue: string | null,
   jar: RequestCookieStore,
   responseCookies: ProxyCookie[],
 ): string | null {
-  pruneRotationBridge();
   if (!currentValue) return currentValue;
-  const entry = rotationBridge.get(currentValue);
-  if (!entry) return currentValue;
-  jar.set(entry.cookie.name, entry.cookie.value, entry.cookie.options);
+  const rotated = getRotation(currentValue);
+  if (!rotated) return currentValue;
+  try {
+    jar.set(rotated.name, rotated.value, rotated.options);
+  } catch {
+    // In contexts that forbid cookie mutation (e.g., server components), we'll rely on queued
+    // response cookies to propagate the rotation instead of mutating the request jar.
+  }
   const alreadyQueued = responseCookies.some(
-    (c) => c.name === entry.cookie.name && c.value === entry.cookie.value,
+    (cookie) => cookie.name === rotated.name && cookie.value === rotated.value,
   );
   if (!alreadyQueued) {
-    responseCookies.push(entry.cookie);
+    responseCookies.push(rotated);
   }
   debugProxy('bridged rotated refresh cookie', {
     previous: maskToken(currentValue),
-    next: maskToken(entry.cookie.value),
+    next: maskToken(rotated.value),
   });
-  return entry.cookie.value;
+  return rotated.value;
 }
 
 async function refreshToken(
@@ -282,7 +261,7 @@ async function refreshToken(
   });
 
   if (refreshBefore && rotatedCookie) {
-    rememberRotation(refreshBefore, rotatedCookie);
+    registerRotation(refreshBefore, rotatedCookie);
   }
 
   let payload: RefreshAccessPayload;

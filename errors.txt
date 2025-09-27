@@ -1,34 +1,84 @@
- GET /api/auth/providers 200 in 27ms
- GET /api/auth/csrf 200 in 18ms
- POST /api/auth/callback/credentials 200 in 152ms
- GET /select-tenant?next=%2Fstudio%2Fagents&reselect=1 200 in 36ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 39ms
- GET /api/auth/session 200 in 16ms
- GET /api/auth/session 200 in 12ms
- GET /api/tenant/select?next=%2Fstudio%2Fagents&tenant=kevin-personal-3 307 in 24ms
-[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"0r4-…LsFE"}
-[proxyHeaders] refresh response ok {"tenant":"kevin-personal-3","rotatedRt":"BGI2…ly8c","previousRt":"0r4-…LsFE"}
- GET /api-proxy/agents?take=50 200 in 67ms
- GET /studio/agents 200 in 121ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 50ms
- GET /api/auth/session 200 in 17ms
- GET /api/auth/session 200 in 40ms
- GET /api/auth/csrf 200 in 40ms
- POST /api/auth/session 200 in 9ms
-[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"0r4-…LsFE"}
-[proxyHeaders] cleared refresh cookie after failure {"tenant":"kevin-personal-3","code":"refresh_reuse"}
-[proxyHeaders] refresh response not ok {"status":401,"tenant":"kevin-personal-3","body":"{\"code\":\"refresh_reuse\"}","code":"refresh_reuse"}
-[proxyHeaders] failed to obtain access token {"tenant":"kevin-personal-3"}
- GET /api-proxy/agents?take=50 401 in 17ms
+ GET /api/auth/providers 200 in 20ms
+ GET /api/auth/csrf 200 in 9ms
+ POST /api/auth/callback/credentials 200 in 189ms
+ GET /select-tenant?next=%2Fstudio%2Fagents 200 in 41ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 21ms
+ GET /api/auth/session 200 in 13ms
+ GET /api/auth/session 200 in 6ms
+ ✓ Compiled /api/tenant/select in 226ms (1026 modules)
+ GET /api/tenant/select?next=%2Fstudio%2Fagents&tenant=kevin-personal-3 307 in 299ms
+ ✓ Compiled /studio/agents in 306ms (1785 modules)
+ ✓ Compiled /api-proxy/agents in 164ms (1037 modules)
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"NIxO…1zvQ"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-3","rotatedRt":"X6XK…3AAY","previousRt":"NIxO…1zvQ"}
+ GET /api-proxy/agents?take=50 200 in 275ms
+ GET /studio/agents 200 in 683ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 126ms
+ GET /api/auth/session 200 in 15ms
+ GET /api/auth/session 200 in 8ms
+ GET /api/auth/csrf 200 in 8ms
+ POST /api/auth/session 200 in 7ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"X6XK…3AAY"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-3","rotatedRt":"GjYp…SFuU","previousRt":"X6XK…3AAY"}
+ GET /api-proxy/agents?take=50 200 in 22ms
  GET /studio/agents?_rsc=1n0pk 200 in 42ms
-[proxyHeaders] refresh request start {"tenant":"neutral","hasRt":true,"rt":"0r4-…LsFE"}
-[proxyHeaders] cleared refresh cookie after failure {"tenant":"neutral","code":"refresh_reuse"}
-[proxyHeaders] refresh response not ok {"status":401,"tenant":"neutral","body":"{\"code\":\"refresh_reuse\"}","code":"refresh_reuse"}
-[proxyHeaders] refresh request start {"tenant":"neutral","hasRt":true,"rt":"0r4-…LsFE"}
-[proxyHeaders] failed to obtain access token {"tenant":"neutral"}
- GET /api-proxy/users/me 401 in 34ms
-[proxyHeaders] cleared refresh cookie after failure {"tenant":"neutral","code":"refresh_reuse"}
-[proxyHeaders] refresh response not ok {"status":401,"tenant":"neutral","body":"{\"code\":\"refresh_reuse\"}","code":"refresh_reuse"}
-[proxyHeaders] failed to obtain access token {"tenant":"neutral"}
- GET /api-proxy/users/me 401 in 37ms
- GET /select-tenant?_rsc=1xvda 200 in 15ms
+ ✓ Compiled /api-proxy/users/me in 120ms (1039 modules)
+[proxyHeaders] bridged rotated refresh cookie {"previous":"NIxO…1zvQ","next":"X6XK…3AAY"}
+[proxyHeaders] bridged rotated refresh cookie {"previous":"NIxO…1zvQ","next":"X6XK…3AAY"}
+ GET /api-proxy/users/me 200 in 159ms
+ GET /api-proxy/users/me 200 in 188ms
+ ○ Compiling /studio/admin/settings ...
+ ✓ Compiled /studio/admin/settings in 1440ms (2626 modules)
+ ✓ Compiled /api-proxy/tenants/settings in 221ms (1466 modules)
+ GET /api-proxy/tenants/settings 200 in 289ms
+ ✓ Compiled /api-proxy/metadata/denominations in 161ms (1468 modules)
+ GET /api-proxy/metadata/denominations 200 in 200ms
+ GET /studio/admin/settings?_rsc=17rcx 200 in 541ms
+ GET /api/auth/csrf 200 in 16ms
+ POST /api/auth/session 200 in 9ms
+ POST /api/tenant/select 200 in 47ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-2","hasRt":true,"rt":"elU-…IFAQ"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-2","rotatedRt":"rd2j…UxQ8","previousRt":"elU-…IFAQ"}
+ GET /api-proxy/tenants/settings 200 in 27ms
+ GET /api-proxy/metadata/denominations 200 in 8ms
+ GET /studio/admin/settings?_rsc=m7dtr 200 in 64ms
+[proxyHeaders] bridged rotated refresh cookie {"previous":"elU-…IFAQ","next":"rd2j…UxQ8"}
+ PUT /api-proxy/tenants/settings 200 in 37ms
+ GET /api/auth/csrf 200 in 18ms
+ POST /api/auth/session 200 in 11ms
+ POST /api/tenant/select 200 in 25ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"qGKI…NjSE"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-3","rotatedRt":"uM9G…byEY","previousRt":"qGKI…NjSE"}
+ GET /api-proxy/tenants/settings 200 in 48ms
+ GET /api-proxy/metadata/denominations 200 in 20ms
+ GET /studio/admin/settings?_rsc=irgdd 200 in 94ms
+[proxyHeaders] bridged rotated refresh cookie {"previous":"qGKI…NjSE","next":"uM9G…byEY"}
+ PUT /api-proxy/tenants/settings 200 in 53ms
+ GET /api/auth/csrf 200 in 21ms
+ POST /api/auth/session 200 in 11ms
+ POST /api/tenant/select 200 in 39ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-2","hasRt":true,"rt":"4eh7…aImc"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-2","rotatedRt":"3vws…rVZM","previousRt":"4eh7…aImc"}
+ GET /api-proxy/tenants/settings 200 in 32ms
+ GET /api-proxy/metadata/denominations 200 in 8ms
+ GET /studio/admin/settings?_rsc=irgdd 200 in 103ms
+[proxyHeaders] bridged rotated refresh cookie {"previous":"4eh7…aImc","next":"3vws…rVZM"}
+ PUT /api-proxy/tenants/settings 200 in 28ms
+ GET /api/auth/csrf 200 in 19ms
+ POST /api/auth/session 200 in 11ms
+ POST /api/tenant/select 200 in 26ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-3","hasRt":true,"rt":"LO-G…BXss"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-3","rotatedRt":"E6GT…YvrY","previousRt":"LO-G…BXss"}
+ GET /api-proxy/tenants/settings 200 in 31ms
+ GET /api-proxy/metadata/denominations 200 in 10ms
+ GET /studio/admin/settings?_rsc=irgdd 200 in 74ms
+[proxyHeaders] bridged rotated refresh cookie {"previous":"LO-G…BXss","next":"E6GT…YvrY"}
+ PUT /api-proxy/tenants/settings 200 in 30ms
+ GET /api/auth/csrf 200 in 15ms
+ POST /api/auth/session 200 in 10ms
+ POST /api/tenant/select 200 in 21ms
+[proxyHeaders] refresh request start {"tenant":"kevin-personal-2","hasRt":true,"rt":"Wrzc…mRh0"}
+[proxyHeaders] refresh response ok {"tenant":"kevin-personal-2","rotatedRt":"nDiz…jB94","previousRt":"Wrzc…mRh0"}
+ GET /api-proxy/tenants/settings 200 in 54ms
+ GET /api-proxy/metadata/denominations 200 in 19ms
+ GET /studio/admin/settings?_rsc=irgdd 200 in 102ms
