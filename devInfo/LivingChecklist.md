@@ -121,6 +121,7 @@ How to use
 
 - [x] Theming (Light/Dark/AMOLED), sticky TopBar, mobile nav drawer, accessibility baselines
 - [x] Admin: Members, Invites, Audits, Notifications (DLQ)
+  - Note: 2025-09-26 refresh fallback keeps admin dashboards online after reuse detection.
 - [x] Studio: Agents (CRUD), Tasks inbox/detail (cancel/retry/export)
 - [ ] Admin: Guardrails page (policy config)
 - [ ] Admin: Billing/Usage pages
@@ -161,4 +162,4 @@ These are non-functional refactors we intend to tackle when touching adjacent co
 - [ ] Introduce depth/size guard in shared DeepMerge to mitigate pathological nested payloads (evaluate after consolidation).
 - [ ] Replace best-effort swallow on object delete (logo/avatar) with structured logging + optional retry policy once background cleanup job exists.
 
-- Last updated: 2025-09-25 (Story 20: Test helper can mint near-expired tokens; Story 19 rolesLabels rollout documented.)
+- Last updated: 2025-09-26 (Tenant logo preview normalization; admin dashboards refresh fallback.)

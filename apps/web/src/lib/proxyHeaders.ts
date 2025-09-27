@@ -433,7 +433,7 @@ export async function buildProxyHeaders(
   }
 
   const refreshCookieRaw = jar.get('rt')?.value ?? null;
-  const refreshCookie = adoptRotatedCookie(refreshCookieRaw, jar, responseCookies);
+  let refreshCookie = adoptRotatedCookie(refreshCookieRaw, jar, responseCookies);
   if (!refreshCookie) {
     debugProxy('missing refresh cookie');
     recordFailure('missing_refresh');
@@ -474,6 +474,31 @@ export async function buildProxyHeaders(
       refreshCookie ?? null,
       responseCookies,
     );
+  }
+  if (!access && refreshCookie) {
+    // Retry once with a bridged refresh rotation so concurrent requests that triggered
+    // a rotation just moments ago reuse the new cookie instead of returning 401.
+    const rotated = getRotation(refreshCookie);
+    if (rotated) {
+      refreshCookie = rotated.value;
+      const alreadyQueued = responseCookies.some(
+        (cookie) => cookie.name === rotated.name && cookie.value === rotated.value,
+      );
+      if (!alreadyQueued) responseCookies.push(rotated);
+      try {
+        jar.set(rotated.name, rotated.value, rotated.options);
+      } catch {
+        // Ignore environments where cookies() is read-only (e.g., RSC context)
+      }
+      access = await getOrRefreshAccess(
+        cacheKey,
+        tenantParam,
+        jar,
+        sessionKey ?? null,
+        rotated.value,
+        responseCookies,
+      );
+    }
   }
   // When neutral access is temporarily unavailable (e.g., refresh propagation lag), reuse
   // the tenant-scoped token as a fallback so client diagnostics and profile fetches stay alive.

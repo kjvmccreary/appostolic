@@ -12,6 +12,48 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { ConfirmDialog } from '../../../../src/components/ui/ConfirmDialog';
 
+const RAW_API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? '').trim();
+
+/**
+ * Normalizes media URLs returned by the API, resolving relative paths against the
+ * configured API base (or current origin) so the browser can load the asset.
+ */
+function resolveMediaUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^(?:[a-z][a-z0-9+.-]*:|data:|blob:)/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('//')) {
+    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    return `${protocol}${trimmed}`;
+  }
+  const base = RAW_API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
+  if (trimmed.startsWith('/')) {
+    if (!base) return trimmed;
+    return `${base.replace(/\/$/, '')}${trimmed}`;
+  }
+  if (!base) return trimmed;
+  const normalized = trimmed.replace(/^\//, '');
+  return `${base.replace(/\/$/, '')}/${normalized}`;
+}
+
+/**
+ * Appends a timestamp-based cache buster to force the browser to fetch the latest asset.
+ */
+function withCacheBuster(url: string): string {
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('_', Date.now().toString());
+    return parsed.toString();
+  } catch {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}_${Date.now()}`;
+  }
+}
+
 type Props = { initialUrl?: string | null; onUploaded?: (url: string | null) => void };
 
 export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
@@ -20,8 +62,9 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
   const [submitting, setSubmitting] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState<string | null>(null);
-  const [preview, setPreview] = React.useState<string | null>(initialUrl || null);
+  const [preview, setPreview] = React.useState<string | null>(() => resolveMediaUrl(initialUrl));
   const prevObjUrlRef = React.useRef<string | null>(null);
+  const lastRemoteUrlRef = React.useRef<string | null>(resolveMediaUrl(initialUrl));
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
@@ -88,7 +131,9 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
     const f = e.target.files?.[0] ?? null;
     if (!f) {
       setFile(null);
-      setPreview(initialUrl || null);
+      const resolved = resolveMediaUrl(initialUrl);
+      setPreview(resolved);
+      lastRemoteUrlRef.current = resolved;
       return;
     }
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) {
@@ -134,7 +179,13 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
       }
       const url = data?.logo?.url;
       if (url) {
-        const cacheBusted = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        const resolved = resolveMediaUrl(url);
+        if (!resolved) {
+          setStatusMsg('Logo updated.');
+          onUploaded?.(null);
+          return;
+        }
+        const cacheBusted = withCacheBuster(resolved);
         setPreview(cacheBusted);
         if (prevObjUrlRef.current) {
           try {
@@ -145,6 +196,7 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
           }
           prevObjUrlRef.current = null;
         }
+        lastRemoteUrlRef.current = resolved;
         onUploaded?.(cacheBusted);
         setFile(null);
         setStatusMsg('Logo updated.');
@@ -179,7 +231,9 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
         prevObjUrlRef.current = null;
       }
       setFile(null);
-      setPreview(initialUrl || null);
+      const resolved = resolveMediaUrl(initialUrl);
+      setPreview(resolved);
+      lastRemoteUrlRef.current = resolved;
       setStatusMsg('Selection cleared.');
       return;
     }
@@ -225,12 +279,29 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
       prevObjUrlRef.current = null;
     }
     setFile(null);
-    setPreview(initialUrl || null);
+    const resolved = resolveMediaUrl(initialUrl);
+    setPreview(resolved);
+    lastRemoteUrlRef.current = resolved;
     setError(null);
     setStatusMsg(null);
     setSubmitting(false);
     setDeleting(false);
   }, [initialUrl]);
+
+  /**
+   * Falls back to the last known remote logo if the cache-busted preview fails to load.
+   */
+  const handleImageError = React.useCallback(() => {
+    if (!preview || preview.startsWith('blob:')) return;
+    const fallback = lastRemoteUrlRef.current;
+    if (fallback && preview !== fallback) {
+      setPreview(fallback);
+      setStatusMsg(null);
+      setError(
+        (prev) => prev ?? 'Logo saved, but preview is still updating. Refresh if it looks stale.',
+      );
+    }
+  }, [preview]);
 
   return (
     <>
@@ -247,6 +318,7 @@ export function TenantLogoUpload({ initialUrl, onUploaded }: Props) {
               overflow: 'hidden',
               '& img': { width: '100%', height: '100%', objectFit: 'contain', display: 'block' },
             }}
+            imgProps={{ onError: handleImageError }}
           />
           {(submitting || deleting) && (
             <LinearProgress

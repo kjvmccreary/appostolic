@@ -1,3 +1,39 @@
+### 2025-09-26 - Story: Admin dashboards refresh fallback — ✅ DONE
+
+Summary
+
+- Restored Notifications, Audits, and Invites admin pages by retrying proxy header generation with the latest bridged refresh cookie when the initial access token fetch fails.
+- Ensured rotated refresh cookies are re-applied to the request jar and response queue, preventing cascading 401s after reuse detection during rapid navigation.
+- Confirmed web proxy tests remain green so the new fallback path doesn’t regress existing coverage.
+
+Quality Gates
+
+- `pnpm -w test -w --filter @appostolic/web` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
+### 2025-09-27 - Story: Tenant logo preview normalization — ✅ DONE
+
+Summary
+
+- Normalized tenant logo URLs using the API base so `/media/...` responses render immediately across environments.
+- Added cache-buster helper and preview error fallback so the upload shows the new logo instead of the initial letter avatar.
+- Propagated preview resets and blob URL cleanup on tenant switches to prevent stale state or leaked object URLs.
+
+Quality Gates
+
+- `pnpm -w test -w --filter @appostolic/web` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
 ### 2025-09-26 - Story: Tenant switch refresh bridge — ✅ DONE
 
 Summary
