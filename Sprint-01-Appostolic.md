@@ -144,3 +144,4 @@
 - ✅ DONE Bio markdown polish & refresh bridge TTL (2025-09-26) — markdown previews keep bullets, Save Bio state mirrors server guards, and refresh rotations persist for one hour.
 - 🚧 IN PROGRESS Guardrails sprint (S1-09) — see `devInfo/DesignDocs/GRailSprintPlan/grdSprintPlan.md` for milestones and daily tracking.
   - ✅ Phase 0 foundations (requirements alignment, guardrail inventory, acceptance criteria lock, tracker updated).
+  - ✅ Phase 1 data model & RLS (schema/entities, seeded presets, tenant/user policies, SnapshotArchitecture updated).

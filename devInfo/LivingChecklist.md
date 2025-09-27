@@ -74,7 +74,8 @@ How to use
 
 ### Guardrails & Denomination Profiles
 
-- [ ] Policy schema + RLS (system/tenant/denomination levels)
+- [x] Policy schema + RLS (system/tenant/denomination levels)
+- Note: Migration `20250927045643_s9_01_guardrail_schema` seeded `system-core` baseline and denomination presets; RLS policies guard tenant/user tables via `app.set_tenant()`.
 - [ ] Evaluator + preflight API (allow/deny with “why”)
 - [ ] Admin UI to view/edit policies and apply presets
 - [ ] Versioned policy snapshots (object storage)

@@ -1,6 +1,6 @@
 ## Appostolic — Architecture Snapshot (Authoritative Baseline)
 
-Generated: 2025-09-23 (updated: key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
+Generated: 2025-09-23 (updated: guardrail persistence schema + seeded presets; key rotation metrics + health endpoint implemented; superadmin deterministic claim issuance in tests; stricter notifications cross-tenant guard)
 Purpose: Provide enough stable context for future AI/chat sessions without frequent edits. Update ONLY when architecture (structure, auth model, core data shapes, cross‑cutting concerns) materially changes. Operational / narrative history belongs in `devInfo/storyLog.md`.
 
 ---
@@ -107,6 +107,10 @@ Core tables (schema `app`):
 - `invitations` (granular Roles, Token, ExpiresAt)
 - `refresh_tokens` (Id, UserId, TokenHash, Purpose, ExpiresAt, RevokedAt, Fingerprint?, LastUsedAt?, DeviceName?, Metadata JSONB)
   - Story 8: Added nullable `Fingerprint` (client-provided device/browser hint via header `X-Session-Fp` default; not security sensitive) and `LastUsedAt` (updated on successful validation and pre-rotation to preserve usage evidence). Partial index created for efficient active listing: `CREATE INDEX ix_refresh_tokens_active_user ON app.refresh_tokens (user_id, created_at DESC) WHERE revoked_at IS NULL;`
+- `guardrail_system_policies` (Id, Slug, Name, Description?, Definition JSONB, Version) — canonical baseline applied before denomination/tenant layers. Seeded with slug `system-core` capturing Nicene safeguards and merge order metadata.
+- `guardrail_denomination_policies` (Id slug, Name, Notes, Definition JSONB, Version) — curated presets aligned to theology/product input (Mere Christianity, Baptist, Presbyterian, etc.).
+- `guardrail_tenant_policies` (Id, TenantId, Layer enum, PolicyKey, Definition JSONB, DerivedFromPresetId?, Metadata JSONB, Version, Created/Updated/Published timestamps, CreatedBy/UpdatedBy) — tenant-level guardrails supporting layered overrides (`TenantBase`, `Override`, `Draft`). RLS enabled; tenant isolation enforced via `tenant_isolation_select/mod` policies referencing `app.set_tenant()`.
+- `guardrail_user_preferences` (Id, TenantId, UserId, Preferences JSONB, timestamps) — per-user tailoring merged last in evaluation. RLS mirrors tenant policy isolation to prevent cross-tenant leakage.
 - `login_tokens` (magic link tokens: Email (citext), TokenHash, Purpose, Expires/Consumed)
 - `audits` (role change records)
 - `lessons` (sample domain / future content)

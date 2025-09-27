@@ -1,3 +1,22 @@
+- 2025-09-26 — Guardrails sprint Phase 1 completed: delivered multi-layer schema, seeded presets, enforced RLS, and updated architecture docs for guardrail persistence.
+
+### 2025-09-26 - Story: Guardrails data model & RLS — ✅ DONE
+
+Summary
+
+- Designed guardrail persistence around dedicated tables (`guardrail_system_policies`, `guardrail_denomination_policies`, `guardrail_tenant_policies`, `guardrail_user_preferences`) to support the merge order (system → denomination → tenant → override → user).
+- Generated EF Core migration `s9_01_guardrail_schema` with baseline seed data (system-core policy + 10 denomination presets), tenant/user RLS policies, and DbSets/configurations wired into the API context.
+- Applied migration via `make migrate` and refreshed `SnapshotArchitecture.md` plus sprint plan notes to capture the new guardrail data layer.
+
+Quality Gates
+
+- `dotnet build apps/api/Appostolic.Api.csproj` — Passed (existing analyzer/deprecation warnings only).
+- `make migrate` — Applied migration to local Postgres (dotnet-ef database update).
+
+Follow-ups / Deferred
+
+- Phase 2: Implement evaluator service + `/api/guardrails/preflight` endpoint leveraging the new schema and seed data.
+
 - 2025-09-26 — Guardrails sprint Phase 0 completed: reconciled requirements, inventoried existing guardrail stubs, locked acceptance criteria, and updated sprint docs to reflect readiness for implementation.
 
 ### 2025-09-26 - Story: Bio markdown polish & refresh bridge TTL — ✅ DONE
