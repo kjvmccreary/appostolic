@@ -32,7 +32,7 @@ import remarkBreaks from 'remark-breaks';
  * Semantics:
  * - If the user clears the bio (empty string) and clicks Save, we send `{ "bio": null }`
  *   so the server removes the field (null = clear) respecting existing deep merge rules.
- * - If unchanged, the Save button stays disabled.
+ * - If unchanged, the Save button remains visually enabled but submits no-op (guarded in handler).
  * - Basic client-side length guard (e.g., 4000 chars) to prevent overly large payloads; server remains authority.
  * - Accessible: textarea labeled, character count announced via `aria-describedby`, status region for success/error.
  */
@@ -58,6 +58,8 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
   const [tab, setTab] = useState<0 | 1>(0); // 0 = write, 1 = preview
   const dirty = value !== (baseline?.content ?? '');
   const overLimit = value.length > maxChars;
+  const canSubmit = dirty && !overLimit && !saving;
+  const buttonDisabled = saving || overLimit;
   const previewContent = useMemo(() => value, [value]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -253,7 +255,12 @@ export const BioEditor: React.FC<BioEditorProps> = ({ initial, maxChars = 4000, 
           variant="contained"
           size="small"
           startIcon={<SaveIcon />}
-          disabled={!dirty || overLimit || saving}
+          disabled={buttonDisabled}
+          aria-disabled={!canSubmit ? 'true' : 'false'}
+          sx={{
+            opacity: buttonDisabled ? 0.6 : !canSubmit ? 0.9 : 1,
+            cursor: buttonDisabled ? 'not-allowed' : canSubmit ? 'pointer' : 'default',
+          }}
         >
           {saving ? 'Saving…' : 'Save Bio'}
         </Button>

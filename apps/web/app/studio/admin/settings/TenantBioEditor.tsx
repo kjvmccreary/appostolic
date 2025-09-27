@@ -28,6 +28,8 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
   const [tab, setTab] = useState<0 | 1>(0);
   const dirty = value !== (baseline?.content ?? '');
   const overLimit = value.length > maxChars;
+  const canSubmit = dirty && !overLimit && !saving;
+  const buttonDisabled = saving || overLimit;
   const previewContent = useMemo(() => value, [value]);
 
   useEffect(() => {
@@ -161,8 +163,9 @@ export const TenantBioEditor: React.FC<TenantBioEditorProps> = ({ initial, maxCh
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white disabled:opacity-60"
-          disabled={!dirty || overLimit || saving}
+          className={`inline-flex h-9 items-center rounded-md bg-[var(--color-accent-600)] px-3 text-sm font-medium text-white transition-opacity duration-150 cursor-pointer ${buttonDisabled ? 'opacity-60 cursor-not-allowed' : ''} ${!buttonDisabled && !canSubmit ? 'opacity-85 cursor-default' : ''}`}
+          disabled={buttonDisabled}
+          aria-disabled={!canSubmit ? 'true' : 'false'}
         >
           {saving ? 'Saving…' : 'Save Bio'}
         </button>

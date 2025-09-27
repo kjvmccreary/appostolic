@@ -1,3 +1,21 @@
+### 2025-09-26 - Story: Bio save button accessibility polish — ✅ DONE
+
+Summary
+
+- Kept the tenant and personal bio Save buttons visually enabled after a successful save while guarding submissions via `aria-disabled`, preventing confusion when content already matches the baseline.
+- Updated both editors to expose the correct accessibility cues (aria-disabled and cursor states) and refactored tests to verify no network calls occur when nothing changed.
+- Confirmed the web Vitest suite still passes so the UX polish doesn’t regress existing coverage.
+
+Quality Gates
+
+- `pnpm -w test -w --filter @appostolic/web` — Passed.
+
+Follow-ups / Deferred
+
+- None.
+
+---
+
 ### 2025-09-26 - Story: Admin dashboards refresh fallback — ✅ DONE
 
 Summary

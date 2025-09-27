@@ -13,9 +13,13 @@ describe('TenantBioEditor', () => {
     global.fetch = originalFetch;
   });
 
-  it('disables save when unchanged', () => {
+  it('marks save as aria-disabled when unchanged but keeps button enabled', () => {
     render(<TenantBioEditor initial={{ format: 'markdown', content: 'Hello' }} />);
-    expect(screen.getByRole('button', { name: /Save Bio/i })).toBeDisabled();
+    const btn = screen.getByRole('button', { name: /Save Bio/i });
+    expect(btn).not.toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(btn);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('enables and submits new bio (minimal patch)', async () => {
