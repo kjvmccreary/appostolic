@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Appostolic.Api.App.Endpoints;
@@ -121,6 +123,159 @@ public class GuardrailAdminEndpointsTests : IClassFixture<WebAppFactory>
         basePolicy.DerivedFromPresetId.Should().Be("preset-core");
         var draftCount = await db.GuardrailTenantPolicies.CountAsync(p => p.TenantId == tenantId && p.Key == "default" && p.Layer == Appostolic.Api.Domain.Guardrails.GuardrailPolicyLayer.Draft);
         draftCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SuperadminState_RequiresSuperClaim()
+    {
+        await SeedGuardrailDataAsync("tenant-super-check", seedDraft: true);
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, "tenant-user@example.com", "tenant-super-check", owner: true);
+        _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.GetAsync("/api/guardrails/admin/super/state");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task SuperadminState_ReturnsAggregatedData()
+    {
+        var tenantSlug = $"super-state-{Guid.NewGuid():N}".Substring(0, 20);
+        await SeedGuardrailDataAsync(tenantSlug, seedDraft: true);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.GuardrailSystemPolicies.Add(new Appostolic.Api.Domain.Guardrails.GuardrailSystemPolicy
+            {
+                Id = Guid.NewGuid(),
+                Slug = "system-extra",
+                Name = "System Extra",
+                Description = "Additional baseline",
+                Definition = ParseJson("{\"allow\":[\"allow:extra\"]}"),
+                CreatedAt = DateTime.UtcNow
+            });
+            db.GuardrailDenominationPolicies.Add(new Appostolic.Api.Domain.Guardrails.GuardrailDenominationPolicy
+            {
+                Id = "preset-extended",
+                Name = "Extended",
+                Notes = "Extended preset",
+                Definition = ParseJson("{\"deny\":[\"deny:extended\"]}"),
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var extraClaims = new[] { new Claim("superadmin", "true") };
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, "super@example.com", tenantSlug, owner: true, extraClaims: extraClaims);
+        _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.GetAsync("/api/guardrails/admin/super/state");
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<GuardrailSuperadminSummaryDto>(JsonOptions);
+        payload.Should().NotBeNull();
+        payload!.SystemPolicies.Should().NotBeEmpty();
+        payload.Presets.Should().NotBeEmpty();
+        payload.Activity.Should().NotBeEmpty();
+        payload.SystemPolicies.Select(s => s.Slug).Should().Contain(new[] { "system-core", "system-extra" });
+    }
+
+    [Fact]
+    public async Task UpsertSystemPolicy_CreatesAndUpdates()
+    {
+        await SeedGuardrailDataAsync("tenant-system-upsert", seedDraft: false);
+        var extraClaims = new[] { new Claim("superadmin", "true") };
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, "system-admin@example.com", "tenant-system-upsert", owner: true, extraClaims: extraClaims);
+        _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var createPayload = new
+        {
+            name = "Global Core",
+            description = "Global baseline",
+            definition = new
+            {
+                allow = new[] { "allow:global" },
+                deny = Array.Empty<string>()
+            }
+        };
+
+        var createResponse = await _client.PutAsJsonAsync("/api/guardrails/admin/super/system/global-core", createPayload, JsonOptions);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<GuardrailSystemPolicyDto>(JsonOptions);
+        created.Should().NotBeNull();
+        created!.Slug.Should().Be("global-core");
+        created.Version.Should().Be(1);
+
+        var updatePayload = new
+        {
+            name = "Global Core",
+            description = "Updated global baseline",
+            definition = new
+            {
+                allow = new[] { "allow:global", "allow:extra" },
+                deny = new[] { "deny:global" }
+            }
+        };
+
+        var updateResponse = await _client.PutAsJsonAsync("/api/guardrails/admin/super/system/global-core", updatePayload, JsonOptions);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<GuardrailSystemPolicyDto>(JsonOptions);
+        updated.Should().NotBeNull();
+        updated!.Version.Should().Be(2);
+        updated.Description.Should().Be("Updated global baseline");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.GuardrailSystemPolicies.AsNoTracking().FirstAsync(p => p.Slug == "global-core");
+        persisted.Version.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task UpsertPreset_CreatesAndUpdates()
+    {
+        await SeedGuardrailDataAsync("tenant-preset-upsert", seedDraft: false);
+        var extraClaims = new[] { new Claim("superadmin", "true") };
+        var (token, _, _) = await TestAuthSeeder.IssueTenantTokenAsync(_factory, "preset-admin@example.com", "tenant-preset-upsert", owner: true, extraClaims: extraClaims);
+        _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var createPayload = new
+        {
+            name = "Youth Extended",
+            notes = "Draft preset",
+            definition = new
+            {
+                allow = new[] { "allow:youth" }
+            }
+        };
+
+        var createResponse = await _client.PutAsJsonAsync("/api/guardrails/admin/super/presets/preset-youth-extended", createPayload, JsonOptions);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<GuardrailDenominationPolicyDto>(JsonOptions);
+        created.Should().NotBeNull();
+        created!.Id.Should().Be("preset-youth-extended");
+        created.Version.Should().Be(1);
+
+        var updatePayload = new
+        {
+            name = "Youth Extended",
+            notes = "Updated preset",
+            definition = new
+            {
+                allow = new[] { "allow:youth" },
+                deny = new[] { "deny:youth" }
+            }
+        };
+
+        var updateResponse = await _client.PutAsJsonAsync("/api/guardrails/admin/super/presets/preset-youth-extended", updatePayload, JsonOptions);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<GuardrailDenominationPolicyDto>(JsonOptions);
+        updated.Should().NotBeNull();
+        updated!.Version.Should().Be(2);
+        updated.Notes.Should().Be("Updated preset");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var preset = await db.GuardrailDenominationPolicies.AsNoTracking().FirstAsync(p => p.Id == "preset-youth-extended");
+        preset.Version.Should().Be(2);
     }
 
     private async Task SeedGuardrailDataAsync(string tenantSlug, bool seedDraft)

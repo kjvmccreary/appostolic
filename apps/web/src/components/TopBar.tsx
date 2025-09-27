@@ -60,13 +60,15 @@ export function TopBar() {
   // Only treat user as admin when explicit TenantAdmin flag present. Other flags (Approver/Creator)
   // alone must NOT render the Admin dropdown even if upstream logic ever broadens isAdmin.
   const isAdminGated = isAdmin && effectiveRoles.includes('TenantAdmin');
+  const isSuper = Boolean((session as unknown as { isSuperAdmin?: boolean } | null)?.isSuperAdmin);
+  const showAdminMenu = isAdminGated || isSuper;
   if (DEBUG && isAuthed && selectedTenant) {
     console.groupCollapsed(
       `%c[AdminGate] tenant=%s email=%s isAdmin=%s roles=%o`,
       'color:#888',
       String(effectiveSlug ?? selectedTenant),
       (session as unknown as { user?: { email?: string } } | null)?.user?.email ?? '(unknown)',
-      String(isAdminGated),
+      String(showAdminMenu),
       effectiveRoles,
     );
     console.groupEnd();
@@ -84,6 +86,21 @@ export function TopBar() {
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [elevated, setElevated] = React.useState(false);
+
+  const adminDrawerItems = React.useMemo(() => {
+    const items = [
+      { label: 'Org Settings', href: '/studio/admin/settings' },
+      { label: 'Members', href: '/studio/admin/members' },
+      { label: 'Invites', href: '/studio/admin/invites' },
+      { label: 'Guardrails', href: '/studio/guardrails' },
+      { label: 'Audits', href: '/studio/admin/audits' },
+      { label: 'Notifications', href: '/studio/admin/notifications' },
+    ];
+    if (isSuper) {
+      items.push({ label: 'Guardrails Console', href: '/studio/guardrails/superadmin' });
+    }
+    return items;
+  }, [isSuper]);
 
   // Add a subtle elevation when the page is scrolled
   React.useEffect(() => {
@@ -142,7 +159,7 @@ export function TopBar() {
                 {item.label}
               </NavLink>
             ))}
-            {isAdminGated ? <AdminDropdown /> : null}
+            {showAdminMenu ? <AdminDropdown isSuper={isSuper} /> : null}
           </nav>
         ) : (
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation" />
@@ -185,23 +202,16 @@ export function TopBar() {
         <NavDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          isAdmin={isAdminGated}
+          isAdmin={showAdminMenu}
           navItems={navItems as unknown as { label: string; href: string }[]}
-          adminItems={[
-            { label: 'Org Settings', href: '/studio/admin/settings' },
-            { label: 'Members', href: '/studio/admin/members' },
-            { label: 'Invites', href: '/studio/admin/invites' },
-            { label: 'Guardrails', href: '/studio/guardrails' },
-            { label: 'Audits', href: '/studio/admin/audits' },
-            { label: 'Notifications', href: '/studio/admin/notifications' },
-          ]}
+          adminItems={adminDrawerItems as unknown as { label: string; href: string }[]}
         />
       </div>
     </header>
   );
 }
 
-function AdminDropdown() {
+function AdminDropdown({ isSuper }: { isSuper: boolean }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
@@ -274,6 +284,15 @@ function AdminDropdown() {
           >
             Notifications
           </button>
+          {isSuper ? (
+            <button
+              role="menuitem"
+              className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--color-surface-raised)]"
+              onClick={() => router.push('/studio/guardrails/superadmin')}
+            >
+              Guardrails Console
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

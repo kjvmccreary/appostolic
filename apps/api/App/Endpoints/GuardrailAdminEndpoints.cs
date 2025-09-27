@@ -18,25 +18,41 @@ public static class GuardrailAdminEndpoints
 {
     public static IEndpointRouteBuilder MapGuardrailAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/guardrails/admin")
+        var tenantGroup = app.MapGroup("/api/guardrails/admin")
             .RequireAuthorization("TenantAdmin")
             .WithTags("GuardrailsAdmin");
 
-        group.MapGet("tenant", HandleGetTenantPolicies)
+        tenantGroup.MapGet("tenant", HandleGetTenantPolicies)
             .WithSummary("List guardrail policies for the current tenant (default key unless specified)")
             .WithDescription("Returns tenant policy layers, available presets, and an evaluation snapshot for administrative review.");
 
-        group.MapPut("tenant/{policyKey}/draft", HandleUpsertDraft)
+        tenantGroup.MapPut("tenant/{policyKey}/draft", HandleUpsertDraft)
             .WithSummary("Create or update a tenant guardrail draft policy")
             .WithDescription("Upserts a draft policy definition for the provided key. Drafts remain inactive until published.");
 
-        group.MapPost("tenant/{policyKey}/publish", HandlePublishDraft)
+        tenantGroup.MapPost("tenant/{policyKey}/publish", HandlePublishDraft)
             .WithSummary("Publish the latest guardrail draft as the active tenant policy")
             .WithDescription("Promotes the current draft definition into the active tenant policy layer, incrementing the version.");
 
-        group.MapPost("tenant/{policyKey}/reset", HandleResetToPreset)
+        tenantGroup.MapPost("tenant/{policyKey}/reset", HandleResetToPreset)
             .WithSummary("Reset the active tenant guardrail policy to a denomination preset")
             .WithDescription("Replaces the tenant policy definition with the specified preset and clears existing drafts.");
+
+        var superGroup = app.MapGroup("/api/guardrails/admin/super")
+            .RequireAuthorization()
+            .WithTags("GuardrailsAdmin");
+
+        superGroup.MapGet("state", HandleGetSuperadminState)
+            .WithSummary("View guardrail system presets and recent tenant activity")
+            .WithDescription("Returns system-level policies, denomination presets, and recent tenant guardrail changes for platform operators.");
+
+        superGroup.MapPut("system/{slug}", HandleUpsertSystemPolicy)
+            .WithSummary("Create or update a system guardrail policy")
+            .WithDescription("Upserts a system (global) guardrail policy definition identified by slug. Increments version on update.");
+
+        superGroup.MapPut("presets/{presetId}", HandleUpsertPreset)
+            .WithSummary("Create or update a denomination guardrail preset")
+            .WithDescription("Upserts a denomination preset definition accessible to tenants. Increments version when updating existing presets.");
 
         return app;
     }
@@ -290,6 +306,189 @@ public static class GuardrailAdminEndpoints
         return Results.Ok(MapPolicy(basePolicy));
     }
 
+    /// <summary>
+    /// Retrieves aggregated guardrail state (system policies, presets, activity) for platform operators.
+    /// </summary>
+    private static async Task<IResult> HandleGetSuperadminState(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(principal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var systemPolicies = await db.GuardrailSystemPolicies.AsNoTracking()
+            .OrderBy(p => p.Slug)
+            .Select(p => MapSystemPolicy(p))
+            .ToListAsync(ct);
+
+        var presets = await db.GuardrailDenominationPolicies.AsNoTracking()
+            .OrderBy(p => p.Name)
+            .Select(p => MapPreset(p))
+            .ToListAsync(ct);
+
+        var activityRows = await (
+                from policy in db.GuardrailTenantPolicies.AsNoTracking()
+                join tenant in db.Tenants.AsNoTracking() on policy.TenantId equals tenant.Id into tenantJoin
+                from tenant in tenantJoin.DefaultIfEmpty()
+                join updatedUser in db.Users.AsNoTracking() on policy.UpdatedByUserId equals updatedUser.Id into userJoin
+                from updatedUser in userJoin.DefaultIfEmpty()
+                let occurredAt = policy.UpdatedAt ?? policy.PublishedAt ?? policy.CreatedAt
+                orderby occurredAt descending
+                select new
+                {
+                    policy.Id,
+                    policy.TenantId,
+                    TenantName = tenant != null ? tenant.Name : null,
+                    policy.Key,
+                    policy.Layer,
+                    policy.Version,
+                    UpdatedByEmail = updatedUser != null ? updatedUser.Email : null,
+                    OccurredAt = occurredAt,
+                    policy.DerivedFromPresetId,
+                    policy.IsActive,
+                    policy.PublishedAt,
+                    policy.UpdatedAt
+                }
+            )
+            .Take(50)
+            .ToListAsync(ct);
+
+        var activity = activityRows
+            .Select(row => new GuardrailActivityEntryDto(
+                row.Id,
+                row.TenantId,
+                row.TenantName,
+                row.Key,
+                row.Layer.ToString().ToLowerInvariant(),
+                row.Version,
+                row.UpdatedByEmail,
+                DetermineActivityKind(row.Layer, row.PublishedAt, row.UpdatedAt, row.DerivedFromPresetId),
+                row.OccurredAt,
+                row.DerivedFromPresetId,
+                row.IsActive,
+                row.PublishedAt))
+            .ToList();
+
+        var response = new GuardrailSuperadminSummaryDto(systemPolicies, presets, activity);
+        return Results.Ok(response);
+    }
+
+    /// <summary>
+    /// Creates or updates a system-level guardrail policy identified by slug.
+    /// </summary>
+    private static async Task<IResult> HandleUpsertSystemPolicy(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string slug,
+        UpsertSystemGuardrailRequest dto,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(principal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+        if (dto.Definition is null || dto.Definition.RootElement.ValueKind == JsonValueKind.Null)
+        {
+            return Results.BadRequest(new { error = "definition_required" });
+        }
+
+        var normalizedSlug = NormalizeKey(slug);
+        var now = DateTime.UtcNow;
+
+        var policy = await db.GuardrailSystemPolicies
+            .FirstOrDefaultAsync(p => p.Slug == normalizedSlug, ct);
+
+        var definition = CloneJson(dto.Definition);
+
+        if (policy is null)
+        {
+            policy = new GuardrailSystemPolicy
+            {
+                Id = Guid.NewGuid(),
+                Slug = normalizedSlug,
+                Name = dto.Name?.Trim() ?? normalizedSlug,
+                Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
+                Definition = definition,
+                Version = 1,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.GuardrailSystemPolicies.Add(policy);
+        }
+        else
+        {
+            policy.Name = dto.Name?.Trim() ?? policy.Name;
+            policy.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
+            policy.Definition = definition;
+            policy.Version += 1;
+            policy.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(MapSystemPolicy(policy));
+    }
+
+    /// <summary>
+    /// Creates or updates a denomination preset definition accessible to tenant admins.
+    /// </summary>
+    private static async Task<IResult> HandleUpsertPreset(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string presetId,
+        UpsertDenominationGuardrailRequest dto,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(principal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+        if (dto.Definition is null || dto.Definition.RootElement.ValueKind == JsonValueKind.Null)
+        {
+            return Results.BadRequest(new { error = "definition_required" });
+        }
+
+        var normalizedId = presetId.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedId))
+        {
+            return Results.BadRequest(new { error = "preset_id_required" });
+        }
+
+        var now = DateTime.UtcNow;
+        var preset = await db.GuardrailDenominationPolicies
+            .FirstOrDefaultAsync(p => p.Id == normalizedId, ct);
+
+        var definition = CloneJson(dto.Definition);
+
+        if (preset is null)
+        {
+            preset = new GuardrailDenominationPolicy
+            {
+                Id = normalizedId,
+                Name = dto.Name?.Trim() ?? normalizedId,
+                Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+                Definition = definition,
+                Version = 1,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.GuardrailDenominationPolicies.Add(preset);
+        }
+        else
+        {
+            preset.Name = dto.Name?.Trim() ?? preset.Name;
+            preset.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim();
+            preset.Definition = definition;
+            preset.Version += 1;
+            preset.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(MapPreset(preset));
+    }
+
     private static bool TryResolveTenant(ClaimsPrincipal principal, out Guid tenantId)
     {
         tenantId = default;
@@ -314,12 +513,65 @@ public static class GuardrailAdminEndpoints
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    private static bool IsSuperAdmin(ClaimsPrincipal principal)
+    {
+        var value = principal.FindFirst("superadmin")?.Value;
+        return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Clones the provided JSON document to decouple from incoming request lifetime.
     /// </summary>
     private static JsonDocument CloneJson(JsonDocument source)
     {
         return JsonDocument.Parse(source.RootElement.GetRawText());
+    }
+
+    private static GuardrailSystemPolicyDto MapSystemPolicy(GuardrailSystemPolicy policy)
+    {
+        var definition = JsonNode.Parse(policy.Definition.RootElement.GetRawText())!;
+        return new GuardrailSystemPolicyDto(
+            policy.Id,
+            policy.Slug,
+            policy.Name,
+            policy.Description,
+            policy.Version,
+            policy.CreatedAt,
+            policy.UpdatedAt,
+            definition);
+    }
+
+    private static GuardrailDenominationPolicyDto MapPreset(GuardrailDenominationPolicy preset)
+    {
+        var definition = JsonNode.Parse(preset.Definition.RootElement.GetRawText())!;
+        return new GuardrailDenominationPolicyDto(
+            preset.Id,
+            preset.Name,
+            preset.Notes,
+            preset.Version,
+            preset.CreatedAt,
+            preset.UpdatedAt,
+            definition);
+    }
+
+    private static string DetermineActivityKind(GuardrailPolicyLayer layer, DateTime? publishedAt, DateTime? updatedAt, string? derivedFromPresetId)
+    {
+        if (layer == GuardrailPolicyLayer.Draft)
+        {
+            return "draft_saved";
+        }
+
+        if (publishedAt.HasValue && (!updatedAt.HasValue || publishedAt.Value == updatedAt.Value))
+        {
+            return derivedFromPresetId is not null ? "preset_applied" : "published";
+        }
+
+        if (publishedAt.HasValue)
+        {
+            return "published";
+        }
+
+        return "updated";
     }
 
     private static TenantGuardrailPolicyDto MapPolicy(GuardrailTenantPolicy policy)
@@ -360,6 +612,16 @@ public sealed record UpsertTenantGuardrailDraftRequest(JsonDocument Definition, 
 public sealed record ResetTenantGuardrailRequest(string PresetId);
 
 /// <summary>
+/// Request body for upserting a system-level guardrail policy.
+/// </summary>
+public sealed record UpsertSystemGuardrailRequest(string? Name, string? Description, JsonDocument Definition);
+
+/// <summary>
+/// Request body for upserting a denomination preset definition.
+/// </summary>
+public sealed record UpsertDenominationGuardrailRequest(string? Name, string? Notes, JsonDocument Definition);
+
+/// <summary>
 /// DTO representing a tenant guardrail policy layer for administration.
 /// </summary>
 public sealed record TenantGuardrailPolicyDto(
@@ -390,3 +652,53 @@ public sealed record TenantGuardrailSummaryDto(
 /// Summary of available denomination presets.
 /// </summary>
 public sealed record GuardrailPresetSummaryDto(string Id, string Name, string? Notes, int Version);
+
+/// <summary>
+/// DTO representing a system guardrail policy for superadmin tooling.
+/// </summary>
+public sealed record GuardrailSystemPolicyDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string? Description,
+    int Version,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    JsonNode Definition);
+
+/// <summary>
+/// DTO representing a denomination guardrail preset with definition payload.
+/// </summary>
+public sealed record GuardrailDenominationPolicyDto(
+    string Id,
+    string Name,
+    string? Notes,
+    int Version,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    JsonNode Definition);
+
+/// <summary>
+/// Audit-oriented snapshot of recent tenant guardrail activity.
+/// </summary>
+public sealed record GuardrailActivityEntryDto(
+    Guid PolicyId,
+    Guid TenantId,
+    string? TenantName,
+    string Key,
+    string Layer,
+    int Version,
+    string? UpdatedByEmail,
+    string Action,
+    DateTime OccurredAt,
+    string? DerivedFromPresetId,
+    bool IsActive,
+    DateTime? PublishedAt);
+
+/// <summary>
+/// Aggregated response used by the platform superadmin console.
+/// </summary>
+public sealed record GuardrailSuperadminSummaryDto(
+    IReadOnlyList<GuardrailSystemPolicyDto> SystemPolicies,
+    IReadOnlyList<GuardrailDenominationPolicyDto> Presets,
+    IReadOnlyList<GuardrailActivityEntryDto> Activity);

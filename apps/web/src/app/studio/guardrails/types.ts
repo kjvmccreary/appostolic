@@ -41,6 +41,50 @@ export type GuardrailPreset = {
   version: number;
 };
 
+export type GuardrailSystemPolicy = {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt?: string | null;
+  definition: GuardrailDefinition;
+};
+
+export type GuardrailDenominationPolicy = {
+  id: string;
+  name: string;
+  notes?: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt?: string | null;
+  definition: GuardrailDefinition;
+};
+
+export type GuardrailActivityAction = 'draft_saved' | 'published' | 'preset_applied' | 'updated';
+
+export type GuardrailActivityEntry = {
+  policyId: string;
+  tenantId: string;
+  tenantName?: string | null;
+  key: string;
+  layer: GuardrailPolicyLayer | 'override';
+  version: number;
+  updatedByEmail?: string | null;
+  action: GuardrailActivityAction;
+  occurredAt: string;
+  derivedFromPresetId?: string | null;
+  isActive: boolean;
+  publishedAt?: string | null;
+};
+
+export type GuardrailSuperadminSummary = {
+  systemPolicies: GuardrailSystemPolicy[];
+  presets: GuardrailDenominationPolicy[];
+  activity: GuardrailActivityEntry[];
+};
+
 export type GuardrailSnapshot = {
   decision: GuardrailDecision;
   reasonCode: string;

@@ -18,6 +18,7 @@ interface SessionLike {
   user?: { email?: string };
   memberships?: { tenantSlug?: string; tenantId?: string; role?: string; roles?: string[] }[];
   tenant?: string;
+  isSuperAdmin?: boolean;
   expires: string;
 }
 
@@ -108,6 +109,28 @@ describe('TopBar tenant-scoped admin gating', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /admin/i }));
     expect(screen.getByRole('menuitem', { name: /guardrails/i })).toBeInTheDocument();
+  });
+
+  it('shows Admin when user is superadmin without tenant admin flag', () => {
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      isSuperAdmin: true,
+      memberships: [{ tenantSlug: 'acme', role: 'Viewer', roles: [] }],
+    });
+    expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  it('includes Guardrails Console entry for superadmins', async () => {
+    renderWithSession({
+      ...baseSession,
+      tenant: 'acme',
+      isSuperAdmin: true,
+      memberships: [{ tenantSlug: 'acme', role: 'Viewer', roles: [] }],
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /admin/i }));
+    expect(screen.getByRole('menuitem', { name: /guardrails console/i })).toBeInTheDocument();
   });
 
   it('hides Admin if selected tenant does not match any membership', () => {

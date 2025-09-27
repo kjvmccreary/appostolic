@@ -64,3 +64,12 @@ export async function requireTenantAdmin(tenantIdOrSlug?: { id?: string; slug?: 
 export async function requireCanCreate(tenantIdOrSlug?: { id?: string; slug?: string }) {
   return guardByFlags({ tenantIdOrSlug, require: 'canCreate' });
 }
+
+/** Guard ensuring the current session belongs to a platform superadmin. */
+export async function requireSuperAdmin() {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) return new Response('Unauthorized', { status: 401 });
+  const isSuper = Boolean((session as unknown as { isSuperAdmin?: boolean } | null)?.isSuperAdmin);
+  return isSuper ? null : new Response('Forbidden', { status: 403 });
+}

@@ -60,9 +60,9 @@ Success will be measured by:
 ### Phase 3 — Admin UI & Tooling (Day 6–9)
 
 - [x] Build tenant admin guardrails page (view, edit, reset to preset, diff preview).
-- [ ] Build platform superadmin view (system presets, denomination catalog, audit feed).
+- [x] Build platform superadmin view (system presets, denomination catalog, audit feed).
 - [x] Add optimistic update + error handling + MSW fixtures for Vitest.
-- [ ] Document UX defaults & accessibility (keyboard nav, screen reader labels).
+- [x] Document UX defaults & accessibility (keyboard nav, screen reader labels).
 - [x] Extend Vitest suites for UI interactions (edit, revert, publish, deny preview).
 
 ### Phase 4 — Snapshotting, Audit, and Version History (Day 9–10)
@@ -161,3 +161,10 @@ _Remember to update this plan as work progresses. Mark checkboxes, log deltas, a
 - **Agent task regression coverage**: Added `AgentTasksGuardrailTests` to verify deny and escalate decisions persist metadata, return structured responses, and block worker execution; fixtures reuse the evaluator context helpers so scenarios stay deterministic.
 - **UI surfacing**: Agent Tasks inbox/detail pages now surface guardrail decisions with chips, escalation alerts, and metadata panels (copy button, signals, matched rule) so reviewers can understand why a task was blocked before runtime.
 - **Next step**: Begin Phase 3 guardrail admin surfaces (tenant editor + superadmin console) now that runtime task UI exposes verdicts/metadata.
+
+### Phase 3 Notes (2025-09-28)
+
+- **Superadmin console**: Delivered platform-wide guardrail dashboard surfacing system policies, presets, and activity feed with edit/create flows wired to new superadmin API endpoints. UI now distinguishes display names vs. slugs for clarity, aligns with design copy, and persists changes via `/api-proxy/guardrails/super/*` routes.
+- **Testing**: Expanded Vitest coverage for superadmin interactions (rendering, happy path updates, validation errors). Adjusted tests to use paste semantics for JSON editors, avoiding modifier parsing conflicts and keeping suites deterministic.
+- **Accessibility defaults**: Documented baseline affordances for the superadmin console. All interactive cards and dialogs expose semantic headings and landmark regions, form controls include `aria-describedby` hooks for helper/error text, and focus order follows visual layout (SR/keyboard verified). JSON editors retain native text areas with visible focus outlines; action buttons show 3:1 contrast states and are keyboard-triggerable. Activity feed uses `<ul>` semantics with descriptive labels per item, and snackbar alerts announce via `role="status"` for SR parity.
+- **Follow-up**: Plan an inclusive design spot-check during Phase 5 UAT to confirm real data scenarios match the documented defaults.
